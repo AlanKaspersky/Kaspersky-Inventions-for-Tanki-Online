@@ -333,7 +333,7 @@
             ],
             modifiers: { CRIT_DAMAGE: 1.5 }
         },
-        "URL_ЭКСЕЛЬСИОР": {
+        "https://s.eu.tankionline.com/626/14777/75/17/31303177701337/image.svg": {
             name: { RU: "Эксельсиор", EN: "Excelsior" },
             advantages: [
                 { RU: "Урон: +25%", EN: "Damage: +25%" },
@@ -515,7 +515,7 @@
             ],
             modifiers: { CRIT_DAMAGE: 0.1 }
         },
-        "URL_ЭКСЕЛЬСИОР": {
+        "https://s.eu.tankionline.com/626/14777/310/231/31303200003222/image.svg": {
             name: { RU: "Эксельсиор", EN: "Excelsior" },
             advantages: [
                 { RU: "Урон: +25%", EN: "Damage: +25%" },
@@ -686,7 +686,7 @@
             ],
             modifiers: { DPS: 1.9, DAMAGE: 1.9, CRIT_DAMAGE: 1.9 }
         },
-        "URL_ПУЛЬСАР": {
+        "URL_ПУЛЬСАР3": {
             name: { RU: "Пульсар", EN: "Pulsar" },
             advantages: [
                 {
@@ -706,7 +706,7 @@
             ],
             modifiers: { CRIT_DAMAGE: 0.1 }
         },
-        "URL_ЭКСЕЛЬСИОР": {
+        "https://s.eu.tankionline.com/626/15001/352/355/31303200421671/image.svg": {
             name: { RU: "Эксельсиор", EN: "Excelsior" },
             advantages: [
                 { RU: "Урон: +25%", EN: "Damage: +25%" },
@@ -1151,7 +1151,7 @@
             ],
             modifiers: { CRIT_DAMAGE: 0.5 }
         },
-        "URL_ПУЛЬСАР": {
+        "URL_ПУЛЬСАР4": {
             name: { RU: "Пульсар", EN: "Pulsar" },
             advantages: [
                 {
@@ -1478,7 +1478,7 @@
             ],
             modifiers: { CRIT_DAMAGE: 0.5 }
         },
-        "URL_ПУЛЬСАР": {
+        "URL_ПУЛЬСАР5": {
             name: { RU: "Пульсар", EN: "Pulsar" },
             advantages: [
                 {
@@ -1552,7 +1552,7 @@
             ],
             modifiers: { DPS: 1.35, DAMAGE: 1.35, CRIT_DAMAGE: 2.25, IMPACT_FORCE: 2.0 }
         },
-        "URL_ЭКСЕЛЬСИОР": {
+        "https://s.eu.tankionline.com/626/15007/216/65/31303201745262/image.svg": {
             name: { RU: "Эксельсиор", EN: "Excelsior" },
             advantages: [
                 { RU: "Урон: +25%", EN: "Damage: +25%" },
@@ -1723,7 +1723,7 @@
             ],
             modifiers: { CRIT_DAMAGE: 0.5 }
         },
-        "URL_ПУЛЬСАР": {
+        "URL_ПУЛЬСАР6": {
             name: { RU: "Пульсар", EN: "Pulsar" },
             advantages: [
                 {
@@ -1963,7 +1963,7 @@
             ],
             modifiers: { CRIT_DAMAGE: 0.5 }
         },
-        "URL_ПУЛЬСАР": {
+        "URL_ПУЛЬСАР7": {
             name: { RU: "Пульсар", EN: "Pulsar" },
             advantages: [
                 {
@@ -2057,7 +2057,7 @@
             ],
             modifiers: { DPS: 2.4, DAMAGE: 2.4, IMPACT_FORCE: 4.0, RELOAD: 2.0, TURNING_SPEED: 0.5 }
         },
-        "URL_ЭКСЕЛЬСИОР": {
+        "https://s.eu.tankionline.com/626/15010/4/6/31303202037143/image.svg": {
             name: { RU: "Эксельсиор", EN: "Excelsior" },
             advantages: [
                 { RU: "Урон: +30%", EN: "Damage: +25%" },
@@ -2214,7 +2214,7 @@
             ],
             modifiers: { CRIT_DAMAGE: 0.5 }
         },
-        "URL_ПУЛЬСАР": {
+        "URL_ПУЛЬСАР8": {
             name: { RU: "Пульсар", EN: "Pulsar" },
             advantages: [
                 {
@@ -2318,7 +2318,7 @@
             ],
             modifiers: { DAMAGE: 0.5, CRIT_DAMAGE: 0 }
         },
-        "URL_ЭКСЕЛЬСИОР": {
+        "https://s.eu.tankionline.com/626/15005/127/361/31303201332146/image.svg": {
             name: { RU: "Эксельсиор", EN: "Excelsior" },
             advantages: [
                 { RU: "Урон: +25%", EN: "Damage: +25%" },
@@ -2630,7 +2630,7 @@
             ],
             modifiers: { RELOAD: 0.88 }
         },
-        "URL_ЭКСЕЛЬСИОР": {
+        "https://s.eu.tankionline.com/626/15006/46/161/31303201457152/image.svg": {
             name: { RU: "Эксельсиор", EN: "Excelsior" },
             advantages: [
                 { RU: "Урон: +25%", EN: "Damage: +25%" },
@@ -2940,7 +2940,7 @@
             ],
             modifiers: { DAMAGE: 1.9, CRIT_DAMAGE: 1.9 }
         },
-        "URL_ЭКСЕЛЬСИОР": {
+        "https://s.eu.tankionline.com/626/15007/17/150/31303201645022/image.svg": {
             name: { RU: "Эксельсиор", EN: "Excelsior" },
             advantages: [
                 { RU: "Урон: +25%", EN: "Damage: +25%" },
@@ -3188,7 +3188,7 @@
             ],
             modifiers: { RELOAD: 1.25 }
         },
-        "URL_ЭКСЕЛЬСИОР": {
+        "https://s.eu.tankionline.com/634/112241/340/366/31622455332636/image.svg": {
             name: { RU: "Эксельсиор", EN: "Excelsior" },
             advantages: [
                 { RU: "Урон: +25%", EN: "Damage: +25%" },
@@ -3363,7 +3363,7 @@
             ],
             modifiers: { CRIT_DAMAGE: 0.5 }
         },
-        "URL_ПУЛЬСАР": {
+        "URL_ПУЛЬСАР9": {
             name: { RU: "Пульсар", EN: "Pulsar" },
             advantages: [
                 {
@@ -3632,7 +3632,7 @@
             ],
             modifiers: { CRIT_DAMAGE: 0.5 }
         },
-        "URL_ПУЛЬСАР": {
+        "URL_ПУЛЬСАР10": {
             name: { RU: "Пульсар", EN: "Pulsar" },
             advantages: [
                 {
@@ -3731,7 +3731,7 @@
             ],
             modifiers: { RELOAD: 0.4, DAMAGE: 0.65, TURNING_SPEED: 1.33 }
         },
-        "URL_ЭКСЕЛЬСИОР": {
+        "https://s.eu.tankionline.com/626/15002/341/363/31303200612111/image.svg": {
             name: { RU: "Эксельсиор", EN: "Excelsior" },
             advantages: [
                 { RU: "Урон: +25%", EN: "Damage: +25%" },
@@ -3892,7 +3892,7 @@
             ],
             modifiers: { CRIT_DAMAGE: 0.5 }
         },
-        "URL_ПУЛЬСАР": {
+        "URL_ПУЛЬСАР11": {
             name: { RU: "Пульсар", EN: "Pulsar" },
             advantages: [
                 {
@@ -4289,7 +4289,7 @@
             ],
             modifiers: { DAMAGE: 1.27, CRIT_DAMAGE: 1.29, RELOAD: 1.15, IMPACT_FORCE: 1.5 }
         },
-        "URL_ЭКСЕЛЬСИОР": {
+        "https://s.eu.tankionline.com/626/15000/104/132/31303200102114/image.svg": {
             name: { RU: "Эксельсиор", EN: "Excelsior" },
             advantages: [
                 { RU: "Урон стандартного выстрела: +25%", EN: "Arcade Shot Damage: +25%" },
@@ -4455,7 +4455,7 @@
             ],
             modifiers: { CRIT_DAMAGE: 0.5 }
         },
-        "URL_ПУЛЬСАР": {
+        "URL_ПУЛЬСАР12": {
             name: { RU: "Пульсар", EN: "Pulsar" },
             advantages: [
                 {
@@ -4542,7 +4542,7 @@
             ],
             modifiers: { SNIPING_DAMAGE: 0.85 }
         },
-        "URL_ЭКСЕЛЬСИОР": {
+        "https://s.eu.tankionline.com/626/15004/330/76/31303201216215/image.svg": {
             name: { RU: "Экселсиор", EN: "Excelsior" },
             advantages: [
                 { RU: "Урон стандартного выстрела: +25%", EN: "Arcade Shot Damage: +25%" },
