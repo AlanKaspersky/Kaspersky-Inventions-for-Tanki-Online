@@ -11,5 +11,6 @@
     "declarationMap": false,
     "removeComments": true,
     "forceConsistentCasingInFileNames": true
-  }
+  },
+  "exclude": ["node_modules", "archived"]
 }

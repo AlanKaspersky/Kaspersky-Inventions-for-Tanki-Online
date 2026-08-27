@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Kaspersky's Inventions",
-  "version": "1.3",
+  "version": "1.3.1",
   "default_locale": "en",
   "description": "__MSG_extensionDescription__",
   "icons": {
@@ -19,8 +19,7 @@
         "dist/kasp_friends.js",
         "dist/kasp_paints.js",
         "dist/kasp_layout.js",
-        "dist/kasp_welcome.js",
-        "dist/kasp_trophies.js"
+        "dist/kasp_welcome.js"
       ],
       "run_at": "document_start"
     }
