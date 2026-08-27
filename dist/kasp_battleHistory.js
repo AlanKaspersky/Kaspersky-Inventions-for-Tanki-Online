@@ -326,7 +326,7 @@
         if (!rawMapText)
             return { map: 'Unknown Map', mode: 'MM' };
         let text = rawMapText.trim();
-        let modesList = ['CTF', 'TDM', 'DM', 'CP', 'SGE', 'RGB', 'JGR'];
+        let modesList = ['CTF', 'TDM', 'DM', 'CP', 'SGE', 'RGB', 'JGR', 'TJR', 'ASL', 'AR'];
         let foundMode = 'MM';
         let parts = text.split(/\s+/);
         if (parts.length > 0) {

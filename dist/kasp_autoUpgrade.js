@@ -537,7 +537,8 @@
         const menuCategory = target.closest('.MenuComponentStyle-mainMenuItem');
         const mainGarageBlock = target.closest('[class*="MountedItemsStyle-commonBlock"], .tt-garage-paints-button');
         const itemElement = target.closest('[class*="Item"], [class*="card"], [class*="Garage"]');
-        if (menuCategory || mainGarageBlock) {
+        const backButton = target.closest('.BreadcrumbsComponentStyle-backButton, .IconStyle-iconBackArrow, [class*="backButton" i]');
+        if (menuCategory || mainGarageBlock || backButton) {
             isCategorySwitch = true;
             if (categorySwitchTimeout)
                 clearTimeout(categorySwitchTimeout);
@@ -548,7 +549,7 @@
             if (categorySwitchTimeout)
                 clearTimeout(categorySwitchTimeout);
         }
-        if (menuCategory || mainGarageBlock || itemElement) {
+        if (menuCategory || mainGarageBlock || itemElement || backButton) {
             if (isRunning) {
                 isRunning = false;
                 if (timer) {
@@ -561,6 +562,26 @@
             if (existing)
                 existing.remove();
             setTimeout(createButtons, 10);
+        }
+    }, true);
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' || e.code === 'KeyZ' || e.key.toLowerCase() === 'z') {
+            if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName))
+                return;
+            isCategorySwitch = true;
+            if (categorySwitchTimeout)
+                clearTimeout(categorySwitchTimeout);
+            categorySwitchTimeout = setTimeout(() => { isCategorySwitch = false; }, 1000);
+            lastItemSignature = '';
+        }
+    }, true);
+    document.addEventListener('mousedown', (e) => {
+        if (e.button === 3 || e.button === 4) {
+            isCategorySwitch = true;
+            if (categorySwitchTimeout)
+                clearTimeout(categorySwitchTimeout);
+            categorySwitchTimeout = setTimeout(() => { isCategorySwitch = false; }, 1000);
+            lastItemSignature = '';
         }
     }, true);
     const observer = new MutationObserver(() => {

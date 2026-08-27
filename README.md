@@ -58,5 +58,5 @@ This project is built with **TypeScript (ES2020)**. To modify and compile the so
 
 **1. Clone the repository:**
 ```bash
-git clone [https://github.com/AlanKaspersky/Kaspersky-s-Inventions-for-Tanki-Online.git](https://github.com/AlanKaspersky/Kaspersky-s-Inventions-for-Tanki-Online.git)
-cd Kaspersky-s-Inventions-for-Tanki-Online
+git clone [https://github.com/AlanKaspersky/Kaspersky-Inventions-for-Tanki-Online.git](https://github.com/AlanKaspersky/Kaspersky-Inventions-for-Tanki-Online.git)
+cd Kaspersky-Inventions-for-Tanki-Online

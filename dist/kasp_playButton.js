@@ -40,8 +40,15 @@
         .ClientInfoComponentStyle-container { display: none !important; }
         .custom-inner-btn > *:not(.custom-main-bg-layer):not(.main-lock-icon):not(.custom-main-text) { display: none !important; }
         .MainScreenComponentStyle-playButtonContainer:not([data-overridden="true"]) { opacity: 0 !important; pointer-events: none !important; }
-        @keyframes catchPlayButton { from { outline-color: transparent; } to { outline-color: transparent; } }
-        .MainScreenComponentStyle-playButtonContainer { animation: catchPlayButton 0.001s; }
+        
+        body.kasp-autoqueue-active [class*="BattlePickComponentStyle"],
+        body.kasp-autoqueue-active [class*="blockCard"],
+        body.kasp-autoqueue-active [class*="commonStyleBlock"] { 
+            opacity: 0 !important; 
+            visibility: hidden !important; 
+            transition: none !important; 
+            animation: none !important;
+        }
     `;
     if (document.head)
         document.head.appendChild(globalStyle);
@@ -295,6 +302,7 @@
                 if (clickSpecificCard(targetMode.names)) {
                     autoQueueState = 0;
                     targetMode = null;
+                    document.body.classList.remove('kasp-autoqueue-active');
                 }
             }
             else {
@@ -306,9 +314,11 @@
             if (clickSpecificCard(targetMode.names)) {
                 autoQueueState = 0;
                 targetMode = null;
+                document.body.classList.remove('kasp-autoqueue-active');
             }
         }
     }
+    let failSafeTimer = null;
     function startAutoQueue(modeData) {
         if (isSearching())
             return;
@@ -316,34 +326,49 @@
         const playButton = document.querySelector('.MainScreenComponentStyle-playButtonContainer');
         if (playButton && !playButton.classList.contains('MainScreenComponentStyle-disabledButtonPlay')) {
             autoQueueState = 1;
+            document.body.classList.add('kasp-autoqueue-active');
+            if (failSafeTimer)
+                clearTimeout(failSafeTimer);
+            failSafeTimer = setTimeout(() => {
+                autoQueueState = 0;
+                document.body.classList.remove('kasp-autoqueue-active');
+            }, 1500);
             simulateClick(playButton);
         }
     }
-    document.addEventListener('animationstart', (e) => {
-        if (e.animationName === 'catchPlayButton') {
+    const observer = new MutationObserver(() => {
+        const playButton = document.querySelector('.MainScreenComponentStyle-playButtonContainer:not([data-overridden="true"])');
+        if (playButton) {
             buttonsCreated = false;
-            applyStyles(e.target);
+            applyStyles(playButton);
         }
     });
+    if (document.body) {
+        observer.observe(document.body, { childList: true, subtree: true });
+    }
+    else {
+        document.addEventListener('DOMContentLoaded', () => {
+            observer.observe(document.body, { childList: true, subtree: true });
+        });
+    }
     document.addEventListener('click', function (e) {
         const target = e.target;
         if (!target)
             return;
         const menuItem = target.closest('.PrimaryMenuItemComponentStyle-menuItemContainer');
         if (menuItem && !menuItem.classList.contains('custom-history-button')) {
-            const existing = document.getElementById('quick-play-wrapper');
-            if (existing)
-                existing.remove();
             buttonsCreated = false;
             autoQueueState = 0;
             targetMode = null;
             lastSearchingState = null;
         }
     }, true);
-    setInterval(() => {
+    function gameLoop() {
         if (autoQueueState !== 0)
             processAutoQueue();
         if (buttonsCreated)
             syncButtonStates();
-    }, 10);
+        requestAnimationFrame(gameLoop);
+    }
+    requestAnimationFrame(gameLoop);
 })();
