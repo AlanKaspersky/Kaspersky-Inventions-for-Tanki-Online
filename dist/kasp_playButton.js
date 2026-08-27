@@ -336,39 +336,31 @@
             simulateClick(playButton);
         }
     }
+    function isBattleActive() {
+        return !!document.querySelector('[class*="BattleHud"], [class*="BattleScreen"]');
+    }
     const observer = new MutationObserver(() => {
+        if (isBattleActive())
+            return;
         const playButton = document.querySelector('.MainScreenComponentStyle-playButtonContainer:not([data-overridden="true"])');
         if (playButton) {
             buttonsCreated = false;
             applyStyles(playButton);
         }
-    });
-    if (document.body) {
-        observer.observe(document.body, { childList: true, subtree: true });
-    }
-    else {
-        document.addEventListener('DOMContentLoaded', () => {
-            observer.observe(document.body, { childList: true, subtree: true });
-        });
-    }
-    document.addEventListener('click', function (e) {
-        const target = e.target;
-        if (!target)
-            return;
-        const menuItem = target.closest('.PrimaryMenuItemComponentStyle-menuItemContainer');
-        if (menuItem && !menuItem.classList.contains('custom-history-button')) {
-            buttonsCreated = false;
-            autoQueueState = 0;
-            targetMode = null;
-            lastSearchingState = null;
-        }
-    }, true);
-    function gameLoop() {
-        if (autoQueueState !== 0)
-            processAutoQueue();
         if (buttonsCreated)
             syncButtonStates();
-        requestAnimationFrame(gameLoop);
-    }
-    requestAnimationFrame(gameLoop);
+    });
+    const attachObserver = () => {
+        const rootContainer = document.getElementById('app-root') || document.body;
+        if (rootContainer)
+            observer.observe(rootContainer, { childList: true, subtree: true });
+    };
+    if (document.body || document.getElementById('app-root'))
+        attachObserver();
+    else
+        document.addEventListener('DOMContentLoaded', attachObserver);
+    setInterval(() => {
+        if (autoQueueState !== 0)
+            processAutoQueue();
+    }, 50);
 })();

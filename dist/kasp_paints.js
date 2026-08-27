@@ -550,49 +550,31 @@
         searchWrapper.appendChild(searchContainer);
         parentBlock.appendChild(searchWrapper);
     }
-    function init() {
-        const checkInterval = setInterval(() => {
-            const captionContainer = document.querySelector('.PaintsCollectionComponentStyle-captionPaint');
-            if (captionContainer) {
-                clearInterval(checkInterval);
-                addSearchInput();
-            }
-        }, 500);
+    function isBattleActive() {
+        return !!document.querySelector('[class*="BattleHud"], [class*="BattleScreen"]');
     }
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    }
-    else {
-        init();
-    }
-    let searchTimeout = null;
-    let observer = false;
+    let observerAttached = false;
     const paintsObserver = new MutationObserver((mutations) => {
+        if (isBattleActive())
+            return;
         const hasAddedNodes = mutations.some(mutation => mutation.addedNodes.length > 0);
         if (hasAddedNodes) {
-            if (searchTimeout)
-                clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => {
-                addSearchInput();
-                applySearch();
-            }, 100);
+            addSearchInput();
+            applySearch();
         }
     });
     function startObserver() {
         const garageContainer = document.querySelector('.GarageComponentStyle-garage') || document.querySelector('.PaintsCollectionComponentStyle-commonBlockFOrInfoAndCaptionCategory');
-        if (garageContainer) {
-            if (!observer) {
-                paintsObserver.observe(garageContainer, {
-                    childList: true,
-                    subtree: true
-                });
-                observer = true;
-            }
+        if (garageContainer && !observerAttached) {
+            paintsObserver.observe(garageContainer, { childList: true, subtree: true });
+            observerAttached = true;
         }
     }
     setInterval(() => {
+        if (isBattleActive())
+            return;
         addSearchInput();
         startObserver();
-    }, 500);
+    }, 1000);
     startObserver();
 })();

@@ -1,6 +1,8 @@
 "use strict";
 (function () {
     'use strict';
+    if (localStorage.getItem('k_augments') === 'false')
+        return;
     let isRunning = false;
     let upgradeQueue = 0;
     let upgraded = 0;
@@ -584,19 +586,14 @@
             lastItemSignature = '';
         }
     }, true);
+    function isBattleActive() {
+        return !!document.querySelector('[class*="BattleHud"], [class*="BattleScreen"]');
+    }
     const observer = new MutationObserver(() => {
-        const loader = document.querySelector('.ApplicationLoaderComponentStyle-container');
-        if (loader) {
-            const overlay = document.getElementById('quick-upgrade-overlay');
-            if (overlay) {
-                if (overlay.closeDialogMethod) {
-                    overlay.closeDialogMethod();
-                }
-                else {
-                    overlay.remove();
-                }
-            }
-        }
+        if (isBattleActive())
+            return;
+        if (localStorage.getItem('k_auto_upgrade') === 'false')
+            return;
         if (document.getElementById('quick-upgrade-overlay'))
             return;
         const container = document.querySelector('.TanksPartBaseComponentStyle-buttonsContainer');
@@ -610,9 +607,8 @@
                     existing.remove();
             }
             if (shouldShowQuickButtons()) {
-                if (!document.getElementById('quick-buttons')) {
+                if (!document.getElementById('quick-buttons'))
                     createButtons();
-                }
             }
             else {
                 const existing = document.getElementById('quick-buttons');
@@ -626,19 +622,14 @@
                 existing.remove();
         }
     });
-    const observerConfig = {
-        childList: true,
-        subtree: true,
-        characterData: true,
-        attributes: true,
-        attributeFilter: ['class', 'style']
+    const observerConfig = { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class', 'style'] };
+    const attachObserver = () => {
+        const rootContainer = document.getElementById('app-root') || document.body;
+        if (rootContainer)
+            observer.observe(rootContainer, observerConfig);
     };
-    if (document.body) {
-        observer.observe(document.body, observerConfig);
-    }
-    else {
-        document.addEventListener('DOMContentLoaded', () => {
-            observer.observe(document.body, observerConfig);
-        });
-    }
+    if (document.body || document.getElementById('app-root'))
+        attachObserver();
+    else
+        document.addEventListener('DOMContentLoaded', attachObserver);
 })();

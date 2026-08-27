@@ -5038,31 +5038,28 @@
             }
         });
     }
+    function isBattleActive() {
+        return !!document.querySelector('[class*="BattleHud"], [class*="BattleScreen"]');
+    }
     const initObserver = () => {
-        const observerConfig = {
-            childList: true,
-            subtree: true,
-            characterData: true,
-            attributes: true,
-            attributeFilter: ['src', 'class']
-        };
+        const observerConfig = { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['src', 'class'] };
         const observer = new MutationObserver(() => {
-            observer.disconnect();
+            if (isBattleActive())
+                return;
+            if (localStorage.getItem('k_augments') === 'false')
+                return;
             injectButtons();
             updateLiveStats();
-            const loader = document.querySelector('.ApplicationLoaderComponentStyle-container');
-            if (loader) {
-                closeSpecsModal();
-            }
-            if (document.body)
-                observer.observe(document.body, observerConfig);
         });
-        if (document.body) {
-            observer.observe(document.body, observerConfig);
-        }
-        else {
-            document.addEventListener('DOMContentLoaded', () => observer.observe(document.body, observerConfig));
-        }
+        const attachObserver = () => {
+            const rootContainer = document.getElementById('app-root') || document.body;
+            if (rootContainer)
+                observer.observe(rootContainer, observerConfig);
+        };
+        if (document.body || document.getElementById('app-root'))
+            attachObserver();
+        else
+            document.addEventListener('DOMContentLoaded', attachObserver);
     };
     addCustomStyles();
     initNavigationListeners();

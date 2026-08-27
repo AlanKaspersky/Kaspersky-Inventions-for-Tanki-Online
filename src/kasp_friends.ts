@@ -1,6 +1,8 @@
 (function() {
     'use strict';
 
+    if (localStorage.getItem('k_augments') === 'false') return;
+
     const filtersConfig: { url: string, type: string }[] = [
         { url: "https://s.eu.tankionline.com/static/images/allPaints.741c65e1.svg", type: "all" },
         { url: "https://s.eu.tankionline.com/static/images/uncommon.ca77d7da.svg", type: "online" },
@@ -393,38 +395,42 @@
         }
     };
 
+    function isBattleActive() {
+        return !!document.querySelector('[class*="BattleHud"], [class*="BattleScreen"]');
+    }
+
     const initObserver = () => {
         const observer = new MutationObserver(() => {
+            if (isBattleActive()) return;
             if (localStorage.getItem('k_friends') === 'false') return;
+            
             const scrollBlocks = document.querySelectorAll('.FriendListComponentStyle-scrollCommunity, .InvitationWindowsComponentStyle-usersScroll');
             scrollBlocks.forEach(node => {
                 const scrollBlock = node as HTMLElement;
-                if (scrollBlock.dataset.sidebarInjected !== 'true') {
-                    setupSidebar(scrollBlock);
-                }
+                if (scrollBlock.dataset.sidebarInjected !== 'true') setupSidebar(scrollBlock);
+                
                 const isFriendsList = scrollBlock.classList.contains('FriendListComponentStyle-scrollCommunity');
                 const itemSelector = isFriendsList ? '.FriendListComponentStyle-blockList' : '.InvitationWindowsComponentStyle-usersScroll > div > div';
+                
                 scrollBlock.querySelectorAll(itemSelector).forEach(el => {
                     updateCardBadge(el as HTMLElement, isFriendsList);
                 });
             });
-
+            
             const contextMenus = document.querySelectorAll('.ContextMenuStyle-menu');
             contextMenus.forEach(node => {
                 const menu = node as HTMLElement;
-                if (menu.dataset.customCategoriesInjected !== 'true') {
-                    injectCategoriesMenu(menu);
-                }
+                if (menu.dataset.customCategoriesInjected !== 'true') injectCategoriesMenu(menu);
             });
         });
 
-        if (document.body) {
-            observer.observe(document.body, { childList: true, subtree: true });
-        } else {
-            document.addEventListener('DOMContentLoaded', () => {
-                observer.observe(document.body, { childList: true, subtree: true });
-            });
-        }
+        const attachObserver = () => {
+            const rootContainer = document.getElementById('app-root') || document.body;
+            if (rootContainer) observer.observe(rootContainer, { childList: true, subtree: true });
+        };
+
+        if (document.body || document.getElementById('app-root')) attachObserver();
+        else document.addEventListener('DOMContentLoaded', attachObserver);
     };
 
     addCustomStyles();

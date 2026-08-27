@@ -19,7 +19,8 @@
         "dist/kasp_friends.js",
         "dist/kasp_paints.js",
         "dist/kasp_layout.js",
-        "dist/kasp_welcome.js"
+        "dist/kasp_welcome.js",
+        "dist/kasp_trophies.js"
       ],
       "run_at": "document_start"
     }

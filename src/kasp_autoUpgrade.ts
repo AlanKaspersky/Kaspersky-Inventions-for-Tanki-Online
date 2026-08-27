@@ -1,6 +1,8 @@
 (function() {
     'use strict';
 
+    if (localStorage.getItem('k_augments') === 'false') return;
+
     let isRunning: boolean = false;
     let upgradeQueue: number = 0;
     let upgraded: number = 0;
@@ -646,24 +648,18 @@
         }
     }, true);
 
+    function isBattleActive() {
+        return !!document.querySelector('[class*="BattleHud"], [class*="BattleScreen"]');
+    }
+
     const observer = new MutationObserver(() => {
-        const loader = document.querySelector('.ApplicationLoaderComponentStyle-container');
-        if (loader) {
-            const overlay = document.getElementById('quick-upgrade-overlay') as any;
-            if (overlay) {
-                if (overlay.closeDialogMethod) {
-                    overlay.closeDialogMethod();
-                } else {
-                    overlay.remove();
-                }
-            }
-        }
-
+        if (isBattleActive()) return;
+        if (localStorage.getItem('k_auto_upgrade') === 'false') return;
         if (document.getElementById('quick-upgrade-overlay')) return;
-
+        
         const container = document.querySelector('.TanksPartBaseComponentStyle-buttonsContainer');
         const nameElement = document.querySelector('.ItemDescriptionComponentStyle-nameItem') || container;
-
+        
         if (container) {
             const currentSignature = nameElement ? (nameElement.textContent?.trim() || '') : '';
             if (currentSignature !== lastItemSignature) {
@@ -671,11 +667,8 @@
                 const existing = document.getElementById('quick-buttons');
                 if (existing) existing.remove();
             }
-
             if (shouldShowQuickButtons()) {
-                if (!document.getElementById('quick-buttons')) {
-                    createButtons();
-                }
+                if (!document.getElementById('quick-buttons')) createButtons();
             } else {
                 const existing = document.getElementById('quick-buttons');
                 if (existing) existing.remove();
@@ -686,19 +679,13 @@
         }
     });
 
-    const observerConfig = {
-        childList: true,
-        subtree: true,
-        characterData: true,
-        attributes: true,
-        attributeFilter: ['class', 'style']
+    const observerConfig = { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class', 'style'] };
+    
+    const attachObserver = () => {
+        const rootContainer = document.getElementById('app-root') || document.body;
+        if (rootContainer) observer.observe(rootContainer, observerConfig);
     };
 
-    if (document.body) {
-        observer.observe(document.body, observerConfig);
-    } else {
-        document.addEventListener('DOMContentLoaded', () => {
-            observer.observe(document.body, observerConfig);
-        });
-    }
+    if (document.body || document.getElementById('app-root')) attachObserver();
+    else document.addEventListener('DOMContentLoaded', attachObserver);
 })();

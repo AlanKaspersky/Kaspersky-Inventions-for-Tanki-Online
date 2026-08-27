@@ -1,5 +1,6 @@
 (function() {
     'use strict';
+
     if (localStorage.getItem('k_history') === 'false') return;
 
     let battleProcessed: boolean = false;
@@ -751,34 +752,26 @@
         });
     };
 
+    function isBattleActive() {
+        return !!document.querySelector('[class*="BattleHud"], [class*="BattleScreen"]');
+    }
+
     const initObserver = () => {
         const observer = new MutationObserver(() => {
+            if (isBattleActive()) return;
+            if (localStorage.getItem('k_history') === 'false') return;
+
             updateNickname();
             injectMenuButton();
-
-            const loader = document.querySelector('.ApplicationLoaderComponentStyle-container');
-            if (loader) {
-                const overlay = document.querySelector('.custom-history-overlay') as HTMLElement | null;
-                if (overlay && overlay.style.display === 'flex') {
-                    overlay.style.display = 'none';
-                }
-
-                const confirmOverlay = document.querySelector('#clear-confirm-overlay') as any;
-                if (confirmOverlay) {
-                    if (confirmOverlay.closeDialogMethod) {
-                        confirmOverlay.closeDialogMethod(); 
-                    } else {
-                        confirmOverlay.remove();
-                    }
-                }
-            }
-
-            const selfRow = document.querySelector('#selfUserBg') as HTMLElement | null;
-            if (selfRow) {
+            
+            const selfRow = document.querySelector('#selfUserBg') as HTMLElement;
+            const inResults = document.querySelector('.BattleResultHeaderComponentStyle-resultText');
+            
+            if (selfRow && inResults) {
                 if (!selfRow.dataset.timerStarted) {
                     selfRow.dataset.timerStarted = "true";
                     setTimeout(() => {
-                        const row = document.querySelector('#selfUserBg') as HTMLElement | null;
+                        const row = document.querySelector('#selfUserBg') as HTMLElement;
                         if (row && !battleProcessed) {
                             row.dataset.equipTimeout = "true";
                             extractAndSaveBattleResult();
@@ -786,28 +779,24 @@
                     }, 2500);
                 }
                 extractAndSaveBattleResult();
-            } else {
+            } else if (!inResults) {
                 battleProcessed = false;
             }
         });
 
-        if (document.body) {
-            observer.observe(document.body, { childList: true, subtree: true });
-        } else {
-            document.addEventListener('DOMContentLoaded', () => {
-                observer.observe(document.body, { childList: true, subtree: true });
-            });
-        }
+        const attachObserver = () => {
+            const rootContainer = document.getElementById('app-root') || document.body;
+            if (rootContainer) observer.observe(rootContainer, { childList: true, subtree: true });
+        };
+
+        if (document.body || document.getElementById('app-root')) attachObserver();
+        else document.addEventListener('DOMContentLoaded', attachObserver);
     };
 
     addHistoryStyles();
     initNavigationListeners();
     initObserver();
-
     setTimeout(() => {
-        if (currentNickname !== 'Unknown') {
-            removeDuplicateBattles(currentNickname);
-        }
+        if (currentNickname !== 'Unknown') removeDuplicateBattles(currentNickname);
     }, 5000);
-
 })();

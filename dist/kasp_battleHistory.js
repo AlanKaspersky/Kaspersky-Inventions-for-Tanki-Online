@@ -701,28 +701,20 @@
             }
         });
     };
+    function isBattleActive() {
+        return !!document.querySelector('[class*="BattleHud"], [class*="BattleScreen"]');
+    }
     const initObserver = () => {
         const observer = new MutationObserver(() => {
+            if (isBattleActive())
+                return;
+            if (localStorage.getItem('k_history') === 'false')
+                return;
             updateNickname();
             injectMenuButton();
-            const loader = document.querySelector('.ApplicationLoaderComponentStyle-container');
-            if (loader) {
-                const overlay = document.querySelector('.custom-history-overlay');
-                if (overlay && overlay.style.display === 'flex') {
-                    overlay.style.display = 'none';
-                }
-                const confirmOverlay = document.querySelector('#clear-confirm-overlay');
-                if (confirmOverlay) {
-                    if (confirmOverlay.closeDialogMethod) {
-                        confirmOverlay.closeDialogMethod();
-                    }
-                    else {
-                        confirmOverlay.remove();
-                    }
-                }
-            }
             const selfRow = document.querySelector('#selfUserBg');
-            if (selfRow) {
+            const inResults = document.querySelector('.BattleResultHeaderComponentStyle-resultText');
+            if (selfRow && inResults) {
                 if (!selfRow.dataset.timerStarted) {
                     selfRow.dataset.timerStarted = "true";
                     setTimeout(() => {
@@ -735,25 +727,25 @@
                 }
                 extractAndSaveBattleResult();
             }
-            else {
+            else if (!inResults) {
                 battleProcessed = false;
             }
         });
-        if (document.body) {
-            observer.observe(document.body, { childList: true, subtree: true });
-        }
-        else {
-            document.addEventListener('DOMContentLoaded', () => {
-                observer.observe(document.body, { childList: true, subtree: true });
-            });
-        }
+        const attachObserver = () => {
+            const rootContainer = document.getElementById('app-root') || document.body;
+            if (rootContainer)
+                observer.observe(rootContainer, { childList: true, subtree: true });
+        };
+        if (document.body || document.getElementById('app-root'))
+            attachObserver();
+        else
+            document.addEventListener('DOMContentLoaded', attachObserver);
     };
     addHistoryStyles();
     initNavigationListeners();
     initObserver();
     setTimeout(() => {
-        if (currentNickname !== 'Unknown') {
+        if (currentNickname !== 'Unknown')
             removeDuplicateBattles(currentNickname);
-        }
     }, 5000);
 })();
