@@ -372,11 +372,14 @@
         return !!document.querySelector('[class*="BattleHud"], [class*="BattleScreen"]');
     }
     const initObserver = () => {
+        let rootContainer = document.getElementById('app-root') || document.body;
+        const observerConfig = { childList: true, subtree: true };
         const observer = new MutationObserver(() => {
             if (isBattleActive())
                 return;
             if (localStorage.getItem('k_friends') === 'false')
                 return;
+            observer.disconnect();
             const scrollBlocks = document.querySelectorAll('.FriendListComponentStyle-scrollCommunity, .InvitationWindowsComponentStyle-usersScroll');
             scrollBlocks.forEach(node => {
                 const scrollBlock = node;
@@ -394,11 +397,13 @@
                 if (menu.dataset.customCategoriesInjected !== 'true')
                     injectCategoriesMenu(menu);
             });
+            if (rootContainer)
+                observer.observe(rootContainer, observerConfig);
         });
         const attachObserver = () => {
-            const rootContainer = document.getElementById('app-root') || document.body;
+            rootContainer = document.getElementById('app-root') || document.body;
             if (rootContainer)
-                observer.observe(rootContainer, { childList: true, subtree: true });
+                observer.observe(rootContainer, observerConfig);
         };
         if (document.body || document.getElementById('app-root'))
             attachObserver();

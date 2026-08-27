@@ -290,8 +290,13 @@
         return !!document.querySelector('[class*="BattleHud"], [class*="BattleScreen"]');
     }
 
+    let rootContainer = document.getElementById('app-root') || document.body || document.documentElement;
+    const observerConfig = { childList: true, subtree: true };
+
     const observer = new MutationObserver(() => {
         if (isBattleActive()) return;
+        
+        observer.disconnect(); // СТОП
         
         updateInterface();
         
@@ -300,11 +305,13 @@
             const battleCards = document.getElementsByClassName('BattleResultQuestProgressComponentStyle-container');
             if (battleCards.length > 0) processBattleResults(Array.from(battleCards) as HTMLElement[]);
         }
+
+        if (rootContainer) observer.observe(rootContainer, observerConfig); // СТАРТ
     });
 
     const initObserver = () => {
-        const rootContainer = document.getElementById('app-root') || document.body || document.documentElement;
-        if (rootContainer) observer.observe(rootContainer, { childList: true, subtree: true });
+        rootContainer = document.getElementById('app-root') || document.body || document.documentElement;
+        if (rootContainer) observer.observe(rootContainer, observerConfig);
         updateInterface();
     };
 

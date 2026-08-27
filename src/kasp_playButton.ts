@@ -369,8 +369,13 @@
         return !!document.querySelector('[class*="BattleHud"], [class*="BattleScreen"]');
     }
 
+    let rootContainer = document.getElementById('app-root') || document.body;
+    const observerConfig = { childList: true, subtree: true };
+
     const observer = new MutationObserver(() => {
         if (isBattleActive()) return;
+        
+        observer.disconnect(); // СТОП
         
         const playButton = document.querySelector('.MainScreenComponentStyle-playButtonContainer:not([data-overridden="true"])') as HTMLElement;
         if (playButton) {
@@ -378,11 +383,13 @@
             applyStyles(playButton);
         }
         if (buttonsCreated) syncButtonStates();
+
+        if (rootContainer) observer.observe(rootContainer, observerConfig); // СТАРТ
     });
 
     const attachObserver = () => {
-        const rootContainer = document.getElementById('app-root') || document.body;
-        if (rootContainer) observer.observe(rootContainer, { childList: true, subtree: true });
+        rootContainer = document.getElementById('app-root') || document.body;
+        if (rootContainer) observer.observe(rootContainer, observerConfig);
     };
 
     if (document.body || document.getElementById('app-root')) attachObserver();

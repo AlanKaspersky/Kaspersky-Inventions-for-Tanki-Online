@@ -5373,17 +5373,25 @@
 
     const initObserver = () => {
         const observerConfig = { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['src', 'class'] };
-        
+        let rootContainer = document.getElementById('app-root') || document.body;
+
         const observer = new MutationObserver(() => {
             if (isBattleActive()) return; 
             if (localStorage.getItem('k_augments') === 'false') return;
             
+            // 1. ВЫКЛЮЧАЕМ слежку, чтобы не было бесконечного цикла
+            observer.disconnect(); 
+            
+            // 2. Вставляем моментально
             injectButtons();
             updateLiveStats();
+            
+            // 3. ВКЛЮЧАЕМ обратно
+            if (rootContainer) observer.observe(rootContainer, observerConfig);
         });
 
         const attachObserver = () => {
-            const rootContainer = document.getElementById('app-root') || document.body;
+            rootContainer = document.getElementById('app-root') || document.body;
             if (rootContainer) observer.observe(rootContainer, observerConfig);
         };
 

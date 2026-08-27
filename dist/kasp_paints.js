@@ -554,14 +554,18 @@
         return !!document.querySelector('[class*="BattleHud"], [class*="BattleScreen"]');
     }
     let observerAttached = false;
+    let rootContainer = null;
     const paintsObserver = new MutationObserver((mutations) => {
         if (isBattleActive())
             return;
+        paintsObserver.disconnect();
+        observerAttached = false;
         const hasAddedNodes = mutations.some(mutation => mutation.addedNodes.length > 0);
         if (hasAddedNodes) {
             addSearchInput();
             applySearch();
         }
+        startObserver();
     });
     function startObserver() {
         const garageContainer = document.querySelector('.GarageComponentStyle-garage') || document.querySelector('.PaintsCollectionComponentStyle-commonBlockFOrInfoAndCaptionCategory');

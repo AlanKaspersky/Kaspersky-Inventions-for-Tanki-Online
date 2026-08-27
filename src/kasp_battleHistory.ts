@@ -757,9 +757,14 @@
     }
 
     const initObserver = () => {
+        let rootContainer = document.getElementById('app-root') || document.body;
+        const observerConfig = { childList: true, subtree: true };
+
         const observer = new MutationObserver(() => {
             if (isBattleActive()) return;
             if (localStorage.getItem('k_history') === 'false') return;
+
+            observer.disconnect(); // СТОП
 
             updateNickname();
             injectMenuButton();
@@ -782,11 +787,13 @@
             } else if (!inResults) {
                 battleProcessed = false;
             }
+
+            if (rootContainer) observer.observe(rootContainer, observerConfig); // СТАРТ
         });
 
         const attachObserver = () => {
-            const rootContainer = document.getElementById('app-root') || document.body;
-            if (rootContainer) observer.observe(rootContainer, { childList: true, subtree: true });
+            rootContainer = document.getElementById('app-root') || document.body;
+            if (rootContainer) observer.observe(rootContainer, observerConfig);
         };
 
         if (document.body || document.getElementById('app-root')) attachObserver();

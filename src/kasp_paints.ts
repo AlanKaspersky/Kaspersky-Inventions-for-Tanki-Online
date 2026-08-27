@@ -573,14 +573,21 @@
     }
 
     let observerAttached = false;
+    let rootContainer = null;
+    
     const paintsObserver = new MutationObserver((mutations) => {
         if (isBattleActive()) return;
         
+        paintsObserver.disconnect(); // СТОП
+        observerAttached = false;
+
         const hasAddedNodes = mutations.some(mutation => mutation.addedNodes.length > 0);
         if (hasAddedNodes) {
             addSearchInput();
             applySearch();
         }
+
+        startObserver(); // СТАРТ
     });
 
     function startObserver() {

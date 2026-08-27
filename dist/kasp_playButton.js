@@ -339,9 +339,12 @@
     function isBattleActive() {
         return !!document.querySelector('[class*="BattleHud"], [class*="BattleScreen"]');
     }
+    let rootContainer = document.getElementById('app-root') || document.body;
+    const observerConfig = { childList: true, subtree: true };
     const observer = new MutationObserver(() => {
         if (isBattleActive())
             return;
+        observer.disconnect();
         const playButton = document.querySelector('.MainScreenComponentStyle-playButtonContainer:not([data-overridden="true"])');
         if (playButton) {
             buttonsCreated = false;
@@ -349,11 +352,13 @@
         }
         if (buttonsCreated)
             syncButtonStates();
+        if (rootContainer)
+            observer.observe(rootContainer, observerConfig);
     });
     const attachObserver = () => {
-        const rootContainer = document.getElementById('app-root') || document.body;
+        rootContainer = document.getElementById('app-root') || document.body;
         if (rootContainer)
-            observer.observe(rootContainer, { childList: true, subtree: true });
+            observer.observe(rootContainer, observerConfig);
     };
     if (document.body || document.getElementById('app-root'))
         attachObserver();

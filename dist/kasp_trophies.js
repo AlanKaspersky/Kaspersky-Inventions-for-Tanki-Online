@@ -274,9 +274,12 @@
     function isBattleActive() {
         return !!document.querySelector('[class*="BattleHud"], [class*="BattleScreen"]');
     }
+    let rootContainer = document.getElementById('app-root') || document.body || document.documentElement;
+    const observerConfig = { childList: true, subtree: true };
     const observer = new MutationObserver(() => {
         if (isBattleActive())
             return;
+        observer.disconnect();
         updateInterface();
         const inResults = document.querySelector('.BattleResultHeaderComponentStyle-resultText');
         if (inResults) {
@@ -284,11 +287,13 @@
             if (battleCards.length > 0)
                 processBattleResults(Array.from(battleCards));
         }
+        if (rootContainer)
+            observer.observe(rootContainer, observerConfig);
     });
     const initObserver = () => {
-        const rootContainer = document.getElementById('app-root') || document.body || document.documentElement;
+        rootContainer = document.getElementById('app-root') || document.body || document.documentElement;
         if (rootContainer)
-            observer.observe(rootContainer, { childList: true, subtree: true });
+            observer.observe(rootContainer, observerConfig);
         updateInterface();
     };
     if (document.body || document.getElementById('app-root'))

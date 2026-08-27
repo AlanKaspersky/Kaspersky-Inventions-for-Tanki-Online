@@ -589,6 +589,8 @@
     function isBattleActive() {
         return !!document.querySelector('[class*="BattleHud"], [class*="BattleScreen"]');
     }
+    let rootContainer = document.getElementById('app-root') || document.body;
+    const observerConfig = { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class', 'style'] };
     const observer = new MutationObserver(() => {
         if (isBattleActive())
             return;
@@ -596,6 +598,7 @@
             return;
         if (document.getElementById('quick-upgrade-overlay'))
             return;
+        observer.disconnect();
         const container = document.querySelector('.TanksPartBaseComponentStyle-buttonsContainer');
         const nameElement = document.querySelector('.ItemDescriptionComponentStyle-nameItem') || container;
         if (container) {
@@ -621,10 +624,11 @@
             if (existing)
                 existing.remove();
         }
+        if (rootContainer)
+            observer.observe(rootContainer, observerConfig);
     });
-    const observerConfig = { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class', 'style'] };
     const attachObserver = () => {
-        const rootContainer = document.getElementById('app-root') || document.body;
+        rootContainer = document.getElementById('app-root') || document.body;
         if (rootContainer)
             observer.observe(rootContainer, observerConfig);
     };
