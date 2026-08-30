@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    const CURRENT_VERSION = '1.4.1';
+    const CURRENT_VERSION = '1.4.2';
     const STORAGE_KEY = 'kasp_last_version';
 
     function getLang(): 'ru' | 'en' {

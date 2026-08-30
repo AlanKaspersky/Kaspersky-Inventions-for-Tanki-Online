@@ -400,7 +400,6 @@
     }
 
     const initObserver = () => {
-        let rootContainer = document.getElementById('app-root') || document.body;
         const observerConfig = { childList: true, subtree: true };
 
         const observer = new MutationObserver(() => {
@@ -422,21 +421,22 @@
                 });
             });
             
+            // Ищем контекстные меню (Они появляются в #modal-root)
             const contextMenus = document.querySelectorAll('.ContextMenuStyle-menu');
             contextMenus.forEach(node => {
                 const menu = node as HTMLElement;
                 if (menu.dataset.customCategoriesInjected !== 'true') injectCategoriesMenu(menu);
             });
 
-            if (rootContainer) observer.observe(rootContainer, observerConfig); // СТАРТ
+            // СТАРТ: Обязательно слушаем body, чтобы захватить #modal-root
+            if (document.body) observer.observe(document.body, observerConfig); 
         });
 
         const attachObserver = () => {
-            rootContainer = document.getElementById('app-root') || document.body;
-            if (rootContainer) observer.observe(rootContainer, observerConfig);
+            if (document.body) observer.observe(document.body, observerConfig);
         };
 
-        if (document.body || document.getElementById('app-root')) attachObserver();
+        if (document.body) attachObserver();
         else document.addEventListener('DOMContentLoaded', attachObserver);
     };
 

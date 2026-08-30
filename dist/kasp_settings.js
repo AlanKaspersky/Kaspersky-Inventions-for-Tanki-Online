@@ -12,16 +12,16 @@
         return 'EN';
     }
     const t = {
-        RU: { title: 'НАСТРОЙКИ МОДОВ', tooltip: 'ТРЕБУЕТСЯ ПЕРЕЗАГРУЗКА' },
-        EN: { title: 'MODS SETTINGS', tooltip: 'REQUIRES RELOAD' }
+        RU: { title: 'НАСТРОЙКИ KASPERSKY\'S INVENTIONS', tooltip: 'ТРЕБУЕТСЯ ПЕРЕЗАГРУЗКА' },
+        EN: { title: 'KASPERSKY\'S INVENTIONS SETTINGS', tooltip: 'REQUIRES RELOAD' }
     };
     const MY_SETTINGS = [
-        { id: 'k_ext_btn', label: { RU: 'Расширенная кнопка "Играть"', EN: 'Extended "Play" button' }, default: true },
-        { id: 'k_history', label: { RU: 'Вести историю битв', EN: 'Track battle history' }, default: true },
-        { id: 'k_augments', label: { RU: 'Показывать характеристики устройств', EN: 'Show augment specifications' }, default: true },
-        { id: 'k_auto_upgrade', label: { RU: 'Кнопки быстрой прокачки припасов', EN: 'Quick supply upgrade buttons' }, default: true },
-        { id: 'k_friends', label: { RU: 'Цветовые метки и категории друзей', EN: 'Color tags and friend categories' }, default: true },
-        { id: 'k_paints', label: { RU: 'Интеллектуальный поиск по краскам', EN: 'Smart paint search' }, default: true }
+        { id: 'k_ext_btn', label: { RU: 'Расширенная кнопка «Играть»', EN: 'Enhanced «Play» button' }, default: false },
+        { id: 'k_history', label: { RU: 'История боёв', EN: 'Battle history' }, default: false },
+        { id: 'k_augments', label: { RU: 'Характеристики устройств', EN: 'Augment specifications' }, default: false },
+        { id: 'k_auto_upgrade', label: { RU: 'Быстрое улучшение вооружения', EN: 'Quick weapon upgrades' }, default: false },
+        { id: 'k_friends', label: { RU: 'Метки и категории друзей', EN: 'Friend tags & categories' }, default: false },
+        { id: 'k_paints', label: { RU: 'Умный поиск красок', EN: 'Smart paint search' }, default: false }
     ];
     function getSetting(id, def) {
         const val = localStorage.getItem(id);
@@ -30,9 +30,9 @@
     const CSS = `
         @keyframes catchSettings { from { outline-color: transparent; } to { outline-color: transparent; } }
         .SettingsComponentStyle-blockContentOptions { animation: catchSettings 0.001s; }
-                .SettingsComponentStyle-blockContentOptions > ul { position: relative !important; overflow-y: auto !important; scrollbar-width: none !important; }
+        .SettingsComponentStyle-blockContentOptions > ul { position: relative !important; overflow-y: auto !important; scrollbar-width: none !important; }
         .SettingsComponentStyle-blockContentOptions > ul::-webkit-scrollbar { display: none !important; }
-                #kaspersky-tab { position: relative !important; width: 100% !important; height: 5em !important; z-index: 5; display: flex; align-items: center; justify-content: flex-start; cursor: pointer; margin-top: 21em; }
+        #kaspersky-tab { position: relative !important; width: 100% !important; height: 5em !important; z-index: 5; display: flex; align-items: center; justify-content: flex-start; cursor: pointer; margin-top: 21em; }
         
         #kaspersky-tab span { font-family: BaseFontBold, FallbackFontBold, sans-serif; font-style: normal; font-weight: 500; font-size: 1.125em; text-transform: uppercase; margin-left: 1.875em; margin-top: 0.1em; color: rgba(255, 255, 255, 0.6); position: relative; z-index: 5; transition: 0.5s; }
         #kaspersky-tab span:hover, #kaspersky-tab.SettingsMenuComponentStyle-activeItemOptions span { color: white; }
@@ -46,11 +46,18 @@
         
         #kaspersky-settings-content { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; width: 46.875em; height: 100%; margin-left: 2.625em; margin-top: 0px; padding: 1.875em 1.875em 0px; position: relative; background-color: rgba(255, 255, 255, 0.1); overflow-x: hidden; overflow-y: auto; scrollbar-color: rgb(188, 188, 188) rgba(255, 255, 255, 0.2); scrollbar-width: thin; }
         .kasp-toggle-row { display: flex; align-items: center; justify-content: flex-start; width: 100%; height: 2.25em; margin-bottom: 1.25em; }
-        .kasp-toggle-switch { width: 2.75em; height: 1.5em; border: 0.063em solid rgba(255, 255, 255, 0.2); border-radius: 6.25rem; background-color: transparent; display: flex; align-items: center; position: relative; transition: 0.2s; flex-shrink: 0; cursor: pointer; }
-        .kasp-toggle-switch::before { content: ""; position: absolute; width: 1em; height: 1em; border-radius: 50%; background-color: rgb(188, 188, 188); left: 0.25em; transition: left 0.2s ease, background 0.2s ease; }
+        
+        /* Измененные стили контейнера ползунка */
+        .kasp-toggle-switch { width: 2.75em; height: 1.5em; border: 0.063em solid rgba(255, 255, 255, 0.2); border-radius: 6.25rem; background-color: rgba(191, 213, 255, 0.25); display: flex; align-items: center; position: relative; transition: background-color 0.2s; flex-shrink: 0; cursor: pointer; }
         .kasp-toggle-row.kasp-active .kasp-toggle-switch { background-color: rgba(118, 255, 51, 0.25); }
-        .kasp-toggle-row.kasp-active .kasp-toggle-switch::before { background: url(https://s.eu.tankionline.com/static/images/correct.afad1b22.svg) 50% 50% / 100% 100% no-repeat; background-color: transparent; width: 1rem; height: 1rem; border-radius: 0; left: 1.45em; }
-        .kasp-toggle-label { color: rgb(255, 255, 255); font-family: BaseFontRegular, FallbackFontRegular, sans-serif; font-size: 1em; margin-left: 1em; margin-right: 1em; z-index: 2; user-select: none; cursor: pointer; }
+        
+        /* Измененные стили иконок внутри ползунка (крестик и галочка) */
+        .kasp-toggle-switch::before { content: ""; position: absolute; width: 1em; height: 1em; left: 0.25em; background: url(https://s.eu.tankionline.com/static/images/incorrectCheck.1918884a.svg) 50% 50% / 100% 100% no-repeat; transition: left 0.2s ease, background 0.2s ease; }
+        .kasp-toggle-row.kasp-active .kasp-toggle-switch::before { background: url(https://s.eu.tankionline.com/static/images/correct.afad1b22.svg) 50% 50% / 100% 100% no-repeat; left: 1.5em; }
+        
+        /* Измененные стили текста (тусклый при выключении) */
+        .kasp-toggle-label { color: rgba(255, 255, 255, 0.5); font-family: BaseFontRegular, FallbackFontRegular, sans-serif; font-size: 1em; margin-left: 1em; margin-right: 1em; z-index: 2; user-select: none; cursor: pointer; transition: color 0.2s ease; }
+        .kasp-toggle-row.kasp-active .kasp-toggle-label { color: rgb(255, 255, 255); }
         
         .kasp-tooltip { position: fixed !important; background-color: #032930 !important; border-radius: .4em !important; box-shadow: 0 0 .2em rgba(0, 0, 0, .5) !important; color: #fff !important; padding: .3em .7em !important; text-transform: uppercase !important; transform: translate(-50%, -3.3em) !important; z-index: 99999 !important; pointer-events: none !important; font-family: BaseFontMedium, FallbackFontMedium, sans-serif !important; white-space: nowrap !important; font-size: 1.3vh !important; }
         .kasp-tooltip::before { border: .6em solid transparent !important; border-top-color: #032930 !important; content: "" !important; height: 0 !important; left: 50% !important; position: absolute !important; top: calc(100% - 1px) !important; transform: translateX(-50%) !important; width: 0 !important; }

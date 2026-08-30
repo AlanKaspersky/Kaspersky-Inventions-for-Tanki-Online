@@ -372,7 +372,6 @@
         return !!document.querySelector('[class*="BattleHud"], [class*="BattleScreen"]');
     }
     const initObserver = () => {
-        let rootContainer = document.getElementById('app-root') || document.body;
         const observerConfig = { childList: true, subtree: true };
         const observer = new MutationObserver(() => {
             if (isBattleActive())
@@ -397,15 +396,14 @@
                 if (menu.dataset.customCategoriesInjected !== 'true')
                     injectCategoriesMenu(menu);
             });
-            if (rootContainer)
-                observer.observe(rootContainer, observerConfig);
+            if (document.body)
+                observer.observe(document.body, observerConfig);
         });
         const attachObserver = () => {
-            rootContainer = document.getElementById('app-root') || document.body;
-            if (rootContainer)
-                observer.observe(rootContainer, observerConfig);
+            if (document.body)
+                observer.observe(document.body, observerConfig);
         };
-        if (document.body || document.getElementById('app-root'))
+        if (document.body)
             attachObserver();
         else
             document.addEventListener('DOMContentLoaded', attachObserver);
