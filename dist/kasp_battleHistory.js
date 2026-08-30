@@ -1,7 +1,7 @@
 "use strict";
 (function () {
     'use strict';
-    if (localStorage.getItem('k_history') === 'false')
+    if (localStorage.getItem('k_history') !== 'true')
         return;
     let battleProcessed = false;
     let currentNickname = 'Unknown';
@@ -733,7 +733,7 @@
             }
             if (isBattleActive())
                 return;
-            if (localStorage.getItem('k_history') === 'false')
+            if (localStorage.getItem('k_history') !== 'true')
                 return;
             observer.disconnect();
             updateNickname();

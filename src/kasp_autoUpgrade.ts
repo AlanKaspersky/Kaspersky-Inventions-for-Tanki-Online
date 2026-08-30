@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    if (localStorage.getItem('k_augments') === 'false') return;
+    if (localStorage.getItem('k_augments') !== 'true') return;
 
     let isRunning: boolean = false;
     let upgradeQueue: number = 0;
@@ -671,7 +671,7 @@
             if (overlay && overlay.closeDialogMethod) overlay.closeDialogMethod();
         }
         if (isBattleActive()) return;
-        if (localStorage.getItem('k_auto_upgrade') === 'false') return;
+        if (localStorage.getItem('k_auto_upgrade') !== 'true') return;
         if (document.getElementById('quick-upgrade-overlay')) return;
         
         observer.disconnect();

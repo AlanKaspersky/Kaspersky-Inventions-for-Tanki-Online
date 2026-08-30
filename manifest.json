@@ -9,7 +9,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://*.tankionline.com/*"],
+      "matches": ["*://*.tankionline.com/*"],
       "js": [
         "dist/kasp_settings.js",
         "dist/kasp_playButton.js",

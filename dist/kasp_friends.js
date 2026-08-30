@@ -1,7 +1,7 @@
 "use strict";
 (function () {
     'use strict';
-    if (localStorage.getItem('k_augments') === 'false')
+    if (localStorage.getItem('k_augments') !== 'true')
         return;
     const filtersConfig = [
         { url: "https://s.eu.tankionline.com/static/images/allPaints.741c65e1.svg", type: "all" },
@@ -376,7 +376,7 @@
         const observer = new MutationObserver(() => {
             if (isBattleActive())
                 return;
-            if (localStorage.getItem('k_friends') === 'false')
+            if (localStorage.getItem('k_friends') !== 'true')
                 return;
             observer.disconnect();
             const scrollBlocks = document.querySelectorAll('.FriendListComponentStyle-scrollCommunity, .InvitationWindowsComponentStyle-usersScroll');

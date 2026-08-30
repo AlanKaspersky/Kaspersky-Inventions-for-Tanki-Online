@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    if (localStorage.getItem('k_augments') === 'false') return;
+    if (localStorage.getItem('k_augments') !== 'true') return;
 
     const filtersConfig: { url: string, type: string }[] = [
         { url: "https://s.eu.tankionline.com/static/images/allPaints.741c65e1.svg", type: "all" },
@@ -404,7 +404,7 @@
 
         const observer = new MutationObserver(() => {
             if (isBattleActive()) return;
-            if (localStorage.getItem('k_friends') === 'false') return;
+            if (localStorage.getItem('k_friends') !== 'true') return;
             
             observer.disconnect();
             

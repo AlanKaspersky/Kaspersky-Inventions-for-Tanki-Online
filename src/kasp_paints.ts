@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    if (localStorage.getItem('k_paints') === 'false') return;
+    if (localStorage.getItem('k_paints') !== 'true') return;
 
     const paintsData: Record<string, { ru: string, en: string }> = {
         "https://s.eu.tankionline.com/610/51502/256/167/30665401302161/image.webp": { ru: "Яблоко", en: "Apple" },

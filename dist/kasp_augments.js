@@ -1,7 +1,7 @@
 "use strict";
 (function () {
     'use strict';
-    if (localStorage.getItem('k_augments') === 'false')
+    if (localStorage.getItem('k_augments') !== 'true')
         return;
     function getLang() {
         const htmlLang = document.documentElement.lang || '';
@@ -4915,7 +4915,7 @@
         }
     };
     const injectButtons = () => {
-        if (localStorage.getItem('k_augments') === 'false')
+        if (localStorage.getItem('k_augments') !== 'true')
             return;
         const cardsImgs = document.querySelectorAll('img.SkinCellStyle-iconCell');
         cardsImgs.forEach(img => {
@@ -4977,7 +4977,7 @@
         }, true);
     };
     function updateLiveStats() {
-        if (localStorage.getItem('k_augments') === 'false')
+        if (localStorage.getItem('k_augments') !== 'true')
             return;
         document.querySelectorAll('.custom-live-stat').forEach(el => el.remove());
         document.querySelectorAll('.hidden-by-script').forEach(el => {
@@ -5051,7 +5051,7 @@
             }
             if (isBattleActive())
                 return;
-            if (localStorage.getItem('k_augments') === 'false')
+            if (localStorage.getItem('k_augments') !== 'true')
                 return;
             observer.disconnect();
             injectButtons();

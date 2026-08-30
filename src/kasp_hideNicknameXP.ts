@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    if (localStorage.getItem('k_hideNicknameXP') === 'false') return;
+    if (localStorage.getItem('k_hideNicknameXP') !== 'true') return;
 
     let cachedOriginalNick: string | null = null;
     let currentLanguage = 'EN';

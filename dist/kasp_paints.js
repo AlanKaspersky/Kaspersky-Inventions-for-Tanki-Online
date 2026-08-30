@@ -1,7 +1,7 @@
 "use strict";
 (function () {
     'use strict';
-    if (localStorage.getItem('k_paints') === 'false')
+    if (localStorage.getItem('k_paints') !== 'true')
         return;
     const paintsData = {
         "https://s.eu.tankionline.com/610/51502/256/167/30665401302161/image.webp": { ru: "Яблоко", en: "Apple" },

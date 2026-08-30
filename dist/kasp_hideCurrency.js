@@ -1,7 +1,7 @@
 "use strict";
 (function () {
     'use strict';
-    if (localStorage.getItem('k_hideCurrency') === 'false')
+    if (localStorage.getItem('k_hideCurrency') !== 'true')
         return;
     function isBattleActive() {
         return !!document.querySelector('[class*="BattleHud"], [class*="BattleScreen"]');

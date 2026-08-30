@@ -1,7 +1,7 @@
 "use strict";
 (function () {
     'use strict';
-    if (localStorage.getItem('k_augments') === 'false')
+    if (localStorage.getItem('k_augments') !== 'true')
         return;
     let isRunning = false;
     let upgradeQueue = 0;
@@ -610,7 +610,7 @@
         }
         if (isBattleActive())
             return;
-        if (localStorage.getItem('k_auto_upgrade') === 'false')
+        if (localStorage.getItem('k_auto_upgrade') !== 'true')
             return;
         if (document.getElementById('quick-upgrade-overlay'))
             return;

@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    if (localStorage.getItem('k_ext_btn') === 'false') return;
+    if (localStorage.getItem('k_ext_btn') !== 'true') return;
 
     let buttonsCreated: boolean = false;
     const BUTTON_WIDTH = 3.5;

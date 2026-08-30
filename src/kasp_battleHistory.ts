@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    if (localStorage.getItem('k_history') === 'false') return;
+    if (localStorage.getItem('k_history') !== 'true') return;
 
     let battleProcessed: boolean = false;
     let currentNickname: string = 'Unknown';
@@ -790,7 +790,7 @@
                 if (confirmOverlay && confirmOverlay.closeDialogMethod) confirmOverlay.closeDialogMethod();
             }
             if (isBattleActive()) return;
-            if (localStorage.getItem('k_history') === 'false') return;
+            if (localStorage.getItem('k_history') !== 'true') return;
 
             observer.disconnect();
             updateNickname();
