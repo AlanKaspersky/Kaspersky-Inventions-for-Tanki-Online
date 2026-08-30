@@ -578,7 +578,7 @@
     const paintsObserver = new MutationObserver((mutations) => {
         if (isBattleActive()) return;
         
-        paintsObserver.disconnect(); // СТОП
+        paintsObserver.disconnect();
         observerAttached = false;
 
         const hasAddedNodes = mutations.some(mutation => mutation.addedNodes.length > 0);
@@ -587,7 +587,7 @@
             applySearch();
         }
 
-        startObserver(); // СТАРТ
+        startObserver();
     });
 
     function startObserver() {

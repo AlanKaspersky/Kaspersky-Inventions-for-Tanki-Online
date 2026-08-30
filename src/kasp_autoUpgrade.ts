@@ -382,7 +382,6 @@
         dialog.appendChild(footer);
         overlay.appendChild(dialog);
         
-        // Каст к типу any для установки пользовательского метода
         (overlay as any).closeDialogMethod = closeDialog;
         document.body.appendChild(overlay);
 
@@ -390,39 +389,39 @@
             if (!overlay.parentNode) return;
             overlay.remove();
             document.removeEventListener('keydown', onKeyDown, true);
+            document.removeEventListener('mousedown', onMouseDown, true);
         }
 
-        confirmBtn.addEventListener('click', (e: MouseEvent) => {
+        confirmBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             closeDialog();
             if (callback) callback();
         });
 
-        cancelBtn.addEventListener('click', (e: MouseEvent) => {
+        cancelBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             closeDialog();
         });
 
-        closeBtn.addEventListener('click', (e: MouseEvent) => {
+        closeBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             closeDialog();
         });
 
-        overlay.addEventListener('click', (e: MouseEvent) => {
+        overlay.addEventListener('click', (e) => {
             if (e.target === overlay) {
                 closeDialog();
             }
         });
 
         function onKeyDown(e: KeyboardEvent) {
-            if (e.key === 'Escape') {
+            if (e.key === 'Escape' || e.code === 'KeyZ' || e.key.toLowerCase() === 'z') {
                 e.preventDefault();
                 e.stopPropagation();
                 e.stopImmediatePropagation();
                 closeDialog();
                 return;
             }
-
             if (e.key === 'Enter') {
                 e.preventDefault();
                 e.stopPropagation();
@@ -433,7 +432,17 @@
             }
         }
 
+        function onMouseDown(e: MouseEvent) {
+            if (e.button === 3 || e.button === 4) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                closeDialog();
+            }
+        }
+
         document.addEventListener('keydown', onKeyDown, true);
+        document.addEventListener('mousedown', onMouseDown, true);
     }
 
     function performAction(count: number) {
@@ -656,11 +665,16 @@
     const observerConfig = { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class', 'style'] };
 
     const observer = new MutationObserver(() => {
+        const loader = document.querySelector('.ApplicationLoaderComponentStyle-container.-background');
+        if (loader) {
+            const overlay = document.getElementById('quick-upgrade-overlay') as any;
+            if (overlay && overlay.closeDialogMethod) overlay.closeDialogMethod();
+        }
         if (isBattleActive()) return;
         if (localStorage.getItem('k_auto_upgrade') === 'false') return;
         if (document.getElementById('quick-upgrade-overlay')) return;
         
-        observer.disconnect(); // СТОП
+        observer.disconnect();
         
         const container = document.querySelector('.TanksPartBaseComponentStyle-buttonsContainer');
         const nameElement = document.querySelector('.ItemDescriptionComponentStyle-nameItem') || container;
@@ -683,7 +697,7 @@
             if (existing) existing.remove();
         }
 
-        if (rootContainer) observer.observe(rootContainer, observerConfig); // СТАРТ
+        if (rootContainer) observer.observe(rootContainer, observerConfig);
     });
 
     const attachObserver = () => {

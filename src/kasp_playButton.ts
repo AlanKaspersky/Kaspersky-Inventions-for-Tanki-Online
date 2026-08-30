@@ -330,7 +330,7 @@
                 if (clickSpecificCard(targetMode.names)) {
                     autoQueueState = 0;
                     targetMode = null;
-                    document.body.classList.remove('kasp-autoqueue-active'); // Выключаем
+                    document.body.classList.remove('kasp-autoqueue-active');
                 }
             } else {
                 if (clickSpecificCard(modesButtonNames)) autoQueueState = 2;
@@ -339,7 +339,7 @@
             if (clickSpecificCard(targetMode.names)) {
                 autoQueueState = 0;
                 targetMode = null;
-                document.body.classList.remove('kasp-autoqueue-active'); // Выключаем
+                document.body.classList.remove('kasp-autoqueue-active');
             }
         }
     }
@@ -375,7 +375,7 @@
     const observer = new MutationObserver(() => {
         if (isBattleActive()) return;
         
-        observer.disconnect(); // СТОП
+        observer.disconnect();
         
         const playButton = document.querySelector('.MainScreenComponentStyle-playButtonContainer:not([data-overridden="true"])') as HTMLElement;
         if (playButton) {
@@ -384,7 +384,7 @@
         }
         if (buttonsCreated) syncButtonStates();
 
-        if (rootContainer) observer.observe(rootContainer, observerConfig); // СТАРТ
+        if (rootContainer) observer.observe(rootContainer, observerConfig);
     });
 
     const attachObserver = () => {

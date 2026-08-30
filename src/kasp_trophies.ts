@@ -296,7 +296,7 @@
     const observer = new MutationObserver(() => {
         if (isBattleActive()) return;
         
-        observer.disconnect(); // СТОП
+        observer.disconnect();
         
         updateInterface();
         
@@ -306,7 +306,7 @@
             if (battleCards.length > 0) processBattleResults(Array.from(battleCards) as HTMLElement[]);
         }
 
-        if (rootContainer) observer.observe(rootContainer, observerConfig); // СТАРТ
+        if (rootContainer) observer.observe(rootContainer, observerConfig);
     });
 
     const initObserver = () => {

@@ -171,9 +171,13 @@
         title.textContent = t[lang].title;
         title.style.cssText = `font-size: 1.5em; color: rgb(255, 255, 255); font-family: BaseFontBold, FallbackFontBold, sans-serif; font-weight: 500; margin: 0; padding: 0; line-height: 1.2; flex: 1;`;
         const closeBtn = document.createElement('div');
-        closeBtn.style.cssText = `width: 1.5em; height: 1.5em; cursor: pointer; background-image: url(/browser-public/static/images/iconDelete.b879b0ab.svg); background-repeat: no-repeat; background-size: contain; background-position: center center; flex-shrink: 0; margin-left: 0.5em;`;
-        closeBtn.addEventListener('mouseenter', () => { closeBtn.style.backgroundImage = 'url(/browser-public/static/images/deleteHoverModal.3aceb055.svg)'; });
-        closeBtn.addEventListener('mouseleave', () => { closeBtn.style.backgroundImage = 'url(/browser-public/static/images/iconDelete.b879b0ab.svg)'; });
+        closeBtn.style.cssText = `width: 1.5em; height: 1.5em; cursor: pointer; background-image: url(https://s.eu.tankionline.com/static/images/iconDelete.b879b0ab.svg); background-repeat: no-repeat; background-size: contain; background-position: center center; flex-shrink: 0; margin-left: 0.5em;`;
+        closeBtn.addEventListener('mouseenter', () => {
+            closeBtn.style.backgroundImage = 'url(https://s.eu.tankionline.com/static/images/deleteHoverModal.3aceb055.svg)';
+        });
+        closeBtn.addEventListener('mouseleave', () => {
+            closeBtn.style.backgroundImage = 'url(https://s.eu.tankionline.com/static/images/iconDelete.b879b0ab.svg)';
+        });
         header.appendChild(title);
         header.appendChild(closeBtn);
         const content = document.createElement('div');
@@ -207,6 +211,7 @@
                 return;
             overlay.remove();
             document.removeEventListener('keydown', onKeyDown, true);
+            document.removeEventListener('mousedown', onMouseDown, true);
         }
         confirmBtn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -232,7 +237,7 @@
                 document.removeEventListener('keydown', onKeyDown, true);
                 return;
             }
-            if (e.key === 'Escape') {
+            if (e.key === 'Escape' || e.code === 'KeyZ' || e.key.toLowerCase() === 'z') {
                 e.preventDefault();
                 e.stopPropagation();
                 e.stopImmediatePropagation();
@@ -249,7 +254,16 @@
                 return;
             }
         }
+        function onMouseDown(e) {
+            if (e.button === 3 || e.button === 4) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                closeDialog();
+            }
+        }
         document.addEventListener('keydown', onKeyDown, true);
+        document.addEventListener('mousedown', onMouseDown, true);
     }
     const t = {
         RU: { title: 'История Битв', date: 'Дата', map: 'Карта', status: 'Статус', top: 'ТОП', mode: 'Режим', score: 'Очки', kd: 'У/П', turret: 'Пушка', hull: 'Корпус', crystals: 'Кристаллы', stars: 'Звезды', win: 'Победа', lose: 'Поражение', draw: 'Ничья', dm: 'DM', clear: 'Очистить', export: 'Экспорт', import: 'Импорт', confirmClear: 'Вы уверены, что хотите удалить ВСЮ историю битв?', noDataExport: 'Нет данных для экспорта.', importSuccess: 'История битв успешно импортирована!', importError: 'Произошла ошибка при чтении файла.' },
@@ -695,7 +709,7 @@
         });
         window.addEventListener('mousedown', (e) => {
             const overlay = document.querySelector('.custom-history-overlay');
-            if (overlay && overlay.style.display === 'flex' && e.button === 3) {
+            if (overlay && overlay.style.display === 'flex' && (e.button === 3 || e.button === 4)) {
                 overlay.style.display = 'none';
                 e.preventDefault();
             }
@@ -708,6 +722,15 @@
         let rootContainer = document.getElementById('app-root') || document.body;
         const observerConfig = { childList: true, subtree: true };
         const observer = new MutationObserver(() => {
+            const loader = document.querySelector('.ApplicationLoaderComponentStyle-container.-background');
+            if (loader) {
+                const historyOverlay = document.querySelector('.custom-history-overlay');
+                if (historyOverlay && historyOverlay.style.display === 'flex')
+                    historyOverlay.style.display = 'none';
+                const confirmOverlay = document.getElementById('clear-confirm-overlay');
+                if (confirmOverlay && confirmOverlay.closeDialogMethod)
+                    confirmOverlay.closeDialogMethod();
+            }
             if (isBattleActive())
                 return;
             if (localStorage.getItem('k_history') === 'false')

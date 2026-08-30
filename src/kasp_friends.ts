@@ -406,7 +406,7 @@
             if (isBattleActive()) return;
             if (localStorage.getItem('k_friends') === 'false') return;
             
-            observer.disconnect(); // СТОП
+            observer.disconnect();
             
             const scrollBlocks = document.querySelectorAll('.FriendListComponentStyle-scrollCommunity, .InvitationWindowsComponentStyle-usersScroll');
             scrollBlocks.forEach(node => {
@@ -421,14 +421,12 @@
                 });
             });
             
-            // Ищем контекстные меню (Они появляются в #modal-root)
             const contextMenus = document.querySelectorAll('.ContextMenuStyle-menu');
             contextMenus.forEach(node => {
                 const menu = node as HTMLElement;
                 if (menu.dataset.customCategoriesInjected !== 'true') injectCategoriesMenu(menu);
             });
 
-            // СТАРТ: Обязательно слушаем body, чтобы захватить #modal-root
             if (document.body) observer.observe(document.body, observerConfig); 
         });
 

@@ -355,6 +355,7 @@
                 return;
             overlay.remove();
             document.removeEventListener('keydown', onKeyDown, true);
+            document.removeEventListener('mousedown', onMouseDown, true);
         }
         confirmBtn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -376,7 +377,7 @@
             }
         });
         function onKeyDown(e) {
-            if (e.key === 'Escape') {
+            if (e.key === 'Escape' || e.code === 'KeyZ' || e.key.toLowerCase() === 'z') {
                 e.preventDefault();
                 e.stopPropagation();
                 e.stopImmediatePropagation();
@@ -393,7 +394,16 @@
                 return;
             }
         }
+        function onMouseDown(e) {
+            if (e.button === 3 || e.button === 4) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                closeDialog();
+            }
+        }
         document.addEventListener('keydown', onKeyDown, true);
+        document.addEventListener('mousedown', onMouseDown, true);
     }
     function performAction(count) {
         if (isRunning)
@@ -592,6 +602,12 @@
     let rootContainer = document.getElementById('app-root') || document.body;
     const observerConfig = { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class', 'style'] };
     const observer = new MutationObserver(() => {
+        const loader = document.querySelector('.ApplicationLoaderComponentStyle-container.-background');
+        if (loader) {
+            const overlay = document.getElementById('quick-upgrade-overlay');
+            if (overlay && overlay.closeDialogMethod)
+                overlay.closeDialogMethod();
+        }
         if (isBattleActive())
             return;
         if (localStorage.getItem('k_auto_upgrade') === 'false')

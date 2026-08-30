@@ -183,9 +183,14 @@
         title.style.cssText = `font-size: 1.5em; color: rgb(255, 255, 255); font-family: BaseFontBold, FallbackFontBold, sans-serif; font-weight: 500; margin: 0; padding: 0; line-height: 1.2; flex: 1;`;
 
         const closeBtn = document.createElement('div');
-        closeBtn.style.cssText = `width: 1.5em; height: 1.5em; cursor: pointer; background-image: url(/browser-public/static/images/iconDelete.b879b0ab.svg); background-repeat: no-repeat; background-size: contain; background-position: center center; flex-shrink: 0; margin-left: 0.5em;`;
-        closeBtn.addEventListener('mouseenter', () => { closeBtn.style.backgroundImage = 'url(/browser-public/static/images/deleteHoverModal.3aceb055.svg)'; });
-        closeBtn.addEventListener('mouseleave', () => { closeBtn.style.backgroundImage = 'url(/browser-public/static/images/iconDelete.b879b0ab.svg)'; });
+        closeBtn.style.cssText = `width: 1.5em; height: 1.5em; cursor: pointer; background-image: url(https://s.eu.tankionline.com/static/images/iconDelete.b879b0ab.svg); background-repeat: no-repeat; background-size: contain; background-position: center center; flex-shrink: 0; margin-left: 0.5em;`;
+        
+        closeBtn.addEventListener('mouseenter', () => { 
+            closeBtn.style.backgroundImage = 'url(https://s.eu.tankionline.com/static/images/deleteHoverModal.3aceb055.svg)'; 
+        });
+        closeBtn.addEventListener('mouseleave', () => { 
+            closeBtn.style.backgroundImage = 'url(https://s.eu.tankionline.com/static/images/iconDelete.b879b0ab.svg)'; 
+        });
 
         header.appendChild(title);
         header.appendChild(closeBtn);
@@ -228,25 +233,26 @@
             if (!overlay.parentNode) return;
             overlay.remove();
             document.removeEventListener('keydown', onKeyDown, true);
+            document.removeEventListener('mousedown', onMouseDown, true);
         }
 
-        confirmBtn.addEventListener('click', (e: MouseEvent) => {
+        confirmBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             closeDialog();
             if (callback) callback();
         });
 
-        cancelBtn.addEventListener('click', (e: MouseEvent) => {
+        cancelBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             closeDialog();
         });
 
-        closeBtn.addEventListener('click', (e: MouseEvent) => {
+        closeBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             closeDialog();
         });
 
-        overlay.addEventListener('click', (e: MouseEvent) => {
+        overlay.addEventListener('click', (e) => {
             if (e.target === overlay) {
                 closeDialog();
             }
@@ -257,19 +263,34 @@
                 document.removeEventListener('keydown', onKeyDown, true);
                 return;
             }
-            if (e.key === 'Escape') {
-                e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+            if (e.key === 'Escape' || e.code === 'KeyZ' || e.key.toLowerCase() === 'z') {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
                 closeDialog();
                 return;
             }
             if (e.key === 'Enter') {
-                e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
                 closeDialog();
                 if (callback) callback();
                 return;
             }
         }
+
+        function onMouseDown(e: MouseEvent) {
+            if (e.button === 3 || e.button === 4) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                closeDialog();
+            }
+        }
+
         document.addEventListener('keydown', onKeyDown, true);
+        document.addEventListener('mousedown', onMouseDown, true);
     }
 
     const t: Record<string, Record<string, string>> = {
@@ -732,8 +753,8 @@
     };
 
     const initNavigationListeners = () => {
-        window.addEventListener('keydown', (e: KeyboardEvent) => {
-            const overlay = document.querySelector('.custom-history-overlay') as HTMLElement | null;
+        window.addEventListener('keydown', (e) => {
+            const overlay = document.querySelector('.custom-history-overlay') as HTMLElement;
             if (overlay && overlay.style.display === 'flex') {
                 if (e.code === 'Escape' || e.key === 'Escape' || e.code === 'KeyZ' || e.key.toLowerCase() === 'z') {
                     if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
@@ -742,10 +763,9 @@
                 }
             }
         });
-
-        window.addEventListener('mousedown', (e: MouseEvent) => {
-            const overlay = document.querySelector('.custom-history-overlay') as HTMLElement | null;
-            if (overlay && overlay.style.display === 'flex' && e.button === 3) {
+        window.addEventListener('mousedown', (e) => {
+            const overlay = document.querySelector('.custom-history-overlay') as HTMLElement;
+            if (overlay && overlay.style.display === 'flex' && (e.button === 3 || e.button === 4)) {
                 overlay.style.display = 'none';
                 e.preventDefault();
             }
@@ -761,11 +781,18 @@
         const observerConfig = { childList: true, subtree: true };
 
         const observer = new MutationObserver(() => {
+            const loader = document.querySelector('.ApplicationLoaderComponentStyle-container.-background');
+            if (loader) {
+                const historyOverlay = document.querySelector('.custom-history-overlay') as HTMLElement;
+                if (historyOverlay && historyOverlay.style.display === 'flex') historyOverlay.style.display = 'none';
+                
+                const confirmOverlay = document.getElementById('clear-confirm-overlay') as any;
+                if (confirmOverlay && confirmOverlay.closeDialogMethod) confirmOverlay.closeDialogMethod();
+            }
             if (isBattleActive()) return;
             if (localStorage.getItem('k_history') === 'false') return;
 
-            observer.disconnect(); // СТОП
-
+            observer.disconnect();
             updateNickname();
             injectMenuButton();
             
@@ -788,7 +815,7 @@
                 battleProcessed = false;
             }
 
-            if (rootContainer) observer.observe(rootContainer, observerConfig); // СТАРТ
+            if (rootContainer) observer.observe(rootContainer, observerConfig);
         });
 
         const attachObserver = () => {
