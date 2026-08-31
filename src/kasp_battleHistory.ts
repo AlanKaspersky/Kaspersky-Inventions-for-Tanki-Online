@@ -1,4 +1,7 @@
 (function() {
+    if (window !== window.top) {
+        return;
+    }
     'use strict';
 
     if (localStorage.getItem('k_history') !== 'true') return;
@@ -294,8 +297,8 @@
     }
 
     const t: Record<string, Record<string, string>> = {
-        RU: { title: 'История Битв', date: 'Дата', map: 'Карта', status: 'Статус', top: 'ТОП', mode: 'Режим', score: 'Очки', kd: 'У/П', turret: 'Пушка', hull: 'Корпус', crystals: 'Кристаллы', stars: 'Звезды', win: 'Победа', lose: 'Поражение', draw: 'Ничья', dm: 'DM', clear: 'Очистить', export: 'Экспорт', import: 'Импорт', confirmClear: 'Вы уверены, что хотите удалить ВСЮ историю битв?', noDataExport: 'Нет данных для экспорта.', importSuccess: 'История битв успешно импортирована!', importError: 'Произошла ошибка при чтении файла.' },
-        EN: { title: 'Battle History', date: 'Date', map: 'Map', status: 'Status', top: 'TOP', mode: 'Mode', score: 'Score', kd: 'K/D', turret: 'Turret', hull: 'Hull', crystals: 'Crystals', stars: 'Stars', win: 'Victory', lose: 'Defeat', draw: 'Draw', dm: 'DM', clear: 'Clear', export: 'Export', import: 'Import', confirmClear: 'Are you sure you want to delete ALL battle history?', noDataExport: 'No data available to export.', importSuccess: 'Battle history imported successfully!', importError: 'Error reading the file.' }
+        RU: { title: 'История Битв', date: 'Дата', map: 'Карта', status: 'Статус', top: 'ТОП', mode: 'Режим', score: 'Очки', kd: 'У/П', turret: 'Пушка', hull: 'Корпус', crystals: 'Кристаллы', stars: 'Звезды', win: 'Победа', lose: 'Поражение', draw: 'Ничья', dm: 'DM', clear: 'Очистить', export: 'Экспорт', import: 'Импорт', confirmClear: 'Вы уверены, что хотите удалить ВСЮ историю битв?', noDataExport: 'Нет данных для экспорта.', importSuccess: 'История битв успешно импортирована!', importError: 'Произошла ошибка при чтении файла.', last20: 'Статистика 20 битв' },
+        EN: { title: 'Battle History', date: 'Date', map: 'Map', status: 'Status', top: 'TOP', mode: 'Mode', score: 'Score', kd: 'K/D', turret: 'Turret', hull: 'Hull', crystals: 'Crystals', stars: 'Stars', win: 'Victory', lose: 'Defeat', draw: 'Draw', dm: 'DM', clear: 'Clear', export: 'Export', import: 'Import', confirmClear: 'Are you sure you want to delete ALL battle history?', noDataExport: 'No data available to export.', importSuccess: 'Battle history imported successfully!', importError: 'Error reading the file.', last20: 'Last 20 Match Stats' }
     };
 
     const addHistoryStyles = () => {
@@ -313,7 +316,36 @@
             .custom-history-close:hover { background-color: rgba(255, 255, 255, 0.05); }
             .custom-history-close:hover .custom-history-logout-icon { background-color: rgb(255, 255, 255); }
             .custom-history-logout-icon { background-color: rgb(191, 213, 255); height: 1.5rem; width: 1.5rem; -webkit-mask-image: url(https://s.eu.tankionline.com/static/images/logOut.29b47580.svg); mask-image: url(https://s.eu.tankionline.com/static/images/logOut.29b47580.svg); -webkit-mask-position: center center; mask-position: center center; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-size: contain; mask-size: contain; }
-            .custom-history-content { padding: 0em 3em; flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; }
+            .custom-history-content { padding: 0em 3em 3em 3em; flex-grow: 1; display: flex; flex-direction: row; justify-content: center; overflow: hidden; }
+            .bh-left-panel { width: 80em; display: flex; flex-direction: column; flex-shrink: 0; }
+            .bh-right-panel { width: 28em; display: flex; flex-direction: column; gap: 1.5em; flex-shrink: 0; padding-top: 5.5em; }            
+            .bh-stats-box { background: rgb(45 56 66 / 55%); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 0.5em; padding: 1.2em; display: flex; flex-direction: column; gap: 1.2em; }            
+            .bh-stats-title { font-family: BaseFontBold, FallbackFontBold, sans-serif; font-size: 1em; color: rgba(191, 213, 255, 0.6); text-transform: uppercase; text-align: center; letter-spacing: 0.05em; }
+            .bh-stats-grid { display: flex; justify-content: space-between; align-items: center; }
+            .bh-stat-item { display: flex; flex-direction: column; align-items: center; gap: 0.6em; flex: 1; }
+            .bh-stat-separator { width: 1px; height: 4.5em; background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.15) 30%, rgba(255,255,255,0.15) 70%, rgba(255,255,255,0)); }
+            .bh-stat-icon { width: 2.2em; height: 2.2em; background-color: rgb(191, 213, 255); -webkit-mask-size: contain; mask-size: contain; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center; opacity: 0.9; }
+            .bh-stat-label { font-family: BaseFontMedium, FallbackFontMedium, sans-serif; font-size: 0.8em; color: rgba(255, 255, 255, 0.4); text-transform: uppercase; white-space: nowrap; }
+            .bh-stat-value { font-family: BaseFontBold, FallbackFontBold, sans-serif; font-size: 2.2em; color: rgb(255, 221, 44); line-height: 1; }
+            .bh-medals-box { background: rgb(45 56 66 / 55%); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 0.5em; }            
+            .bh-medal-container { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 1.2em; padding: 1.5em; }            .bh-medal-glow-wrap { position: relative; display: flex; align-items: center; justify-content: center; }
+            .bh-medal-glow-wrap::before {
+                content: '';
+                position: absolute;
+                width: 8em;
+                height: 8em;
+                background: radial-gradient(circle, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.5) 45%, rgba(0, 0, 0, 0) 70%);
+                border-radius: 50%;
+                z-index: 0;
+                pointer-events: none;
+            }
+            .bh-medal-img { width: 11em; height: 11em; object-fit: contain; position: relative; z-index: 1; filter: drop-shadow(0 10px 20px rgba(0,0,0,0.8)); transition: transform 0.3s ease; }
+            .bh-medal-img:hover { transform: scale(1.05); }
+            .bh-progress-container { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; width: 85%; }            
+            .bh-progress-labels { display: flex; justify-content: space-between; width: 100%; font-family: BaseFontMedium, FallbackFontMedium, sans-serif; font-size: 0.85em; color: rgba(255, 255, 255, 0.5); text-transform: uppercase; }
+            .bh-progress-current { color: rgb(255, 255, 255); }
+            .bh-progress-wrapper { background-color: rgba(255, 51, 51, 0.5); border-radius: 0.375em; position: relative; min-width: 12.5em; width: 100%; height: 0.25em; margin-top: 0.375em; margin-left: 0px; }
+            .bh-progress-fill { background-color: rgb(255, 51, 51); border-radius: 6.25em; height: 100%; transition: width 0.8s ease-out; }            
             .bh-table-wrapper { position: relative; width: 100%; flex-grow: 1; display: flex; flex-direction: column; align-items: center; min-height: 0; }
             .bh-controls-container { width: 80em; justify-content: space-between; z-index: 5; display: flex; margin-bottom: 1.5em; }
             .bh-controls-left { display: flex; gap: 1em; justify-content: flex-start; }
@@ -501,6 +533,109 @@
         const dict = t[lang];
         let battles = await getAllBattles(currentNickname);
         battles.sort((a: any, b: any) => b.date - a.date);
+        const recent20 = battles.slice(0, 20);
+        let validTops = 0, sumTop = 0;
+        let totalKills = 0, totalDeaths = 0;
+        let totalScore = 0;
+
+        recent20.forEach(b => {
+            const topNum = parseInt(b.top);
+            if (!isNaN(topNum)) {
+                sumTop += topNum;
+                validTops++;
+            }
+            totalKills += (b.kills || 0);
+            totalDeaths += (b.deaths || 0);
+            totalScore += (b.reputation || 0);
+        });
+
+        const avgTop = validTops > 0 ? Math.round(sumTop / validTops) : '-';
+        const avgKd = totalDeaths > 0 
+            ? (totalKills / totalDeaths).toFixed(2) 
+            : (totalKills > 0 ? totalKills.toFixed(2) : '0.00');
+        const avgScore = recent20.length > 0 ? Math.round(totalScore / recent20.length) : '-';
+
+        const topEl = document.getElementById('bh-stat-top');
+        const kdEl = document.getElementById('bh-stat-kd');
+        const scoreEl = document.getElementById('bh-stat-score');
+
+        if (topEl) topEl.textContent = avgTop !== '-' ? `#${avgTop}` : '-';
+        if (kdEl) kdEl.textContent = avgKd.toString();
+        if (scoreEl) scoreEl.textContent = avgScore !== '-' ? avgScore.toLocaleString('ru-RU') : '-';
+
+        let totalWins = 0;
+        let totalLosses = 0;
+        battles.forEach(b => {
+            const statusLower = (b.status || '').toLowerCase();
+            if (statusLower.includes('victory') || statusLower.includes('победа')) {
+                totalWins++;
+            } else if (statusLower.includes('defeat') || statusLower.includes('поражение')) {
+                totalLosses++;
+            }
+        });
+
+        let currentPoints = Math.max(0, totalWins - totalLosses);
+
+        const medalTiers = [
+            { name: 'Wood', wins: 0, file: 'wood.png', style: 'width: 11em; height: 11em;' },
+            { name: 'Bronze', wins: 50, file: 'bronze.png', style: 'width: 11em; height: 12em; margin-top: -1em;' },
+            { name: 'Silver', wins: 100, file: 'silver.png', style: 'width: 11em; height: 10em; transform: scale(1.1);' },
+            { name: 'Gold', wins: 500, file: 'gold.png', style: 'width: 11em; height: 12em;' },
+            { name: 'Platinum', wins: 1000, file: 'platinum.png', style: 'width: 12em; height: 12em;' },
+            { name: 'Emerald', wins: 2000, file: 'emerald.png', style: 'width: 21em; height: 19em;' },
+            { name: 'Opal', wins: 5000, file: 'opal.png', style: 'width: 21em; height: 19em;' },
+            { name: 'Obsidian', wins: 10000, file: 'obsidian.png', style: 'width: 23em; height: 21em;' },
+            { name: 'Diamond', wins: 50000, file: 'diamond.png', style: 'width: 27em; height: 20em; transform: translateY(-0.5em);' }
+        ];
+
+        let currentTier = medalTiers[0];
+        let nextTier = medalTiers[1];
+
+        for (let i = 0; i < medalTiers.length; i++) {
+            if (currentPoints >= medalTiers[i].wins) {
+                currentTier = medalTiers[i];
+                nextTier = medalTiers[i + 1] || null; 
+            } else {
+                break;
+            }
+        }
+
+        let progressPercent = 100;
+        let nextWinsText = 'MAX';
+        
+        if (nextTier) {
+            const winsInCurrentTier = currentPoints - currentTier.wins;
+            const winsNeededForNext = nextTier.wins - currentTier.wins;
+            progressPercent = (winsInCurrentTier / winsNeededForNext) * 100;
+            nextWinsText = nextTier.wins.toString();
+        }
+
+        const medalBox = document.querySelector('.bh-medals-box');
+        if (medalBox) {
+            const medalUrl = (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL)
+                ? chrome.runtime.getURL(`assets/medals/${currentTier.file}`) 
+                : `assets/medals/${currentTier.file}`;
+
+            const pointsLabel = lang === 'RU' ? 'ОЧКОВ' : 'POINTS';
+
+            medalBox.innerHTML = `
+                <div class="bh-medal-container">
+                    <div class="bh-medal-glow-wrap">
+                        <img src="${medalUrl}" class="bh-medal-img" title="${currentTier.name} Tier" style="${currentTier.style || ''}" />
+                    </div>
+                    
+                    <div class="bh-progress-container">
+                        <div class="bh-progress-labels">
+                            <span class="bh-progress-current">${currentPoints} ${pointsLabel}</span>
+                            <span>${nextWinsText}</span>
+                        </div>
+                        <div class="bh-progress-wrapper">
+                            <div class="bh-progress-fill" style="width: ${progressPercent}%;"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
 
         const totalPages = Math.max(1, Math.ceil(battles.length / ROWS_PER_PAGE));
         if (page > totalPages) page = totalPages;
@@ -668,37 +803,66 @@
                 </button>
             </div>
             <div class="custom-history-content">
-                <div class="bh-table-wrapper">
-                    <div class="bh-table">
-                        <div class="bh-controls-container">
-                        <div class="bh-controls-left">
-                            <button class="bh-control-btn bh-btn-clear" id="bh-clear-btn">${dict.clear}</button>
-                        </div>
-                        <div class="bh-controls-right">
-                            <button class="bh-control-btn bh-btn-export" id="bh-export-btn">${dict.export}</button>
-                            <button class="bh-control-btn bh-btn-import" id="bh-import-btn">${dict.import}</button>
+                <div class="bh-left-panel">
+                    <div class="bh-table-wrapper">
+                        <div class="bh-table">
+                            <div class="bh-controls-container">
+                                <div class="bh-controls-left">
+                                    <button class="bh-control-btn bh-btn-clear" id="bh-clear-btn">${dict.clear}</button>
+                                </div>
+                                <div class="bh-controls-right">
+                                    <button class="bh-control-btn bh-btn-export" id="bh-export-btn">${dict.export}</button>
+                                    <button class="bh-control-btn bh-btn-import" id="bh-import-btn">${dict.import}</button>
+                                </div>
+                            </div>
+                            <div class="bh-thead">
+                                <div class="bh-th"><h2 class="bh-th-title">${dict.date}</h2></div>
+                                <div class="bh-th"><h2 class="bh-th-title">${dict.map}</h2></div>
+                                <div class="bh-th"><h2 class="bh-th-title">${dict.status}</h2></div>
+                                <div class="bh-th"><h2 class="bh-th-title">${dict.top}</h2></div>
+                                <div class="bh-th"><h2 class="bh-th-title">${dict.mode}</h2></div>
+                                <div class="bh-th"><div class="bh-icon-mask bh-icon-score" title="${dict.score}"></div></div>
+                                <div class="bh-th"><div class="bh-icon-mask bh-icon-kills" title="${dict.kd}"></div></div>
+                                <div class="bh-th"><div class="bh-icon-mask bh-icon-turrets" title="${dict.turret}"></div></div>
+                                <div class="bh-th"><div class="bh-icon-mask bh-icon-hulls" title="${dict.hull}"></div></div>
+                                <div class="bh-th"><div class="bh-icon-mask bh-icon-crystals" title="${dict.crystals}"></div></div>
+                                <div class="bh-th"><div class="bh-icon-mask bh-icon-stars" title="${dict.stars}"></div></div>
+                            </div>
+                            <div class="bh-tbody"></div>
                         </div>
                     </div>
-                        <div class="bh-thead">
-                            <div class="bh-th"><h2 class="bh-th-title">${dict.date}</h2></div>
-                            <div class="bh-th"><h2 class="bh-th-title">${dict.map}</h2></div>
-                            <div class="bh-th"><h2 class="bh-th-title">${dict.status}</h2></div>
-                            <div class="bh-th"><h2 class="bh-th-title">${dict.top}</h2></div>
-                            <div class="bh-th"><h2 class="bh-th-title">${dict.mode}</h2></div>
-                            <div class="bh-th"><div class="bh-icon-mask bh-icon-score" title="${dict.score}"></div></div>
-                            <div class="bh-th"><div class="bh-icon-mask bh-icon-kills" title="${dict.kd}"></div></div>
-                            <div class="bh-th"><div class="bh-icon-mask bh-icon-turrets" title="${dict.turret}"></div></div>
-                            <div class="bh-th"><div class="bh-icon-mask bh-icon-hulls" title="${dict.hull}"></div></div>
-                            <div class="bh-th"><div class="bh-icon-mask bh-icon-crystals" title="${dict.crystals}"></div></div>
-                            <div class="bh-th"><div class="bh-icon-mask bh-icon-stars" title="${dict.stars}"></div></div>
-                        </div>
-                        <div class="bh-tbody"></div>
+                    <div class="bh-pagination">
+                        <button class="bh-page-btn" id="bh-prev-page">◄</button>
+                        <span class="bh-page-info" id="bh-page-info">1 / 1</span>
+                        <button class="bh-page-btn" id="bh-next-page">►</button>
                     </div>
                 </div>
-                <div class="bh-pagination">
-                    <button class="bh-page-btn" id="bh-prev-page">◄</button>
-                    <span class="bh-page-info" id="bh-page-info">1 / 1</span>
-                    <button class="bh-page-btn" id="bh-next-page">►</button>
+
+                <div class="bh-right-panel">
+                    <div class="bh-stats-box">
+                        <div class="bh-stats-title">${dict.last20}</div>
+                        <div class="bh-stats-grid">
+                            <div class="bh-stat-item">
+                                <div class="bh-stat-icon" style="-webkit-mask-image: url('https://s.eu.tankionline.com/static/images/ctf_mode.fba37902.svg');"></div>
+                                <div class="bh-stat-label">${dict.top}</div>
+                                <div class="bh-stat-value" id="bh-stat-top">-</div>
+                            </div>
+                            <div class="bh-stat-separator"></div>
+                            <div class="bh-stat-item">
+                                <div class="bh-stat-icon" style="-webkit-mask-image: url('https://s.eu.tankionline.com/static/images/kills.f9b82d9f.svg');"></div>
+                                <div class="bh-stat-label">${dict.kd}</div>
+                                <div class="bh-stat-value" id="bh-stat-kd">-</div>
+                            </div>
+                            <div class="bh-stat-separator"></div>
+                            <div class="bh-stat-item">
+                                <div class="bh-stat-icon" style="-webkit-mask-image: url('https://s.eu.tankionline.com/static/images/score.b3ca71b2.svg');"></div>
+                                <div class="bh-stat-label">${dict.score}</div>
+                                <div class="bh-stat-value" id="bh-stat-score">-</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bh-medals-box"></div>
                 </div>
             </div>
         `;

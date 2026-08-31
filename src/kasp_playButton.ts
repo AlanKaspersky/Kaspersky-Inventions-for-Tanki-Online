@@ -1,4 +1,7 @@
 (function() {
+    if (window !== window.top) {
+        return;
+    }
     'use strict';
 
     if (localStorage.getItem('k_ext_btn') !== 'true') return;
@@ -366,7 +369,7 @@
     }
 
     function isBattleActive() {
-        return !!document.querySelector('[class*="BattleHud"], [class*="BattleScreen"]');
+    return !!document.querySelector('.BattleHudComponentStyle-hudContainer');
     }
 
     let rootContainer = document.getElementById('app-root') || document.body;

@@ -1,5 +1,8 @@
 "use strict";
 (function () {
+    if (window !== window.top) {
+        return;
+    }
     'use strict';
     const CURRENT_VERSION = '1.5.1';
     const STORAGE_KEY = 'kasp_last_version';

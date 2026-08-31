@@ -1,4 +1,7 @@
 (function() {
+    if (window !== window.top) {
+        return;
+    }
     'use strict';
 
     if (localStorage.getItem('k_hideNicknameXP') !== 'true') return;
@@ -170,7 +173,7 @@
 
         const hiddenText = getHiddenText();
 
-        const tabContainer = document.querySelector('.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleKillBoardComponentStyle-tableContainer');
+        const tabContainer = document.querySelector('.BattleTabStatisticComponentStyle-containerInsideTeams');
         if (tabContainer) {
             const tabSpans = tabContainer.querySelectorAll('.BattleTabStatisticComponentStyle-nicknameCell span');
             for (let i = 0; i < tabSpans.length; i++) {
@@ -209,15 +212,13 @@
     const observerConfig = { childList: true, subtree: true, characterData: true };
 
     const observer = new MutationObserver(() => {
-        observer.disconnect(); 
+        observer.disconnect();
 
         const userName = document.querySelector('.UserInfoContainerStyle-userNameRank.UserInfoContainerStyle-textDecoration') as HTMLElement | null;
         if (userName) processNickElement(userName);
 
         const xp = document.querySelector('.UserInfoContainerStyle-progressValue') as HTMLElement | null;
         if (xp) processXpElement(xp);
-
-        hideNicknameInTables();
 
         if (rootContainer) observer.observe(rootContainer, observerConfig);
     });
@@ -231,7 +232,6 @@
             if (userName) processNickElement(userName);
             const xp = document.querySelector('.UserInfoContainerStyle-progressValue') as HTMLElement | null;
             if (xp) processXpElement(xp);
-            hideNicknameInTables();
         } else {
             setTimeout(startObserver, 50);
         }
@@ -242,4 +242,22 @@
     } else {
         startObserver();
     }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Tab') {
+            setTimeout(hideNicknameInTables, 40);
+        }
+    });
+
+    const tabOpenObserver = new MutationObserver(() => {
+        const tabTable = document.querySelector('.BattleTabStatisticComponentStyle-containerInsideTeams');
+        if (tabTable) {
+            hideNicknameInTables();
+        }
+    });
+
+    if (document.body) {
+        tabOpenObserver.observe(document.body, { childList: true, subtree: true });
+    }
+
 })();

@@ -12,19 +12,25 @@
       "matches": ["*://*.tankionline.com/*"],
       "js": [
         "dist/kasp_settings.js",
-        "dist/kasp_playButton.js",
         "dist/kasp_augments.js",
         "dist/kasp_autoUpgrade.js",
         "dist/kasp_battleHistory.js",
         "dist/kasp_friends.js",
-        "dist/kasp_paints.js",
-        "dist/kasp_layout.js",
-        "dist/kasp_welcome.js",
-        "dist/kasp_trophies.js",
         "dist/kasp_hideCurrency.js",
-        "dist/kasp_hideNicknameXP.js"
+        "dist/kasp_hideNicknameXP.js",
+        "dist/kasp_layout.js",
+        "dist/kasp_paints.js",
+        "dist/kasp_playButton.js",
+        "dist/kasp_trophies.js",
+        "dist/kasp_welcome.js"
       ],
       "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/medals/*.png", "assets/medals/*.png"],
+      "matches": ["*://*.tankionline.com/*"]
     }
   ]
 }

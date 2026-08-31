@@ -1,10 +1,13 @@
 "use strict";
 (function () {
+    if (window !== window.top) {
+        return;
+    }
     'use strict';
     if (localStorage.getItem('k_hideCurrency') !== 'true')
         return;
     function isBattleActive() {
-        return !!document.querySelector('[class*="BattleHud"], [class*="BattleScreen"]');
+        return !!document.querySelector('.BattleHudComponentStyle-hudContainer');
     }
     function getLang() {
         return document.documentElement.lang && document.documentElement.lang.toLowerCase().startsWith('ru') ? 'RU' : 'EN';

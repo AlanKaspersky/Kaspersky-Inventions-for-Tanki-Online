@@ -4,6 +4,7 @@
     "module": "ES2020",
     "rootDir": "./src", 
     "outDir": "./dist",
+    "types": ["chrome"],
     "strict": false,
     "skipLibCheck": true,
     "sourceMap": false,

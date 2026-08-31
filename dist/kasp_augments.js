@@ -1,7 +1,10 @@
 "use strict";
 (function () {
+    if (window !== window.top) {
+        return;
+    }
     'use strict';
-    if (localStorage.getItem('k_augments') !== 'true')
+    if (localStorage.getItem('k_auto_upgrade') !== 'true')
         return;
     function getLang() {
         const htmlLang = document.documentElement.lang || '';
@@ -5039,7 +5042,7 @@
         });
     }
     function isBattleActive() {
-        return !!document.querySelector('[class*="BattleHud"], [class*="BattleScreen"]');
+        return !!document.querySelector('.BattleHudComponentStyle-hudContainer');
     }
     const initObserver = () => {
         const observerConfig = { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['src', 'class'] };

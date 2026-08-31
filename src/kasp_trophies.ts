@@ -1,4 +1,7 @@
 (function() {
+    if (window !== window.top) {
+        return;
+    }
     'use strict';
 
     const STORAGE_KEY = 'kasp_trophies_favorites';
@@ -287,7 +290,7 @@
     }
 
     function isBattleActive() {
-        return !!document.querySelector('[class*="BattleHud"], [class*="BattleScreen"]');
+    return !!document.querySelector('.BattleHudComponentStyle-hudContainer');
     }
 
     let rootContainer = document.getElementById('app-root') || document.body || document.documentElement;

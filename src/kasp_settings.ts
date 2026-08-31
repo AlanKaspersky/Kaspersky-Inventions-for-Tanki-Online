@@ -1,4 +1,7 @@
 (function () {
+    if (window !== window.top) {
+        return;
+    }
     'use strict';
 
     let needsReload = false;
@@ -72,72 +75,56 @@
     if (document.head) document.head.appendChild(styleEl);
     else document.addEventListener('DOMContentLoaded', () => document.head.appendChild(styleEl));
 
-    function showWarningDialog(callback: () => void) {
+    function showWarningDialog(callback) {
         const existing = document.getElementById('kasp-warning-overlay');
-        if (existing) existing.remove();
-
+        if (existing)
+            existing.remove();
         const lang = getLang();
-        const tWarn: any = {
+        const tWarn = {
             RU: { title: 'ПРЕДУПРЕЖДЕНИЕ', text: 'Включение этой функции сломает Историю битв и раздел Кланы в друзьях, а также возможны просадки ФПС. Вы уверены, что хотите продолжить?', cancel: 'ОТМЕНА', confirm: 'ВКЛЮЧИТЬ' },
             EN: { title: 'WARNING', text: 'Enabling this feature will break Battle History and the Clans section in Friends, and may also result in FPS drops. Are you sure you want to continue?', cancel: 'CANCEL', confirm: 'ENABLE' }
         };
-
         const overlay = document.createElement('div');
         overlay.id = 'kasp-warning-overlay';
         overlay.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 99999; display: flex; align-items: center; justify-content: center;`;
-
         const dialog = document.createElement('div');
         dialog.style.cssText = `display: flex; flex-direction: column; align-items: stretch; justify-content: space-between; pointer-events: auto; min-width: 31.625em; max-width: 31.625em; width: auto; min-height: 14.125em; z-index: 60; box-shadow: rgba(0, 0, 0, 0.25) 0px 0.313em 1.25em 0px; outline: rgba(255, 255, 255, 0.25) solid 0.063em; padding: 2em; background: radial-gradient(100% 100% at 0% 0%, rgba(118, 255, 51, 0.75) 0%, rgba(119, 255, 51, 0) 100%), rgba(0, 25, 38, 0.75)`;
-
         const header = document.createElement('div');
         header.style.cssText = `display: flex; align-items: center; justify-content: space-between; background-color: transparent; width: 100%; position: relative; margin-bottom: 1.5em;`;
-
         const title = document.createElement('h1');
         title.textContent = tWarn[lang].title;
         title.style.cssText = `font-size: 1.5em; color: rgb(255, 255, 255); font-family: BaseFontBold, FallbackFontBold, sans-serif; font-weight: 500; margin: 0; padding: 0; line-height: 1.2; flex: 1;`;
-
         const closeBtn = document.createElement('div');
         closeBtn.style.cssText = `width: 1.5em; height: 1.5em; cursor: pointer; background-image: url(https://s.eu.tankionline.com/static/images/iconDelete.b879b0ab.svg); background-repeat: no-repeat; background-size: contain; background-position: center center; flex-shrink: 0; margin-left: 0.5em;`;
         closeBtn.addEventListener('mouseenter', () => { closeBtn.style.backgroundImage = 'url(https://s.eu.tankionline.com/static/images/deleteHoverModal.3aceb055.svg)'; });
         closeBtn.addEventListener('mouseleave', () => { closeBtn.style.backgroundImage = 'url(https://s.eu.tankionline.com/static/images/iconDelete.b879b0ab.svg)'; });
-
         header.appendChild(title);
         header.appendChild(closeBtn);
-
         const content = document.createElement('div');
         content.style.cssText = `display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; flex: 1; margin-bottom: 1.5em; text-align: center;`;
-
         const textSpan = document.createElement('span');
         textSpan.textContent = tWarn[lang].text;
         textSpan.style.cssText = `font-size: 1em; color: rgb(255, 255, 255); font-family: BaseFont, FallbackFont, sans-serif; line-height: 1.4;`;
-
         content.appendChild(textSpan);
-
         const footer = document.createElement('div');
         footer.style.cssText = `background-color: transparent; width: 100%; display: flex; align-items: center; justify-content: center; gap: 1.25em;`;
-
         const cancelBtn = document.createElement('div');
         cancelBtn.textContent = tWarn[lang].cancel;
         cancelBtn.style.cssText = `width: 12.375em; height: 3em; text-align: center; border-radius: 0.75em; cursor: pointer; background-color: rgba(255, 255, 255, 0.15); border: 0.063em solid transparent; display: flex; align-items: center; justify-content: center; color: rgb(255, 255, 255); font-family: BaseFontBold, FallbackFontBold, sans-serif; font-style: normal; font-weight: 500; font-size: 1em; line-height: 1.2; text-transform: uppercase; white-space: nowrap; padding: 0.2em 1.8em; box-sizing: border-box; flex-shrink: 0;`;
         cancelBtn.addEventListener('mouseenter', () => { cancelBtn.style.borderColor = 'rgb(255, 255, 255)'; cancelBtn.style.boxShadow = '0 0 0 1px rgb(255, 255, 255)'; });
         cancelBtn.addEventListener('mouseleave', () => { cancelBtn.style.borderColor = 'transparent'; cancelBtn.style.boxShadow = 'none'; });
-
         const confirmBtn = document.createElement('div');
         confirmBtn.textContent = tWarn[lang].confirm;
         confirmBtn.style.cssText = `width: 12.375em; height: 3em; text-align: center; border-radius: 0.75em; cursor: pointer; background-color: rgb(118, 255, 51); border: 0.063em solid transparent; display: flex; align-items: center; justify-content: center; color: rgb(0, 25, 38); font-family: BaseFontBold, FallbackFontBold, sans-serif; font-style: normal; font-weight: 500; font-size: 1em; line-height: 1.2; text-transform: uppercase; white-space: nowrap; padding: 0.2em 1.8em; box-sizing: border-box; flex-shrink: 0;`;
         confirmBtn.addEventListener('mouseenter', () => { confirmBtn.style.borderColor = 'rgb(255, 255, 255)'; confirmBtn.style.boxShadow = '0 0 0 1px rgb(255, 255, 255)'; });
         confirmBtn.addEventListener('mouseleave', () => { confirmBtn.style.borderColor = 'transparent'; confirmBtn.style.boxShadow = 'none'; });
-
         footer.appendChild(cancelBtn);
         footer.appendChild(confirmBtn);
-
         dialog.appendChild(header);
         dialog.appendChild(content);
         dialog.appendChild(footer);
-
         overlay.appendChild(dialog);
         document.body.appendChild(overlay);
-
         const loaderObserver = new MutationObserver(() => {
             if (document.querySelector('.ApplicationLoaderComponentStyle-container.-background')) {
                 closeDialog();
@@ -145,12 +132,35 @@
         });
         loaderObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
 
+        let dialogClosed = false;
+
+        function handleMouse(e) {
+            if (e.button === 3 || e.button === 4) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                
+                if (e.type === 'mousedown' && !dialogClosed) {
+                    dialogClosed = true;
+                    closeDialog();
+                }
+            }
+        }
+
         function closeDialog() {
-            if (!overlay.parentNode) return;
+            if (!overlay.parentNode)
+                return;
             overlay.remove();
             document.removeEventListener('keydown', onKeyDown, true);
-            document.removeEventListener('mousedown', onMouseDown, true);
             loaderObserver.disconnect();
+            
+            // Задерживаем удаление мышиных слушателей на 300мс, 
+            // чтобы полностью «проглотить» хвост из mouseup и click от боковой кнопки
+            setTimeout(() => {
+                document.removeEventListener('mousedown', handleMouse, true);
+                document.removeEventListener('mouseup', handleMouse, true);
+                document.removeEventListener('click', handleMouse, true);
+            }, 300);
         }
 
         confirmBtn.addEventListener('click', (e) => { e.stopPropagation(); closeDialog(); if (callback) callback(); });
@@ -158,29 +168,29 @@
         closeBtn.addEventListener('click', (e) => { e.stopPropagation(); closeDialog(); });
         overlay.addEventListener('click', (e) => { if (e.target === overlay) closeDialog(); });
 
-        function onKeyDown(e: KeyboardEvent) {
+        function onKeyDown(e) {
             if (e.key === 'Escape' || e.code === 'KeyZ' || e.key.toLowerCase() === 'z') {
-                e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
                 closeDialog();
                 return;
             }
             if (e.key === 'Enter') {
-                e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
                 closeDialog();
-                if (callback) callback();
+                if (callback)
+                    callback();
                 return;
             }
         }
 
-        function onMouseDown(e: MouseEvent) {
-            if (e.button === 3 || e.button === 4) {
-                e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
-                closeDialog();
-            }
-        }
-
         document.addEventListener('keydown', onKeyDown, true);
-        document.addEventListener('mousedown', onMouseDown, true);
+        document.addEventListener('mousedown', handleMouse, true);
+        document.addEventListener('mouseup', handleMouse, true);
+        document.addEventListener('click', handleMouse, true);
     }
 
     function injectSettingsTab() {

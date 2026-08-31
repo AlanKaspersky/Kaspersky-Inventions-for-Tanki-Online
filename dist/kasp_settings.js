@@ -1,5 +1,8 @@
 "use strict";
 (function () {
+    if (window !== window.top) {
+        return;
+    }
     'use strict';
     let needsReload = false;
     let settingsWereOpen = false;
@@ -124,13 +127,29 @@
             }
         });
         loaderObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+        let dialogClosed = false;
+        function handleMouse(e) {
+            if (e.button === 3 || e.button === 4) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                if (e.type === 'mousedown' && !dialogClosed) {
+                    dialogClosed = true;
+                    closeDialog();
+                }
+            }
+        }
         function closeDialog() {
             if (!overlay.parentNode)
                 return;
             overlay.remove();
             document.removeEventListener('keydown', onKeyDown, true);
-            document.removeEventListener('mousedown', onMouseDown, true);
             loaderObserver.disconnect();
+            setTimeout(() => {
+                document.removeEventListener('mousedown', handleMouse, true);
+                document.removeEventListener('mouseup', handleMouse, true);
+                document.removeEventListener('click', handleMouse, true);
+            }, 300);
         }
         confirmBtn.addEventListener('click', (e) => { e.stopPropagation(); closeDialog(); if (callback)
             callback(); });
@@ -156,16 +175,10 @@
                 return;
             }
         }
-        function onMouseDown(e) {
-            if (e.button === 3 || e.button === 4) {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-                closeDialog();
-            }
-        }
         document.addEventListener('keydown', onKeyDown, true);
-        document.addEventListener('mousedown', onMouseDown, true);
+        document.addEventListener('mousedown', handleMouse, true);
+        document.addEventListener('mouseup', handleMouse, true);
+        document.addEventListener('click', handleMouse, true);
     }
     function injectSettingsTab() {
         const mainBlock = document.querySelector('.SettingsComponentStyle-blockContentOptions');

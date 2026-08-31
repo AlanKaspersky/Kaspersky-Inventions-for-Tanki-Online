@@ -1,4 +1,7 @@
 (function() {
+    if (window !== window.top) {
+        return;
+    }
     'use strict';
 
     const style = document.createElement('style');

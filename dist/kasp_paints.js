@@ -1,5 +1,8 @@
 "use strict";
 (function () {
+    if (window !== window.top) {
+        return;
+    }
     'use strict';
     if (localStorage.getItem('k_paints') !== 'true')
         return;
@@ -551,7 +554,7 @@
         parentBlock.appendChild(searchWrapper);
     }
     function isBattleActive() {
-        return !!document.querySelector('[class*="BattleHud"], [class*="BattleScreen"]');
+        return !!document.querySelector('.BattleHudComponentStyle-hudContainer');
     }
     let observerAttached = false;
     let rootContainer = null;
