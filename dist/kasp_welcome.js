@@ -4,7 +4,7 @@
         return;
     }
     'use strict';
-    const CURRENT_VERSION = '1.5.1';
+    const CURRENT_VERSION = '1.6';
     const STORAGE_KEY = 'kasp_last_version';
     function getLang() {
         const htmlLang = document.documentElement.lang || '';
