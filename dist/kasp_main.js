@@ -52,7 +52,6 @@
         };
         const MY_SETTINGS = [
             { id: 'k_ext_btn', label: { RU: 'Расширенная кнопка «Играть»', EN: 'Enhanced «Play» button' }, default: false },
-            { id: 'k_history', label: { RU: 'История боёв', EN: 'Battle history' }, default: false },
             { id: 'k_augments', label: { RU: 'Характеристики устройств', EN: 'Augment specifications' }, default: false },
             { id: 'k_auto_upgrade', label: { RU: 'Быстрое улучшение вооружения', EN: 'Quick weapon upgrades' }, default: false },
             { id: 'k_friends', label: { RU: 'Метки и категории друзей', EN: 'Friend tags & categories' }, default: false },
@@ -307,761 +306,6 @@
         };
     })();
     const modules = {
-        battleHistory: (() => {
-            let initialized = false;
-            let battleProcessed = false;
-            let currentNickname = 'Unknown';
-            let currentPage = 1;
-            const ROWS_PER_PAGE = 25;
-            const updateNickname = () => {
-                const nameEl = document.querySelector('.UserInfoContainerStyle-userNameRank');
-                if (nameEl) {
-                    const text = nameEl.textContent?.trim() || '';
-                    const cleanName = text.replace(/^\[.*?\]\s*/, '').trim();
-                    if (cleanName)
-                        currentNickname = cleanName;
-                }
-            };
-            const openDB = () => {
-                return new Promise((resolve, reject) => {
-                    const request = indexedDB.open('TankiBattlesDB', 4);
-                    request.onupgradeneeded = (event) => {
-                        const db = event.target.result;
-                        let store;
-                        if (!db.objectStoreNames.contains('battles')) {
-                            store = db.createObjectStore('battles', { keyPath: 'id', autoIncrement: true });
-                        }
-                        else {
-                            store = event.target.transaction.objectStore('battles');
-                        }
-                        if (!store.indexNames.contains('date'))
-                            store.createIndex('date', 'date', { unique: false });
-                        if (!store.indexNames.contains('map'))
-                            store.createIndex('map', 'map', { unique: false });
-                        if (!store.indexNames.contains('mode'))
-                            store.createIndex('mode', 'mode', { unique: false });
-                        if (!store.indexNames.contains('top'))
-                            store.createIndex('top', 'top', { unique: false });
-                        if (!store.indexNames.contains('nickname'))
-                            store.createIndex('nickname', 'nickname', { unique: false });
-                    };
-                    request.onsuccess = () => resolve(request.result);
-                    request.onerror = () => reject(request.error);
-                });
-            };
-            const addBattle = async (battleData) => {
-                const db = await openDB();
-                return new Promise((resolve, reject) => {
-                    const transaction = db.transaction('battles', 'readwrite');
-                    const store = transaction.objectStore('battles');
-                    const request = store.add(battleData);
-                    request.onsuccess = () => resolve(request.result);
-                    request.onerror = () => reject(request.error);
-                });
-            };
-            const getAllBattles = async (nickname) => {
-                try {
-                    const db = await openDB();
-                    return new Promise((resolve, reject) => {
-                        const transaction = db.transaction('battles', 'readonly');
-                        const store = transaction.objectStore('battles');
-                        let request;
-                        if (nickname && store.indexNames.contains('nickname')) {
-                            request = store.index('nickname').getAll(nickname);
-                        }
-                        else {
-                            request = store.getAll();
-                        }
-                        request.onsuccess = () => resolve(request.result || []);
-                        request.onerror = () => reject(request.error);
-                    });
-                }
-                catch (e) {
-                    console.error('[Tanki Battle History] Error reading DB:', e);
-                    return [];
-                }
-            };
-            const removeDuplicateBattles = async (nickname) => {
-                try {
-                    const battles = await getAllBattles(nickname);
-                    if (battles.length === 0)
-                        return;
-                    const uniqueMap = new Map();
-                    const idsToDelete = [];
-                    battles.forEach(b => {
-                        const signature = `${Math.floor(b.date / 60000)}_${b.map}_${b.kills}_${b.deaths}_${b.crystals}`;
-                        if (uniqueMap.has(signature))
-                            idsToDelete.push(b.id);
-                        else
-                            uniqueMap.set(signature, b.id);
-                    });
-                    if (idsToDelete.length > 0) {
-                        const db = await openDB();
-                        const transaction = db.transaction('battles', 'readwrite');
-                        const store = transaction.objectStore('battles');
-                        idsToDelete.forEach(id => store.delete(id));
-                    }
-                }
-                catch (e) {
-                    console.error('[Tanki Battle History] Error cleaning duplicates:', e);
-                }
-            };
-            const mapTranslations = {
-                'Александровск': 'Alexandrovsk', 'Арена': 'Arena', 'Архипелаг': 'Archipelago', 'Атра': 'Atra', 'Барда': 'Barda', 'Безумие': 'Madness',
-                'Берлин': 'Berlin', 'Бобруйск': 'Bobruisk', 'Бойня': 'Massacre', 'Брест': 'Brest', 'Будущее': 'Future', 'Бумбокс': 'Boombox',
-                'Волна': 'Wave', 'Вольфенштейн': 'Wolfenstein', 'Гардер': 'Garder', 'Гравити': 'Gravity', 'Год 2042': 'Year 2042', 'Губаха': 'Gubakha',
-                'Долина': 'Valley', 'Дуалити': 'Duality', 'Дуэль': 'Duel', 'Дюссельдорф': 'Dusseldorf', 'Жаворонки': 'Zhavoronki', 'Зона': 'Zone',
-                'Иран': 'Iran', 'Йоркшир': 'Yorkshire', 'Каньон': 'Canyon', 'Колхоз': 'Kolkhoz', 'Кунгур': 'Kungur', 'Кураж': 'Courage', 'Кёльн': 'Cologne',
-                'Лагерь': 'Camp', 'Магадан': 'Magadan', 'Магистраль': 'Magistral', 'Молотов': 'Molotov', 'Монте-Карло': 'Monte Carlo', 'Мостик': 'Short Bridge',
-                'Мосты': 'Bridges', 'Небоскрёбы': 'Skyscrapers', 'Новэл': 'Novel', 'Овраг': 'Ravine', 'Оса': 'Osa', 'Осада': 'Siege', 'Остров': 'Island',
-                'Палуба 9': 'Deck-9', 'Парма': 'Parma', 'Перевал': 'Pass', 'Перекрёсток': 'Cross', 'Песочница': 'Sandbox', 'Пинг-Понг': 'Ping-Pong',
-                'Плато': 'Highland', 'Подземка': 'Subway', 'Полигон': 'Polygon', 'Промзона': 'Industrial Zone', 'Простор': 'Space', 'Противостояние': 'Confrontation',
-                'Пустыня': 'Desert', 'Ред Алерт': 'Red Alert', 'Рио': 'Rio', 'Сандал': 'Sandal', 'Серпухов': 'Serpukhov', 'Соликамск': 'Solikamsk',
-                'Стадион': 'Stadium', 'Станция': 'Station', 'Тишина': 'Silence', 'Трек': 'Track', 'Трибьют': 'Tribute', 'Тэмпл': 'Temple',
-                'Ущелье': 'Rift', 'Фабрика': 'Factory', 'Ферма': 'Farm', 'Форэст': 'Forest', 'Форест': 'Forest', 'Форт Нокс': 'Fort Knox',
-                'Холм': 'Hill', 'Чернобыль': 'Chernobyl', 'Чернушка': 'Chernushka', 'Шоссе': 'Highways', 'Шум': 'Noise', 'Эдинбург': 'Edinburgh',
-                'Эспланада': 'Esplanade'
-            };
-            const translateMapName = (rawMapWithMode, targetLang) => {
-                let cleanText = rawMapWithMode.trim();
-                if (targetLang === 'EN') {
-                    if (mapTranslations[cleanText])
-                        return mapTranslations[cleanText];
-                }
-                else {
-                    const invertedMap = Object.fromEntries(Object.entries(mapTranslations).map(([k, v]) => [v, k]));
-                    if (invertedMap[cleanText])
-                        return invertedMap[invertedMap[cleanText]];
-                }
-                return cleanText;
-            };
-            function showClearConfirmModal(onConfirm) {
-                const existing = document.getElementById('clear-confirm-overlay');
-                if (existing)
-                    existing.remove();
-                const lang = state.lang;
-                const t = {
-                    RU: { title: 'ОЧИСТКА ИСТОРИИ', text: 'Вы уверены, что хотите удалить всю историю матчей?', cancel: 'Отмена', confirm: 'УДАЛИТЬ' },
-                    EN: { title: 'CLEAR HISTORY', text: 'Are you sure you want to delete all match history?', cancel: 'Cancel', confirm: 'DELETE' }
-                };
-                const dict = t[lang] || t['EN'];
-                const overlay = document.createElement('div');
-                overlay.id = 'clear-confirm-overlay';
-                overlay.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 9999; display: flex; align-items: center; justify-content: center;`;
-                const dialog = document.createElement('div');
-                dialog.id = 'clear-confirm-dialog';
-                dialog.style.cssText = `display: flex; flex-direction: column; align-items: stretch; justify-content: space-between; pointer-events: auto; min-width: 31.625em; max-width: 31.625em; width: auto; min-height: 14.125em; z-index: 60; box-shadow: rgba(0, 0, 0, 0.25) 0px 0.313em 1.25em 0px; outline: rgba(255, 255, 255, 0.25) solid 0.063em; padding: 2em; background: radial-gradient(100% 100% at 0% 0%, rgba(118, 255, 51, 0.75) 0%, rgba(119, 255, 51, 0) 100%), rgba(0, 25, 38, 0.75);`;
-                dialog.innerHTML = `
-                    <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; margin-bottom: 1.5em;">
-                        <h1 style="font-size: 1.5em; color: rgb(255, 255, 255); font-family: BaseFontBold, sans-serif; font-weight: 500; margin: 0;">${dict.title}</h1>
-                        <div id="clear-dlg-close" style="width: 1.5em; height: 1.5em; cursor: pointer; background-image: url(https://s.eu.tankionline.com/static/images/iconDelete.b879b0ab.svg); background-size: contain; background-repeat: no-repeat; background-position: center center;"></div>
-                    </div>
-                    <div style="display: flex; align-items: center; justify-content: center; width: 100%; flex: 1; margin-bottom: 1.5em; text-align: center;">
-                        <span style="font-size: 1em; color: rgb(255, 255, 255); font-family: BaseFont, sans-serif;">${dict.text}</span>
-                    </div>
-                    <div style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 1.25em;">
-                        <div id="clear-dlg-cancel" style="width: 12.375em; height: 3em; border-radius: 0.75em; cursor: pointer; background-color: rgba(255, 255, 255, 0.15); display: flex; align-items: center; justify-content: center; color: white; font-family: BaseFontBold, sans-serif; text-transform: uppercase; border: 0.063em solid transparent;" onmouseover="this.style.borderColor='white'; this.style.boxShadow='0 0 0 1px white';" onmouseout="this.style.borderColor='transparent'; this.style.boxShadow='none';">${dict.cancel}</div>
-                        <div id="clear-dlg-confirm" style="width: 12.375em; height: 3em; border-radius: 0.75em; cursor: pointer; background-color: rgb(118, 255, 51); display: flex; align-items: center; justify-content: center; color: rgb(0, 25, 38); font-family: BaseFontBold, sans-serif; text-transform: uppercase; border: 0.063em solid transparent;" onmouseover="this.style.borderColor='white'; this.style.boxShadow='0 0 0 1px white';" onmouseout="this.style.borderColor='transparent'; this.style.boxShadow='none';">${dict.confirm}</div>
-                    </div>
-                `;
-                overlay.appendChild(dialog);
-                let isClosing = false;
-                function closeDialog() {
-                    if (!overlay.parentNode)
-                        return;
-                    overlay.remove();
-                    window.setTimeout(() => {
-                        document.removeEventListener('keydown', onKeyDown, true);
-                        document.removeEventListener('keyup', onKeyUp, true);
-                        document.removeEventListener('mousedown', onMouseDown, true);
-                        document.removeEventListener('mouseup', onMouseUp, true);
-                    }, 500);
-                }
-                overlay.closeDialogMethod = closeDialog;
-                document.body.appendChild(overlay);
-                const confirmBtn = dialog.querySelector('#clear-dlg-confirm');
-                const cancelBtn = dialog.querySelector('#clear-dlg-cancel');
-                const closeBtn = dialog.querySelector('#clear-dlg-close');
-                confirmBtn?.addEventListener('click', (e) => { e.stopPropagation(); if (!isClosing) {
-                    isClosing = true;
-                    closeDialog();
-                    onConfirm();
-                } });
-                cancelBtn?.addEventListener('click', (e) => { e.stopPropagation(); if (!isClosing) {
-                    isClosing = true;
-                    closeDialog();
-                } });
-                closeBtn?.addEventListener('click', (e) => { e.stopPropagation(); if (!isClosing) {
-                    isClosing = true;
-                    closeDialog();
-                } });
-                overlay.addEventListener('click', (e) => { if (e.target === overlay && !isClosing) {
-                    isClosing = true;
-                    closeDialog();
-                } });
-                function onKeyDown(e) {
-                    if (!document.getElementById('clear-confirm-overlay')) {
-                        document.removeEventListener('keydown', onKeyDown, true);
-                        return;
-                    }
-                    if (e.key === 'Escape' || e.code === 'KeyZ' || e.key.toLowerCase() === 'z') {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        e.stopImmediatePropagation();
-                        if (!isClosing) {
-                            isClosing = true;
-                            closeDialog();
-                        }
-                    }
-                    else if (e.key === 'Enter') {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        e.stopImmediatePropagation();
-                        if (!isClosing) {
-                            isClosing = true;
-                            closeDialog();
-                            onConfirm();
-                        }
-                    }
-                }
-                function onKeyUp(e) {
-                    if (e.key === 'Escape' || e.code === 'KeyZ' || e.key.toLowerCase() === 'z' || e.key === 'Enter') {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        e.stopImmediatePropagation();
-                    }
-                }
-                function onMouseDown(e) {
-                    if (!document.getElementById('clear-confirm-overlay')) {
-                        document.removeEventListener('mousedown', onMouseDown, true);
-                        return;
-                    }
-                    if (e.button === 3 || e.button === 4) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        e.stopImmediatePropagation();
-                        if (!isClosing) {
-                            isClosing = true;
-                            closeDialog();
-                        }
-                    }
-                }
-                function onMouseUp(e) {
-                    if (e.button === 3 || e.button === 4) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        e.stopImmediatePropagation();
-                    }
-                }
-                document.addEventListener('keydown', onKeyDown, true);
-                document.addEventListener('keyup', onKeyUp, true);
-                document.addEventListener('mousedown', onMouseDown, true);
-                document.addEventListener('mouseup', onMouseUp, true);
-            }
-            const t = {
-                RU: { title: 'История Битв', date: 'Дата', map: 'Карта', status: 'Статус', top: 'ТОП', mode: 'Режим', score: 'Очки', kd: 'У/П', turret: 'Пушка', hull: 'Корпус', crystals: 'Кристаллы', stars: 'Звезды', win: 'Победа', lose: 'Поражение', draw: 'Ничья', dm: 'DM', clear: 'Очистить', export: 'Экспорт', import: 'Импорт', last20: 'Статистика 20 битв' },
-                EN: { title: 'Battle History', date: 'Date', map: 'Map', status: 'Status', top: 'TOP', mode: 'Mode', score: 'Score', kd: 'K/D', turret: 'Turret', hull: 'Hull', crystals: 'Crystals', stars: 'Stars', win: 'Victory', lose: 'Defeat', draw: 'Draw', dm: 'DM', clear: 'Clear', export: 'Export', import: 'Import', last20: 'Last 20 Match Stats' }
-            };
-            const parseMapAndMode = (rawMapText) => {
-                if (!rawMapText)
-                    return { map: 'Unknown Map', mode: 'MM' };
-                let text = rawMapText.trim();
-                let modesList = ['CTF', 'TDM', 'DM', 'CP', 'SGE', 'RGB', 'JGR', 'TJR', 'ASL', 'AR'];
-                let foundMode = 'MM';
-                let parts = text.split(/\s+/);
-                if (parts.length > 0) {
-                    let lastWord = parts[parts.length - 1].toUpperCase();
-                    if (modesList.includes(lastWord)) {
-                        foundMode = parts.pop() || 'MM';
-                        text = parts.join(' ');
-                    }
-                }
-                let cleanMapName = text.replace(/\s+/g, ' ').trim();
-                return { map: cleanMapName || 'Unknown', mode: foundMode };
-            };
-            const extractBackgroundUrl = (element) => {
-                if (!element)
-                    return '';
-                const bg = element.style.backgroundImage || window.getComputedStyle(element).backgroundImage;
-                if (bg && bg !== 'none') {
-                    const match = bg.match(/url\(['"]?(.*?)['"]?\)/);
-                    if (match && match[1])
-                        return match[1];
-                }
-                return '';
-            };
-            const extractEquipmentAndAugments = (selfRow) => {
-                const getBg = (selector) => extractBackgroundUrl(selfRow.querySelector(selector));
-                return {
-                    turretIcon: getBg('.tt-icon.tt-turret'),
-                    turretAugmentIcon: getBg('.tt-icon.tt-turret-augment'),
-                    hullIcon: getBg('.tt-icon.tt-hull'),
-                    hullAugmentIcon: getBg('.tt-icon.tt-hull-augment')
-                };
-            };
-            const renderBattleTable = async (page = 1) => {
-                updateNickname();
-                const tbody = document.querySelector('.bh-tbody');
-                if (!tbody)
-                    return;
-                await removeDuplicateBattles(currentNickname);
-                const lang = state.lang;
-                const dict = t[lang] || t['EN'];
-                let battles = await getAllBattles(currentNickname);
-                battles.sort((a, b) => b.date - a.date);
-                const recent20 = battles.slice(0, 20);
-                let validTops = 0, sumTop = 0, totalKills = 0, totalDeaths = 0, totalScore = 0;
-                recent20.forEach(b => {
-                    const topNum = parseInt(b.top);
-                    if (!isNaN(topNum)) {
-                        sumTop += topNum;
-                        validTops++;
-                    }
-                    totalKills += (b.kills || 0);
-                    totalDeaths += (b.deaths || 0);
-                    totalScore += (b.reputation || 0);
-                });
-                const avgTop = validTops > 0 ? Math.round(sumTop / validTops) : '-';
-                const avgKd = totalDeaths > 0 ? (totalKills / totalDeaths).toFixed(2) : (totalKills > 0 ? totalKills.toFixed(2) : '0.00');
-                const avgScore = recent20.length > 0 ? Math.round(totalScore / recent20.length) : '-';
-                const topEl = document.getElementById('bh-stat-top');
-                const kdEl = document.getElementById('bh-stat-kd');
-                const scoreEl = document.getElementById('bh-stat-score');
-                if (topEl)
-                    topEl.textContent = avgTop !== '-' ? `#${avgTop}` : '-';
-                if (kdEl)
-                    kdEl.textContent = avgKd.toString();
-                if (scoreEl)
-                    scoreEl.textContent = avgScore !== '-' ? avgScore.toLocaleString('ru-RU') : '-';
-                const totalPages = Math.max(1, Math.ceil(battles.length / ROWS_PER_PAGE));
-                if (page > totalPages)
-                    page = totalPages;
-                if (page < 1)
-                    page = 1;
-                currentPage = page;
-                const startIndex = (currentPage - 1) * ROWS_PER_PAGE;
-                const pageBattles = battles.slice(startIndex, startIndex + ROWS_PER_PAGE);
-                tbody.innerHTML = '';
-                pageBattles.forEach(b => {
-                    const dateStr = new Date(b.date).toLocaleDateString();
-                    const statusLower = (b.status || '').toLowerCase();
-                    const isWin = statusLower.includes('victory') || statusLower.includes('победа');
-                    const isDraw = statusLower.includes('draw') || statusLower.includes('ничья');
-                    const isDM = statusLower === 'dm' || statusLower.includes('каждый сам за себя');
-                    let statusClass = 'bh-status-defeat';
-                    let statusLocalized = dict.lose;
-                    if (isDM) {
-                        statusClass = 'bh-status-dm';
-                        statusLocalized = dict.dm;
-                    }
-                    else if (isWin) {
-                        statusClass = 'bh-status-victory';
-                        statusLocalized = dict.win;
-                    }
-                    else if (isDraw) {
-                        statusClass = 'bh-status-draw';
-                        statusLocalized = dict.draw;
-                    }
-                    const turretHtml = b.turretIcon ? `<img src="${b.turretIcon}" class="bh-equip-icon" />` : '-';
-                    const turretAugHtml = b.turretAugmentIcon ? `<img src="${b.turretAugmentIcon}" class="bh-equip-icon" />` : '';
-                    const hullHtml = b.hullIcon ? `<img src="${b.hullIcon}" class="bh-equip-icon" />` : '-';
-                    const hullAugHtml = b.hullAugmentIcon ? `<img src="${b.hullAugmentIcon}" class="bh-equip-icon" />` : '';
-                    const localizedMap = translateMapName(b.map, lang);
-                    const row = document.createElement('div');
-                    row.className = 'bh-row';
-                    row.innerHTML = `
-                        <div class="bh-cell">${dateStr}</div>
-                        <div class="bh-cell bh-cell-map">${localizedMap}</div>
-                        <div class="bh-cell ${statusClass}">${statusLocalized}</div>
-                        <div class="bh-cell">${b.top || '-'}</div>
-                        <div class="bh-cell">${b.mode || 'MM'}</div>
-                        <div class="bh-cell">${b.reputation}</div>
-                        <div class="bh-cell">
-                            <div class="bh-kd-wrap">
-                                <span class="bh-kd-kills">${b.kills}</span>
-                                <span class="bh-kd-slash">/</span>
-                                <span class="bh-kd-deaths">${b.deaths}</span>
-                            </div>
-                        </div>
-                        <div class="bh-cell"><div class="bh-equip-container">${turretHtml}${turretAugHtml}</div></div>
-                        <div class="bh-cell"><div class="bh-equip-container">${hullHtml}${hullAugHtml}</div></div>
-                        <div class="bh-cell bh-cell-crystals">${b.crystals.toLocaleString()}</div>
-                        <div class="bh-cell bh-cell-stars">${b.stars}</div>
-                    `;
-                    tbody.appendChild(row);
-                });
-                const emptyRowsCount = ROWS_PER_PAGE - pageBattles.length;
-                for (let i = 0; i < emptyRowsCount; i++) {
-                    const emptyRow = document.createElement('div');
-                    emptyRow.className = 'bh-row-empty';
-                    tbody.appendChild(emptyRow);
-                }
-                const pageInfo = document.getElementById('bh-page-info');
-                if (pageInfo)
-                    pageInfo.textContent = `${currentPage} / ${totalPages}`;
-                const prevBtn = document.getElementById('bh-prev-page');
-                if (prevBtn)
-                    prevBtn.disabled = currentPage === 1;
-                const nextBtn = document.getElementById('bh-next-page');
-                if (nextBtn)
-                    nextBtn.disabled = currentPage === totalPages;
-            };
-            const clearHistoryDb = () => {
-                showClearConfirmModal(async () => {
-                    try {
-                        const db = await openDB();
-                        const transaction = db.transaction('battles', 'readwrite');
-                        const store = transaction.objectStore('battles');
-                        const request = store.index('nickname').getAllKeys(currentNickname);
-                        request.onsuccess = () => {
-                            request.result.forEach((key) => store.delete(key));
-                            renderBattleTable(1);
-                        };
-                    }
-                    catch (e) {
-                        console.error('[Tanki Battle History] Error clearing DB:', e);
-                    }
-                });
-            };
-            const exportHistoryData = async () => {
-                const battles = await getAllBattles(currentNickname);
-                if (battles.length === 0)
-                    return;
-                const blob = new Blob([JSON.stringify(battles, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `Tanki_BattleHistory_${currentNickname}_${new Date().toISOString().slice(0, 10)}.json`;
-                a.click();
-                URL.revokeObjectURL(url);
-            };
-            const importHistoryData = () => {
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = '.json';
-                input.onchange = (e) => {
-                    const file = e.target.files?.[0];
-                    if (!file)
-                        return;
-                    const reader = new FileReader();
-                    reader.onload = async (ev) => {
-                        try {
-                            const data = JSON.parse(ev.target.result);
-                            if (Array.isArray(data)) {
-                                for (const battle of data) {
-                                    delete battle.id;
-                                    await addBattle(battle);
-                                }
-                                await removeDuplicateBattles(currentNickname);
-                                renderBattleTable(1);
-                            }
-                        }
-                        catch (err) {
-                            console.error('[Tanki Battle History] Import error:', err);
-                        }
-                    };
-                    reader.readAsText(file);
-                };
-                input.click();
-            };
-            const createHistoryPage = () => {
-                updateNickname();
-                const lang = state.lang;
-                const dict = t[lang] || t['EN'];
-                const overlay = document.createElement('div');
-                overlay.className = 'custom-history-overlay';
-                overlay.innerHTML = `
-                    <div class="custom-history-header">
-                        <div style="width: 6rem;"></div>
-                        <h1 class="custom-history-title">${dict.title}</h1>
-                        <button class="custom-history-close" title="Close">
-                            <div class="custom-history-logout-icon"></div>
-                        </button>
-                    </div>
-                    <div class="custom-history-content">
-                        <div class="bh-left-panel">
-                            <div class="bh-table-wrapper">
-                                <div class="bh-table">
-                                    <div class="bh-controls-container">
-                                        <div class="bh-controls-left">
-                                            <button class="bh-control-btn bh-btn-clear" id="bh-clear-btn">${dict.clear}</button>
-                                        </div>
-                                        <div class="bh-controls-right">
-                                            <button class="bh-control-btn bh-btn-export" id="bh-export-btn">${dict.export}</button>
-                                            <button class="bh-control-btn bh-btn-import" id="bh-import-btn">${dict.import}</button>
-                                        </div>
-                                    </div>
-                                    <div class="bh-thead">
-                                        <div class="bh-th"><h2 class="bh-th-title">${dict.date}</h2></div>
-                                        <div class="bh-th"><h2 class="bh-th-title">${dict.map}</h2></div>
-                                        <div class="bh-th"><h2 class="bh-th-title">${dict.status}</h2></div>
-                                        <div class="bh-th"><h2 class="bh-th-title">${dict.top}</h2></div>
-                                        <div class="bh-th"><h2 class="bh-th-title">${dict.mode}</h2></div>
-                                        <div class="bh-th"><div class="bh-icon-mask bh-icon-score"></div></div>
-                                        <div class="bh-th"><div class="bh-icon-mask bh-icon-kills"></div></div>
-                                        <div class="bh-th"><div class="bh-icon-mask bh-icon-turrets"></div></div>
-                                        <div class="bh-th"><div class="bh-icon-mask bh-icon-hulls"></div></div>
-                                        <div class="bh-th"><div class="bh-icon-mask bh-icon-crystals"></div></div>
-                                        <div class="bh-th"><div class="bh-icon-mask bh-icon-stars"></div></div>
-                                    </div>
-                                    <div class="bh-tbody"></div>
-                                </div>
-                            </div>
-                            <div class="bh-pagination">
-                                <button class="bh-page-btn" id="bh-prev-page">◄</button>
-                                <span class="bh-page-info" id="bh-page-info">1 / 1</span>
-                                <button class="bh-page-btn" id="bh-next-page">►</button>
-                            </div>
-                        </div>
-
-                        <div class="bh-right-panel" style="padding-top: 1.5em;">
-                            <div class="bh-stats-box">
-                                <div class="bh-stats-title">${dict.last20}</div>
-                                <div class="bh-stats-grid">
-                                    <div class="bh-stat-item">
-                                        <div class="bh-stat-icon" style="-webkit-mask-image: url('https://s.eu.tankionline.com/static/images/ctf_mode.fba37902.svg');"></div>
-                                        <div class="bh-stat-label">${dict.top}</div>
-                                        <div class="bh-stat-value" id="bh-stat-top">-</div>
-                                    </div>
-                                    <div class="bh-stat-separator"></div>
-                                    <div class="bh-stat-item">
-                                        <div class="bh-stat-icon" style="-webkit-mask-image: url('https://s.eu.tankionline.com/static/images/kills.f9b82d9f.svg');"></div>
-                                        <div class="bh-stat-label">${dict.kd}</div>
-                                        <div class="bh-stat-value" id="bh-stat-kd">-</div>
-                                    </div>
-                                    <div class="bh-stat-separator"></div>
-                                    <div class="bh-stat-item">
-                                        <div class="bh-stat-icon" style="-webkit-mask-image: url('https://s.eu.tankionline.com/static/images/score.b3ca71b2.svg');"></div>
-                                        <div class="bh-stat-label">${dict.score}</div>
-                                        <div class="bh-stat-value" id="bh-stat-score">-</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                document.body.appendChild(overlay);
-                overlay.querySelector('.custom-history-close')?.addEventListener('click', () => { overlay.style.display = 'none'; });
-                document.getElementById('bh-clear-btn')?.addEventListener('click', clearHistoryDb);
-                document.getElementById('bh-export-btn')?.addEventListener('click', exportHistoryData);
-                document.getElementById('bh-import-btn')?.addEventListener('click', importHistoryData);
-                document.getElementById('bh-prev-page')?.addEventListener('click', () => renderBattleTable(currentPage - 1));
-                document.getElementById('bh-next-page')?.addEventListener('click', () => renderBattleTable(currentPage + 1));
-            };
-            const injectMenuButton = () => {
-                const menuList = document.querySelector('.MainScreenComponentStyle-blockMainMenu ul');
-                if (!menuList || menuList.querySelector('.custom-history-button'))
-                    return;
-                const lang = state.lang;
-                const dict = t[lang] || t['EN'];
-                const garageDiv = menuList.querySelector('.PrimaryMenuItemComponentStyle-itemLiGarage');
-                if (!garageDiv)
-                    return;
-                const garageLi = garageDiv.closest('li');
-                if (!garageLi)
-                    return;
-                const historyBtn = document.createElement('li');
-                historyBtn.className = 'PrimaryMenuItemComponentStyle-itemCommonLi PrimaryMenuItemComponentStyle-menuItemContainer custom-history-button';
-                historyBtn.innerHTML = `
-                    <div class="custom-history-icon"></div>
-                    <span class="custom-history-name">${dict.title}</span>
-                `;
-                historyBtn.addEventListener('click', async () => {
-                    let overlay = document.querySelector('.custom-history-overlay');
-                    if (!overlay) {
-                        createHistoryPage();
-                        overlay = document.querySelector('.custom-history-overlay');
-                    }
-                    if (!overlay)
-                        return;
-                    await renderBattleTable(1);
-                    overlay.style.display = 'flex';
-                });
-                garageLi.after(historyBtn);
-            };
-            const extractAndSaveBattleResult = async () => {
-                updateNickname();
-                const selfRow = document.querySelector('#selfUserBg');
-                if (!selfRow || battleProcessed)
-                    return;
-                const equipCell = selfRow.querySelector('.tt-equipment-cell');
-                if (!equipCell && !selfRow.dataset.equipTimeout)
-                    return;
-                battleProcessed = true;
-                try {
-                    const mapEl = document.querySelector('.BattleResultHeaderComponentStyle-mapName');
-                    const rawMapText = mapEl ? mapEl.textContent?.trim() || '' : 'Unknown Map';
-                    const parsedMapData = parseMapAndMode(rawMapText);
-                    const statusEl = document.querySelector('.BattleResultHeaderComponentStyle-resultText') || document.querySelector('[class*="descriptionVictory"], [class*="descriptionDefeat"], [class*="descriptionDraw"]');
-                    const isDM = parsedMapData.mode.toUpperCase() === 'DM' || (statusEl && statusEl.textContent?.trim() === '');
-                    const statusText = isDM ? 'DM' : (statusEl ? statusEl.textContent?.trim() || 'Victory' : 'Victory');
-                    let topVal = '-';
-                    if (selfRow.parentElement) {
-                        const allRows = Array.from(selfRow.parentElement.children);
-                        const selfIndex = allRows.indexOf(selfRow);
-                        const teamDividerIndex = allRows.findIndex((r) => r.id === 'teamRowSpace');
-                        let teamRows = [];
-                        if (teamDividerIndex === -1)
-                            teamRows = allRows;
-                        else if (selfIndex < teamDividerIndex)
-                            teamRows = allRows.slice(0, teamDividerIndex);
-                        else
-                            teamRows = allRows.slice(teamDividerIndex + 1);
-                        const actualPlayers = teamRows.filter((r) => r.id && r.id !== 'rowSpace' && r.id !== 'teamRowSpace');
-                        const rank = actualPlayers.indexOf(selfRow) + 1;
-                        if (rank > 0)
-                            topVal = rank.toString();
-                    }
-                    const score = parseInt(selfRow.querySelector('.BattleKillBoardComponentStyle-col3')?.textContent || '0') || 0;
-                    const kills = parseInt(selfRow.querySelector('.BattleKillBoardComponentStyle-col4')?.textContent || '0') || 0;
-                    const deaths = parseInt(selfRow.querySelector('.BattleKillBoardComponentStyle-col5')?.textContent || '0') || 0;
-                    const kd = deaths > 0 ? parseFloat((kills / deaths).toFixed(2)) : kills;
-                    const crystals = parseInt((selfRow.querySelector('.BattleKillBoardComponentStyle-col7')?.textContent || '0').replace(/\s/g, '')) || 0;
-                    const stars = parseInt(selfRow.querySelector('.BattleKillBoardComponentStyle-col8')?.textContent || '0') || 0;
-                    const equipment = extractEquipmentAndAugments(selfRow);
-                    const battleData = {
-                        nickname: currentNickname, date: Date.now(), status: statusText, map: parsedMapData.map,
-                        mode: parsedMapData.mode, top: topVal, reputation: score, kills: kills, deaths: deaths,
-                        kd: kd, crystals: crystals, stars: stars, turretIcon: equipment.turretIcon,
-                        turretAugmentIcon: equipment.turretAugmentIcon, hullIcon: equipment.hullIcon, hullAugmentIcon: equipment.hullAugmentIcon
-                    };
-                    await addBattle(battleData);
-                }
-                catch (err) {
-                    console.error('[Tanki Battle History] Error saving battle result:', err);
-                    battleProcessed = false;
-                }
-            };
-            return () => {
-                if (!utils.getSetting('k_history', false))
-                    return;
-                if (!initialized) {
-                    initialized = true;
-                    document.addEventListener('keydown', (e) => {
-                        const overlay = document.querySelector('.custom-history-overlay');
-                        const isHistoryOpen = overlay && window.getComputedStyle(overlay).display !== 'none';
-                        if (!isHistoryOpen)
-                            return;
-                        if (e.code === 'Space' || /^(Digit|Numpad)[1-7]$/.test(e.code)) {
-                            if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
-                                return;
-                            }
-                            e.preventDefault();
-                            e.stopPropagation();
-                            e.stopImmediatePropagation();
-                        }
-                    }, true);
-                    utils.injectStyle(`
-                        .custom-history-button { user-select: none; font-size: max(min(1.48148vh, 1vw), 3px); font-family: BaseFontRegular, FallbackFontRegular, sans-serif; white-space: nowrap; pointer-events: auto; -webkit-tap-highlight-color: transparent; text-align: left; list-style-type: none; height: 3.5em; display: flex; align-items: center; justify-content: flex-start; flex-shrink: 1; flex-grow: 1; width: 27em; max-height: 4.5em; position: relative; margin-top: 0px; z-index: 4; cursor: pointer; border-radius: 0.5rem; color: rgb(191, 213, 255); }
-                        .custom-history-button:hover { box-shadow: rgb(255, 255, 255) 0em 0em 0em 0.125em; color: rgb(255, 255, 255); }
-                        .custom-history-icon { width: 3.5em; height: 3.5em; margin-left: 0.625em; background-color: rgb(191, 213, 255); -webkit-mask: url(https://s.eu.tankionline.com/static/images/score.b3ca71b2.svg) no-repeat center / 68%; mask: url(https://s.eu.tankionline.com/static/images/score.b3ca71b2.svg) no-repeat center / 68%; }
-                        .custom-history-button:hover .custom-history-icon { background-color: rgb(255, 255, 255); }
-                        .custom-history-name { font-size: 2em; text-transform: uppercase; margin-left: 0.5625em; font-family: BaseFontMedium, FallbackFontMedium, sans-serif; }
-                        .custom-history-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: radial-gradient(rgb(32, 48, 64) 0%, rgb(3, 8, 13) 100%); z-index: 9999; display: none; flex-direction: column; color: white; }
-                        .custom-history-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255, 255, 255, 0.25); height: 6rem; flex-shrink: 0; }
-                        .custom-history-title { font-family: BaseFontMedium, FallbackFontMedium, sans-serif; font-style: normal; font-weight: 500; font-size: 2.2em; text-transform: uppercase; line-height: 2.5em; margin: 0; }
-                        .custom-history-close { cursor: pointer; display: flex; align-items: center; justify-content: center; width: 6rem; height: 6rem; background: transparent; border: none; border-left: 1px solid rgba(255, 255, 255, 0.25); }
-                        .custom-history-close:hover { background-color: rgba(255, 255, 255, 0.05); }
-                        .custom-history-close:hover .custom-history-logout-icon { background-color: rgb(255, 255, 255); }
-                        .custom-history-logout-icon { background-color: rgb(191, 213, 255); height: 1.5rem; width: 1.5rem; -webkit-mask-image: url(https://s.eu.tankionline.com/static/images/logOut.29b47580.svg); mask-image: url(https://s.eu.tankionline.com/static/images/logOut.29b47580.svg); -webkit-mask-position: center center; mask-position: center center; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-size: contain; mask-size: contain; }
-                        .custom-history-content { padding: 0em 3em 3em 3em; flex-grow: 1; display: flex; flex-direction: row; justify-content: center; overflow: hidden; }
-                        .bh-left-panel { width: 80em; display: flex; flex-direction: column; flex-shrink: 0; }
-                        .bh-right-panel { width: 28em; display: flex; flex-direction: column; gap: 1.5em; flex-shrink: 0; padding-top: 5.5em; }            
-                        .bh-stats-box { background: rgb(45 56 66 / 55%); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 0.5em; padding: 1.2em; display: flex; flex-direction: column; gap: 1.2em; }            
-                        .bh-stats-title { font-family: BaseFontBold, FallbackFontBold, sans-serif; font-size: 1em; color: rgba(191, 213, 255, 0.6); text-transform: uppercase; text-align: center; letter-spacing: 0.05em; }
-                        .bh-stats-grid { display: flex; justify-content: space-between; align-items: center; }
-                        .bh-stat-item { display: flex; flex-direction: column; align-items: center; gap: 0.6em; flex: 1; }
-                        .bh-stat-separator { width: 1px; height: 4.5em; background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.15) 30%, rgba(255,255,255,0.15) 70%, rgba(255,255,255,0)); }
-                        .bh-stat-icon { width: 2.2em; height: 2.2em; background-color: rgb(191, 213, 255); -webkit-mask-size: contain; mask-size: contain; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center; opacity: 0.9; }
-                        .bh-stat-label { font-family: BaseFontMedium, FallbackFontMedium, sans-serif; font-size: 0.8em; color: rgba(255, 255, 255, 0.4); text-transform: uppercase; white-space: nowrap; }
-                        .bh-stat-value { font-family: BaseFontBold, FallbackFontBold, sans-serif; font-size: 2.2em; color: rgb(255, 221, 44); line-height: 1; }
-                        .bh-table-wrapper { position: relative; width: 100%; flex-grow: 1; display: flex; flex-direction: column; align-items: center; min-height: 0; }
-                        .bh-controls-container { width: 80em; justify-content: space-between; z-index: 5; display: flex; margin-bottom: 1.5em; }
-                        .bh-controls-left { display: flex; gap: 1em; justify-content: flex-start; }
-                        .bh-controls-right { justify-content: flex-end; display: flex; gap: 1em; }
-                        .bh-control-btn { width: 12.375em; height: 3em; text-align: center; border-radius: 0.75em; cursor: pointer; border: 0.063em solid transparent; display: flex; align-items: center; justify-content: center; font-family: BaseFontBold, FallbackFontBold, sans-serif; font-style: normal; font-weight: 500; font-size: 1em; line-height: 1.2; text-transform: uppercase; white-space: nowrap; padding: 0.2em 1.8em; box-sizing: border-box; flex-shrink: 0; }
-                        .bh-control-btn:hover { border-color: rgb(255, 255, 255); box-shadow: 0 0 0 1px rgb(255, 255, 255); }
-                        .bh-btn-clear { background-color: rgba(255, 255, 255, 0.15); color: rgb(255, 255, 255); }
-                        .bh-btn-export { background-color: rgb(255, 102, 102); color: rgb(0, 25, 38); }
-                        .bh-btn-import { background-color: rgb(118, 255, 51); color: rgb(0, 25, 38); }
-                        .bh-table { display: flex; flex-direction: column; flex-grow: 1; min-height: 0; margin-top: 1.5em; font-family: BaseFontRegular, FallbackFontRegular, sans-serif; font-style: normal; font-weight: normal; font-size: 0.9375em; line-height: normal; }
-                        .bh-thead { display: grid; grid-template-columns: 7.5em 20em 8em 3.5em 6em 5em 7em 5em 5em 6em 4em; column-gap: 0.3em; margin-bottom: 0.32em; user-select: none; }
-                        .bh-th { display: flex; align-items: center; justify-content: center; cursor: default; height: 2.5em; background-color: rgba(255, 255, 255, 0.1); padding: 0 0.4em; box-sizing: border-box; }
-                        .bh-th-title { cursor: default; font-family: BaseFontBold, FallbackFontBold, sans-serif; font-weight: 500; font-size: 1.125em; color: rgba(255, 255, 255, 0.5); text-transform: uppercase; margin: 0; }
-                        .bh-icon-mask { width: 2em; height: 1.4em; background-color: rgba(255, 255, 255, 0.5); -webkit-mask-position: center; mask-position: center; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-size: contain; mask-size: contain; display: inline-block; }
-                        .bh-icon-score { -webkit-mask-image: url(https://s.eu.tankionline.com/static/images/score.b3ca71b2.svg); mask-image: url(https://s.eu.tankionline.com/static/images/score.b3ca71b2.svg); }
-                        .bh-icon-kills { -webkit-mask-image: url(https://s.eu.tankionline.com/static/images/kills.f9b82d9f.svg); mask-image: url(https://s.eu.tankionline.com/static/images/kills.f9b82d9f.svg); }
-                        .bh-icon-turrets { -webkit-mask-image: url(https://s.eu.tankionline.com/static/images/turrets.20be27f5.svg); mask-image: url(https://s.eu.tankionline.com/static/images/turrets.20be27f5.svg); }
-                        .bh-icon-hulls { -webkit-mask-image: url(https://s.eu.tankionline.com/static/images/hulls.b316ae80.svg); mask-image: url(https://s.eu.tankionline.com/static/images/hulls.b316ae80.svg); }
-                        .bh-icon-crystals { -webkit-mask-image: url(https://s.eu.tankionline.com/static/images/crystalSmall.242e6c15.svg); mask-image: url(https://s.eu.tankionline.com/static/images/crystalSmall.242e6c15.svg); background-color: rgb(0, 215, 255); }
-                        .bh-icon-stars { -webkit-mask-image: url(https://s.eu.tankionline.com/static/images/Star.5a891709.svg); mask-image: url(https://s.eu.tankionline.com/static/images/Star.5a891709.svg); background-color: rgb(255, 221, 44); }
-                        .bh-tbody { display: flex; flex-direction: column; flex-grow: 1; min-height: 0; overflow: hidden auto; scrollbar-color: rgba(255, 255, 255, 0.15) rgba(255, 255, 255, 0); scrollbar-width: thin; }
-                        .bh-row { background-color: rgba(255, 255, 255, 0.1); height: 2.5em; margin-left: 0px; margin-bottom: 0.313em; display: grid; grid-template-columns: 7.5em 20em 8em 3.5em 6em 5em 7em 5em 5em 6em 4em; column-gap: 0.3em; align-items: center; justify-content: flex-start; color: white; flex-shrink: 0; }
-                        .bh-row-empty { user-select: none; font-size: max(min(1.48148vh, 1vw), 3px); font-family: BaseFontRegular, FallbackFontRegular, sans-serif; border-spacing: 0.313em; background-color: rgba(255, 255, 255, 0.1); height: 2.5em; margin-left: 0px; margin-bottom: 0.313em; display: flex; align-items: center; justify-content: flex-start; opacity: 0.2; cursor: default; flex-shrink: 0; }
-                        .bh-cell { display: flex; align-items: center; justify-content: center; height: 100%; padding: 0 0.4em; font-size: 1.1em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; }
-                        .bh-cell-crystals { color: rgb(0, 215, 255); }
-                        .bh-cell-stars { color: rgb(255, 221, 44); }
-                        .bh-cell-map { text-transform: uppercase; }
-                        .bh-status-defeat { font-family: BaseFontMedium, FallbackFontMedium, sans-serif; font-weight: 500; text-transform: uppercase; text-align: center; color: rgb(254, 102, 102); }
-                        .bh-status-draw { font-family: BaseFontMedium, FallbackFontMedium, sans-serif; font-weight: 500; text-transform: uppercase; text-align: center; color: rgb(191, 213, 255); }
-                        .bh-status-victory { font-family: BaseFontMedium, FallbackFontMedium, sans-serif; font-weight: 500; text-transform: uppercase; font-size: 1.1em; text-align: center; color: rgb(0, 212, 255); }
-                        .bh-status-dm { font-family: BaseFontMedium, FallbackFontMedium, sans-serif; font-weight: 500; text-transform: uppercase; text-align: center; color: rgb(255, 180, 50); }
-                        .bh-kd-wrap { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; width: 100%; }
-                        .bh-kd-kills { text-align: right; padding-right: 0.2em; }
-                        .bh-kd-slash { text-align: center; color: rgba(255, 255, 255, 0.5); }
-                        .bh-kd-deaths { text-align: left; padding-left: 0.2em; }
-                        .bh-equip-container { display: flex; align-items: center; justify-content: center; gap: 0.4em; }
-                        .bh-equip-icon { width: 1.1em; height: 1.1em; object-fit: contain; vertical-align: middle; }
-                        .bh-pagination { display: flex; justify-content: center; align-items: center; gap: 1.5em; margin-top: 1em; font-family: BaseFontMedium, FallbackFontMedium, sans-serif; font-size: 1.2em; color: rgba(255, 255, 255, 0.7); user-select: none; }
-                        .bh-page-btn { background: transparent; border: none; color: white; cursor: pointer; font-size: 1.2em; transition: color 0.2s, opacity 0.2s; padding: 0.5em; display: flex; align-items: center; justify-content: center; }
-                        .bh-page-btn:hover { color: rgb(0, 212, 255); }
-                        .bh-page-btn:disabled { opacity: 0.2; pointer-events: none; color: white; }
-                    `, 'kasp-battlehistory-styles');
-                    window.addEventListener('keydown', (e) => {
-                        const overlay = document.querySelector('.custom-history-overlay');
-                        if (overlay && overlay.style.display === 'flex') {
-                            if (e.code === 'Escape' || e.key === 'Escape' || e.code === 'KeyZ' || e.key.toLowerCase() === 'z') {
-                                if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName))
-                                    return;
-                                overlay.style.display = 'none';
-                                e.preventDefault();
-                            }
-                        }
-                    });
-                    window.addEventListener('mousedown', (e) => {
-                        const overlay = document.querySelector('.custom-history-overlay');
-                        if (overlay && overlay.style.display === 'flex' && (e.button === 3 || e.button === 4)) {
-                            overlay.style.display = 'none';
-                            e.preventDefault();
-                        }
-                    });
-                    setTimeout(() => {
-                        updateNickname();
-                        if (currentNickname !== 'Unknown')
-                            removeDuplicateBattles(currentNickname);
-                    }, 5000);
-                }
-                injectMenuButton();
-                const selfRow = document.querySelector('#selfUserBg');
-                const inResults = document.querySelector('.BattleResultHeaderComponentStyle-resultText');
-                if (selfRow && inResults) {
-                    if (!selfRow.dataset.timerStarted) {
-                        selfRow.dataset.timerStarted = "true";
-                        setTimeout(() => {
-                            const row = document.querySelector('#selfUserBg');
-                            if (row && !battleProcessed) {
-                                row.dataset.equipTimeout = "true";
-                                extractAndSaveBattleResult();
-                            }
-                        }, 2500);
-                    }
-                    extractAndSaveBattleResult();
-                }
-                else if (!inResults) {
-                    battleProcessed = false;
-                }
-            };
-        })(),
         customPaints: (() => {
             let initialized = false;
             const paintsData = {
@@ -7308,7 +6552,7 @@
             };
         })(),
         welcomeModal: (() => {
-            const CURRENT_VERSION = '1.7';
+            const CURRENT_VERSION = '1.8';
             const STORAGE_KEY = 'kasp_last_version';
             let hasChecked = false;
             const t = {
@@ -7370,13 +6614,13 @@
                             DeepSeek<br>
                             Claude Sonnet 5<br>
                             Gemini 3.5 Flash-Lite<br>
-                            Gemini 3.7 Flash<br>
+                            Gemini 3.8 Flash<br>
                             Gemini 3.1 Pro
                         </p>
                         
                         <p style="margin: 0; color: rgba(255, 255, 255, 0.5); font-size: 0.9em; text-transform: uppercase;">${dict.role3}</p>
                         <p style="margin: 0.2em 0 1.5em 0; color: white; line-height: 1.3;">
-                            Claude Fable 5<br>
+                            Claude Fable 5.1<br>
                             Claude Opus 5
                         </p>
                         
@@ -8369,6 +7613,115 @@
                 }
             };
         })(),
+        changeCounter: (() => {
+            const playerChanges = new Map();
+            let isUpdating = false;
+            const injectStyles = () => {
+                const styleId = 'kasp-changed-row-style';
+                if (document.getElementById(styleId))
+                    return;
+                const target = document.head || document.documentElement;
+                if (!target)
+                    return;
+                const style = document.createElement('style');
+                style.id = styleId;
+                style.textContent = `
+                    tr.kasp-yellow-row {
+                        background-color: rgb(255 238 0 / 25%) !important;
+                    }
+                `;
+                target.appendChild(style);
+            };
+            if (document.head || document.documentElement) {
+                injectStyles();
+            }
+            else {
+                document.addEventListener('DOMContentLoaded', injectStyles);
+            }
+            window.addEventListener('message', (e) => {
+                if (e.data && e.data.type === 'kasp:useraction') {
+                    const detail = e.data.detail;
+                    if (!Array.isArray(detail))
+                        return;
+                    if (detail[0] === 'TankUserActionLog' && detail.includes('CHANGE_EQUIPMENT')) {
+                        const nickname = detail.find(item => typeof item === 'string' &&
+                            item !== 'TankUserActionLog' &&
+                            item !== 'CHANGE_EQUIPMENT' &&
+                            item !== 'ALLY' &&
+                            item !== 'ENEMIES' &&
+                            !item.startsWith('-') &&
+                            /[a-zA-Z]/.test(item) &&
+                            item.length >= 2 && item.length < 30);
+                        if (nickname) {
+                            const currentCount = playerChanges.get(nickname) || 0;
+                            playerChanges.set(nickname, currentCount + 1);
+                            if (document.querySelector('.BattleTabStatisticComponentStyle-container')) {
+                                requestAnimationFrame(updateTabUI);
+                            }
+                        }
+                    }
+                }
+            });
+            document.addEventListener('kasp:battle:id', () => {
+                playerChanges.clear();
+            });
+            function updateTabUI() {
+                if (isUpdating)
+                    return;
+                isUpdating = true;
+                try {
+                    const container = document.querySelector('.BattleTabStatisticComponentStyle-container');
+                    if (!container)
+                        return;
+                    const cells = container.querySelectorAll('.BattleTabStatisticComponentStyle-nicknameCell');
+                    if (!cells.length)
+                        return;
+                    cells.forEach(cell => {
+                        const rawText = cell.textContent || '';
+                        const nickname = rawText.replace(/^\[.*?\]\s*/, '').trim();
+                        if (!nickname)
+                            return;
+                        const count = playerChanges.get(nickname) || 0;
+                        const row = cell.closest('tr');
+                        if (!row)
+                            return;
+                        if (count > 0) {
+                            if (!row.classList.contains('kasp-yellow-row')) {
+                                row.classList.add('kasp-yellow-row');
+                            }
+                        }
+                        else {
+                            if (row.classList.contains('kasp-yellow-row')) {
+                                row.classList.remove('kasp-yellow-row');
+                            }
+                        }
+                    });
+                }
+                finally {
+                    setTimeout(() => { isUpdating = false; }, 30);
+                }
+            }
+            const initObserver = () => {
+                if (!document.documentElement)
+                    return;
+                const observer = new MutationObserver(() => {
+                    if (isUpdating)
+                        return;
+                    const container = document.querySelector('.BattleTabStatisticComponentStyle-container');
+                    if (container) {
+                        requestAnimationFrame(updateTabUI);
+                    }
+                });
+                observer.observe(document.documentElement, { childList: true, subtree: true });
+            };
+            if (document.documentElement) {
+                initObserver();
+            }
+            else {
+                document.addEventListener('DOMContentLoaded', initObserver);
+            }
+            return () => { };
+        })(),
     };
     const masterObserver = new MutationObserver(() => {
         state.lang = utils.getLang();
@@ -8405,6 +7758,7 @@
         modules.customCurrencyUI();
         modules.hideNickname();
         modules.hideCurrency();
+        modules.changeCounter();
         try {
             if (state.currentScreen === 'lobby' || state.currentScreen === 'loading') {
                 modules.customPlayButton();
@@ -8419,9 +7773,6 @@
                 modules.autoUpgrade();
                 modules.augmentSpecs();
                 modules.customPaints();
-            }
-            if (state.currentScreen === 'lobby' || state.currentScreen === 'match_results') {
-                modules.battleHistory();
             }
         }
         catch (e) {

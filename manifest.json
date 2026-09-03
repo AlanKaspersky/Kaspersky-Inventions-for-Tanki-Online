@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Kaspersky's Inventions",
-  "version": "1.7",
+  "version": "1.8",
   "default_locale": "en",
   "description": "__MSG_extensionDescription__",
   "icons": {
@@ -11,14 +11,22 @@
     {
       "matches": ["*://*.tankionline.com/*"],
       "js": [
+        "dist/kasp_injector.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["*://*.tankionline.com/*"],
+      "js": [
         "dist/kasp_main.js"
-            ],
+      ],
       "run_at": "document_start"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["assets/medals/*.png", "assets/medals/*.png"],
+      "resources": ["assets/medals/*.png"],
       "matches": ["*://*.tankionline.com/*"]
     }
   ]
