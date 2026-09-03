@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Kaspersky's Inventions",
-  "version": "1.6",
+  "version": "1.7",
   "default_locale": "en",
   "description": "__MSG_extensionDescription__",
   "icons": {
@@ -11,19 +11,8 @@
     {
       "matches": ["*://*.tankionline.com/*"],
       "js": [
-        "dist/kasp_settings.js",
-        "dist/kasp_augments.js",
-        "dist/kasp_autoUpgrade.js",
-        "dist/kasp_battleHistory.js",
-        "dist/kasp_friends.js",
-        "dist/kasp_hideCurrency.js",
-        "dist/kasp_hideNicknameXP.js",
-        "dist/kasp_layout.js",
-        "dist/kasp_paints.js",
-        "dist/kasp_playButton.js",
-        "dist/kasp_trophies.js",
-        "dist/kasp_welcome.js"
-      ],
+        "dist/kasp_main.js"
+            ],
       "run_at": "document_start"
     }
   ],
