@@ -6540,8 +6540,120 @@
             };
         })(),
 
+        garageButtons: (() => {
+            const ICONS = {
+                UPGRADE: "https://s.eu.tankionline.com/static/images/max_level.e31e0825.svg",
+                MOUNT: "https://s.eu.tankionline.com/static/images/ic_mount.4175dc0c.svg",
+                BUY: "https://s.eu.tankionline.com/static/images/buyButtonIcon.ca48e861.svg"
+            };
+
+            function getActiveTabCategory() {
+                const activeMenu = document.querySelector('.MenuComponentStyle-mainMenuItem.-activeMenu');
+                if (!activeMenu) return 'default';
+                
+                const txt = activeMenu.textContent.toLowerCase();
+                if (txt.includes('припас') || txt.includes('supplies')) return 'supplies';
+                if (txt.includes('краск') || txt.includes('paint')) return 'paints';
+                if (txt.includes('гранат') || txt.includes('grenade')) return 'grenades';
+                return 'default';
+            }
+
+            function applyButtonFixes() {
+                const buttons = document.querySelectorAll('.GarageCommonStyle-bigActionButton');
+                if (!buttons.length) return;
+
+                const currentCategory = getActiveTabCategory();
+                
+                buttons.forEach((btn) => {
+                    const textHTML = btn.innerHTML.toLowerCase();
+                    const textContent = btn.textContent.toLowerCase();
+                    
+                    const hasHotKey = btn.querySelector('[class*="-commonBlockForHotKey"]');
+                    const hasPrice = textHTML.includes('price') || 
+                                     textHTML.includes('кристал') || 
+                                     textHTML.includes('ruby') || 
+                                     textHTML.includes('discount') ||
+                                     textHTML.includes('tankoin');
+
+                    const isActive = hasHotKey || hasPrice;
+
+                    btn.classList.remove('kasp-hover-up', 'kasp-hover-down', 'kasp-btn-white', 'kasp-btn-gray');
+
+                    const iconDiv = btn.querySelector('[class*="-backgroundImage"]');
+                    if (iconDiv) {
+                        let targetIcon = ICONS.UPGRADE;
+                        let iconColor = isActive ? '#000000' : 'rgb(229, 229, 229)';
+                        let hoverClass = 'kasp-hover-up';
+                        let btnColorClass = 'kasp-btn-white';
+
+                        const isEquipText = textContent.includes('space') || textContent.includes('установ') || textContent.includes('equip') || textContent.includes('mount') || textContent.includes('снять') || textContent.includes('unequip');
+                        const isMaxedText = textContent.includes('завершено') || textContent.includes('maxed') || textContent.includes('upgraded') || textContent.includes('completed');
+                        
+                        const isSuppliesContainer = btn.closest('.GarageSuppliesComponentStyle-containerButtons') !== null;
+
+                        if (currentCategory === 'paints') {
+                            targetIcon = ICONS.MOUNT;
+                            hoverClass = 'kasp-hover-down';
+                            btnColorClass = 'kasp-btn-gray';
+                        } else if (isEquipText) {
+                            targetIcon = ICONS.MOUNT;
+                            hoverClass = 'kasp-hover-down';
+                            btnColorClass = 'kasp-btn-gray';
+                        } else if (isMaxedText) {
+                            targetIcon = ICONS.UPGRADE;
+                            hoverClass = 'kasp-hover-up';
+                        } else if (currentCategory === 'supplies' || isSuppliesContainer) {
+                            targetIcon = ICONS.BUY;
+                            hoverClass = 'kasp-hover-up';
+                        } else {
+                            const parent = btn.closest('.TanksPartBaseComponentStyle-buttonsContainer');
+                            const siblingsCount = parent ? parent.querySelectorAll('.GarageCommonStyle-bigActionButton').length : 1;
+                            
+                            if (siblingsCount === 1) {
+                                targetIcon = ICONS.BUY;
+                                hoverClass = 'kasp-hover-up';
+                            } else {
+                                targetIcon = ICONS.UPGRADE;
+                                hoverClass = 'kasp-hover-up';
+                            }
+                        }
+
+                        if (isActive) {
+                            btn.classList.add('kasp-active-btn', btnColorClass, hoverClass);
+                            btn.classList.remove('kasp-disabled-btn');
+                        } else {
+                            btn.classList.add('kasp-disabled-btn');
+                            btn.classList.remove('kasp-active-btn');
+                        }
+
+                        applyMask(iconDiv, targetIcon, iconColor);
+                    }
+                });
+            }
+
+            function applyMask(element, url, color) {
+                element.style.setProperty('background-image', 'none', 'important');
+                element.style.setProperty('background-color', color, 'important');
+                element.style.setProperty('-webkit-mask-image', `url("${url}")`, 'important');
+                element.style.setProperty('mask-image', `url("${url}")`, 'important');
+                element.style.setProperty('-webkit-mask-size', 'contain', 'important');
+                element.style.setProperty('mask-size', 'contain', 'important');
+                element.style.setProperty('-webkit-mask-repeat', 'no-repeat', 'important');
+                element.style.setProperty('mask-repeat', 'no-repeat', 'important');
+                element.style.setProperty('-webkit-mask-position', 'center', 'important');
+                element.style.setProperty('mask-position', 'center', 'important');
+                element.style.setProperty('opacity', '1', 'important');
+            }
+
+            return () => {
+                if (state.currentScreen === 'garage') {
+                    applyButtonFixes();
+                }
+            };
+        })(),
+
         welcomeModal: (() => {
-            const CURRENT_VERSION = '1.8';
+            const CURRENT_VERSION = '1.9';
             const STORAGE_KEY = 'kasp_last_version';
             let hasChecked = false;
 
@@ -6586,13 +6698,13 @@
                     z-index: 60; box-shadow: rgba(0, 0, 0, 0.5) 0px 0.5em 2em 0px;
                     outline: rgba(255, 255, 255, 0.25) solid 0.063em;
                     padding: 2.5em; border-radius: 0.75em;
-                    background: radial-gradient(100% 100% at 0% 0%, rgba(118, 255, 51, 0.15) 0%, rgba(0, 25, 38, 0.95) 100%), rgb(10, 15, 20);
+                    background: radial-gradient(100% 100% at 0% 0%, rgb(255 255 255 / 15%) 0%, rgb(0 0 0 / 95%) 100%), rgb(56 56 56);
                     font-family: BaseFont, FallbackFont, sans-serif; color: white;
                 `;
 
                 dialog.innerHTML = `
                     <div style="text-align: center; margin-bottom: 1.5em;">
-                        <h1 style="font-family: BaseFontBold, FallbackFontBold, sans-serif; font-size: 2.2em; color: rgb(118, 255, 51); margin: 0 0 0.2em 0; text-transform: uppercase; letter-spacing: 0.5px;">Kaspersky's Inventions</h1>
+                        <h1 style="font-family: BaseFontBold, FallbackFontBold, sans-serif; font-size: 2.2em; color: rgb(211 211 211); margin: 0 0 0.2em 0; text-transform: uppercase; letter-spacing: 0.5px;">Kaspersky's Inventions</h1>
                         <h2 style="font-family: BaseFontMedium, FallbackFontMedium, sans-serif; font-size: 1.1em; color: rgba(255, 255, 255, 0.6); margin: 0; text-transform: uppercase; letter-spacing: 1px;">${dict.version}</h2>
                     </div>
                     
@@ -6618,7 +6730,7 @@
                             Claude Opus 5
                         </p>
                         
-                        <p style="margin: 0; font-family: BaseFontMedium, FallbackFontMedium, sans-serif; color: rgb(118, 255, 51); font-size: 1.1em; text-transform: uppercase;">${dict.outro}</p>
+                        <p style="margin: 0; font-family: BaseFontMedium, FallbackFontMedium, sans-serif; color: rgb(211 211 211); font-size: 1.1em; text-transform: uppercase;">${dict.outro}</p>
                     </div>
                     
                     <div style="display: flex; justify-content: center; gap: 1em; flex-wrap: wrap;">
@@ -6632,7 +6744,7 @@
                                 GITHUB
                             </div>
                         </a>
-                        <div id="kasp-welcome-close" style="height: 3em; border-radius: 0.75em; background-color: rgb(118, 255, 51); display: flex; align-items: center; justify-content: center; color: rgb(0, 25, 38); font-family: BaseFontBold, FallbackFontBold, sans-serif; font-weight: 500; text-transform: uppercase; padding: 0 1.5em; cursor: pointer; border: 1px solid transparent;" onmouseover="this.style.borderColor='white'; this.style.boxShadow='0 0 0 1px white';" onmouseout="this.style.borderColor='transparent'; this.style.boxShadow='none';">
+                        <div id="kasp-welcome-close" style="height: 3em; border-radius: 0.75em; background-color: rgb(213 213 213); display: flex; align-items: center; justify-content: center; color: rgb(0, 25, 38); font-family: BaseFontBold, FallbackFontBold, sans-serif; font-weight: 500; text-transform: uppercase; padding: 0 1.5em; cursor: pointer; border: 1px solid transparent;" onmouseover="this.style.borderColor='white'; this.style.boxShadow='0 0 0 1px white';" onmouseout="this.style.borderColor='transparent'; this.style.boxShadow='none';">
                             ${dict.close}
                         </div>
                     </div>
@@ -7189,7 +7301,7 @@
             let lastItemSignature = '';
             let isCategorySwitch = true;
             let categorySwitchTimeout: number | null = null;
-            const DELAY = 30;
+            const DELAY = 200;
 
             function pressEnter() {
                 const event = new KeyboardEvent('keydown', {
@@ -7438,6 +7550,7 @@
                 const containerNode = document.querySelector('.TanksPartBaseComponentStyle-buttonsContainer');
                 const panel = containerNode?.parentNode;
                 if (!panel) return;
+                
                 if (!shouldShowQuickButtons()) {
                     const existing = document.getElementById('quick-buttons');
                     if (existing) existing.remove();
@@ -7447,29 +7560,52 @@
 
                 const quickButtonsWrapper = document.createElement('div');
                 quickButtonsWrapper.id = 'quick-buttons';
-                if (isCategorySwitch) quickButtonsWrapper.className = 'GarageCommonStyle-animatedBlurredRightBlock';
+                if (typeof isCategorySwitch !== 'undefined' && isCategorySwitch) {
+                    quickButtonsWrapper.className = 'GarageCommonStyle-animatedBlurredRightBlock';
+                }
                 quickButtonsWrapper.style.cssText = `display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.3em; margin-top: 0.28em; width: 100%; margin-left: 0.12em; box-sizing: border-box;`;
 
-                const buttons = [{ label: 'X5', value: 5 }, { label: 'X10', value: 10 }, { label: 'X15', value: 15 }, { label: 'MAX', value: Infinity }];
+                const buttons = [
+                    { label: 'X5', value: 5 }, 
+                    { label: 'X10', value: 10 }, 
+                    { label: 'X15', value: 15 }, 
+                    { label: 'MAX', value: Infinity }
+                ];
+                
                 const tooltipMax = state.lang === 'RU' ? 'Прокачать до максимума' : 'Upgrade to max';
                 const tooltipSteps = state.lang === 'RU' ? 'Прокачать {n} раз' : 'Upgrade {n} times';
 
                 buttons.forEach(btn => {
                     const el = document.createElement('div');
-                    el.className = 'SquarePriceButtonComponentStyle-commonBlockButton -commonButtonUpdate -flexCenterAlignCenter -displayFlex -alignCenter GarageCommonStyle-bigActionButton';
-                    el.style.cssText = `cursor: pointer; background: transparent; border: 0.063em solid rgba(255, 255, 255, 0.25); border-radius: 0.75em; display: flex; min-width: 0; align-items: center; justify-content: center; height: 3em; box-sizing: border-box;`;
-                    el.addEventListener('mouseenter', () => { el.style.borderColor = 'rgb(255, 255, 255)'; el.style.boxShadow = '0 0 0 1px rgb(255, 255, 255)'; });
-                    el.addEventListener('mouseleave', () => { el.style.borderColor = 'rgba(255, 255, 255, 0.25)'; el.style.boxShadow = 'none'; });
+                    
+                    el.className = 'SquarePriceButtonComponentStyle-commonBlockButton -commonButtonUpdate -flexCenterAlignCenter -displayFlex -alignCenter';
+                    
+                    el.style.cssText = `cursor: pointer; background-color: rgb(218, 218, 218) !important; transition: background-color 0.2s, box-shadow 0.2s; box-shadow: rgba(255, 255, 255, 0.25) 0em 0em 0em 0.063em; border-radius: 0.75em; display: flex; min-width: 0; align-items: center; justify-content: center; height: 3em; box-sizing: border-box;`;
+                    
+                    el.addEventListener('mouseenter', () => { 
+                        el.style.backgroundColor = 'rgb(197, 197, 197)'; 
+                        el.style.boxShadow = 'rgb(255, 255, 255) 0em 0em 0em 1.4px'; 
+                    });
+                    el.addEventListener('mouseleave', () => { 
+                        el.style.backgroundColor = 'rgb(218, 218, 218)'; 
+                        el.style.boxShadow = 'rgba(255, 255, 255, 0.25) 0em 0em 0em 0.063em'; 
+                    });
                     
                     const span = document.createElement('span');
-                    span.style.cssText = `color: #bfd5ff; font-size: 1.4em; font-weight: 700; font-family: Arial, sans-serif; letter-spacing: 0.3px; text-shadow: 0 1px 2px rgba(0,0,0,0.3); white-space: nowrap;`;
+                    span.style.cssText = `color: rgb(0, 0, 0) !important; font-size: 1.3em; font-family: BaseFontBold, FallbackFontBold; font-weight: bold; white-space: nowrap;`;
                     span.textContent = btn.label;
+                    
                     el.appendChild(span);
                     
                     el.title = btn.value === Infinity ? tooltipMax : tooltipSteps.replace('{n}', btn.value.toString());
-                    el.addEventListener('click', (e) => { e.stopPropagation(); if (!isRunning) performAction(btn.value); });
+                    el.addEventListener('click', (e) => { 
+                        e.stopPropagation(); 
+                        if (typeof isRunning !== 'undefined' && !isRunning) performAction(btn.value); 
+                    });
+                    
                     quickButtonsWrapper.appendChild(el);
                 });
+                
                 panel.appendChild(quickButtonsWrapper);
             }
 
@@ -7684,6 +7820,279 @@
 
             return () => {};
         })(),
+
+        customGarageSkins: (() => {
+            const STORAGE_KEY = 'kasp_equipped_skins';
+            const BASE_IMG_KEY = 'kasp_base_images';
+
+            const SKIN_BRANDS_MAP = {
+                'https://s.eu.tankionline.com/614/34717/306/41/30607167046040/image.svg': 'default',
+                'https://s.eu.tankionline.com/605/161575/257/125/30275543521753/image.svg': 'xt',
+                'https://s.eu.tankionline.com/604/26114/260/116/30205423172265/image.svg': 'xtHD',
+                'https://s.eu.tankionline.com/604/26114/260/112/30205423211144/image.svg': 'prime',
+                'https://s.eu.tankionline.com/604/26114/260/103/30205423172266/image.svg': 'gt',
+                'https://s.eu.tankionline.com/604/26114/260/114/30205423171703/image.svg': 'sp',
+                'https://s.eu.tankionline.com/604/26114/260/115/30205423171700/image.svg': 'legacy',
+                'https://s.eu.tankionline.com/604/26114/260/111/30205423171761/image.svg': 'rt',
+                'https://s.eu.tankionline.com/604/26114/260/120/30205423171677/image.svg': 'ultra',
+                'https://s.eu.tankionline.com/623/157032/211/246/31173606567127/image.svg': 'dk',
+                'https://s.eu.tankionline.com/605/166565/337/2/30275535357510/image.svg': 'ic',
+                'https://s.eu.tankionline.com/604/26114/260/117/30271053650212/image.svg': 'demonic',
+                'none': 'demoncOLD',
+                'none1': 'vt',
+                'none2': 'sp'
+            };
+
+            const NAME_TRANSLATE = {
+                "огнемёт": "firebird", "firebird": "firebird",
+                "фриз": "freeze", "freeze": "freeze",
+                "изида": "isida", "isida": "isida",
+                "тесла": "tesla", "tesla": "tesla",
+                "молот": "hammer", "hammer": "hammer",
+                "твинс": "twins", "twins": "twins",
+                "рикошет": "ricochet", "ricochet": "ricochet",
+                "вулкан": "vulcan", "vulcan": "vulcan",
+                "смоки": "smoky", "smoky": "smoky",
+                "страйкер": "striker", "striker": "striker",
+                "гром": "thunder", "thunder": "thunder",
+                "цунами": "tsunami", "tsunami": "tsunami",
+                "скорпион": "scorpion", "scorpion": "scorpion",
+                "магнум": "magnum", "magnum": "magnum",
+                "рельса": "railgun", "railgun": "railgun",
+                "гаусс": "gauss", "gauss": "gauss",
+                "шафт": "shaft", "shaft": "shaft",
+                "васп": "wasp", "wasp": "wasp",
+                "хоппер": "hopper", "hopper": "hopper",
+                "хорнет": "hornet", "hornet": "hornet",
+                "викинг": "viking", "viking": "viking",
+                "крусейдер": "crusader", "crusader": "crusader",
+                "хантер": "hunter", "hunter": "hunter",
+                "паладин": "paladin", "paladin": "paladin",
+                "диктатор": "dictator", "dictator": "dictator",
+                "титан": "titan", "titan": "titan",
+                "арес": "ares", "ares": "ares",
+                "мамонт": "mammoth", "mammoth": "mammoth"
+            };
+
+            const PREFILLED_DEFAULTS = {
+                "firebird": "https://s.eu.tankionline.com/0/114/134/163/27571212744112/image.webp",
+                "freeze": "https://s.eu.tankionline.com/575/156205/46/235/27673441764603/image.webp",
+                "isida": "https://s.eu.tankionline.com/605/12650/335/51/30242554322574/image.webp",
+                "tesla": "https://s.eu.tankionline.com/571/164753/344/273/31254566614710/image.webp",
+                "hammer": "https://s.eu.tankionline.com/611/147301/37/346/30471660553063/image.webp",
+                "twins": "https://s.eu.tankionline.com/575/72153/171/306/27656433310704/image.webp",
+                "ricochet": "https://s.eu.tankionline.com/603/146215/116/130/30171443247472/image.webp",
+                "vulcan": "https://s.eu.tankionline.com/622/115017/367/224/31123203774154/image.webp",
+                "smoky": "https://s.eu.tankionline.com/566/114246/64/16/27323052543056/image.webp",
+                "striker": "https://s.eu.tankionline.com/626/176502/177/71/31337521147306/image.webp",
+                "thunder": "https://s.eu.tankionline.com/601/112676/250/233/30062557707304/image.webp",
+                "tsunami": "https://s.eu.tankionline.com/633/142777/142/76/31570600103535/image.webp",
+                "scorpion": "https://s.eu.tankionline.com/601/17263/233/51/30043654742567/image.webp",
+                "magnum": "https://s.eu.tankionline.com/632/23036/322/273/31504607631061/image.webp",
+                "railgun": "https://s.eu.tankionline.com/567/105205/202/144/27361241363510/image.webp",
+                "gauss": "https://s.eu.tankionline.com/611/61722/256/267/30454367266373/image.webp",
+                "shaft": "https://s.eu.tankionline.com/622/43505/151/101/31110721265007/image.webp",
+                "wasp": "https://s.eu.tankionline.com/576/154321/271/157/27733064335367/image.webp",
+                "hopper": "https://s.eu.tankionline.com/576/154317/260/212/27733063731464/image.webp",
+                "hornet": "https://s.eu.tankionline.com/566/70102/323/356/27316026113551/image.webp",
+                "viking": "https://s.eu.tankionline.com/576/154321/207/23/27733064304256/image.webp",
+                "crusader": "https://s.eu.tankionline.com/566/43504/240/13/27310721146137/image.webp",
+                "hunter": "https://s.eu.tankionline.com/567/167060/364/46/27375614356144/image.webp",
+                "paladin": "https://s.eu.tankionline.com/573/71447/126/57/27602130021260/image.webp",
+                "dictator": "https://s.eu.tankionline.com/602/61754/171/44/30114373231460/image.webp",
+                "titan": "https://s.eu.tankionline.com/606/26070/125/222/30305416231374/image.webp",
+                "ares": "https://s.eu.tankionline.com/576/154316/224/223/27733063513342/image.webp",
+                "mammoth": "https://s.eu.tankionline.com/576/154320/262/304/30015725757347/image.webp"
+            };
+
+            const SKINS_DATABASE = {
+                "firebird": { "demonicOLD": "https://s.eu.tankionline.com/554/36647/151/167/27006222101177/image.webp", "xt": "https://s.eu.tankionline.com/544/55322/150/54/27006221137650/image.webp", "legacy": "https://s.eu.tankionline.com/606/154713/267/332/30333162755774/image.webp", "demonic": "https://s.eu.tankionline.com/574/111735/366/251/27623012454350/image.webp", "gt": "https://s.eu.tankionline.com/620/113220/245/225/31022644221725/image.webp" },
+                "freeze": { "dk": "https://s.eu.tankionline.com/626/144354/353/307/31331073273517/image.webp", "xtHD": "https://s.eu.tankionline.com/607/136170/201/132/30367436101741/image.webp", "xt": "https://s.eu.tankionline.com/545/127240/164/131/27006221125546/image.webp", "legacy": "https://s.eu.tankionline.com/605/14617/124/244/30243144544374/image.webp", "gt": "https://s.eu.tankionline.com/613/151460/263/146/30572314246641/image.webp" },
+                "isida": { "gt": "https://s.eu.tankionline.com/605/12655/270/305/30242555267625/image.webp", "xt": "https://s.eu.tankionline.com/547/121300/6/347/27006221135010/image.webp", "legacy": "https://s.eu.tankionline.com/606/155040/264/51/30333211016074/image.webp" },
+                "tesla": { "dk": "https://s.eu.tankionline.com/626/144357/43/323/31331073650002/image.webp", "xtHD": "https://s.eu.tankionline.com/571/164753/344/275/27475173126262/image.webp", "legacy": "https://s.eu.tankionline.com/604/60403/370/223/30214100775564/image.webp", "gt": "https://s.eu.tankionline.com/625/62773/333/270/31254577056311/image.webp", "rt": "https://s.eu.tankionline.com/616/165265/171/30/30735255276301/image.webp" },
+                "hammer": { "xt": "https://s.eu.tankionline.com/550/160444/177/127/27006221137644/image.webp", "legacy": "https://s.eu.tankionline.com/601/170515/147/375/30076123457044/image.webp", "gt": "https://s.eu.tankionline.com/623/151752/54/57/31172372477451/image.webp", "ic": "https://s.eu.tankionline.com/623/44445/126/376/31151111305122/image.webp", "sp": "https://s.eu.tankionline.com/627/73466/221/246/31356720510241/image.webp" },
+                "twins": { "xt": "https://s.eu.tankionline.com/547/35522/366/217/27006221446573/image.webp", "gt": "https://s.eu.tankionline.com/617/166341/206/340/30775470305001/image.webp", "legacy": "https://s.eu.tankionline.com/577/157474/222/174/27773717305444/image.webp" },
+                "ricochet": { "xt": "https://s.eu.tankionline.com/546/5476/203/247/27006221247376/image.webp", "legacy": "https://s.eu.tankionline.com/556/131237/223/64/27006221307447/image.webp", "gt": "https://s.eu.tankionline.com/623/45325/56/35/31151265266217/image.webp", "rt": "https://s.eu.tankionline.com/577/177107/117/226/27777622231563/image.webp" },
+                "vulcan": { "xt": "https://s.eu.tankionline.com/544/131127/26/163/27006222634650/image.webp", "prime": "https://s.eu.tankionline.com/556/15757/64/213/27006222451123/image.webp", "legacy": "https://s.eu.tankionline.com/624/106557/304/114/31221533775405/image.webp", "demonic": "https://s.eu.tankionline.com/613/14030/7/251/30543006303434/image.webp", "ultra": "https://s.eu.tankionline.com/560/31363/210/360/27006276703643/image.webp", "gt": "https://s.eu.tankionline.com/634/157107/355/324/31633622047562/image.webp" },
+                "smoky": { "xt": "https://s.eu.tankionline.com/545/14700/243/147/27006221742756/image.webp", "legacy": "https://s.eu.tankionline.com/577/174061/352/42/27777017045677/image.webp", "gt": "https://s.eu.tankionline.com/607/136171/102/2/30367436242300/image.webp" },
+                "striker": { "xtHD": "https://s.eu.tankionline.com/626/144362/322/210/31331074604612/image.webp", "ultra": "https://s.eu.tankionline.com/570/167463/110/26/31357732440710/image.webp", "xt": "https://s.eu.tankionline.com/551/73161/220/371/27006221457234/image.webp", "dk": "https://s.eu.tankionline.com/632/133612/321/202/31526742641351/image.webp", "gt": "https://s.eu.tankionline.com/632/57062/203/123/31634075062157/image.webp" },
+                "thunder": { "dk": "https://s.eu.tankionline.com/624/130241/231/170/31247407370544/image.webp", "xt": "https://s.eu.tankionline.com/544/23374/230/164/27006222346434/image.webp", "legacy": "https://s.eu.tankionline.com/545/14701/163/26/27006222440647/image.webp", "gt": "https://s.eu.tankionline.com/603/104200/223/77/30161040124106/image.webp", "ultra": "https://s.eu.tankionline.com/556/23371/256/376/27006222447074/image.webp", "prime": "https://s.eu.tankionline.com/557/14337/235/24/27006221273433/image.webp", "xtHD": "https://s.eu.tankionline.com/617/134472/113/230/30767117003724/image.webp" },
+                "tsunami": { "dk": "https://s.eu.tankionline.com/636/15624/303/133/31704534736504/image.webp" },
+                "scorpion": { "dk": "https://s.eu.tankionline.com/626/144356/211/215/31331073550674/image.webp", "xtHD": "https://s.eu.tankionline.com/602/142236/225/135/30131263063453/image.webp", "gt": "https://s.eu.tankionline.com/634/160574/373/213/31634137213712/image.webp" },
+                "magnum": { "sp": "https://s.eu.tankionline.com/612/43174/244/260/30510637124120/image.webp", "xt": "https://s.eu.tankionline.com/550/75116/121/115/27006222156612/image.webp" },
+                "railgun": { "gt": "https://s.eu.tankionline.com/606/155010/246/46/30333202253104/image.webp", "legacy": "https://s.eu.tankionline.com/550/121477/171/157/27006221327105/image.webp", "xt": "https://s.eu.tankionline.com/544/23374/101/240/27006222467365/image.webp", "ultra": "https://s.eu.tankionline.com/557/14216/302/47/27006222235365/image.webp", "prime": "https://s.eu.tankionline.com/554/45667/335/160/27006221506161/image.webp" },
+                "gauss": { "xt": "https://s.eu.tankionline.com/560/166470/223/123/27035516206046/image.webp", "prime": "https://s.eu.tankionline.com/554/43164/134/365/27006222545045/image.webp", "gt": "https://s.eu.tankionline.com/613/151460/263/2/30572765264737/image.webp", "ultra": "https://s.eu.tankionline.com/563/60021/200/371/27154004322450/image.webp", "ic": "https://s.eu.tankionline.com/614/101074/51/272/30620217025776/image.webp" },
+                "shaft": { "legacy": "https://s.eu.tankionline.com/600/172117/242/22/30036424407361/image.webp", "xt": "https://s.eu.tankionline.com/546/76262/360/74/27006221440464/image.webp", "gt": "https://s.eu.tankionline.com/623/152641/25/44/31172550417505/image.webp" },
+                "wasp": { "legacy": "https://s.eu.tankionline.com/577/174061/352/34/27777016754412/image.webp", "xt": "https://s.eu.tankionline.com/544/55321/27/365/27006221715450/image.webp", "gt": "https://s.eu.tankionline.com/620/113057/312/163/31022614272635/image.webp" },
+                "hopper": { "dk": "https://s.eu.tankionline.com/634/21124/213/143/31604256121143/image.webp", "xtHD": "https://s.eu.tankionline.com/564/44403/372/46/27221401755636/image.webp", "rt": "https://s.eu.tankionline.com/616/165266/42/215/30735255423342/image.webp" },
+                "hornet": { "xtHD": "https://s.eu.tankionline.com/623/132270/76/254/31166456253644/image.webp", "xt": "https://s.eu.tankionline.com/544/23373/367/174/27006221615421/image.webp", "ultra": "https://s.eu.tankionline.com/562/167731/132/2/27135766300240/image.webp", "gt": "https://s.eu.tankionline.com/605/27506/77/266/30245722451746/image.webp", "legacy": "https://s.eu.tankionline.com/554/36653/207/221/27006221767456/image.webp", "sp": "https://s.eu.tankionline.com/636/174463/275/327/31737115153727/image.webp", "dk": "https://s.eu.tankionline.com/626/144360/341/233/31331074463357/image.webp", "prime": "https://s.eu.tankionline.com/553/11125/61/23/27006221422730/image.webp" },
+                "viking": { "xtHD": "https://s.eu.tankionline.com/606/162165/343/3/30334435362646/image.webp", "ultra": "https://s.eu.tankionline.com/552/63515/71/331/27006222526007/image.webp", "xt": "https://s.eu.tankionline.com/544/23374/341/44/27006221645475/image.webp", "legacy": "https://s.eu.tankionline.com/545/14701/310/206/27006221256304/image.webp", "gt": "https://s.eu.tankionline.com/603/101654/323/65/30160353152727/image.webp", "dk": "https://s.eu.tankionline.com/624/130241/112/33/31243624274176/image.webp", "prime": "https://s.eu.tankionline.com/557/14335/173/371/27006222537526/image.webp" },
+                "crusader": { "xtHD": "https://s.eu.tankionline.com/566/40735/240/67/27310167345113/image.webp", "rt": "https://s.eu.tankionline.com/607/24073/366/376/30345016775402/image.webp" },
+                "hunter": { "xt": "https://s.eu.tankionline.com/547/121275/335/127/27006222147461/image.webp", "legacy": "https://s.eu.tankionline.com/577/157474/222/171/27773717262060/image.webp", "sp": "https://s.eu.tankionline.com/632/72364/102/227/31516475423716/image.webp", "gt": "https://s.eu.tankionline.com/607/136171/1/41/30367436201726/image.webp", "prime": "https://s.eu.tankionline.com/554/155740/111/54/27006222537520/image.webp", "ultra": "https://s.eu.tankionline.com/561/116016/365/77/27063403712301/image.webp" },
+                "paladin": { "dk": "https://s.eu.tankionline.com/636/15627/202/330/31703345754725/image.webp", "xtHD": "https://s.eu.tankionline.com/573/71447/126/37/31645107310146/image.webp", "rt": "https://s.eu.tankionline.com/577/177107/117/225/27777622013534/image.webp" },
+                "dictator": { "xt": "https://s.eu.tankionline.com/553/20722/371/101/27006221171476/image.webp", "sp": "https://s.eu.tankionline.com/621/140410/154/251/31070103077064/image.webp", "legacy": "https://s.eu.tankionline.com/600/172117/242/15/31364321620222/image.webp", "gt": "https://s.eu.tankionline.com/606/154745/266/2/30333172146453/image.webp" },
+                "titan": { "xt": "https://s.eu.tankionline.com/545/43351/66/26/27006222061714/image.webp", "prime": "https://s.eu.tankionline.com/555/103066/317/332/27006222042503/image.webp", "gt": "https://s.eu.tankionline.com/623/45322/65/215/31151265113717/image.webp", "sp": "https://s.eu.tankionline.com/612/43367/221/355/30510675712024/image.webp", "legacy": "https://s.eu.tankionline.com/601/170515/147/372/30076123372407/image.webp" },
+                "ares": { "dk": "https://s.eu.tankionline.com/626/144353/222/354/31331072771326/image.webp", "xtHD": "https://s.eu.tankionline.com/562/161156/242/234/31331074061754/image.webp", "rt": "https://s.eu.tankionline.com/626/36656/275/136/31307553605617/image.webp" },
+                "mammoth": { "xt": "https://s.eu.tankionline.com/544/131126/51/354/27006221626237/image.webp", "sp": "https://s.eu.tankionline.com/573/113617/26/345/27562743700674/image.webp", "gt": "https://s.eu.tankionline.com/617/166341/256/13/30775470330175/image.webp", "legacy": "https://s.eu.tankionline.com/557/31406/53/112/27006222625462/image.webp", "ultra": "https://s.eu.tankionline.com/571/77135/256/372/27457627403320/image.webp" }
+            };
+
+            function getSavedSkins() {
+                try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } 
+                catch (e) { return {}; }
+            }
+
+            function getDefaultImages() {
+                try { return Object.assign({}, PREFILLED_DEFAULTS, JSON.parse(localStorage.getItem(BASE_IMG_KEY)) || {}); } 
+                catch (e) { return PREFILLED_DEFAULTS; }
+            }
+
+            function getItemNameByUrl(url, defaultsMap) {
+                for (const [name, defUrl] of Object.entries(defaultsMap)) {
+                    if (defUrl === url) return name;
+                }
+                for (const [name, brands] of Object.entries(SKINS_DATABASE)) {
+                    for (const brandUrl of Object.values(brands)) {
+                        if (brandUrl === url) return name;
+                    }
+                }
+                return null;
+            }
+
+            return () => {
+                if (state.currentScreen !== 'garage') return;
+
+                const savedSkins = getSavedSkins();
+                const defaultImages = getDefaultImages();
+                let defaultsUpdated = false;
+                let skinsUpdated = false;
+
+                // 1. СОХРАНЕНИЕ СКИНА (Больше никаких задержек и ложных срабатываний)
+                const nameEl = document.querySelector('.ItemDescriptionComponentStyle-nameItem span, .GarageItemComponentStyle-descriptionDevice span');
+                
+                if (nameEl) {
+                    const rawName = nameEl.textContent.trim().toLowerCase();
+                    const firstWord = rawName.split(/\s+/)[0];
+                    const itemNameEN = NAME_TRANSLATE[firstWord] || firstWord;
+
+                    // КЛЮЧЕВОЙ МОМЕНТ: Ищем СТРОГО в ячейке скина, полностью игнорируя иконки устройств!
+                    const skinImgs = document.querySelectorAll('.SkinsIconComponentStyle-cellSkins img');
+                    let foundBrand = null;
+                    
+                    for (const skinImg of skinImgs) {
+                        const src = skinImg.getAttribute('src') || '';
+                        if (SKIN_BRANDS_MAP[src]) {
+                            foundBrand = SKIN_BRANDS_MAP[src];
+                            break;
+                        } else if (src.includes('ic_standard') || src.includes('standard')) {
+                            foundBrand = 'default';
+                            break;
+                        }
+                    }
+
+                    if (foundBrand) {
+                        if (foundBrand === 'default') {
+                            if (savedSkins[itemNameEN]) {
+                                delete savedSkins[itemNameEN];
+                                skinsUpdated = true;
+                            }
+                        } else if (SKINS_DATABASE[itemNameEN] && SKINS_DATABASE[itemNameEN][foundBrand]) {
+                            const targetUrl = SKINS_DATABASE[itemNameEN][foundBrand];
+                            if (savedSkins[itemNameEN] !== targetUrl) {
+                                savedSkins[itemNameEN] = targetUrl;
+                                skinsUpdated = true;
+                            }
+                        }
+                    }
+                }
+
+                if (skinsUpdated) {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(savedSkins));
+                }
+
+                // 2. ОБРАБОТКА НИЖНЕЙ КАРУСЕЛИ И САМООБУЧЕНИЕ БАЗЫ
+                const garageItems = document.querySelectorAll('.garage-item');
+                garageItems.forEach((item) => {
+                    const titleSpan = item.querySelector('.GarageItemComponentStyle-descriptionDevice span');
+                    const imgMain = item.querySelector<HTMLImageElement>('.GarageItemComponentStyle-mainImg');
+
+                    if (titleSpan && imgMain) {
+                        const rawTitle = titleSpan.textContent.trim().toLowerCase();
+                        const itemNameRU = rawTitle.split(/\s+/)[0];
+                        const itemNameEN = NAME_TRANSLATE[itemNameRU] || itemNameRU;
+
+                        const currentSrc = imgMain.getAttribute('src') || '';
+                        const customSkinsArray = Object.values(SKINS_DATABASE[itemNameEN] || {});
+                        
+                        if (currentSrc && !customSkinsArray.includes(currentSrc)) {
+                            if (defaultImages[itemNameEN] !== currentSrc) {
+                                defaultImages[itemNameEN] = currentSrc;
+                                defaultsUpdated = true;
+                            }
+                        }
+
+                        const targetSkinSrc = savedSkins[itemNameEN];
+                        if (targetSkinSrc) {
+                            if (currentSrc !== targetSkinSrc) {
+                                imgMain.setAttribute('src', targetSkinSrc);
+                                imgMain.style.objectFit = 'contain';
+                            }
+                        } else {
+                            const defSrc = defaultImages[itemNameEN];
+                            if (defSrc && currentSrc !== defSrc) {
+                                imgMain.setAttribute('src', defSrc);
+                            }
+                            imgMain.style.objectFit = '';
+                        }
+                    }
+                });
+
+                if (defaultsUpdated) {
+                    localStorage.setItem(BASE_IMG_KEY, JSON.stringify(defaultImages));
+                }
+
+                // 3. ОБРАБОТКА ОБЗОРНОГО ЭКРАНА И ПРАВОЙ ПАНЕЛИ
+                const equippedBlocks = document.querySelectorAll('.MountedItemsStyle-commonBlockForTurretsHulls, .MountedItemsStyle-commonBlockForTurretsWeapon');
+                
+                equippedBlocks.forEach(block => {
+                    const previewImg = block.querySelector('.MountedItemsStyle-itemPreview');
+                    if (!previewImg) return;
+
+                    const currentSrc = previewImg.getAttribute('src') || '';
+                    const itemNameEN = getItemNameByUrl(currentSrc, defaultImages);
+                    
+                    if (itemNameEN) {
+                        let brandKey = 'default';
+                        
+                        // Ищем иконку СТРОГО в специальной ячейке скинов (игнорируем MountedItemsStyle-deviceIcon)
+                        const skinIcons = block.querySelectorAll('.SkinsIconComponentStyle-cellSkins img');
+                        for (const img of skinIcons) {
+                            const svgSrc = img.getAttribute('src') || '';
+                            if (SKIN_BRANDS_MAP[svgSrc]) {
+                                brandKey = SKIN_BRANDS_MAP[svgSrc];
+                                break;
+                            } else if (svgSrc.includes('ic_standard') || svgSrc.includes('standard')) {
+                                brandKey = 'default';
+                                break;
+                            }
+                        }
+
+                        if (brandKey !== 'default' && SKINS_DATABASE[itemNameEN] && SKINS_DATABASE[itemNameEN][brandKey]) {
+                            const targetSkinUrl = SKINS_DATABASE[itemNameEN][brandKey];
+                            if (currentSrc !== targetSkinUrl) {
+                                previewImg.setAttribute('src', targetSkinUrl);
+                                (previewImg as HTMLImageElement).style.objectFit = 'contain';
+                            }
+                        } else {
+                            const defSrc = defaultImages[itemNameEN];
+                            if (defSrc && currentSrc !== defSrc) {
+                                previewImg.setAttribute('src', defSrc);
+                                (previewImg as HTMLImageElement).style.objectFit = '';
+                            }
+                        }
+                    }
+                });
+            };
+        })(),
     };
 
     const masterObserver = new MutationObserver(() => {
@@ -7736,6 +8145,9 @@
                 modules.autoUpgrade();
                 modules.augmentSpecs();
                 modules.customPaints();
+                modules.garageButtons();
+                modules.customGarageSkins();
+
             }
         } catch (e) {
             console.error("[Kaspersky's Inventions] Ошибка в модуле:", e);

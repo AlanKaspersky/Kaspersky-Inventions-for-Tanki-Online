@@ -1,0 +1,176 @@
+.-container {
+    background: radial-gradient(rgb(39 39 39) 0%, rgb(3, 8, 13) 100%) !important;
+}
+
+.-entranceGradient {
+    background: linear-gradient(rgb(0 0 0) 0%, rgb(0 0 0 / 0%) 100%) !important;
+}
+
+.ListItemsComponentStyle-itemsListContainer {
+    background: linear-gradient(rgba(0, 25, 38, 0) 0%, rgb(0 0 0) 100%) !important;
+}
+
+.ListItemsComponentStyle-itemsListContainer.-appearFromBottom .-flexCenterAlignCenter {
+    background: none !important;
+}
+
+.GarageCommonStyle-discountLabel {
+    background-color: rgb(255 255 255) !important;
+}
+
+.SquarePriceButtonComponentStyle-discountLabel, span.-discount.-medium.-flexCenterAlignCenter, .SuppliesComponentStyle-discountLabel, .PrimaryMenuItemComponentStyle-discountNotification {
+    background-color: rgb(255 255 255) !important;
+}
+
+.DisplayPriceComponentStyle-discountTimer span {
+    color: rgb(0 0 0) !important;
+}
+
+.ApplicationLoaderComponentStyle-container > div[style*="linear-gradient"] {
+    background: linear-gradient(rgba(0, 25, 38, 0) 0%, rgba(18, 18, 18, 0.75) 100%) !important;
+}
+
+/* Анимации для гаражных кнопок */
+@keyframes kasp-btn-anim {
+    0%   { background-color: rgb(255, 255, 255); }
+    50%  { background-color: rgba(255, 255, 255, 0.8); }
+    100% { background-color: rgb(255, 255, 255); }
+}
+
+@keyframes kasp-btn-anim-gray {
+    0%   { background-color: rgb(218, 218, 218); }
+    50%  { background-color: rgba(255, 255, 255, 0.7); }
+    100% { background-color: rgb(218, 218, 218); }
+}
+
+/* Фнти-Флэш */
+.GarageCommonStyle-bigActionButton {
+    background-image: none !important;
+    transition: none !important;
+}
+.GarageCommonStyle-bigActionButton:not(.kasp-active-btn):not(.kasp-disabled-btn) {
+    background-color: rgb(218, 218, 218) !important;
+}
+.GarageCommonStyle-bigActionButton:first-child:not(.kasp-active-btn):not(.kasp-disabled-btn) {
+    background-color: rgb(255, 255, 255) !important;
+}
+.GarageCommonStyle-bigActionButton:not(.kasp-active-btn):not(.kasp-disabled-btn) [class*="-backgroundImage"] {
+    opacity: 0 !important;
+}
+
+/* Активные, то есть, кликабельные кнопки */
+.GarageCommonStyle-bigActionButton.kasp-active-btn {
+    transition: background-color 0.2s, box-shadow 0.2s !important;
+    box-shadow: rgb(255 255 255 / 25%) 0em 0em 0em 0.063em !important;
+    pointer-events: auto !important;
+}
+.GarageCommonStyle-bigActionButton.kasp-active-btn.kasp-btn-white {
+    background-color: rgb(255, 255, 255) !important;
+}
+.GarageCommonStyle-bigActionButton.kasp-active-btn.kasp-btn-gray {
+    background-color: rgb(218, 218, 218) !important;
+}
+.GarageCommonStyle-bigActionButton.kasp-active-btn:hover {
+    background-color: rgb(197, 197, 197) !important;
+    box-shadow: rgb(255, 255, 255) 0em 0em 0em 2px !important;
+}
+
+/* Анимация иконок у кнопок. Улучшение — верх, использование — вниз */
+.GarageCommonStyle-bigActionButton.kasp-active-btn.kasp-hover-up:hover .-backgroundImage {
+    transform: translateY(-0.4em) !important;
+}
+.GarageCommonStyle-bigActionButton.kasp-active-btn.kasp-hover-down:hover .-backgroundImage {
+    transform: translateY(0.4em) !important;
+}
+.GarageCommonStyle-bigActionButton.kasp-active-btn .-backgroundImage {
+    transition: transform 0.2s ease !important;
+}
+
+/* Удалена фона у хоткеев */
+.GarageCommonStyle-bigActionButton.kasp-active-btn span,
+.GarageCommonStyle-bigActionButton.kasp-active-btn .-commonBlockForHotKey {
+    color: rgb(0, 0, 0) !important;
+    background-color: transparent !important;
+}
+
+/* Завершенные кнопки: полная прокачка или использование предмета */
+.GarageCommonStyle-bigActionButton.kasp-disabled-btn {
+    background: radial-gradient(50% 100% at 50% 100%, rgba(255, 255, 255, 0.1) 0%, rgba(3, 8, 13, 0.6) 100%) !important;
+    background-color: transparent !important;
+    box-shadow: rgba(255, 255, 255, 0.15) 0em 0em 0em 0.063em !important;
+}
+
+.GarageCommonStyle-bigActionButton.kasp-disabled-btn:last-child:not(:first-child) {
+    background: radial-gradient(50% 100% at 50% 0%, rgba(255, 255, 255, 0.1) 0%, rgba(3, 8, 13, 0.6) 100%) !important;
+}
+
+.GarageCommonStyle-bigActionButton.kasp-disabled-btn span,
+.GarageCommonStyle-bigActionButton.kasp-disabled-btn .-commonBlockForHotKey {
+    color: rgb(229, 229, 229) !important;
+    background-color: transparent !important;
+}
+
+.TanksPartComponentStyle-tankPartUpgrades h2.TanksPartComponentStyle-nameUpgradeable:nth-of-type(2) {
+    color: rgb(156 156 156) !important;
+    margin-left: 0.25em !important;
+}
+
+.TanksPartComponentStyle-tankPartUpgrades .-flexSpaceBetweenAlignStretch > div > div:nth-child(2) {
+    background-color: rgb(147 147 147) !important; 
+    border-radius: 6.25em !important;
+}
+
+.TanksPartComponentStyle-tankPartUpgrades .-flexSpaceBetweenAlignStretch > div > div:nth-child(3) {
+    background-color: rgb(159 159 159 / 25%) !important;
+    border-radius: 6.25em !important;
+}
+
+.TanksPartComponentStyle-tankPartUpgrades .-displayFlexColumn .-flexStart span.-bold.-flexEnd {
+    color: rgb(156 156 156) !important;
+}
+
+/* ==========================================================
+   ЭФФЕКТ МЕТАЛЛИЧЕСКОГО БЛИКА ПРИ НАВЕДЕНИИ
+   ========================================================== */
+
+/* 1. Подготавливаем кнопки: прячем всё, что выходит за их края */
+.GarageCommonStyle-bigActionButton,
+#quick-buttons > div {
+    position: relative !important;
+    overflow: hidden !important; 
+}
+
+/* 2. Создаем сам световой луч (спрятан слева за краем) */
+.GarageCommonStyle-bigActionButton::after,
+#quick-buttons > div::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -150%;
+    width: 50%; /* Ширина луча */
+    height: 100%;
+    /* Градиент: от прозрачного к белому и снова к прозрачному */
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.4) 50%, rgba(255, 255, 255, 0) 100%);
+    transform: skewX(-25deg); /* Наклоняем луч для динамичности */
+    z-index: 1; /* Кладем луч поверх фона кнопки... */
+    pointer-events: none; /* ...но отключаем клики по нему */
+}
+
+/* 3. Запускаем анимацию пролета луча при наведении */
+.GarageCommonStyle-bigActionButton:hover::after,
+#quick-buttons > div:hover::after {
+    animation: kasp-metal-shine 0.6s ease-in-out forwards;
+}
+
+/* 4. Сама анимация (луч летит слева направо) */
+@keyframes kasp-metal-shine {
+    0% { left: -150%; }
+    100% { left: 200%; }
+}
+
+/* 5. Выводим текст и иконки на передний план, чтобы луч проходил ПОД ними */
+.GarageCommonStyle-bigActionButton > *,
+#quick-buttons > div > span {
+    position: relative;
+    z-index: 2;
+}
