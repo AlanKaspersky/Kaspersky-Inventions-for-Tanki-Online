@@ -8229,9 +8229,12 @@
                 'https://s.eu.tankionline.com/623/154745/143/361/31770737674426/image.svg': 1.70,
                 'https://s.eu.tankionline.com/605/137574/124/170/31770737107437/image.svg': 1.15
             };
+            const DISABLE_TIMER_AUGMENTS = [
+                'https://s.eu.tankionline.com/605/115405/51/352/31770737750144/image.svg'
+            ];
             try {
                 const data = JSON.parse(localStorage.getItem(STORAGE_KEY));
-                if (data && data.reloadTime) {
+                if (data && typeof data.reloadTime === 'number') {
                     currentReloadTime = data.reloadTime;
                 }
             }
@@ -8335,7 +8338,10 @@
                 if (currentSignature === lastSignature)
                     return;
                 let reloadTime = null;
-                if (RELOAD_BASE_STEPS[itemNameEN] && RELOAD_BASE_STEPS[itemNameEN][mkLevel]) {
+                if (DISABLE_TIMER_AUGMENTS.includes(augmentSrc)) {
+                    reloadTime = 0;
+                }
+                else if (RELOAD_BASE_STEPS[itemNameEN] && RELOAD_BASE_STEPS[itemNameEN][mkLevel]) {
                     const stepsArray = RELOAD_BASE_STEPS[itemNameEN][mkLevel];
                     const safeStep = Math.min(mkStep, stepsArray.length - 1);
                     const baseTime = stepsArray[safeStep];
