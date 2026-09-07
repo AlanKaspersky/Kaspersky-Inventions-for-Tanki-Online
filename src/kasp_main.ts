@@ -53,7 +53,7 @@
         const MY_SETTINGS = [
             { id: 'k_ext_btn', label: { RU: 'Расширенная кнопка «Играть»', EN: 'Enhanced «Play» button' }, default: false },
             { id: 'k_augments', label: { RU: 'Характеристики устройств', EN: 'Augment specifications' }, default: false },
-            { id: 'k_auto_upgrade', label: { RU: 'Быстрое улучшение вооружения', EN: 'Quick weapon upgrades' }, default: false },
+            { id: 'k_auto_upgrade', label: { RU: 'Быстрое улучшение вооружения [Нестабильно]', EN: 'Quick weapon upgrades [Unstable]' }, default: false },
             { id: 'k_friends', label: { RU: 'Метки и категории друзей', EN: 'Friend tags & categories' }, default: false },
             { id: 'k_paints', label: { RU: 'Умный поиск красок', EN: 'Smart paint search' }, default: false },
             { id: 'k_hideCurrency', label: { RU: 'Скрыть валюту', EN: 'Hide currency' }, default: false },
@@ -271,7 +271,6 @@
                                 rowEl.classList.add('kasp-active');
                                 localStorage.setItem(id, 'true');
                             }
-                            // Проверяем, изменились ли настройки по сравнению со стартом меню
                             needsReload = MY_SETTINGS.some(s => {
                                 const currentVal = utils.getSetting(s.id, s.default);
                                 return currentVal !== initialSettingsState[s.id];
@@ -314,7 +313,6 @@
                 const tooltip = document.getElementById('kaspersky-reload-tooltip');
                 if (tooltip) tooltip.classList.add('kasp-hidden');
                 
-                // Если хоть один ползунок изменился, перезагружаем страницу!
                 if (needsReload) window.location.reload();
             }
         };
@@ -325,6 +323,8 @@
             let initialized = false;
 
             const paintsData = {
+                "https://s.eu.tankionline.com/637/152776/317/16/31772577550020/image.webp": { ru: "Мастер Паркура 2026", en: "Master of Parkour 2026" },
+                "https://s.eu.tankionline.com/0/16717/221/103/27006222050601/image.webp": { ru: "Гелиос", en: "Helios" },
                 "https://s.eu.tankionline.com/610/51502/256/167/30665401302161/image.webp": { ru: "Яблоко", en: "Apple" },
                 "https://s.eu.tankionline.com/0/0/345/373/30665401773004/image.webp": { ru: "Чёрный", en: "Black" },
                 "https://s.eu.tankionline.com/610/51504/135/233/30665401712275/image.webp": { ru: "Синева", en: "Blueness" },
@@ -6551,7 +6551,7 @@
                 const activeMenu = document.querySelector('.MenuComponentStyle-mainMenuItem.-activeMenu');
                 if (!activeMenu) return 'default';
                 
-                const txt = activeMenu.textContent.toLowerCase();
+                const txt = activeMenu.textContent?.toLowerCase() || '';
                 if (txt.includes('припас') || txt.includes('supplies')) return 'supplies';
                 if (txt.includes('краск') || txt.includes('paint')) return 'paints';
                 if (txt.includes('гранат') || txt.includes('grenade')) return 'grenades';
@@ -6559,14 +6559,14 @@
             }
 
             function applyButtonFixes() {
-                const buttons = document.querySelectorAll('.GarageCommonStyle-bigActionButton');
+                const buttons = document.querySelectorAll('.GarageCommonStyle-bigActionButton, .AlterationButtonStyle-commonButton');
                 if (!buttons.length) return;
 
                 const currentCategory = getActiveTabCategory();
                 
                 buttons.forEach((btn) => {
                     const textHTML = btn.innerHTML.toLowerCase();
-                    const textContent = btn.textContent.toLowerCase();
+                    const textContent = btn.textContent?.toLowerCase() || '';
                     
                     const hasHotKey = btn.querySelector('[class*="-commonBlockForHotKey"]');
                     const hasPrice = textHTML.includes('price') || 
@@ -6579,59 +6579,59 @@
 
                     btn.classList.remove('kasp-hover-up', 'kasp-hover-down', 'kasp-btn-white', 'kasp-btn-gray');
 
-                    const iconDiv = btn.querySelector('[class*="-backgroundImage"]');
-                    if (iconDiv) {
-                        let targetIcon = ICONS.UPGRADE;
-                        let iconColor = isActive ? '#000000' : 'rgb(229, 229, 229)';
-                        let hoverClass = 'kasp-hover-up';
-                        let btnColorClass = 'kasp-btn-white';
+                    let targetIcon = ICONS.UPGRADE;
+                    let iconColor = isActive ? '#000000' : 'rgb(229, 229, 229)';
+                    let hoverClass = 'kasp-hover-up';
+                    let btnColorClass = 'kasp-btn-white';
 
-                        const isEquipText = textContent.includes('space') || textContent.includes('установ') || textContent.includes('equip') || textContent.includes('mount') || textContent.includes('снять') || textContent.includes('unequip');
-                        const isMaxedText = textContent.includes('завершено') || textContent.includes('maxed') || textContent.includes('upgraded') || textContent.includes('completed');
+                    const isEquipText = textContent.includes('space') || textContent.includes('установ') || textContent.includes('equip') || textContent.includes('mount') || textContent.includes('снять') || textContent.includes('unequip');
+                    const isMaxedText = textContent.includes('завершено') || textContent.includes('maxed') || textContent.includes('upgraded') || textContent.includes('completed');
+                    
+                    const isSuppliesContainer = btn.closest('.GarageSuppliesComponentStyle-containerButtons') !== null;
+
+                    if (currentCategory === 'paints') {
+                        targetIcon = ICONS.MOUNT;
+                        hoverClass = 'kasp-hover-down';
+                        btnColorClass = 'kasp-btn-gray';
+                    } else if (isEquipText) {
+                        targetIcon = ICONS.MOUNT;
+                        hoverClass = 'kasp-hover-down';
+                        btnColorClass = 'kasp-btn-gray';
+                    } else if (isMaxedText) {
+                        targetIcon = ICONS.UPGRADE;
+                        hoverClass = 'kasp-hover-up';
+                    } else if (currentCategory === 'supplies' || isSuppliesContainer) {
+                        targetIcon = ICONS.BUY;
+                        hoverClass = 'kasp-hover-up';
+                    } else {
+                        const parent = btn.closest('.TanksPartBaseComponentStyle-buttonsContainer');
+                        const siblingsCount = parent ? parent.querySelectorAll('.GarageCommonStyle-bigActionButton').length : 1;
                         
-                        const isSuppliesContainer = btn.closest('.GarageSuppliesComponentStyle-containerButtons') !== null;
-
-                        if (currentCategory === 'paints') {
-                            targetIcon = ICONS.MOUNT;
-                            hoverClass = 'kasp-hover-down';
-                            btnColorClass = 'kasp-btn-gray';
-                        } else if (isEquipText) {
-                            targetIcon = ICONS.MOUNT;
-                            hoverClass = 'kasp-hover-down';
-                            btnColorClass = 'kasp-btn-gray';
-                        } else if (isMaxedText) {
-                            targetIcon = ICONS.UPGRADE;
-                            hoverClass = 'kasp-hover-up';
-                        } else if (currentCategory === 'supplies' || isSuppliesContainer) {
+                        if (siblingsCount === 1) {
                             targetIcon = ICONS.BUY;
                             hoverClass = 'kasp-hover-up';
                         } else {
-                            const parent = btn.closest('.TanksPartBaseComponentStyle-buttonsContainer');
-                            const siblingsCount = parent ? parent.querySelectorAll('.GarageCommonStyle-bigActionButton').length : 1;
-                            
-                            if (siblingsCount === 1) {
-                                targetIcon = ICONS.BUY;
-                                hoverClass = 'kasp-hover-up';
-                            } else {
-                                targetIcon = ICONS.UPGRADE;
-                                hoverClass = 'kasp-hover-up';
-                            }
+                            targetIcon = ICONS.UPGRADE;
+                            hoverClass = 'kasp-hover-up';
                         }
+                    }
 
-                        if (isActive) {
-                            btn.classList.add('kasp-active-btn', btnColorClass, hoverClass);
-                            btn.classList.remove('kasp-disabled-btn');
-                        } else {
-                            btn.classList.add('kasp-disabled-btn');
-                            btn.classList.remove('kasp-active-btn');
-                        }
+                    if (isActive) {
+                        btn.classList.add('kasp-active-btn', btnColorClass, hoverClass);
+                        btn.classList.remove('kasp-disabled-btn');
+                    } else {
+                        btn.classList.add('kasp-disabled-btn');
+                        btn.classList.remove('kasp-active-btn');
+                    }
 
+                    const iconDiv = btn.querySelector('[class*="-backgroundImage"]') as HTMLElement;
+                    if (iconDiv) {
                         applyMask(iconDiv, targetIcon, iconColor);
                     }
                 });
             }
 
-            function applyMask(element, url, color) {
+            function applyMask(element: HTMLElement, url: string, color: string) {
                 element.style.setProperty('background-image', 'none', 'important');
                 element.style.setProperty('background-color', color, 'important');
                 element.style.setProperty('-webkit-mask-image', `url("${url}")`, 'important');
@@ -6653,7 +6653,7 @@
         })(),
 
         welcomeModal: (() => {
-            const CURRENT_VERSION = '1.9';
+            const CURRENT_VERSION = '2.0';
             const STORAGE_KEY = 'kasp_last_version';
             let hasChecked = false;
 
@@ -6719,9 +6719,11 @@
                             ChatGPT<br>
                             DeepSeek<br>
                             Claude Sonnet 5<br>
+                            Claude Haiku 4.5<br>
                             Gemini 3.5 Flash-Lite<br>
                             Gemini 3.8 Flash<br>
-                            Gemini 3.1 Pro
+                            Gemini 3.1 Pro<br>
+                            Grok 4.6
                         </p>
                         
                         <p style="margin: 0; color: rgba(255, 255, 255, 0.5); font-size: 0.9em; text-transform: uppercase;">${dict.role3}</p>
@@ -7301,7 +7303,7 @@
             let lastItemSignature = '';
             let isCategorySwitch = true;
             let categorySwitchTimeout: number | null = null;
-            const DELAY = 200;
+            const DELAY = 30;
 
             function pressEnter() {
                 const event = new KeyboardEvent('keydown', {
@@ -7368,12 +7370,29 @@
             }
 
             function isMaxLevel() {
-                return !!document.querySelector('.TanksPartBaseComponentStyle-marginTop .-buttonEstablished');
+                if (document.querySelector('.TanksPartBaseComponentStyle-marginTop .-buttonEstablished')) return true;
+
+                const titleNodes = document.querySelectorAll('.ItemDescriptionComponentStyle-nameItem span, .GarageItemComponentStyle-descriptionDevice span, .MountedItemsStyle-tankPartNameContainer h1');
+                for (let i = 0; i < titleNodes.length; i++) {
+                    const text = titleNodes[i].textContent?.trim().toUpperCase() || '';
+                    if (/(MK|МК)7[- ]?20/.test(text)) return true;
+                    if (/(УР|LVL)[- ]?(20|45)/.test(text)) return true;
+                    if (text.includes('MAX')) return true;
+                }
+
+                const maxBtn = document.querySelector('.SquarePriceButtonComponentStyle-commonBlockButton h2');
+                if (maxBtn && maxBtn.textContent?.trim().toUpperCase() === 'MAX') return true;
+
+                return false;
             }
 
             function shouldShowQuickButtons() {
                 if (!utils.getSetting('k_auto_upgrade', false)) return false;
-                if (isCompleted() || isMaxLevel()) return false;
+                
+                if (isMaxLevel()) return false;
+                
+                if (isCompleted()) return true;
+
                 const buttonsContainer = document.querySelector('.TanksPartBaseComponentStyle-buttonsContainer');
                 if (!buttonsContainer) return false;
                 const btns = buttonsContainer.querySelectorAll('.SquarePriceButtonComponentStyle-commonBlockButton');
@@ -7386,7 +7405,7 @@
                             const coinIcon = btn.querySelector('.GarageCommonStyle-iconCoinSmall');
                             if (coinIcon) {
                                 const bgImage = window.getComputedStyle(coinIcon).backgroundImage;
-                                if (!bgImage.includes('ruby')) return true;
+                                if (!bgImage.includes('ruby')) return true; 
                             }
                         }
                     }
@@ -7521,27 +7540,50 @@
             function performAction(count: number) {
                 if (isRunning) return;
                 if (!shouldShowQuickButtons()) return;
+                
                 showConfirmDialog(count, () => {
                     isRunning = true;
                     upgradeQueue = count;
                     upgraded = 0;
+                    
                     function doStep() {
                         if (!isRunning) { finish(); return; }
-                        if (!shouldShowQuickButtons()) { finish(); return; }
+                        
+                        if (isMaxLevel()) { finish(); return; }
+                        
+                        if (isCompleted() && !isDialogOpen()) {
+                            timer = window.setTimeout(doStep, DELAY);
+                            return;
+                        }
+
+                        if (!shouldShowQuickButtons() && !isDialogOpen()) { finish(); return; }
                         if (upgraded >= upgradeQueue) { finish(); return; }
+                        
                         if (isDialogOpen()) {
                             if (isRubyButton()) { clickCancel(); finish(); return; }
-                            if (hasNormalButton()) { clickConfirmButton(); upgraded++; timer = window.setTimeout(doStep, DELAY); return; }
-                            pressEnter(); upgraded++; timer = window.setTimeout(doStep, DELAY); return;
+                            if (hasNormalButton()) { 
+                                clickConfirmButton(); 
+                                upgraded++; 
+                                timer = window.setTimeout(doStep, DELAY); 
+                                return; 
+                            }
+                            pressEnter(); 
+                            upgraded++; 
+                            timer = window.setTimeout(doStep, DELAY); 
+                            return;
                         }
+                        
                         pressEnter();
+                        upgraded++;
                         timer = window.setTimeout(doStep, DELAY);
                     }
+
                     function finish() {
                         isRunning = false;
                         upgradeQueue = 0;
                         if (timer) { window.clearTimeout(timer); timer = null; }
                     }
+                    
                     timer = window.setTimeout(doStep, DELAY);
                 });
             }
@@ -7704,8 +7746,31 @@
         })(),
 
         changeCounter: (() => {
+            const CACHE_KEY = 'kasp_player_changes_cache';
             const playerChanges = new Map<string, number>();
             let isUpdating = false;
+            let isInBattle = false;
+
+            try {
+                const cached = sessionStorage.getItem(CACHE_KEY);
+                if (cached) {
+                    const parsed = JSON.parse(cached);
+                    for (const [nick, count] of Object.entries(parsed)) {
+                        playerChanges.set(nick, count as number);
+                    }
+                }
+            } catch (e) {}
+
+            const saveCache = () => {
+                const obj: Record<string, number> = {};
+                playerChanges.forEach((count, nick) => { obj[nick] = count; });
+                sessionStorage.setItem(CACHE_KEY, JSON.stringify(obj));
+            };
+
+            const clearCache = () => {
+                playerChanges.clear();
+                sessionStorage.removeItem(CACHE_KEY);
+            };
 
             const injectStyles = () => {
                 const styleId = 'kasp-changed-row-style';
@@ -7750,6 +7815,7 @@
                         if (nickname) {
                             const currentCount = playerChanges.get(nickname) || 0;
                             playerChanges.set(nickname, currentCount + 1);
+                            saveCache();
 
                             if (document.querySelector('.BattleTabStatisticComponentStyle-container')) {
                                 requestAnimationFrame(updateTabUI);
@@ -7760,8 +7826,20 @@
             });
 
             document.addEventListener('kasp:battle:id', () => {
-                playerChanges.clear();
+                clearCache();
+                updateTabUI();
             });
+
+            function checkBattleCanvas() {
+                const currentInBattle = !!document.querySelector('.BattleComponentStyle-canvasContainer');
+                if (currentInBattle !== isInBattle) {
+                    isInBattle = currentInBattle;
+                    if (!isInBattle) {
+                        clearCache();
+                        updateTabUI();
+                    }
+                }
+            }
 
             function updateTabUI() {
                 if (isUpdating) return;
@@ -7802,6 +7880,7 @@
                 if (!document.documentElement) return;
                 
                 const observer = new MutationObserver(() => {
+                    checkBattleCanvas();
                     if (isUpdating) return;
                     const container = document.querySelector('.BattleTabStatisticComponentStyle-container');
                     if (container) {
@@ -7840,7 +7919,7 @@
                 'https://s.eu.tankionline.com/604/26114/260/117/30271053650212/image.svg': 'demonic',
                 'none': 'demoncOLD',
                 'none1': 'vt',
-                'none2': 'sp'
+                'none2': 'se'
             };
 
             const NAME_TRANSLATE = {
@@ -7941,107 +8020,111 @@
                 catch (e) { return {}; }
             }
 
+            // ТЕПЕРЬ ВОЗВРАЩАЕТ МАССИВЫ ССЫЛОК
             function getDefaultImages() {
-                try { return Object.assign({}, PREFILLED_DEFAULTS, JSON.parse(localStorage.getItem(BASE_IMG_KEY)) || {}); } 
-                catch (e) { return PREFILLED_DEFAULTS; }
+                try {
+                    const stored = JSON.parse(localStorage.getItem(BASE_IMG_KEY)) || {};
+                    const merged = {};
+                    
+                    for (const key in PREFILLED_DEFAULTS) {
+                        merged[key] = [PREFILLED_DEFAULTS[key]];
+                    }
+                    
+                    for (const key in stored) {
+                        if (!merged[key]) merged[key] = [];
+                        const val = stored[key];
+                        if (Array.isArray(val)) {
+                            val.forEach(v => { if (v && !merged[key].includes(v)) merged[key].push(v); });
+                        } else if (val) {
+                            if (!merged[key].includes(val)) merged[key].push(val);
+                        }
+                    }
+                    return merged;
+                } catch (e) {
+                    const fallback = {};
+                    for (const key in PREFILLED_DEFAULTS) fallback[key] = [PREFILLED_DEFAULTS[key]];
+                    return fallback;
+                }
             }
 
-            function getItemNameByUrl(url, defaultsMap) {
-                for (const [name, defUrl] of Object.entries(defaultsMap)) {
-                    if (defUrl === url) return name;
-                }
-                for (const [name, brands] of Object.entries(SKINS_DATABASE)) {
-                    for (const brandUrl of Object.values(brands)) {
-                        if (brandUrl === url) return name;
+            function updateGlobalCSS() {
+                const savedSkins = getSavedSkins();
+                const defaultImages = getDefaultImages();
+                let css = '';
+
+                const allItems = new Set([...Object.keys(defaultImages), ...Object.keys(SKINS_DATABASE)]);
+                
+                for (const item of allItems) {
+                    const targetUrl = savedSkins[item];
+                    if (!targetUrl) continue;
+                    
+                    const urlsToOverride = [];
+                    // Забираем ВСЕ найденные версии дефолтных картинок для пушки
+                    if (defaultImages[item]) {
+                        urlsToOverride.push(...defaultImages[item]);
+                    }
+                    
+                    if (SKINS_DATABASE[item]) {
+                        for (const skinUrl of Object.values(SKINS_DATABASE[item])) {
+                            if (skinUrl) urlsToOverride.push(skinUrl);
+                        }
+                    }
+                    
+                    // Убираем из списка на замену саму целевую картинку, чтобы не сломать её
+                    const finalUrls = urlsToOverride.filter(url => url !== targetUrl);
+                    
+                    if (finalUrls.length > 0) {
+                        const selectors = finalUrls.map(url => `img[src="${url}"]`).join(',\n');
+                        // Более жесткий метод перекрытия
+                        css += `${selectors} {\n    content: url("${targetUrl}") !important;\n    object-fit: contain !important;\n}\n\n`;
                     }
                 }
-                return null;
+                
+                let styleEl = document.getElementById('kasp-skins-global-css');
+                if (!styleEl) {
+                    styleEl = document.createElement('style');
+                    styleEl.id = 'kasp-skins-global-css';
+                    document.head.appendChild(styleEl);
+                }
+                if (styleEl.textContent !== css) {
+                    styleEl.textContent = css;
+                }
             }
+
+            let lastItemName = "";
+            let readAllowedTime = 0;
 
             return () => {
                 if (state.currentScreen !== 'garage') return;
 
-                const savedSkins = getSavedSkins();
                 const defaultImages = getDefaultImages();
                 let defaultsUpdated = false;
-                let skinsUpdated = false;
 
-                // 1. СОХРАНЕНИЕ СКИНА (Больше никаких задержек и ложных срабатываний)
-                const nameEl = document.querySelector('.ItemDescriptionComponentStyle-nameItem span, .GarageItemComponentStyle-descriptionDevice span');
-                
-                if (nameEl) {
-                    const rawName = nameEl.textContent.trim().toLowerCase();
-                    const firstWord = rawName.split(/\s+/)[0];
-                    const itemNameEN = NAME_TRANSLATE[firstWord] || firstWord;
-
-                    // КЛЮЧЕВОЙ МОМЕНТ: Ищем СТРОГО в ячейке скина, полностью игнорируя иконки устройств!
-                    const skinImgs = document.querySelectorAll('.SkinsIconComponentStyle-cellSkins img');
-                    let foundBrand = null;
-                    
-                    for (const skinImg of skinImgs) {
-                        const src = skinImg.getAttribute('src') || '';
-                        if (SKIN_BRANDS_MAP[src]) {
-                            foundBrand = SKIN_BRANDS_MAP[src];
-                            break;
-                        } else if (src.includes('ic_standard') || src.includes('standard')) {
-                            foundBrand = 'default';
-                            break;
-                        }
-                    }
-
-                    if (foundBrand) {
-                        if (foundBrand === 'default') {
-                            if (savedSkins[itemNameEN]) {
-                                delete savedSkins[itemNameEN];
-                                skinsUpdated = true;
-                            }
-                        } else if (SKINS_DATABASE[itemNameEN] && SKINS_DATABASE[itemNameEN][foundBrand]) {
-                            const targetUrl = SKINS_DATABASE[itemNameEN][foundBrand];
-                            if (savedSkins[itemNameEN] !== targetUrl) {
-                                savedSkins[itemNameEN] = targetUrl;
-                                skinsUpdated = true;
-                            }
-                        }
-                    }
-                }
-
-                if (skinsUpdated) {
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(savedSkins));
-                }
-
-                // 2. ОБРАБОТКА НИЖНЕЙ КАРУСЕЛИ И САМООБУЧЕНИЕ БАЗЫ
                 const garageItems = document.querySelectorAll('.garage-item');
                 garageItems.forEach((item) => {
                     const titleSpan = item.querySelector('.GarageItemComponentStyle-descriptionDevice span');
-                    const imgMain = item.querySelector<HTMLImageElement>('.GarageItemComponentStyle-mainImg');
+                    const imgMain = item.querySelector('.GarageItemComponentStyle-mainImg');
 
                     if (titleSpan && imgMain) {
                         const rawTitle = titleSpan.textContent.trim().toLowerCase();
-                        const itemNameRU = rawTitle.split(/\s+/)[0];
-                        const itemNameEN = NAME_TRANSLATE[itemNameRU] || itemNameRU;
-
-                        const currentSrc = imgMain.getAttribute('src') || '';
-                        const customSkinsArray = Object.values(SKINS_DATABASE[itemNameEN] || {});
+                        const itemNameEN = NAME_TRANSLATE[rawTitle.split(/\s+/)[0]] || rawTitle.split(/\s+/)[0];
+                        const originalSrc = imgMain.getAttribute('src') || '';
                         
-                        if (currentSrc && !customSkinsArray.includes(currentSrc)) {
-                            if (defaultImages[itemNameEN] !== currentSrc) {
-                                defaultImages[itemNameEN] = currentSrc;
-                                defaultsUpdated = true;
+                        if (originalSrc && originalSrc.includes('tankionline.com')) {
+                            // Проверяем, не является ли картинка уже известным кастомным скином
+                            let isCustomSkin = false;
+                            if (SKINS_DATABASE[itemNameEN]) {
+                                isCustomSkin = Object.values(SKINS_DATABASE[itemNameEN]).includes(originalSrc);
                             }
-                        }
-
-                        const targetSkinSrc = savedSkins[itemNameEN];
-                        if (targetSkinSrc) {
-                            if (currentSrc !== targetSkinSrc) {
-                                imgMain.setAttribute('src', targetSkinSrc);
-                                imgMain.style.objectFit = 'contain';
+                            
+                            // Если это дефолт или неизвестная новая картинка — сохраняем её в МАССИВ
+                            if (!isCustomSkin) {
+                                if (!defaultImages[itemNameEN]) defaultImages[itemNameEN] = [];
+                                if (!defaultImages[itemNameEN].includes(originalSrc)) {
+                                    defaultImages[itemNameEN].push(originalSrc);
+                                    defaultsUpdated = true;
+                                }
                             }
-                        } else {
-                            const defSrc = defaultImages[itemNameEN];
-                            if (defSrc && currentSrc !== defSrc) {
-                                imgMain.setAttribute('src', defSrc);
-                            }
-                            imgMain.style.objectFit = '';
                         }
                     }
                 });
@@ -8050,47 +8133,313 @@
                     localStorage.setItem(BASE_IMG_KEY, JSON.stringify(defaultImages));
                 }
 
-                // 3. ОБРАБОТКА ОБЗОРНОГО ЭКРАНА И ПРАВОЙ ПАНЕЛИ
-                const equippedBlocks = document.querySelectorAll('.MountedItemsStyle-commonBlockForTurretsHulls, .MountedItemsStyle-commonBlockForTurretsWeapon');
+                const nameEl = document.querySelector('.ItemDescriptionComponentStyle-nameItem span, .GarageItemComponentStyle-descriptionDevice span');
                 
-                equippedBlocks.forEach(block => {
-                    const previewImg = block.querySelector('.MountedItemsStyle-itemPreview');
-                    if (!previewImg) return;
+                if (nameEl) {
+                    const rawName = nameEl.textContent.trim().toLowerCase();
+                    const firstWord = rawName.split(/\s+/)[0];
+                    const itemNameEN = NAME_TRANSLATE[firstWord] || firstWord;
 
-                    const currentSrc = previewImg.getAttribute('src') || '';
-                    const itemNameEN = getItemNameByUrl(currentSrc, defaultImages);
-                    
-                    if (itemNameEN) {
-                        let brandKey = 'default';
+                    if (itemNameEN !== lastItemName) {
+                        lastItemName = itemNameEN;
+                        readAllowedTime = Date.now() + 400; 
+                    }
+
+                    if (Date.now() >= readAllowedTime) {
+                        const skinImgs = document.querySelectorAll('.SkinsIconComponentStyle-cellSkins img');
+                        let foundBrand = null;
                         
-                        // Ищем иконку СТРОГО в специальной ячейке скинов (игнорируем MountedItemsStyle-deviceIcon)
-                        const skinIcons = block.querySelectorAll('.SkinsIconComponentStyle-cellSkins img');
-                        for (const img of skinIcons) {
-                            const svgSrc = img.getAttribute('src') || '';
-                            if (SKIN_BRANDS_MAP[svgSrc]) {
-                                brandKey = SKIN_BRANDS_MAP[svgSrc];
+                        for (const skinImg of skinImgs) {
+                            const src = skinImg.getAttribute('src') || '';
+                            if (SKIN_BRANDS_MAP[src]) {
+                                foundBrand = SKIN_BRANDS_MAP[src];
                                 break;
-                            } else if (svgSrc.includes('ic_standard') || svgSrc.includes('standard')) {
-                                brandKey = 'default';
+                            } else if (src.includes('ic_standard') || src.includes('standard')) {
+                                foundBrand = 'default';
                                 break;
                             }
                         }
 
-                        if (brandKey !== 'default' && SKINS_DATABASE[itemNameEN] && SKINS_DATABASE[itemNameEN][brandKey]) {
-                            const targetSkinUrl = SKINS_DATABASE[itemNameEN][brandKey];
-                            if (currentSrc !== targetSkinUrl) {
-                                previewImg.setAttribute('src', targetSkinUrl);
-                                (previewImg as HTMLImageElement).style.objectFit = 'contain';
+                        if (foundBrand) {
+                            const savedSkins = getSavedSkins();
+                            let skinsUpdated = false;
+
+                            if (foundBrand === 'default') {
+                                if (savedSkins[itemNameEN]) {
+                                    delete savedSkins[itemNameEN];
+                                    skinsUpdated = true;
+                                }
+                            } else if (SKINS_DATABASE[itemNameEN] && SKINS_DATABASE[itemNameEN][foundBrand]) {
+                                const targetUrl = SKINS_DATABASE[itemNameEN][foundBrand];
+                                if (savedSkins[itemNameEN] !== targetUrl) {
+                                    savedSkins[itemNameEN] = targetUrl;
+                                    skinsUpdated = true;
+                                }
                             }
-                        } else {
-                            const defSrc = defaultImages[itemNameEN];
-                            if (defSrc && currentSrc !== defSrc) {
-                                previewImg.setAttribute('src', defSrc);
-                                (previewImg as HTMLImageElement).style.objectFit = '';
+
+                            if (skinsUpdated) {
+                                localStorage.setItem(STORAGE_KEY, JSON.stringify(savedSkins));
                             }
                         }
                     }
+                }
+
+                updateGlobalCSS();
+            };
+        })(),
+
+        weaponAugmentTracker: (() => {
+            const STORAGE_KEY = 'kasp_weapon_augment_tracker';
+            let lastSignature = ''; 
+            let currentReloadTime = 0;
+            let barContainer = null;
+            let barFill = null;
+            let currentTurret = ''; 
+            let isPressed = false;
+            let pressTime = 0;
+            let reloadStart = 0;
+            let initialized = false;
+
+            const TURRETS = [
+                'firebird', 'freeze', 'isida', 'tesla', 'hammer', 'twins', 'ricochet', 'vulcan', 
+                'smoky', 'striker', 'thunder', 'tsunami', 'scorpion', 'magnum', 'railgun', 'gauss', 'shaft'
+            ];
+
+            const NAME_TRANSLATE = {
+                "огнемёт": "firebird", "firebird": "firebird",
+                "фриз": "freeze", "freeze": "freeze",
+                "изида": "isida", "isida": "isida",
+                "тесла": "tesla", "tesla": "tesla",
+                "молот": "hammer", "hammer": "hammer",
+                "твинс": "twins", "twins": "twins",
+                "рикошет": "ricochet", "ricochet": "ricochet",
+                "вулкан": "vulcan", "vulcan": "vulcan",
+                "смоки": "smoky", "smoky": "smoky",
+                "страйкер": "striker", "striker": "striker",
+                "гром": "thunder", "thunder": "thunder",
+                "цунами": "tsunami", "tsunami": "tsunami",
+                "скорпион": "scorpion", "scorpion": "scorpion",
+                "магнум": "magnum", "magnum": "magnum",
+                "рельса": "railgun", "railgun": "railgun",
+                "гаусс": "gauss", "gauss": "gauss",
+                "шафт": "shaft", "shaft": "shaft"
+            };
+
+            const RELOAD_BASE_STEPS = {
+                'shaft': {
+                    1: [2.70, 2.62, 2.54, 2.46],
+                    2: [2.45, 2.43, 2.42, 2.40, 2.39, 2.37],
+                    3: [2.36, 2.34, 2.33, 2.32, 2.30, 2.29, 2.28, 2.26, 2.25],
+                    4: [2.24, 2.22, 2.21, 2.20, 2.18, 2.17, 2.15, 2.14, 2.13, 2.11, 2.10], 
+                    5: [2.09, 2.09, 2.08, 2.07, 2.06, 2.06, 2.05, 2.04, 2.03, 2.03, 2.02, 2.01], 
+                    6: [2.00, 2.00, 1.99, 1.98, 1.98, 1.97, 1.96, 1.95, 1.95, 1.94, 1.93, 1.93, 1.92], 
+                    7: [1.91, 1.91, 1.90, 1.90, 1.89, 1.89, 1.88, 1.87, 1.87, 1.86, 1.86, 1.85, 1.85, 1.84, 1.83, 1.83, 1.82, 1.82, 1.81, 1.81, 1.80] 
+                },
+                'scorpion': {
+                    1: [4.05, 3.93, 3.81, 3.69],
+                    2: [3.67, 3.64, 3.62, 3.60, 3.57, 3.55],
+                    3: [3.54, 3.52, 3.51, 3.49, 3.48, 3.46, 3.45, 3.43, 3.42],
+                    4: [3.41, 3.39, 3.38, 3.37, 3.36, 3.34, 3.33, 3.32, 3.31, 3.29, 3.28],
+                    5: [3.27, 3.25, 3.24, 3.22, 3.21, 3.20, 3.18, 3.17, 3.15, 3.14, 3.12, 3.11],
+                    6: [3.09, 3.07, 3.06, 3.04, 3.02, 3.00, 2.99, 2.97, 2.95, 2.93, 2.92, 2.90, 2.88],
+                    7: [2.87, 2.86, 2.85, 2.85, 2.84, 2.83, 2.82, 2.81, 2.80, 2.79, 2.79, 2.78, 2.77, 2.76, 2.75, 2.74, 2.73, 2.73, 2.72, 2.71, 2.70]
+                }
+            };
+
+            const AUGMENT_MODIFIERS = {
+                'https://s.eu.tankionline.com/605/115405/45/51/31770737552234/image.svg': 1.15,
+                'https://s.eu.tankionline.com/623/154745/143/361/31770737674426/image.svg': 1.70,
+                'https://s.eu.tankionline.com/605/137574/124/170/31770737107437/image.svg': 1.15
+            };
+
+            try {
+                const data = JSON.parse(localStorage.getItem(STORAGE_KEY));
+                if (data && data.reloadTime) {
+                    currentReloadTime = data.reloadTime;
+                }
+            } catch (e) {}
+
+            function createBar() {
+                if (document.getElementById('kasp-reload-bar-container')) return;
+                
+                barContainer = document.createElement('div');
+                barContainer.id = 'kasp-reload-bar-container';
+                barContainer.style.cssText = `
+                    position: fixed;
+                    bottom: 20%;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    width: 20em;
+                    height: 0.35em;
+                    background: rgb(0, 0, 0);
+                    box-shadow: 0 0 0 0.2em rgb(0, 0, 0);
+                    border-radius: 0.25em;
+                    z-index: 9999;
+                    pointer-events: none;
+                    display: none;
+                    overflow: hidden;
+                `;
+
+                barFill = document.createElement('div');
+                barFill.id = 'kasp-reload-bar-fill';
+                barFill.style.cssText = `
+                    width: 0%;
+                    height: 100%;
+                    border-radius: 0.25em;
+                    background-color: #FFFF00;
+                    box-shadow: 0 0 0.25em rgb(29, 29, 29);
+                `;
+
+                barContainer.appendChild(barFill);
+                document.body.appendChild(barContainer);
+            }
+
+            function renderLoop() {
+                requestAnimationFrame(renderLoop);
+
+                if (!currentReloadTime || !document.pointerLockElement) {
+                    if (barContainer && barContainer.style.display !== 'none') {
+                        barContainer.style.display = 'none';
+                    }
+                    return;
+                }
+
+                const now = Date.now();
+                const elapsed = now - reloadStart;
+                const durationMs = currentReloadTime * 1000;
+
+                if (elapsed < durationMs && reloadStart > 0) {
+                    if (!barContainer) createBar();
+                    if (barContainer.style.display !== 'block') barContainer.style.display = 'block';
+
+                    const progress = Math.min(1, elapsed / durationMs);
+                    barFill.style.width = (progress * 100).toFixed(1) + '%';
+                } else {
+                    if (barContainer && barContainer.style.display !== 'none') {
+                        barContainer.style.display = 'none';
+                    }
+                }
+            }
+
+            function trackGarage() {
+                if (state.currentScreen !== 'garage') return;
+
+                const nameEl = document.querySelector('.ItemDescriptionComponentStyle-nameItem span, .GarageItemComponentStyle-descriptionDevice span');
+                if (!nameEl) return;
+
+                const rawName = nameEl.textContent.trim().toLowerCase();
+                const firstWord = rawName.split(/\s+/)[0];
+                const itemNameEN = NAME_TRANSLATE[firstWord] || firstWord;
+
+                if (!TURRETS.includes(itemNameEN)) return;
+
+                const buttons = document.querySelectorAll('.GarageCommonStyle-bigActionButton, .SquarePriceButtonComponentStyle-commonBlockButton');
+                let isEquipped = false;
+                
+                buttons.forEach(btn => {
+                    const text = btn.textContent?.toLowerCase() || '';
+                    if (text.includes('equipped') || text.includes('установлено') || text.includes('снять') || text.includes('unequip')) {
+                        isEquipped = true;
+                    }
                 });
+
+                if (!isEquipped) return;
+
+                const deviceIconEl = document.querySelector('.DeviceButtonComponentStyle-deviceIcon');
+                let augmentSrc = 'default';
+                if (deviceIconEl) augmentSrc = deviceIconEl.getAttribute('src') || 'default';
+
+                let mkLevel = 7;
+                let mkStep = 0;
+                
+                if (rawName.includes('max')) {
+                    mkLevel = 7;
+                    mkStep = 20; 
+                } else {
+                    const mkMatch = rawName.match(/mk\s*(\d+)(?:-(\d+))?/i);
+                    if (mkMatch) {
+                        mkLevel = parseInt(mkMatch[1]) || 7;
+                        mkStep = mkMatch[2] ? parseInt(mkMatch[2]) : 0;
+                    }
+                }
+
+                const currentSignature = `${itemNameEN}_mk${mkLevel}-${mkStep}_${augmentSrc}`;
+                if (currentSignature === lastSignature) return;
+
+                let reloadTime = null;
+                
+                if (RELOAD_BASE_STEPS[itemNameEN] && RELOAD_BASE_STEPS[itemNameEN][mkLevel]) {
+                    const stepsArray = RELOAD_BASE_STEPS[itemNameEN][mkLevel];
+                    const safeStep = Math.min(mkStep, stepsArray.length - 1);
+                    const baseTime = stepsArray[safeStep];
+                    
+                    const modifier = AUGMENT_MODIFIERS[augmentSrc] || 1.0;
+                    reloadTime = Math.round(baseTime * modifier * 100) / 100;
+                }
+
+                currentReloadTime = reloadTime;
+                currentTurret = itemNameEN;
+
+                const dataToSave = {
+                    turret: itemNameEN,
+                    augment: augmentSrc,
+                    mk: mkLevel,
+                    step: mkStep,
+                    reloadTime: reloadTime,
+                    timestamp: Date.now()
+                };
+
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+                lastSignature = currentSignature;
+
+            }
+
+            return () => {
+                if (!initialized) {
+                    initialized = true;
+                    requestAnimationFrame(renderLoop);
+
+                    const onPointerDown = (e) => {
+                        if (e.type === 'pointerdown' && (e.button !== 0 || e.pointerType === 'touch')) return;
+                        if (e.type === 'keydown' && (e.code !== 'Space' || e.repeat)) return;
+
+                        if (!document.pointerLockElement) return;
+
+                        isPressed = true;
+                        pressTime = Date.now();
+                    };
+
+                    const onPointerUp = (e) => {
+                        if (e.type === 'pointerup' && e.button !== 0) return;
+                        if (e.type === 'keyup' && e.code !== 'Space') return;
+                        
+                        if (!isPressed) return;
+                        isPressed = false;
+
+                        if (!document.pointerLockElement) return;
+                        if (!currentReloadTime) return;
+
+                        const holdTime = Date.now() - pressTime;
+                        
+                        if (holdTime > 200) {
+                            if (currentTurret !== 'shaft') return;
+                        } 
+
+                        const durationMs = currentReloadTime * 1000;
+                        if (reloadStart && (Date.now() - reloadStart) < durationMs) return;
+
+                        reloadStart = Date.now();
+                    };
+
+                    document.addEventListener('pointerdown', onPointerDown, { capture: true, passive: true });
+                    document.addEventListener('keydown', onPointerDown, { capture: true, passive: true });
+                    document.addEventListener('pointerup', onPointerUp, { capture: true, passive: true });
+                    document.addEventListener('keyup', onPointerUp, { capture: true, passive: true });
+                }
+
+                if (state.currentScreen === 'garage') {
+                    trackGarage();
+                }
             };
         })(),
     };
@@ -8129,6 +8478,7 @@
         modules.customCurrencyUI();
         modules.hideNickname();
         modules.hideCurrency();
+        modules.weaponAugmentTracker();
         modules.changeCounter();
 
         try {
@@ -8149,6 +8499,7 @@
                 modules.customGarageSkins();
 
             }
+
         } catch (e) {
             console.error("[Kaspersky's Inventions] Ошибка в модуле:", e);
         }
