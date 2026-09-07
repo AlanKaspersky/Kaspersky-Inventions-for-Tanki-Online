@@ -5847,7 +5847,7 @@
             const MAIN_HEIGHT = 8.5;
             const BUTTON_HEIGHT = 3;
             const TOTAL_BG_HEIGHT = MAIN_HEIGHT + ROW_GAP + BUTTON_HEIGHT + ROW_GAP + BUTTON_HEIGHT;
-            const BG_URL = 'https://s.eu.tankionline.com/static/images/videoplay.79570900.gif';
+            const BG_URL = chrome.runtime.getURL("playButton.png");
             const LOCK_ICON_URL = 'https://s.eu.tankionline.com/static/images/lockButtonPlay.4bb62c08.svg';
             const quickBattleMode = { names: ['БЫСТРЫЙ БОЙ', 'QUICK BATTLE', 'ИГРАТЬ', 'PLAY'], isDirect: true };
             const wideModes = [
@@ -5945,22 +5945,22 @@
                         playButton.style.boxShadow = 'rgba(255, 255, 255, 0.25) 0em 0em 0em 1px';
                         playButton.style.cursor = 'default';
                         if (bgLayer)
-                            bgLayer.style.filter = 'brightness(0.35) sepia(1) hue-rotate(160deg) saturate(3)';
+                            bgLayer.style.filter = 'brightness(0.35) sepia(0) hue-rotate(160deg) saturate(3)';
                         if (customText)
                             customText.style.display = 'none';
                         if (!lockDiv) {
                             lockDiv = document.createElement('div');
                             lockDiv.className = 'main-lock-icon';
-                            lockDiv.style.cssText = `width: 2.625em; height: 2.8125em; background-color: #bed4ff; -webkit-mask-image: url(${LOCK_ICON_URL}); -webkit-mask-size: contain; -webkit-mask-position: center; -webkit-mask-repeat: no-repeat; mask-image: url(${LOCK_ICON_URL}); mask-size: contain; mask-position: center; mask-repeat: no-repeat; z-index: 2; position: relative;`;
+                            lockDiv.style.cssText = `width: 2.625em; height: 2.8125em; background-color: #a7a7a7; -webkit-mask-image: url(${LOCK_ICON_URL}); -webkit-mask-size: contain; -webkit-mask-position: center; -webkit-mask-repeat: no-repeat; mask-image: url(${LOCK_ICON_URL}); mask-size: contain; mask-position: center; mask-repeat: no-repeat; z-index: 2; position: relative;`;
                             innerBtn.appendChild(lockDiv);
                         }
                         else {
                             lockDiv.style.display = 'block';
-                            lockDiv.style.backgroundColor = '#bed4ff';
+                            lockDiv.style.backgroundColor = '#868686';
                         }
                     }
                     else {
-                        playButton.style.boxShadow = 'rgba(118, 255, 51, 0.25) 0 0 0 0.0625em';
+                        playButton.style.boxShadow = 'rgba(254, 255, 254, 0.25) 0 0 0 0.0625em';
                         playButton.style.cursor = 'pointer';
                         if (bgLayer)
                             bgLayer.style.filter = 'none';
@@ -5992,22 +5992,22 @@
                             btn.style.cursor = 'default';
                             btn.style.boxShadow = 'rgba(255, 255, 255, 0.25) 0em 0em 0em 1px';
                             if (bgLayer)
-                                bgLayer.style.filter = 'brightness(0.35) sepia(1) hue-rotate(160deg) saturate(3)';
+                                bgLayer.style.filter = 'brightness(0.35) sepia(0) hue-rotate(160deg) saturate(3)';
                             if (iconDiv)
-                                iconDiv.style.backgroundColor = '#bed4ff';
+                                iconDiv.style.backgroundColor = '#a7a7a7';
                             if (textSpan)
-                                textSpan.style.color = '#bed4ff';
+                                textSpan.style.color = '#a7a7a7';
                         }
                         else {
                             btn.style.pointerEvents = 'auto';
                             btn.style.cursor = 'pointer';
-                            btn.style.boxShadow = 'rgba(118, 255, 51, 0.25) 0 0 0 0.0625em';
+                            btn.style.boxShadow = 'rgba(255, 255, 255, 0.25) 0 0 0 0.0625em';
                             if (bgLayer)
                                 bgLayer.style.filter = 'none';
                             if (iconDiv)
-                                iconDiv.style.backgroundColor = '#76ff33';
+                                iconDiv.style.backgroundColor = '#ffffff';
                             if (textSpan)
-                                textSpan.style.color = '#76ff33';
+                                textSpan.style.color = '#ffffff';
                         }
                     });
                 }
@@ -6046,9 +6046,9 @@
                     contentWrapper.appendChild(text);
                     el.appendChild(contentWrapper);
                     el.addEventListener('mouseenter', () => { if (!isSearching())
-                        el.style.boxShadow = 'rgb(118, 255, 51) 0 0 0 0.2em'; });
+                        el.style.boxShadow = 'rgb(255, 255, 255) 0 0 0 0.2em'; });
                     el.addEventListener('mouseleave', () => { if (!isSearching())
-                        el.style.boxShadow = 'rgba(118, 255, 51, 0.25) 0 0 0 0.0625em'; });
+                        el.style.boxShadow = 'rgba(255, 255, 255, 0.25) 0 0 0 0.0625em'; });
                     el.addEventListener('click', (e) => { e.stopPropagation(); startAutoQueue(mode); });
                     row2.appendChild(el);
                 });
@@ -6070,9 +6070,9 @@
                     img.style.cssText = `width: 1.8em; height: 1.8em; pointer-events: none; flex-shrink: 0; position: relative; z-index: 2; -webkit-mask-image: url(${mode.icon}); -webkit-mask-size: contain; -webkit-mask-position: center; -webkit-mask-repeat: no-repeat; mask-image: url(${mode.icon}); mask-size: contain; mask-position: center; mask-repeat: no-repeat; transition: background-color 0.2s ease-in-out;`;
                     el.appendChild(img);
                     el.addEventListener('mouseenter', () => { if (!isSearching())
-                        el.style.boxShadow = 'rgb(118, 255, 51) 0 0 0 0.2em'; });
+                        el.style.boxShadow = 'rgb(255, 255, 255) 0 0 0 0.2em'; });
                     el.addEventListener('mouseleave', () => { if (!isSearching())
-                        el.style.boxShadow = 'rgba(118, 255, 51, 0.25) 0 0 0 0.0625em'; });
+                        el.style.boxShadow = 'rgba(255, 255, 255, 0.25) 0 0 0 0.0625em'; });
                     el.addEventListener('click', (e) => { e.stopPropagation(); startAutoQueue(mode); });
                     row3.appendChild(el);
                 });
@@ -6103,9 +6103,9 @@
                     playButton.style.borderRadius = '0.5rem';
                     playButton.style.transition = 'box-shadow 0.2s ease-in-out, opacity 0.2s ease-in';
                     playButton.addEventListener('mouseenter', () => { if (!isSearching())
-                        playButton.style.boxShadow = 'rgb(118, 255, 51) 0 0 0 0.2em'; });
+                        playButton.style.boxShadow = 'rgb(255, 255, 255) 0 0 0 0.2em'; });
                     playButton.addEventListener('mouseleave', () => { if (!isSearching())
-                        playButton.style.boxShadow = 'rgba(118, 255, 51, 0.25) 0 0 0 0.0625em'; });
+                        playButton.style.boxShadow = 'rgba(255, 255, 255, 0.25) 0 0 0 0.0625em'; });
                     const innerBtn = (playButton.querySelector('.MainScreenComponentStyle-buttonPlay') || playButton);
                     innerBtn.style.backgroundImage = 'none';
                     innerBtn.classList.add('custom-inner-btn');
@@ -6120,7 +6120,7 @@
                     if (!customText) {
                         customText = document.createElement('div');
                         customText.className = 'custom-main-text';
-                        customText.style.cssText = `position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 2; font-family: BaseFontMedium, FallbackFontMedium, sans-serif; font-size: 2.75em; font-weight: 500; color: #76ff33; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; text-transform: uppercase; transition: color 0.2s ease-in-out; pointer-events: none;`;
+                        customText.style.cssText = `position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 2; font-family: BaseFontMedium, FallbackFontMedium, sans-serif; font-size: 2.75em; font-weight: 500; color: #ffffff; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; text-transform: uppercase; transition: color 0.2s ease-in-out; pointer-events: none;`;
                         innerBtn.appendChild(customText);
                     }
                     if (!playButton.dataset.overridden) {
@@ -6659,7 +6659,7 @@
             };
         })(),
         welcomeModal: (() => {
-            const CURRENT_VERSION = '2.0';
+            const CURRENT_VERSION = '2.1';
             const STORAGE_KEY = 'kasp_last_version';
             let hasChecked = false;
             const t = {
@@ -8002,7 +8002,7 @@
                 "scorpion": { "dk": "https://s.eu.tankionline.com/626/144356/211/215/31331073550674/image.webp", "xtHD": "https://s.eu.tankionline.com/602/142236/225/135/30131263063453/image.webp", "gt": "https://s.eu.tankionline.com/634/160574/373/213/31634137213712/image.webp" },
                 "magnum": { "sp": "https://s.eu.tankionline.com/612/43174/244/260/30510637124120/image.webp", "xt": "https://s.eu.tankionline.com/550/75116/121/115/27006222156612/image.webp" },
                 "railgun": { "gt": "https://s.eu.tankionline.com/606/155010/246/46/30333202253104/image.webp", "legacy": "https://s.eu.tankionline.com/550/121477/171/157/27006221327105/image.webp", "xt": "https://s.eu.tankionline.com/544/23374/101/240/27006222467365/image.webp", "ultra": "https://s.eu.tankionline.com/557/14216/302/47/27006222235365/image.webp", "prime": "https://s.eu.tankionline.com/554/45667/335/160/27006221506161/image.webp" },
-                "gauss": { "xt": "https://s.eu.tankionline.com/560/166470/223/123/27035516206046/image.webp", "prime": "https://s.eu.tankionline.com/554/43164/134/365/27006222545045/image.webp", "gt": "https://s.eu.tankionline.com/613/151460/263/2/30572765264737/image.webp", "ultra": "https://s.eu.tankionline.com/563/60021/200/371/27154004322450/image.webp", "ic": "https://s.eu.tankionline.com/614/101074/51/272/30620217025776/image.webp" },
+                "gauss": { "rt": "https://s.eu.tankionline.com/635/24770/75/171/31645176163053/image.webp", "xt": "https://s.eu.tankionline.com/560/166470/223/123/27035516206046/image.webp", "prime": "https://s.eu.tankionline.com/554/43164/134/365/27006222545045/image.webp", "gt": "https://s.eu.tankionline.com/613/151460/263/2/30572765264737/image.webp", "ultra": "https://s.eu.tankionline.com/563/60021/200/371/27154004322450/image.webp", "ic": "https://s.eu.tankionline.com/614/101074/51/272/30620217025776/image.webp" },
                 "shaft": { "legacy": "https://s.eu.tankionline.com/600/172117/242/22/30036424407361/image.webp", "xt": "https://s.eu.tankionline.com/546/76262/360/74/27006221440464/image.webp", "gt": "https://s.eu.tankionline.com/623/152641/25/44/31172550417505/image.webp" },
                 "wasp": { "legacy": "https://s.eu.tankionline.com/577/174061/352/34/27777016754412/image.webp", "xt": "https://s.eu.tankionline.com/544/55321/27/365/27006221715450/image.webp", "gt": "https://s.eu.tankionline.com/620/113057/312/163/31022614272635/image.webp" },
                 "hopper": { "dk": "https://s.eu.tankionline.com/634/21124/213/143/31604256121143/image.webp", "xtHD": "https://s.eu.tankionline.com/564/44403/372/46/27221401755636/image.webp", "rt": "https://s.eu.tankionline.com/616/165266/42/215/30735255423342/image.webp" },

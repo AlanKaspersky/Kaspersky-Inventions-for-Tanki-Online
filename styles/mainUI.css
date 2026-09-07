@@ -188,7 +188,7 @@
     color: rgb(156 156 156) !important;
 }
 
-span[class*="GearScoreStyle-fontSizeDigitGS"] {
+span[class="GearScoreStyle-bestGS bgClipText GearScoreStyle-fontSizeDigitGS"] {
     background-image: linear-gradient(to left, rgb(96 96 96) 0%, rgb(255 255 255) 100%) !important;
 }
 
@@ -196,10 +196,181 @@ img[class*="TankParametersStyle-iconGS"] {
     -webkit-mask-image: none !important;
     mask-image: none !important;
     background-color: transparent !important;
-
     filter: brightness(0) invert(1) !important;
 }
 
 .TankParametersStyle-parametersBlockGear span {
     color: rgb(194 194 194) !important;
+}
+
+.PrimaryMenuItemComponentStyle-itemCommonLi:hover {
+    background-color: rgb(197, 197, 197) !important;
+    box-shadow: inset 0em 0em 0em 2px rgb(255, 255, 255) !important;
+    box-shadow: rgb(255, 255, 255) 0em 0em 0em 2px !important;
+}
+
+/* 1. Базовое состояние меню (здесь задаем плавность и начальную тень) */
+.PrimaryMenuItemComponentStyle-itemCommonLi {
+    position: relative !important;
+    border-radius: 0.5em !important;
+    
+    /* Ограничиваем ширину, чтобы блеск не летел на танк, и возвращаем обычную обрезку */
+    overflow: hidden !important;
+    
+    /* Тот самый плавный переход для тени и фона (как в гараже) */
+    transition: background-color 0.2s ease, box-shadow 0.2s ease !important;
+    
+    /* Начальная слабая тень */
+    box-shadow: rgba(255, 255, 255, 0.25) 0em 0em 0em 0.063em !important;
+}
+
+/* 2. Состояние при наведении (яркая тень и фон) */
+.PrimaryMenuItemComponentStyle-itemCommonLi:hover {
+    background-color: rgb(197, 197, 197) !important;
+    /* Теперь это обычная внешняя тень, clip-path ей не мешает */
+    box-shadow: rgb(255, 255, 255) 0em 0em 0em 2px !important;
+}
+
+/* 3. Полоса блеска */
+.PrimaryMenuItemComponentStyle-itemCommonLi::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -150%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.5) 50%, rgba(255, 255, 255, 0) 100%);
+    transform: skewX(-25deg);
+    z-index: 3;
+    pointer-events: none;
+}
+
+/* 4. Запуск анимации (без forwards, чтобы блик исчезал) */
+.PrimaryMenuItemComponentStyle-itemCommonLi:hover::after {
+    animation: kasp-metal-shine 0.6s ease-in-out !important;
+}
+
+/* 5. Иконки и текст поверх */
+.PrimaryMenuItemComponentStyle-itemCommonLi > * {
+    position: relative !important;
+    z-index: 4 !important;
+    transition: transform 0.2s ease !important;
+}
+
+.MainScreenComponentStyle-blockMainMenu ul {
+    gap: 0.5em !important;
+    flex-wrap: nowrap !important;
+    flex-direction: row !important;
+    width: 28.2em !important;
+}
+
+.PrimaryMenuItemComponentStyle-menuItemContainer {
+    border-radius: 0.5em !important;
+    background-color: rgb(255, 255, 255) !important;
+    transition: background-color 0.2s, box-shadow 0.2s !important;
+    pointer-events: auto !important;
+    width: 5em !important;
+}
+
+span.PrimaryMenuItemComponentStyle-itemName {
+    display: none !important;
+}
+
+.PrimaryMenuItemComponentStyle-itemLiContainers,
+.PrimaryMenuItemComponentStyle-itemLiOption {
+    margin-left: 0.565em !important;
+    background-color:rgb(0, 0, 0) !important;
+}
+
+.PrimaryMenuItemComponentStyle-itemCommonLi:hover div {
+    background-color: rgb(0, 0, 0) !important;
+    transform: translateY(-0.2em) !important;
+}
+
+.PrimaryMenuItemComponentStyle-itemLiQuests,
+.PrimaryMenuItemComponentStyle-itemLiGarage,
+.PrimaryMenuItemComponentStyle-itemLiShop {
+    background-color: rgb(0, 0, 0) !important;
+}
+
+.FooterComponentStyle-footer ul {
+    gap: 0.7em !important;
+}
+
+.FooterComponentStyle-footer li {
+    position: relative !important;
+    overflow: hidden !important;
+    border-radius: 5em !important;
+    transition: background-color 0.2s, box-shadow 0.2s !important;
+    box-shadow: rgba(255, 255, 255, 0.25) 0em 0em 0em 0.063em !important;
+    background-color: rgb(255, 255, 255) !important;
+}
+
+.FooterComponentStyle-footer li:hover {
+    background-color: rgb(197, 197, 197) !important;
+    box-shadow: rgb(255, 255, 255) 0em 0em 0em 2px !important;
+}
+
+.FooterComponentStyle-footer li::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -150%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.5) 50%, rgba(255, 255, 255, 0) 100%);
+    transform: skewX(-25deg);
+    z-index: 3;
+    pointer-events: none;
+}
+
+.FooterComponentStyle-footer li:hover::after {
+    animation: kasp-metal-shine 0.6s ease-in-out !important;
+}
+
+.FooterComponentStyle-footer li > * {
+    position: relative !important;
+    z-index: 4 !important;
+}
+
+.FooterComponentStyle-newsButton div,
+.FooterComponentStyle-chatButton div,
+.FooterComponentStyle-friendButton div,
+.FooterComponentStyle-clanButton div {
+    background-color: rgb(0, 0, 0) !important;
+    transition: transform 0.2s, background-color 0.2s !important;
+}
+
+.FooterComponentStyle-newsButton:hover div,
+.FooterComponentStyle-chatButton:hover div,
+.FooterComponentStyle-friendButton:hover div,
+.FooterComponentStyle-clanButton:hover div {
+    background-color: rgb(0, 0, 0) !important;
+    transform: translateY(-0.2em) !important;
+}
+
+/* Прячем оригинальный кривой эллипс */
+img.PrimaryMenuItemComponentStyle-notificationIconNewNews, .MainScreenComponentStyle-noNew, img.MainScreenComponentStyle-new.FooterComponentStyle-marginEllips {
+    display: none !important;
+}
+
+/* Создаем растворяющееся желтое свечение в углу */
+.PrimaryMenuItemComponentStyle-itemCommonLi:has(img.PrimaryMenuItemComponentStyle-notificationIconNewNews)::before,
+.FooterComponentStyle-newsButton:has(img.MainScreenComponentStyle-new.FooterComponentStyle-marginEllips)::before,
+.FooterComponentStyle-chatButton:has(img.MainScreenComponentStyle-new.FooterComponentStyle-marginEllips)::before,
+.FooterComponentStyle-friendButton:has(img.MainScreenComponentStyle-new.FooterComponentStyle-marginEllips)::before,
+.FooterComponentStyle-clanButton:has(img.MainScreenComponentStyle-new.FooterComponentStyle-marginEllips)::before {
+    content: "" !important;
+    position: absolute !important;
+    top: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    
+    /* Радиальный градиент от правого верхнего угла (top right) */
+    background: radial-gradient(circle at top right, rgb(255, 204, 0) 0%, rgba(255, 204, 0, 0) 60%) !important;
+    
+    z-index: 10 !important;
+    pointer-events: none !important; /* Чтобы свечение не мешало кликать на кнопку */
+    border-radius: inherit !important; /* Наследуем скругление самой кнопки */
 }
