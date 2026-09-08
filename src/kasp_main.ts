@@ -3,6 +3,9 @@
 
     if (window !== window.top) return;
 
+    const loaderBg = chrome.runtime.getURL("background.png");
+    document.documentElement.style.setProperty('--kasp-loader-bg', `url("${loaderBg}")`);
+
     const state = {
         lang: 'EN',
         currentScreen: 'loading',
@@ -6436,109 +6439,6 @@
                 });
             };
         })(),
-        
-        customCurrencyUI: (() => {
-            let initialized = false;
-            
-            return () => {
-                if (initialized) return;
-                initialized = true;
-
-                utils.injectStyle(`
-                    .UserScoreComponentStyle-coinsContainer {
-                        display: flex !important;
-                        flex-direction: row !important;
-                        align-items: center !important;
-                        justify-content: flex-end !important;
-                        margin-right: 1.2em !important;
-                        margin-left: 0 !important;
-                        padding: 0 !important;
-                        border: none !important;
-                        background: transparent !important;
-                        min-width: 0 !important;
-                        width: auto !important;
-                    }
-
-                    div:has(> .HeaderCommonStyle-icons + .HeaderCommonStyle-icons) {
-                        display: flex !important;
-                        flex-direction: row !important;
-                        align-items: center !important;
-                        justify-content: flex-end !important;
-                        margin-right: 4em !important;
-                        margin-left: 0 !important;
-                        padding: 0 !important;
-                        border: none !important;
-                        background: transparent !important;
-                        min-width: 0 !important;
-                        width: auto !important;
-                    }
-
-                    div:has(> .HeaderCommonStyle-icons + .HeaderCommonStyle-icons) + div {
-                        margin-left: -2em !important;
-                    }
-
-                    .HeaderCommonStyle-icons,
-                    .UserScoreComponentStyle-coinBlock {
-                        display: flex !important;
-                        flex-direction: row !important;
-                        align-items: center !important;
-                        justify-content: flex-end !important;
-                        min-width: 0 !important;
-                        width: auto !important;
-                        border: none !important;
-                        background: transparent !important;
-                        padding: 0 !important;
-                        margin: 0 !important;
-                    }
-
-                    .UserScoreComponentStyle-addRubyCrystal,
-                    .UserScoreComponentStyle-addCoins {
-                        display: none !important;
-                    }
-
-                    .HeaderCommonStyle-icons img[src*="ruby"],
-                    .HeaderCommonStyle-icons img[src*="crystal"],
-                    .UserScoreComponentStyle-coinIcon {
-                        width: 1em !important;
-                        height: 1em !important;
-                        margin: 0 !important;
-                        transition: transform 0.2s ease !important;
-                        display: block !important;
-                    }
-
-                    .HeaderCommonStyle-icons:hover img[src*="ruby"],
-                    .HeaderCommonStyle-icons:hover img[src*="crystal"],
-                    .HeaderCommonStyle-icons:hover .UserScoreComponentStyle-coinIcon {
-                        transform: translateY(-4px) !important;
-                    }
-
-                    .HeaderCommonStyle-icons span,
-                    .UserScoreComponentStyle-coinsContainer span,
-                    .UserScoreComponentStyle-coinBlock span {
-                        font-family: BaseFontMedium, FallbackFontMedium !important;
-                        font-weight: 500 !important;
-                        font-size: 1.125em !important;
-                        line-height: 1.313em !important;
-                        text-transform: uppercase !important;
-                        white-space: nowrap !important;
-                        margin-left: 0.6em !important;
-                    }
-
-                    .HeaderCommonStyle-icons:has(img[src*="ruby"]) span {
-                        color: rgb(255, 102, 102) !important;
-                        margin-top: 0.1em !important;
-                    }
-
-                    .HeaderCommonStyle-icons:has(img[src*="crystal"]) span {
-                        color: rgb(0, 215, 255) !important;
-                    }
-
-                    .UserScoreComponentStyle-coinBlock span {
-                        color: rgb(255, 212, 42) !important;
-                    }
-                `, 'kasp-currency-styles');
-            };
-        })(),
 
         garageButtons: (() => {
             const ICONS = {
@@ -6653,7 +6553,7 @@
         })(),
 
         welcomeModal: (() => {
-            const CURRENT_VERSION = '2.1';
+            const CURRENT_VERSION = '2.2';
             const STORAGE_KEY = 'kasp_last_version';
             let hasChecked = false;
 
@@ -8020,7 +7920,6 @@
                 catch (e) { return {}; }
             }
 
-            // ТЕПЕРЬ ВОЗВРАЩАЕТ МАССИВЫ ССЫЛОК
             function getDefaultImages() {
                 try {
                     const stored = JSON.parse(localStorage.getItem(BASE_IMG_KEY)) || {};
@@ -8059,7 +7958,6 @@
                     if (!targetUrl) continue;
                     
                     const urlsToOverride = [];
-                    // Забираем ВСЕ найденные версии дефолтных картинок для пушки
                     if (defaultImages[item]) {
                         urlsToOverride.push(...defaultImages[item]);
                     }
@@ -8070,12 +7968,10 @@
                         }
                     }
                     
-                    // Убираем из списка на замену саму целевую картинку, чтобы не сломать её
                     const finalUrls = urlsToOverride.filter(url => url !== targetUrl);
                     
                     if (finalUrls.length > 0) {
                         const selectors = finalUrls.map(url => `img[src="${url}"]`).join(',\n');
-                        // Более жесткий метод перекрытия
                         css += `${selectors} {\n    content: url("${targetUrl}") !important;\n    object-fit: contain !important;\n}\n\n`;
                     }
                 }
@@ -8111,13 +8007,11 @@
                         const originalSrc = imgMain.getAttribute('src') || '';
                         
                         if (originalSrc && originalSrc.includes('tankionline.com')) {
-                            // Проверяем, не является ли картинка уже известным кастомным скином
                             let isCustomSkin = false;
                             if (SKINS_DATABASE[itemNameEN]) {
                                 isCustomSkin = Object.values(SKINS_DATABASE[itemNameEN]).includes(originalSrc);
                             }
                             
-                            // Если это дефолт или неизвестная новая картинка — сохраняем её в МАССИВ
                             if (!isCustomSkin) {
                                 if (!defaultImages[itemNameEN]) defaultImages[itemNameEN] = [];
                                 if (!defaultImages[itemNameEN].includes(originalSrc)) {
@@ -8447,6 +8341,142 @@
                 }
             };
         })(),
+
+        zeroResists: (() => {
+            let initialized = false;
+            let observer: MutationObserver | null = null;
+
+            const RESISTANCE_MAP: Record<string, string> = {
+                'mine': 'https://s.eu.tankionline.com/static/images/mine_resistance.dd581c90.svg',
+                'crit': 'https://s.eu.tankionline.com/static/images/crit_resistance.94e32312.svg',
+                'firebird': 'https://s.eu.tankionline.com/static/images/firebird_resistance.785a9d6b.svg',
+                'freeze': 'https://s.eu.tankionline.com/static/images/freeze_resistance.33bdf642.svg',
+                'isis': 'https://s.eu.tankionline.com/static/images/isis_resistance.30a69ffc.svg',
+                'tesla': 'https://s.eu.tankionline.com/static/images/tesla_resistance.3e686c8e.svg',
+                'hammer': 'https://s.eu.tankionline.com/static/images/hammer_resistance.6c549d29.svg',
+                'twins': 'https://s.eu.tankionline.com/static/images/twins_resistance.ad189f61.svg',
+                'ricochet': 'https://s.eu.tankionline.com/static/images/ricochet_resistance.8247beaa.svg',
+                'vulcan': 'https://s.eu.tankionline.com/static/images/vulcan_resistance.824f6f0e.svg',
+                'smoky': 'https://s.eu.tankionline.com/static/images/smoky_resistance.845afc14.svg',
+                'rocket_launcher': 'https://s.eu.tankionline.com/static/images/rocket_launcher_resistance.b7dfd64f.svg',
+                'thunder': 'https://s.eu.tankionline.com/static/images/thunder_resistance.6d7f4531.svg',
+                'tsunami': 'https://s.eu.tankionline.com/static/images/tsunami_resistance.6200aad9.svg',
+                'scorpio': 'https://s.eu.tankionline.com/static/images/scorpio_resistance.e8f1787f.svg',
+                'artillery': 'https://s.eu.tankionline.com/static/images/artillery_resistance.9b4cbc34.svg',
+                'railgun': 'https://s.eu.tankionline.com/static/images/railgun_resistance.636a554f.svg',
+                'gauss': 'https://s.eu.tankionline.com/static/images/gauss_resistance.bb8f409c.svg',
+                'shaft': 'https://s.eu.tankionline.com/static/images/shaft_resistance.0778fd3e.svg'
+            };
+
+            function getCssUrl(el: Element | null): string | null {
+                if (!el) return null;
+                const cs = window.getComputedStyle(el) as any;
+                for (const prop of ['maskImage', 'webkitMaskImage', 'backgroundImage']) {
+                    const val = cs[prop];
+                    if (val && val !== 'none' && val !== 'initial' && val !== '') return val;
+                }
+                return null;
+            }
+
+            function injectZeroSummary(): void {
+                const tabContainer = document.querySelector('.BattleTabStatisticComponentStyle-containerInsideTeams');
+                if (!tabContainer) return;
+
+                let summaryRow = Array.from(tabContainer.children).find(el => 
+                    el.className.includes('-flexCenterAlignCenter') && !el.className.toLowerCase().includes('header')
+                ) as HTMLElement;
+
+                if (!summaryRow) {
+                    summaryRow = document.createElement('div');
+                    summaryRow.className = '-flexCenterAlignCenter kasp-custom-summary-row';
+                    tabContainer.appendChild(summaryRow);
+                }
+
+                const presentResistances = new Set<string>();
+                const children = Array.from(summaryRow.children);
+                
+                children.forEach(child => {
+                    if (child.classList.contains('kasp-zero-summary')) return;
+
+                    const icon = child.querySelector('div') || child;
+                    const maskImg = getCssUrl(icon);
+                    if (!maskImg) return;
+
+                    const match = maskImg.match(/\/([a-zA-Z_]+)_resistance(?:\.[0-9a-f]+)?\.(?:svg|webp|png)/);
+                    if (match && match[1]) {
+                        presentResistances.add(match[1]); 
+                    }
+                });
+
+                const zeroBlocks = summaryRow.querySelectorAll('.kasp-zero-summary');
+                zeroBlocks.forEach(block => {
+                    const turret = block.getAttribute('data-turret');
+                    if (turret && presentResistances.has(turret)) {
+                        block.remove(); 
+                    }
+                });
+
+                Object.keys(RESISTANCE_MAP).forEach((turret: string) => {
+                    if (!presentResistances.has(turret) && !summaryRow.querySelector(`.kasp-zero-summary[data-turret="${turret}"]`)) {
+                        
+                        const zeroLabel = document.createElement('div');
+                        zeroLabel.className = 'kasp-zero-summary -flexStart';
+                        zeroLabel.setAttribute('data-turret', turret);
+                        
+                        zeroLabel.style.cssText = 'display: flex !important; align-items: center !important; justify-content: flex-start !important; margin-right: 0.75em !important; cursor: default !important; opacity: 1 !important;';
+
+                        const iconDiv = document.createElement('div');
+                        iconDiv.className = '-maskImageContain -maskImage';
+                        iconDiv.style.cssText = `background-color: #5cfc47 !important; height: 1em !important; width: 1em !important; margin-right: 0.1875em !important; -webkit-mask-image: url('${RESISTANCE_MAP[turret]}') !important; mask-image: url('${RESISTANCE_MAP[turret]}') !important; -webkit-mask-size: contain !important; mask-size: contain !important; -webkit-mask-repeat: no-repeat !important; mask-repeat: no-repeat !important; -webkit-mask-position: center center !important; mask-position: center center !important;`;
+
+                        const textSpan = document.createElement('span');
+                        textSpan.className = '-regular';
+                        textSpan.innerHTML = '&#215;0';
+                        textSpan.style.cssText = 'font-size: 0.875em !important; color: #5cfc47 !important; font-family: BaseFontRegular, FallbackFontRegular, sans-serif !important; font-style: normal !important; font-weight: normal !important; line-height: 1 !important;';
+
+                        zeroLabel.appendChild(iconDiv);
+                        zeroLabel.appendChild(textSpan);
+
+                        summaryRow.appendChild(zeroLabel);
+                    }
+                });
+            }
+
+            return () => {
+
+                if (!initialized) {
+                    initialized = true;
+
+                    utils.injectStyle(`
+                        .kasp-zero-summary { 
+                            order: 999 !important; 
+                        }
+                        .BattleTabStatisticComponentStyle-containerInsideTeams > .-flexCenterAlignCenter:last-child {
+                            flex-wrap: wrap !important;
+                            justify-content: center !important;
+                            padding-top: 0.5em !important;
+                        }
+                        .kasp-custom-summary-row {
+                            width: 100% !important;
+                            min-height: 2em !important;
+                            padding: 0.5em 1em !important;
+                            box-sizing: border-box !important;
+                        }
+                    `, 'kasp-zero-summary-styles');
+
+                    observer = new MutationObserver(() => {
+                        if (document.querySelector('.BattleTabStatisticComponentStyle-containerInsideTeams')) {
+                            requestAnimationFrame(injectZeroSummary);
+                        }
+                    });
+                    
+                    const targetNode = document.documentElement || document.body;
+                    if (targetNode) {
+                        observer.observe(targetNode, { childList: true, subtree: true });
+                    }
+                }
+            };
+        })()
     };
 
     const masterObserver = new MutationObserver(() => {
@@ -8480,11 +8510,11 @@
         }
 
         modules.welcomeModal();
-        modules.customCurrencyUI();
         modules.hideNickname();
         modules.hideCurrency();
         modules.weaponAugmentTracker();
         modules.changeCounter();
+        modules.zeroResists();
 
         try {
             if (state.currentScreen === 'lobby' || state.currentScreen === 'loading') {
@@ -8504,7 +8534,6 @@
                 modules.customGarageSkins();
 
             }
-
         } catch (e) {
             console.error("[Kaspersky's Inventions] Ошибка в модуле:", e);
         }

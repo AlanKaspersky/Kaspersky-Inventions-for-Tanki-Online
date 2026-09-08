@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Tanki Online: Kaspersky's Inventions",
-  "version": "2.1",
+  "version": "2.2",
   "default_locale": "en",
   "description": "__MSG_extensionDescription__",
   "icons": {
@@ -23,7 +23,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["playButton.png"],
+      "resources": ["playButton.png", "background.png"],
       "matches": ["*://*.tankionline.com/*"]
     }
   ]

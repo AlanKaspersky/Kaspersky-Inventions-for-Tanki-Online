@@ -1,9 +1,12 @@
-.-container {
-    background: radial-gradient(rgb(39 39 39) 0%, rgb(3, 8, 13) 100%) !important;
+.ApplicationLoaderComponentStyle-container.-background {
+    background-image: var(--kasp-loader-bg) !important;
+    background-size: cover !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
 }
 
-.-entranceGradient {
-    background: linear-gradient(rgb(0 0 0) 0%, rgb(0 0 0 / 0%) 100%) !important;
+.-container, .-entranceGradient, .LobbyLoaderComponentStyle-container, .preloader, div#root.wrapper {
+    background: radial-gradient(rgb(39 39 39) 0%, rgb(3, 8, 13) 100%) !important;
 }
 
 .ListItemsComponentStyle-itemsListContainer {
@@ -373,4 +376,116 @@ img.PrimaryMenuItemComponentStyle-notificationIconNewNews, .MainScreenComponentS
     z-index: 10 !important;
     pointer-events: none !important; /* Чтобы свечение не мешало кликать на кнопку */
     border-radius: inherit !important; /* Наследуем скругление самой кнопки */
+}
+
+.UserScoreComponentStyle-coinsContainer {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    margin-right: 1.2em !important;
+    margin-left: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    min-width: 0 !important;
+    width: auto !important;
+}
+
+div:has(> .HeaderCommonStyle-icons + .HeaderCommonStyle-icons) {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    margin-right: 4em !important;
+    margin-left: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    min-width: 0 !important;
+    width: auto !important;
+}
+
+div:has(> .HeaderCommonStyle-icons + .HeaderCommonStyle-icons) + div {
+    margin-left: -2em !important;
+}
+
+.HeaderCommonStyle-icons,
+.UserScoreComponentStyle-coinBlock {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    min-width: 0 !important;
+    width: auto !important;
+    border: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+.UserScoreComponentStyle-addRubyCrystal,
+.UserScoreComponentStyle-addCoins {
+    display: none !important;
+}
+
+.HeaderCommonStyle-icons img[src*="ruby"],
+.HeaderCommonStyle-icons img[src*="crystal"],
+.UserScoreComponentStyle-coinIcon {
+    width: 1em !important;
+    height: 1em !important;
+    margin: 0 !important;
+    transition: transform 0.2s ease !important;
+    display: block !important;
+}
+
+.HeaderCommonStyle-icons:hover img[src*="ruby"],
+.HeaderCommonStyle-icons:hover img[src*="crystal"],
+.HeaderCommonStyle-icons:hover .UserScoreComponentStyle-coinIcon {
+    transform: translateY(-4px) !important;
+}
+
+.HeaderCommonStyle-icons span,
+.UserScoreComponentStyle-coinsContainer span,
+.UserScoreComponentStyle-coinBlock span {
+    font-family: BaseFontMedium, FallbackFontMedium !important;
+    font-weight: 500 !important;
+    font-size: 1.125em !important;
+    line-height: 1.313em !important;
+    text-transform: uppercase !important;
+    white-space: nowrap !important;
+    margin-left: 0.6em !important;
+}
+
+.HeaderCommonStyle-icons:has(img[src*="ruby"]) span {
+    color: rgb(255, 102, 102) !important;
+    margin-top: 0.1em !important;
+}
+
+.HeaderCommonStyle-icons:has(img[src*="crystal"]) span {
+    color: rgb(0, 215, 255) !important;
+}
+
+.UserScoreComponentStyle-coinBlock span {
+    color: rgb(255, 212, 42) !important;
+}
+
+div.BattleTabStatisticComponentStyle-containerInsideTeams {
+    background-color: rgb(21 21 21 / 92%) !important;
+        box-shadow: rgb(255 255 255) 0em 0em 0px 0.3em !important;
+}
+
+div[class*="SkinsAndAlterationsStyle"] div[class$="-flexCenterAlignCenterColumn"] {
+    width: clamp(125px, 9vw, 240px) !important;
+    height: clamp(165px, 12vw, 240px) !important;
+}
+
+div:has(> .SkinsAndAlterationsStyle-nameDevices):active,
+div:has(> .SkinsAndAlterationsStyle-nameDevices).-active {
+    width: clamp(125px, 9vw, 240px) !important;
+    height: clamp(165px, 12vw, 240px) !important;
+}
+
+.SkinsAndAlterationsStyle-SkinsVerticalComponent {
+    grid-template-columns: repeat(auto-fill, clamp(125px, 9vw, 240px)) !important;
 }
