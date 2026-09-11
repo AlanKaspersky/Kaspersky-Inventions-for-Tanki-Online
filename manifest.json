@@ -23,7 +23,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["playButton.png", "background.png"],
+      "resources": ["playButton.png", "background.png", "54bb1e72f5a61a0a5d6b.svg"],
       "matches": ["*://*.tankionline.com/*"]
     }
   ]

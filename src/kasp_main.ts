@@ -7672,29 +7672,6 @@
                 sessionStorage.removeItem(CACHE_KEY);
             };
 
-            const injectStyles = () => {
-                const styleId = 'kasp-changed-row-style';
-                if (document.getElementById(styleId)) return;
-                
-                const target = document.head || document.documentElement;
-                if (!target) return;
-
-                const style = document.createElement('style');
-                style.id = styleId;
-                style.textContent = `
-                    tr.kasp-yellow-row {
-                        background-color: rgb(255 238 0 / 25%) !important;
-                    }
-                `;
-                target.appendChild(style);
-            };
-
-            if (document.head || document.documentElement) {
-                injectStyles();
-            } else {
-                document.addEventListener('DOMContentLoaded', injectStyles);
-            }
-
             window.addEventListener('message', (e: MessageEvent) => {
                 if (e.data && e.data.type === 'kasp:useraction') {
                     const detail = e.data.detail;
@@ -7749,25 +7726,43 @@
                     const container = document.querySelector('.BattleTabStatisticComponentStyle-container');
                     if (!container) return;
 
+                    // 1. Внедряем <th> в шапку (иконка раскрашивается через CSS-маску)
+                    const theadRows = container.querySelectorAll('table > thead > tr');
+                    theadRows.forEach(row => {
+                        if (!row.querySelector('.kasp-change-th')) {
+                            const th = document.createElement('th');
+                            th.className = 'kasp-change-th';
+                            th.innerHTML = '<div></div>';
+                            row.appendChild(th);
+                        }
+                    });
+
+                    // 2. Внедряем <td> в строки игроков
                     const cells = container.querySelectorAll('.BattleTabStatisticComponentStyle-nicknameCell');
                     if (!cells.length) return;
 
                     cells.forEach(cell => {
                         const rawText = cell.textContent || '';
                         const nickname = rawText.replace(/^\[.*?\]\s*/, '').trim();
-                        if (!nickname) return;
+                        const row = cell.closest('tr') as HTMLElement;
+                        
+                        if (!row || !nickname) return;
+
+                        let changeTd = row.querySelector('.kasp-change-td');
+                        if (!changeTd) {
+                            changeTd = document.createElement('td');
+                            changeTd.className = 'kasp-change-td';
+                            row.appendChild(changeTd);
+                        }
 
                         const count = playerChanges.get(nickname) || 0;
-                        const row = cell.closest('tr') as HTMLElement;
-                        if (!row) return;
-
                         if (count > 0) {
-                            if (!row.classList.contains('kasp-yellow-row')) {
-                                row.classList.add('kasp-yellow-row');
+                            if (!changeTd.querySelector('img')) {
+                                changeTd.innerHTML = '<img src="https://s.eu.tankionline.com/static/images/notification.d58f4b55.svg" alt="changed">';
                             }
                         } else {
-                            if (row.classList.contains('kasp-yellow-row')) {
-                                row.classList.remove('kasp-yellow-row');
+                            if (changeTd.innerHTML !== '') {
+                                changeTd.innerHTML = '';
                             }
                         }
                     });
@@ -8346,6 +8341,9 @@
             let initialized = false;
             let observer: MutationObserver | null = null;
 
+            // Загрузка оригинальной иконки щита из ресурсов расширения
+            const SHIELD_ICON_URL = chrome.runtime.getURL("54bb1e72f5a61a0a5d6b.svg");
+
             const RESISTANCE_MAP: Record<string, string> = {
                 'mine': 'https://s.eu.tankionline.com/static/images/mine_resistance.dd581c90.svg',
                 'crit': 'https://s.eu.tankionline.com/static/images/crit_resistance.94e32312.svg',
@@ -8368,6 +8366,8 @@
                 'shaft': 'https://s.eu.tankionline.com/static/images/shaft_resistance.0778fd3e.svg'
             };
 
+            const TAB_SELECTOR = '.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults';
+
             function getCssUrl(el: Element | null): string | null {
                 if (!el) return null;
                 const cs = window.getComputedStyle(el) as any;
@@ -8378,8 +8378,97 @@
                 return null;
             }
 
+            // 1. Вставляем иконку щита в thead строго между GS и Пушкой
+            function injectHeaderShield(): void {
+                const theadRows = document.querySelectorAll(':is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults) table thead tr');
+                theadRows.forEach(row => {
+                    if (row.querySelector('.kasp-defence-th')) return;
+
+                    const gsHeader = row.children[1]; // Второй дочерний элемент (GS)
+                    if (gsHeader) {
+                        const th = document.createElement('th');
+                        th.className = 'kasp-defence-th';
+                        th.innerHTML = `<img src="${SHIELD_ICON_URL}" alt="" class="kasp-shield-img">`;
+                        gsHeader.after(th);
+                    }
+                });
+            }
+
+            // 2. Создаем компактную двухслотовую ячейку
+            function injectCompactCells(): void {
+                const cells = document.querySelectorAll('.BattleTabStatisticComponentStyle-resistanceModuleCell');
+
+                cells.forEach(cell => {
+                    const htmlCell = cell as HTMLElement;
+                    const labels = Array.from(htmlCell.children).filter(el => 
+                        el.classList.contains('BattleTabStatisticComponentStyle-defenceLabel') &&
+                        !el.closest('.kasp-compact-cell')
+                    ) as HTMLElement[];
+
+                    let protectLabel: HTMLElement | null = null;
+                    let armadilloLabel: HTMLElement | null = null;
+
+                    labels.forEach(lbl => {
+                        const icon = lbl.querySelector('div') as HTMLElement;
+                        if (!icon) return;
+
+                        const cs = window.getComputedStyle(icon);
+                        const bg = cs.backgroundColor;
+                        const isRed = bg.includes('254') || bg.includes('255, 80') || bg.includes('255, 102') || bg.includes('254, 102');
+                        const mask = (cs.webkitMaskImage || cs.maskImage || '').toLowerCase();
+                        const isSpectrum = mask.includes('all_resistance');
+                        const isArmadillo = mask.includes('crit_resistance');
+
+                        if ((isRed || isSpectrum) && !protectLabel) protectLabel = lbl;
+                        if (isArmadillo && !armadilloLabel) armadilloLabel = lbl;
+                    });
+
+                    const protectVal = protectLabel ? (protectLabel.querySelector('h3')?.textContent || 'on') : 'none';
+                    const armadilloVal = armadilloLabel ? (armadilloLabel.querySelector('h3')?.textContent || 'on') : 'none';
+                    const stateKey = `${protectVal}_${armadilloVal}`;
+
+                    let compact = htmlCell.querySelector('.kasp-compact-cell') as HTMLElement;
+                    if (compact && compact.dataset.kaspState === stateKey) {
+                        return;
+                    }
+
+                    if (!compact) {
+                        compact = document.createElement('div');
+                        compact.className = 'kasp-compact-cell';
+                        htmlCell.prepend(compact);
+                    }
+                    compact.dataset.kaspState = stateKey;
+                    compact.innerHTML = '';
+
+                    // Слот 1: Резист от нашей пушки
+                    const slot1 = document.createElement('div');
+                    slot1.className = 'kasp-slot';
+                    if (protectLabel) {
+                        const clone = protectLabel.cloneNode(true) as HTMLElement;
+                        clone.classList.add('kasp-cloned-resist', 'kasp-protecting');
+                        slot1.appendChild(clone);
+                    } else {
+                        slot1.innerHTML = '<span class="kasp-dash">—</span>';
+                    }
+                    compact.appendChild(slot1);
+
+                    // Слот 2: Броненосец
+                    const slot2 = document.createElement('div');
+                    slot2.className = 'kasp-slot';
+                    if (armadilloLabel) {
+                        const clone = armadilloLabel.cloneNode(true) as HTMLElement;
+                        clone.classList.add('kasp-cloned-resist', 'kasp-armadillo');
+                        slot2.appendChild(clone);
+                    } else {
+                        slot2.innerHTML = '<span class="kasp-dash">—</span>';
+                    }
+                    compact.appendChild(slot2);
+                });
+            }
+
+            // 3. Подвал нулевых резистов
             function injectZeroSummary(): void {
-                const tabContainer = document.querySelector('.BattleTabStatisticComponentStyle-containerInsideTeams');
+                const tabContainer = document.querySelector(TAB_SELECTOR);
                 if (!tabContainer) return;
 
                 let summaryRow = Array.from(tabContainer.children).find(el => 
@@ -8389,41 +8478,34 @@
                 if (!summaryRow) {
                     summaryRow = document.createElement('div');
                     summaryRow.className = '-flexCenterAlignCenter kasp-custom-summary-row';
-                    tabContainer.appendChild(summaryRow);
+                    const optionsContainer = tabContainer.querySelector('.BattleTabStatisticComponentStyle-commonContainerIconOptions');
+                    if (optionsContainer) optionsContainer.before(summaryRow);
+                    else tabContainer.appendChild(summaryRow);
                 }
 
                 const presentResistances = new Set<string>();
                 const children = Array.from(summaryRow.children);
-                
                 children.forEach(child => {
                     if (child.classList.contains('kasp-zero-summary')) return;
-
                     const icon = child.querySelector('div') || child;
                     const maskImg = getCssUrl(icon);
                     if (!maskImg) return;
-
                     const match = maskImg.match(/\/([a-zA-Z_]+)_resistance(?:\.[0-9a-f]+)?\.(?:svg|webp|png)/);
-                    if (match && match[1]) {
-                        presentResistances.add(match[1]); 
-                    }
+                    if (match && match[1]) presentResistances.add(match[1]);
                 });
 
                 const zeroBlocks = summaryRow.querySelectorAll('.kasp-zero-summary');
                 zeroBlocks.forEach(block => {
                     const turret = block.getAttribute('data-turret');
-                    if (turret && presentResistances.has(turret)) {
-                        block.remove(); 
-                    }
+                    if (turret && presentResistances.has(turret)) block.remove();
                 });
 
                 Object.keys(RESISTANCE_MAP).forEach((turret: string) => {
                     if (!presentResistances.has(turret) && !summaryRow.querySelector(`.kasp-zero-summary[data-turret="${turret}"]`)) {
-                        
                         const zeroLabel = document.createElement('div');
                         zeroLabel.className = 'kasp-zero-summary -flexStart';
                         zeroLabel.setAttribute('data-turret', turret);
-                        
-                        zeroLabel.style.cssText = 'display: flex !important; align-items: center !important; justify-content: flex-start !important; margin-right: 0.75em !important; cursor: default !important; opacity: 1 !important;';
+                        zeroLabel.style.cssText = 'display: flex !important; align-items: center !important; justify-content: flex-start !important; margin-right: 0.75em !important; cursor: default !important; opacity: 1 !important; pointer-events: none !important;';
 
                         const iconDiv = document.createElement('div');
                         iconDiv.className = '-maskImageContain -maskImage';
@@ -8436,79 +8518,77 @@
 
                         zeroLabel.appendChild(iconDiv);
                         zeroLabel.appendChild(textSpan);
-
                         summaryRow.appendChild(zeroLabel);
                     }
                 });
             }
 
-            return () => {
+            function updateAll(): void {
+                injectHeaderShield();
+                injectCompactCells();
+                injectZeroSummary();
+            }
 
+            return () => {
                 if (!initialized) {
                     initialized = true;
 
-                    utils.injectStyle(`
-                        .kasp-zero-summary { 
-                            order: 999 !important; 
-                        }
-                        .BattleTabStatisticComponentStyle-containerInsideTeams > .-flexCenterAlignCenter:last-child {
-                            flex-wrap: wrap !important;
-                            justify-content: center !important;
-                            padding-top: 0.5em !important;
-                        }
-                        .kasp-custom-summary-row {
-                            width: 100% !important;
-                            min-height: 2em !important;
-                            padding: 0.5em 1em !important;
-                            box-sizing: border-box !important;
-                        }
-                    `, 'kasp-zero-summary-styles');
-
                     observer = new MutationObserver(() => {
-                        if (document.querySelector('.BattleTabStatisticComponentStyle-containerInsideTeams')) {
-                            requestAnimationFrame(injectZeroSummary);
+                        if (document.querySelector(TAB_SELECTOR)) {
+                            requestAnimationFrame(updateAll);
                         }
                     });
-                    
+
                     const targetNode = document.documentElement || document.body;
                     if (targetNode) {
                         observer.observe(targetNode, { childList: true, subtree: true });
                     }
                 }
             };
-        })()
+        })(),
     };
 
-    const masterObserver = new MutationObserver(() => {
-        state.lang = utils.getLang();
-        
+    // Выносим получение языка из горячего цикла
+    state.lang = utils.getLang();
+    
+    // Флаг для контроля частоты обновлений
+    let isMasterUpdateScheduled = false;
+
+    const performMasterCheck = () => {
+        isMasterUpdateScheduled = false; // Сбрасываем блокировку
+
+        // 1. Оптимизированный поиск текущего экрана
+        let newScreen = state.currentScreen;
         if (document.querySelector('.ApplicationLoaderComponentStyle-container.-background')) {
-            state.currentScreen = 'loading';
+            newScreen = 'loading';
         } else if (document.querySelector('.BattleHudComponentStyle-container')) {
-            state.currentScreen = 'battle';
+            newScreen = 'battle';
         } else if (document.querySelector('.GarageCommonStyle-positionContent, .GarageItemComponent-container')) {
-            state.currentScreen = 'garage';
+            newScreen = 'garage';
         } else if (document.querySelector('.MainScreenComponentStyle-blockMainMenu')) {
-            state.currentScreen = 'lobby';
+            newScreen = 'lobby';
         } else if (document.querySelector('.BattleResultHeaderComponentStyle-resultText')) {
-            state.currentScreen = 'match_results';
+            newScreen = 'match_results';
         }
 
-        state.friendsMenuOpen = !!document.querySelector('.FriendListComponentStyle-containerFriends, .InvitationWindowsComponentStyle-centerBlock');
+        // Обновляем состояние экрана
+        state.currentScreen = newScreen;
 
-        const settingsBlock = document.querySelector('.SettingsComponentStyle-blockContentOptions');
-        if (settingsBlock) {
-            if (!state.settingsOpen) {
-                state.settingsOpen = true;
+        // 2. Проверка боковых меню и настроек
+        const isFriendsMenuOpen = !!document.querySelector('.FriendListComponentStyle-containerFriends, .InvitationWindowsComponentStyle-centerBlock');
+        state.friendsMenuOpen = isFriendsMenuOpen;
+
+        const isSettingsOpen = !!document.querySelector('.SettingsComponentStyle-blockContentOptions');
+        if (isSettingsOpen !== state.settingsOpen) {
+            state.settingsOpen = isSettingsOpen;
+            if (isSettingsOpen) {
                 coreSettings.inject();
-            }
-        } else {
-            if (state.settingsOpen) {
-                state.settingsOpen = false;
+            } else {
                 coreSettings.onClose();
             }
         }
 
+        // 3. Безусловные модули (должны иметь внутреннюю защиту от спама выполнения)
         modules.welcomeModal();
         modules.hideNickname();
         modules.hideCurrency();
@@ -8516,31 +8596,40 @@
         modules.changeCounter();
         modules.zeroResists();
 
+        // 4. Изолированный вызов тяжелых модулей только на нужных экранах
         try {
-            if (state.currentScreen === 'lobby' || state.currentScreen === 'loading') {
+            if (newScreen === 'lobby' || newScreen === 'loading') {
                 modules.customPlayButton();
             }
-            if (state.friendsMenuOpen) {
+            if (isFriendsMenuOpen) {
                 modules.customFriends();
             }
-            if (state.currentScreen === 'lobby' || state.currentScreen === 'garage' || state.currentScreen === 'match_results') {
+            if (newScreen === 'lobby' || newScreen === 'garage' || newScreen === 'match_results') {
                 modules.customTrophies();
             }
-            if (state.currentScreen === 'garage') {
+            if (newScreen === 'garage') {
                 modules.autoUpgrade();
                 modules.augmentSpecs();
                 modules.customPaints();
                 modules.garageButtons();
                 modules.customGarageSkins();
-
             }
         } catch (e) {
             console.error("[Kaspersky's Inventions] Ошибка в модуле:", e);
+        }
+    };
+
+    const masterObserver = new MutationObserver(() => {
+        // Если обновление уже запланировано в текущем кадре — игнорируем новые мутации
+        if (!isMasterUpdateScheduled) {
+            isMasterUpdateScheduled = true;
+            requestAnimationFrame(performMasterCheck);
         }
     });
 
     const boot = () => {
         state.lang = utils.getLang();
+        // Наблюдатель стартует один раз
         masterObserver.observe(document.documentElement, { childList: true, subtree: true });
     };
 
@@ -8549,5 +8638,4 @@
     } else {
         document.addEventListener('DOMContentLoaded', boot);
     }
-
 })();
