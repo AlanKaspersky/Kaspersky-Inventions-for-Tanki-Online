@@ -212,29 +212,22 @@ img[class*="TankParametersStyle-iconGS"] {
     box-shadow: rgb(255, 255, 255) 0em 0em 0em 2px !important;
 }
 
-/* 1. Базовое состояние меню (здесь задаем плавность и начальную тень) */
 .PrimaryMenuItemComponentStyle-itemCommonLi {
     position: relative !important;
     border-radius: 0.5em !important;
     
-    /* Ограничиваем ширину, чтобы блеск не летел на танк, и возвращаем обычную обрезку */
     overflow: hidden !important;
     
-    /* Тот самый плавный переход для тени и фона (как в гараже) */
     transition: background-color 0.2s ease, box-shadow 0.2s ease !important;
     
-    /* Начальная слабая тень */
     box-shadow: rgba(255, 255, 255, 0.25) 0em 0em 0em 0.063em !important;
 }
 
-/* 2. Состояние при наведении (яркая тень и фон) */
 .PrimaryMenuItemComponentStyle-itemCommonLi:hover {
     background-color: rgb(197, 197, 197) !important;
-    /* Теперь это обычная внешняя тень, clip-path ей не мешает */
     box-shadow: rgb(255, 255, 255) 0em 0em 0em 2px !important;
 }
 
-/* 3. Полоса блеска */
 .PrimaryMenuItemComponentStyle-itemCommonLi::after {
     content: "";
     position: absolute;
@@ -248,12 +241,10 @@ img[class*="TankParametersStyle-iconGS"] {
     pointer-events: none;
 }
 
-/* 4. Запуск анимации (без forwards, чтобы блик исчезал) */
 .PrimaryMenuItemComponentStyle-itemCommonLi:hover::after {
     animation: kasp-metal-shine 0.6s ease-in-out !important;
 }
 
-/* 5. Иконки и текст поверх */
 .PrimaryMenuItemComponentStyle-itemCommonLi > * {
     position: relative !important;
     z-index: 4 !important;
@@ -352,12 +343,10 @@ span.PrimaryMenuItemComponentStyle-itemName {
     transform: translateY(-0.2em) !important;
 }
 
-/* Прячем оригинальный кривой эллипс */
 img.PrimaryMenuItemComponentStyle-notificationIconNewNews, .MainScreenComponentStyle-noNew, img.MainScreenComponentStyle-new.FooterComponentStyle-marginEllips {
     display: none !important;
 }
 
-/* Создаем растворяющееся желтое свечение в углу */
 .PrimaryMenuItemComponentStyle-itemCommonLi:has(img.PrimaryMenuItemComponentStyle-notificationIconNewNews)::before,
 .FooterComponentStyle-newsButton:has(img.MainScreenComponentStyle-new.FooterComponentStyle-marginEllips)::before,
 .FooterComponentStyle-chatButton:has(img.MainScreenComponentStyle-new.FooterComponentStyle-marginEllips)::before,
@@ -370,12 +359,11 @@ img.PrimaryMenuItemComponentStyle-notificationIconNewNews, .MainScreenComponentS
     width: 100% !important;
     height: 100% !important;
     
-    /* Радиальный градиент от правого верхнего угла (top right) */
     background: radial-gradient(circle at top right, rgb(255, 204, 0) 0%, rgba(255, 204, 0, 0) 60%) !important;
     
     z-index: 10 !important;
-    pointer-events: none !important; /* Чтобы свечение не мешало кликать на кнопку */
-    border-radius: inherit !important; /* Наследуем скругление самой кнопки */
+    pointer-events: none !important;
+    border-radius: inherit !important;
 }
 
 .UserScoreComponentStyle-coinsContainer {
@@ -496,10 +484,6 @@ div.BattleTabStatisticComponentStyle-containerInsideResults {
     
 }
 
-/* ==========================================================================
-   ТАБ: ГЛОБАЛЬНЫЕ РАЗМЕРЫ ОКНА И СКРОЛЛА
-   ========================================================================== */
-
 .BattleTabStatisticComponentStyle-container > :first-child {
     max-height: unset !important;
 }
@@ -548,10 +532,6 @@ div.BattleTabStatisticComponentStyle-containerInsideResults {
   min-width: unset !important;
 }
 
-/* ==========================================================================
-   ТАБ: ШАПКА ТАБЛИЦЫ (THEAD)
-   ========================================================================== */
-
 .BattleTabStatisticComponentStyle-container table > thead {
   display: block !important;
   width: 100% !important;
@@ -575,7 +555,6 @@ div.BattleTabStatisticComponentStyle-containerInsideResults {
   justify-content: center !important;
 }
 
-/* 1. Никнейм (37%) */
 .BattleTabStatisticComponentStyle-container table > thead > tr > :first-child {
   order: -3 !important;
   flex: 0 0 37% !important;
@@ -584,14 +563,12 @@ div.BattleTabStatisticComponentStyle-containerInsideResults {
   padding-left: 0.5em !important;
 }
 
-/* 2. GS (10%) */
 .BattleTabStatisticComponentStyle-container table > thead > tr > :nth-child(2) {
   order: -1 !important;
   flex: 0 0 10% !important;
   width: 10% !important;
 }
 
-/* 3. Колонка Щита (15%) */
 .BattleTabStatisticComponentStyle-container table > thead > tr > .kasp-defence-th,
 .BattleTabStatisticComponentStyle-container table > thead > tr > :nth-child(3) {
   order: 0 !important;
@@ -606,23 +583,17 @@ div.BattleTabStatisticComponentStyle-containerInsideResults {
   display: block !important;
 }
 
-/* 4 и 5. Пушка и Корпус (по 7%) */
 .BattleTabStatisticComponentStyle-container table > thead > tr > :nth-child(4),
 .BattleTabStatisticComponentStyle-container table > thead > tr > :nth-child(5) {
   flex: 0 0 7% !important;
   width: 7% !important;
 }
 
-/* 6 и 7. Очки и У/П (по 10%) */
 .BattleTabStatisticComponentStyle-container table > thead > tr > :nth-child(6),
 .BattleTabStatisticComponentStyle-container table > thead > tr > :nth-child(7) {
   flex: 0 0 10% !important;
   width: 10% !important;
 }
-
-/* ==========================================================================
-   ТАБ: СТРОКИ ТАБЛИЦЫ (TBODY) И ПЕРЕСТАНОВКА ORDER
-   ========================================================================== */
 
 .BattleTabStatisticComponentStyle-container table > tbody {
   display: block !important;
@@ -653,7 +624,6 @@ div.BattleTabStatisticComponentStyle-containerInsideResults {
   display: none !important;
 }
 
-/* 1. Никнейм (37%) */
 .BattleTabStatisticComponentStyle-container table tbody tr > :first-child {
   order: -3 !important;
   flex: 0 0 37% !important;
@@ -662,14 +632,12 @@ div.BattleTabStatisticComponentStyle-containerInsideResults {
   padding-left: 0.5em !important;
 }
 
-/* 2. GS (10%) */
 .BattleTabStatisticComponentStyle-container table tbody tr > :nth-child(3) {
   order: -1 !important;
   flex: 0 0 10% !important;
   width: 10% !important;
 }
 
-/* 3. Капсула резистов (15% по умолчанию) */
 .BattleTabStatisticComponentStyle-container table tbody tr > :nth-child(2),
 .BattleTabStatisticComponentStyle-resistanceModuleCell {
   order: 0 !important;
@@ -685,51 +653,42 @@ div.BattleTabStatisticComponentStyle-containerInsideResults {
   justify-content: space-evenly !important;
 }
 
-/* 4. Пушка (7%) */
 .BattleTabStatisticComponentStyle-container table tbody tr > :nth-child(4) {
   order: 1 !important;
   flex: 0 0 7% !important;
   width: 7% !important;
 }
 
-/* 5. Корпус (7%) */
 .BattleTabStatisticComponentStyle-container table tbody tr > :nth-child(5) {
   order: 2 !important;
   flex: 0 0 7% !important;
   width: 7% !important;
 }
 
-/* 6. Очки (10%) */
 .BattleTabStatisticComponentStyle-container table tbody tr > :nth-child(6) {
   order: 3 !important;
   flex: 0 0 10% !important;
   width: 10% !important;
 }
 
-/* 7. У/П (10%) */
 .BattleTabStatisticComponentStyle-container table tbody tr > :nth-child(7) {
   order: 4 !important;
   flex: 0 0 10% !important;
   width: 10% !important;
 }
 
-/* ==========================================================================
-   НОВАЯ КОЛОНКА: СМЕНА ВООРУЖЕНИЯ (4%)
-   ========================================================================== */
-
 .kasp-change-th,
 .kasp-change-td {
-  order: -2 !important; /* Встаёт ровно между Ником (-3) и GS (-1) */
+  order: -2 !important;
   flex: 0 0 4% !important;
   width: 4% !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   box-sizing: border-box !important;
-  border: none !important; /* Убирает левый бордер стандартных td */
+  border: none !important;
 }
 
-/* Иконка в шапке (кастомный цвет rgb(191, 213, 255) через mask-image) */
 .kasp-change-th > div {
   background-color: rgb(191, 213, 255) !important;
   -webkit-mask-image: url('https://s.eu.tankionline.com/static/images/WeaponChange.89d8adcc.svg') !important;
@@ -744,17 +703,12 @@ div.BattleTabStatisticComponentStyle-containerInsideResults {
   height: 1em !important;
 }
 
-/* Иконка уведомления в строке игрока */
 .kasp-change-td > img {
   width: 1.25em !important;
   height: 1.25em !important;
   object-fit: contain !important;
   display: block !important;
 }
-
-/* ==========================================================================
-   ТАБ: КОМПАКТНЫЕ СЛОТЫ И ХОВЕР
-   ========================================================================== */
 
 .BattleTabStatisticComponentStyle-resistanceModuleCell > :not(.kasp-compact-cell) {
   display: none !important;
@@ -815,7 +769,6 @@ div.BattleTabStatisticComponentStyle-containerInsideResults {
   color: #ffffff !important;
 }
 
-/* Раскрытие: 15% свои + 7% пушки + 7% корпуса = 29% */
 .BattleTabStatisticComponentStyle-container table tbody tr > .BattleTabStatisticComponentStyle-resistanceModuleCell:hover {
   cursor: pointer !important;
   flex: 0 0 29% !important;
@@ -850,10 +803,6 @@ div.BattleTabStatisticComponentStyle-containerInsideResults {
   display: none !important;
 }
 
-/* ==========================================================================
-   ТАБ: ПОДВАЛ НУЛЕВЫХ РЕЗИСТОВ
-   ========================================================================== */
-
 .kasp-zero-summary { 
   order: 999 !important; 
 }
@@ -880,7 +829,6 @@ div.BattleTabStatisticComponentStyle-containerInsideResults {
   background-image: none;
 }
 
-/* Появилась метка */
 .kasp-change-td.kasp-changed {
   background-image: url('https://s.eu.tankionline.com/static/images/notification.d58f4b55.svg') !important;
 }

@@ -90,16 +90,35 @@
     }
 
     window.addEventListener('storage', (e) => {
-        if (e.key && SETTINGS_KEYS.includes(e.key)) invalidateSetting(e.key);
+        if (e.key && SETTINGS_KEYS.includes(e.key))
+            invalidateSetting(e.key);
+
+        if (e.key === 'language_store_key') {
+            state.lang = utils.getLang();
+            if (!isMasterUpdateScheduled) {
+                isMasterUpdateScheduled = true;
+                requestAnimationFrame(performMasterCheck);
+            }
+        }
     });
 
     const utils = {
-        getLang: (): string => { 
-            const htmlLang = document.documentElement.lang || '';
-            if (htmlLang.toLowerCase().includes('ru')) return 'RU';
-            if (window.location.hostname.includes('ru.')) return 'RU';
-            return 'EN';
-        },
+        getLang: () => {
+        try {
+            const stored = (localStorage.getItem('language_store_key') || '').toLowerCase();
+            if (stored.startsWith('ru')) return 'RU';
+            if (stored.startsWith('en')) return 'EN';
+        }
+        catch (e) {}
+
+        const htmlLang = (document.documentElement.lang || '').toLowerCase();
+        if (htmlLang.includes('ru')) return 'RU';
+        if (htmlLang.includes('en')) return 'EN';
+
+        if (window.location.hostname.includes('ru.')) return 'RU';
+
+        return 'EN';
+    },
 
         getSetting: (id, def) => {
             if (settingsCache.has(id)) {
@@ -1559,7 +1578,7 @@
         })(),
 
         welcomeModal: (() => {
-            const CURRENT_VERSION = '2.4';
+            const CURRENT_VERSION = '2.4.1';
             const STORAGE_KEY = 'kasp_last_version';
             let hasChecked = false;
 
@@ -2666,7 +2685,7 @@
                     }
                 }
             }
-            catch (e) { /* ignore */ }
+            catch (e) {}
 
             const saveCache = (): void => {
                 const obj: Record<string, number> = {};
@@ -3649,6 +3668,14 @@
 
     const performMasterCheck = () => {
         isMasterUpdateScheduled = false;
+        const newLang = utils.getLang();
+        if (newLang !== state.lang) {
+            state.lang = newLang;
+            lastFullRefresh = 0;
+            if (refreshScheduled) refreshScheduled = false;
+            runHeavyModules();
+            return;
+        }
 
         let newScreen = state.currentScreen;
         if (document.querySelector('.ApplicationLoaderComponentStyle-container.-background')) {
