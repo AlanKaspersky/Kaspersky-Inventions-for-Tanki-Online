@@ -1,13 +1,23 @@
 {
-  "name": "kaspersky's-inventions",
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "kasperskys-inventions",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Kaspersky's Inventions — расширение для Tanki Online",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build:ts": "tsc",
+    "build:zip": "node tools/build-release.js",
+    "build": "npm run build:ts && npm run build:zip",
+    "release": "npm run build",
+    "watch": "tsc --watch"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "tanki",
+    "tankionline",
+    "extension",
+    "chrome-extension"
+  ],
+  "author": "Alan Kaspersky",
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {

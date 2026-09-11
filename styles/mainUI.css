@@ -473,7 +473,7 @@ div:has(> .HeaderCommonStyle-icons + .HeaderCommonStyle-icons) + div {
 div:is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults) {
     background-color: rgb(21 21 21 / 92%) !important;
     box-shadow: rgb(255 255 255) 0em 0em 0px 0.3em !important;
-    backdrop-filter: blur(16px) !important;
+    backdrop-filter: blur(6px) !important;
 }
 
 div[class*="SkinsAndAlterationsStyle"] div[class$="-flexCenterAlignCenterColumn"] {
@@ -631,6 +631,7 @@ div.BattleTabStatisticComponentStyle-containerInsideResults {
 
 .BattleTabStatisticComponentStyle-container table > tbody > tr {
   display: flex !important;
+  contain: layout style paint !important;
   align-items: center !important;
   width: 100% !important;
   box-sizing: border-box !important;
@@ -871,3 +872,43 @@ div.BattleTabStatisticComponentStyle-containerInsideResults {
   padding: 0.5em 1em !important;
   box-sizing: border-box !important;
 }
+
+.kasp-change-td {
+  background-repeat: no-repeat !important;
+  background-position: center center !important;
+  background-size: 1.25em 1.25em !important;
+  background-image: none;
+}
+
+/* Появилась метка */
+.kasp-change-td.kasp-changed {
+  background-image: url('https://s.eu.tankionline.com/static/images/notification.d58f4b55.svg') !important;
+}
+
+.kasp-cloned-resist.kasp-protecting > h3 {
+  color: #ff5050 !important;
+}
+
+.kasp-cloned-resist.kasp-protecting.kasp-spectrum {
+    color: #4fdefb !important;
+}
+
+.kasp-cloned-resist.kasp-protecting.kasp-spectrum > h3 {
+    color: #4fdefb !important;
+}
+
+.kasp-cloned-resist.kasp-protecting.kasp-spectrum > div,
+.kasp-cloned-resist.kasp-protecting.kasp-spectrum > .-maskImage,
+.kasp-cloned-resist.kasp-protecting.kasp-spectrum > .-maskImageContain {
+    background-color: #4fdefb !important;
+    color: #4fdefb !important;
+}
+
+.kasp-cloned-resist.kasp-protecting.kasp-spectrum > img {
+    filter: brightness(0) saturate(100%) invert(70%) sepia(66%) saturate(2233%) hue-rotate(155deg) brightness(101%) contrast(101%) !important;
+}
+
+.kasp-cloned-resist.kasp-protecting.kasp-spectrum > div {
+  background-color: #4fdefb !important;
+}
+
