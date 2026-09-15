@@ -541,12 +541,12 @@
         augmentSpecs: (() => {
             let initialized = false;
             let updateQueued = false;
-            const t: Record<string, Record<string, string>> = {
+            const t = {
                 RU: { specsTitle: 'Характеристики', adv: 'Преимущества', disadv: 'Недостатки', empty: 'Нет данных' },
                 EN: { specsTitle: 'Specs', adv: 'Advantages', disadv: 'Disadvantages', empty: 'No data' }
             };
 
-            const STAT_DICT: Record<string, { RU: string | string[]; EN: string | string[] }> = {
+            const STAT_DICT = {
                 DAMAGE: { RU: "Урон", EN: "Damage" },
                 DPS: { RU: "Урон в секунду", EN: "Damage per second" },
                 CHARGE_RATE: { RU: "Зарядка", EN: "Charge rate" },
@@ -565,93 +565,121 @@
                 POWER: { RU: "Мощность", EN: "Power" }
             };
 
-            const renderList = (items: any[], lang: string) => {
+            const renderList = (items, lang) => {
                 if (!items || items.length === 0) return `<li>${t[lang].empty}</li>`;
                 return items.map(item => {
                     let html = `<li>${item[lang] || item['EN']}`;
                     if (item.subItems && item.subItems.length > 0) {
-                        html += `<ul>${item.subItems.map((sub: any) => `<li>${sub[lang] || sub['EN']}</li>`).join('')}</ul>`;
+                        html += `<ul>${item.subItems.map(sub => `<li>${sub[lang] || sub['EN']}</li>`).join('')}</ul>`;
                     }
                     html += `</li>`;
                     return html;
                 }).join('');
             };
 
-            const closeSpecsModal = () => {
-                const overlay = document.querySelector('.custom-specs-modal-wrapper');
-                if (overlay) overlay.remove();
-                document.querySelectorAll('.custom-card-specs-btn.active').forEach(btn => btn.classList.remove('active'));
-            };
-
-            const openSpecsModal = (deviceData: any, deviceUrl: string) => {
-                if (!deviceData) return;
-                closeSpecsModal();
-                const lang = state.lang;
-                const wrapper = document.createElement('div');
-                wrapper.className = 'custom-specs-modal-wrapper';
-                const localizedName = deviceData.name[lang] || deviceData.name['EN'] || "Unknown Device";
-                const advList = renderList(deviceData.advantages, lang);
-                const disadvList = renderList(deviceData.disadvantages, lang);
-                
-                wrapper.innerHTML = `
-                    <div class="custom-specs-modal-content">
-                        <div class="custom-specs-close-btn"></div>
-                        <h1 style="font-family: BaseFontBold; text-transform: uppercase; font-size: 3em; margin-bottom: 0;">${localizedName}</h1>
-                        <span style="color: rgb(191, 213, 255); font-size: 1.2em; text-transform: uppercase;">${t[lang].specsTitle}</span>
-                        <div class="device-container">
-                            <div class="device-stats-wrapper">
-                                <div class="device-stats">
-                                    <div class="heading">${t[lang].adv}</div>
-                                    <ul>${advList}</ul>
-                                </div>
-                                <div class="device-stats negative">
-                                    <div class="heading">${t[lang].disadv}</div>
-                                    <ul>${disadvList}</ul>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                wrapper.addEventListener('click', (e) => {
-                    if (e.target === wrapper || (e.target as HTMLElement).classList.contains('custom-specs-close-btn')) {
-                        closeSpecsModal();
-                    }
-                });
-                document.body.appendChild(wrapper);
-                if (deviceUrl) {
-                    const activeCardBtn = document.querySelector(`.custom-card-specs-btn[data-url="${deviceUrl}"]`);
-                    if (activeCardBtn) activeCardBtn.classList.add('active');
-                }
-            };
-
             const injectButtons = () => {
                 if (!utils.getSetting('k_augments', false)) return;
-                const cardsImgs = document.querySelectorAll('img.SkinCellStyle-iconCell');
-                cardsImgs.forEach(node => {
-                    const img = node as HTMLImageElement;
-                    const card = img.parentElement as HTMLElement;
+                
+                let hoverTooltip = document.getElementById('kasp-specs-tooltip');
+                if (!hoverTooltip) {
+                    hoverTooltip = document.createElement('div');
+                    hoverTooltip.id = 'kasp-specs-tooltip';
+                    document.body.appendChild(hoverTooltip);
+                }
+
+                const updateTooltipPos = (e) => {
+                    if (!hoverTooltip) return;
+                    const offset = 15;
+                    let x = e.clientX + offset;
+                    let y = e.clientY + offset;
+                    
+                    const rect = hoverTooltip.getBoundingClientRect();
+                    if (x + rect.width > window.innerWidth) {
+                        x = e.clientX - rect.width - offset;
+                    }
+                    if (y + rect.height > window.innerHeight) {
+                        y = e.clientY - rect.height - offset;
+                    }
+                    
+                    hoverTooltip.style.left = `${x}px`;
+                    hoverTooltip.style.top = `${y}px`;
+                };
+
+                const applyButtonToCard = (card, url) => {
                     if (!card) return;
-                    const url = img.src;
-                    let existingBtn = card.querySelector('.custom-card-specs-btn') as HTMLElement;
+                    let existingBtn = card.querySelector('.custom-card-specs-btn');
+                    
                     if (existingBtn && existingBtn.dataset.url !== url) {
                         existingBtn.remove();
                         existingBtn = null;
                     }
+                    
                     if (!existingBtn && DataLoader.hasDevice(url)) {
                         if (window.getComputedStyle(card).position === 'static') {
                             card.style.position = 'relative';
                         }
                         const btn = document.createElement('div');
                         btn.className = 'custom-card-specs-btn';
-                        btn.title = "Specs";
                         btn.dataset.url = url;
                         btn.innerHTML = `<div class="custom-card-specs-icon"></div>`;
+                        
                         btn.addEventListener('click', (e) => {
                             e.stopPropagation();
                             e.preventDefault();
-                            openSpecsModal(DataLoader.getDevice(url), url);
                         });
+
+                        btn.addEventListener('mouseenter', (e) => {
+                            const deviceData = DataLoader.getDevice(url);
+                            if (!deviceData) return;
+                            
+                            const lang = state.lang;
+                            const advList = renderList(deviceData.advantages, lang);
+                            const disadvList = renderList(deviceData.disadvantages, lang);
+                            
+                            hoverTooltip.innerHTML = `
+                                <div class="device-stats-wrapper">
+                                    <div class="device-stats">
+                                        <div class="heading">${t[lang].adv}</div>
+                                        <ul>${advList}</ul>
+                                    </div>
+                                    <div class="device-stats negative">
+                                        <div class="heading">${t[lang].disadv}</div>
+                                        <ul>${disadvList}</ul>
+                                    </div>
+                                </div>
+                            `;
+                            
+                            hoverTooltip.style.display = 'block';
+                            updateTooltipPos(e);
+                        });
+
+                        btn.addEventListener('mousemove', updateTooltipPos);
+
+                        btn.addEventListener('mouseleave', () => {
+                            hoverTooltip.style.display = 'none';
+                        });
+
                         card.appendChild(btn);
+                    }
+                };
+
+                const cardsImgs = document.querySelectorAll<HTMLImageElement>('img.SkinCellStyle-iconCell');
+                cardsImgs.forEach(img => {
+                    applyButtonToCard(img.parentElement, img.src);
+                });
+
+                const containerImageBlocks = document.querySelectorAll('.RewardCardComponentStyle-imageBlock');
+                containerImageBlocks.forEach(block => {
+                    if (block.closest('.ContainersComponentStyle-possibleRewardsBlock')) return;
+
+                    const card = block.parentElement; 
+                    const imageDiv = block.querySelector('div[class*="-backgroundImageContain"]');
+                    if (!imageDiv || !card) return;
+
+                    const bgImage = window.getComputedStyle(imageDiv).backgroundImage;
+                    const match = bgImage.match(/url\(['"]?(.*?)['"]?\)/);
+                    if (match && match[1]) {
+                        applyButtonToCard(card, match[1]);
                     }
                 });
             };
@@ -665,7 +693,7 @@
                     htmlEl.style.display = '';
                 });
                 
-                const deviceImg = document.querySelector('.DeviceButtonComponentStyle-deviceIcon') as HTMLImageElement;
+                const deviceImg = document.querySelector<HTMLImageElement>('.DeviceButtonComponentStyle-deviceIcon');
                 if (!deviceImg) return;
                 const deviceData = DataLoader.getDevice(deviceImg.src);
                 if (!deviceData || !deviceData.modifiers) return;
@@ -675,18 +703,18 @@
                     const text = nameSpan.textContent?.trim().toLowerCase() || '';
                     let matchedTag = null;
                     for (const [tag, translations] of Object.entries(STAT_DICT)) {
-                        const allVariants = ([] as string[]).concat(translations.RU, translations.EN).filter(Boolean).map(s => s.toLowerCase());
+                        const allVariants = [].concat(translations.RU, translations.EN).filter(Boolean).map(s => s.toLowerCase());
                         if (allVariants.includes(text)) { matchedTag = tag; break; }
                     }
                     if (matchedTag && deviceData.modifiers && (matchedTag in deviceData.modifiers)) {
                         const multiplier = deviceData.modifiers[matchedTag];
-                        const valueSpan = nameSpan.parentElement?.nextElementSibling as HTMLElement;
+                        const valueSpan = nameSpan.parentElement?.nextElementSibling;
                         if (valueSpan && valueSpan.tagName === 'SPAN' && !valueSpan.classList.contains('hidden-by-script')) {
-                            const cleanStr = valueSpan.innerText.replace(/\s/g, '').replace(/\u00A0/g, '').replace(',', '.');
+                            const cleanStr = (valueSpan as HTMLElement).innerText.replace(/\s/g, '').replace(/\u00A0/g, '').replace(',', '.');
                             const origNumber = parseFloat(cleanStr);
                             if (!isNaN(origNumber)) {
                                 let newVal = (matchedTag === 'WEIGHT' && multiplier >= 10) ? multiplier : origNumber * multiplier;
-                                let formattedVal: any = Number.isInteger(newVal) ? newVal : parseFloat(newVal.toFixed(2));
+                                let formattedVal = Number.isInteger(newVal) ? newVal : parseFloat(newVal.toFixed(2));
                                 formattedVal = formattedVal.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
                                 let isBuff = multiplier > 1;
                                 if (['RELOAD'].includes(matchedTag)) isBuff = multiplier < 1;
@@ -694,7 +722,7 @@
                                 
                                 const color = isBuff ? '#00ff38' : '#fe6666';
                                 valueSpan.classList.add('hidden-by-script');
-                                valueSpan.style.display = 'none';
+                                (valueSpan as HTMLElement).style.display = 'none';
                                 const customSpan = document.createElement('span');
                                 customSpan.className = valueSpan.className + ' custom-live-stat';
                                 customSpan.innerHTML = `<span style="color: ${color}; text-shadow: 0 0 5px ${color}40;">${formattedVal}</span>`;
@@ -711,7 +739,11 @@
                 requestAnimationFrame(() => {
                     updateQueued = false;
                     if (!utils.getSetting('k_augments', false)) return;
-                    if (state.currentScreen !== 'garage') return;
+                    
+                    const isGarage = state.currentScreen === 'garage';
+                    const isContainers = !!document.querySelector('.ContainerInfoComponentStyle-lootBoxContainer');
+                    if (!isGarage && !isContainers) return;
+                    
                     injectButtons();
                     updateLiveStats();
                 });
@@ -723,61 +755,58 @@
                 if (!initialized) {
                     initialized = true;
                     utils.injectStyle(`
-                        .custom-card-specs-btn { position: absolute; bottom: 0.5em; left: 0.5em; width: 2.5em; height: 2.5em; border-radius: 30%; background-color: rgba(0, 25, 38, 0.7); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 10; border: 0.063em solid rgba(191, 213, 255, 0.5); transition: all 0.4s ease; }
-                        .custom-card-specs-btn:hover, .custom-card-specs-btn.active { background-color: rgb(119, 254, 51); border-color: transparent; box-shadow: 0 0 10px rgba(119, 254, 51, 0.4); }
-                        .custom-card-specs-icon { width: 1.3em; height: 1.3em; display: block; background-color: rgb(191, 213, 255); -webkit-mask-image: url(https://s.eu.tankionline.com/static/images/unavailable.5c3ecd75.svg); mask-image: url(https://s.eu.tankionline.com/static/images/unavailable.5c3ecd75.svg); -webkit-mask-position: center; mask-position: center; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-size: contain; mask-size: contain; transition: background-color 0.4s ease; }
-                        .custom-card-specs-btn:hover .custom-card-specs-icon, .custom-card-specs-btn.active .custom-card-specs-icon { background-color: rgb(7, 26, 40); }
-                        .custom-specs-modal-wrapper { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.7); z-index: 99999; display: flex; justify-content: flex-end; }
-                        .custom-specs-modal-content { user-select: none; font-size: max(min(1.48148vh, 1vw), 3px); font-family: BaseFontRegular, FallbackFontRegular; pointer-events: auto; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; background: radial-gradient(192.86% 100% at 0% 100%, rgba(191, 213, 255, 0.25) 0%, rgba(191, 213, 255, 0) 100%), rgb(0, 25, 38); height: 100%; max-width: 57em; position: absolute; right: 0px; width: 57em; padding: 2em; box-sizing: border-box; color: white; }
-                        .custom-specs-close-btn { position: absolute; top: 2em; right: 2em; width: 1.5em; height: 1.5em; cursor: pointer; background-image: url(https://s.eu.tankionline.com/static/images/iconDelete.b879b0ab.svg); background-repeat: no-repeat; background-size: contain; background-position: center center; z-index: 10; }
-                        .custom-specs-close-btn:hover { background-image: url(https://s.eu.tankionline.com/static/images/deleteHoverModal.3aceb055.svg); }
-                        .device-container { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; border: .063rem solid rgba(125, 157, 186, .4); background: #1a324466; border-radius: .375rem; position: relative; overflow: hidden; margin-top: 3em; font-family: BaseFontMedium, FallbackFontMedium, sans-serif; }
-                        .device-stats-wrapper { display: flex; width: 100%; box-sizing: border-box; }
-                        .device-stats { padding: 1.125rem 1.25rem; flex: 1; }
-                        .device-stats:first-child { border-right: .063rem solid rgba(125, 157, 186, .4); }
-                        .device-stats .heading { font-weight: 600; font-family: BaseFontBold, FallbackFontBold, sans-serif; text-transform: uppercase; color: #46df11; display: flex; align-items: center; margin-bottom: .625rem; font-size: 1.1em; }
-                        .device-stats.negative .heading { color: #f33; }
-                        .device-stats .heading::before { content: ""; min-width: 1.2rem; min-height: 1.2rem; width: 1.2rem; height: 1.2rem; margin-right: .625rem; background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" fill="%2346df11"/><path d="M12 7V17M7 12H17" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg>'); background-size: contain; background-position: center; background-repeat: no-repeat; }
-                        .device-stats.negative .heading::before { background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" fill="%23f33"/><path d="M7 12H17" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg>'); }
-                        .device-stats ul { list-style: none; padding: 0; margin: 0; }
-                        .device-stats ul li { position: relative; padding-left: 1.2rem; margin-bottom: 0.4rem; font-size: 1.05em; line-height: 1.4; color: white; }
-                        .device-stats ul li::before { content: "\\25b8"; color: #46df11; position: absolute; left: 0; top: 0; font-size: 1.2em; line-height: 1.1; }
-                        .device-stats.negative ul li::before { color: #f33; }
-                        .device-stats ul ul { margin-top: 0.4rem; margin-bottom: 0.2rem; margin-left: 0.5rem; }
-                        .text-pink { color: #ff33cc; } .text-green { color: #df9e11; } .text-yellow { color: #ffcc00; } .text-purple { color: #cc66ff; } .text-blue { color: #0095ff; } .text-red { color: #e00b0b; }
-                    `, 'kasp-augment-specs-styles');
+                        .custom-card-specs-btn { position: absolute; bottom: 0.5em; left: 0.5em; width: 2.5em; height: 2.5em; border-radius: 0.5em; background-color: rgb(255, 255, 255); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 10; box-shadow: rgba(255, 255, 255, 0.25) 0em 0em 0em 0.063em; overflow: hidden; transition: background-color 0.2s ease, box-shadow 0.2s ease; }
+                        .custom-card-specs-btn:hover, .custom-card-specs-btn.active { background-color: rgb(197, 197, 197); box-shadow: rgb(255, 255, 255) 0em 0em 0em 2px; }
+                        .custom-card-specs-btn::after { content: ""; position: absolute; top: 0; left: -150%; width: 50%; height: 100%; background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.5) 50%, rgba(255, 255, 255, 0) 100%); transform: skewX(-25deg); z-index: 3; pointer-events: none; }
+                        .custom-card-specs-btn:hover::after, .custom-card-specs-btn.active::after { animation: kasp-metal-shine 0.6s ease-in-out; }
+                        .custom-card-specs-icon { width: 1.3em; height: 1.3em; display: block; background-color: rgb(0, 0, 0); -webkit-mask-image: url(https://s.eu.tankionline.com/static/images/unavailable.5c3ecd75.svg); mask-image: url(https://s.eu.tankionline.com/static/images/unavailable.5c3ecd75.svg); -webkit-mask-position: center; mask-position: center; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-size: contain; mask-size: contain; position: relative; z-index: 4; transition: background-color 0.2s ease, transform 0.2s ease; }
+                        .custom-card-specs-btn:hover .custom-card-specs-icon, .custom-card-specs-btn.active .custom-card-specs-icon { background-color: rgb(0, 0, 0); transform: translateY(-0.2em); }
+                        #kasp-specs-tooltip { position: fixed; z-index: 999999; pointer-events: none; display: none; background-color: rgba(0, 0, 0, 0.75); backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(6px); border: 0.063rem solid rgba(255, 255, 255, 0.1); border-radius: 0.5rem; padding: 1.25rem 0; box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.5); color: white; font-family: BaseFontMedium, FallbackFontMedium, sans-serif; font-size: max(min(1.48148vh, 1vw), 3px); min-width: 30em; max-width: 48em; }
+                        #kasp-specs-tooltip .device-stats-wrapper { display: flex; width: 100%; box-sizing: border-box; }
+                        #kasp-specs-tooltip .device-stats { flex: 1; flex-basis: 50%; padding: 0 1.5rem; box-sizing: border-box; }
+                        #kasp-specs-tooltip .device-stats:first-child { border-right: 0.063rem solid rgba(255, 255, 255, 0.15); }
+                        #kasp-specs-tooltip .device-stats .heading { font-weight: 600; font-family: BaseFontBold, FallbackFontBold, sans-serif; text-transform: uppercase; color: #46df11; display: flex; align-items: center; margin-bottom: 0.8rem; font-size: 1.1em; }
+                        #kasp-specs-tooltip .device-stats.negative .heading { color: #f33; }
+                        #kasp-specs-tooltip .device-stats .heading::before { content: ""; min-width: 1.2rem; min-height: 1.2rem; width: 1.2rem; height: 1.2rem; margin-right: 0.625rem; background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" fill="%2346df11"/><path d="M12 7V17M7 12H17" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg>'); background-size: contain; background-position: center; background-repeat: no-repeat; }
+                        #kasp-specs-tooltip .device-stats.negative .heading::before { background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" fill="%23f33"/><path d="M7 12H17" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg>'); }
+                        #kasp-specs-tooltip .device-stats ul { list-style: none; padding: 0; margin: 0; }
+                        #kasp-specs-tooltip .device-stats ul li { position: relative; padding-left: 1.2rem; margin-bottom: 0.5rem; font-size: 1.05em; line-height: 1.4; color: white; }
+                        #kasp-specs-tooltip .device-stats ul li::before { content: "\\25b8"; color: #46df11; position: absolute; left: 0; top: 0; font-size: 1.2em; line-height: 1.1; }
+                        #kasp-specs-tooltip .device-stats.negative ul li::before { color: #f33; }
+                        #kasp-specs-tooltip .device-stats ul ul { margin-top: 0.4rem; margin-bottom: 0.2rem; margin-left: 0.5rem; }                    
+                        `, 'kasp-augment-specs-styles');
+
+                    const forceHideTooltip = () => {
+                        const hoverTooltip = document.getElementById('kasp-specs-tooltip');
+                        if (hoverTooltip) hoverTooltip.style.display = 'none';
+                    };
 
                     window.addEventListener('keydown', (e) => {
-                        const overlay = document.querySelector('.custom-specs-modal-wrapper');
-                        if (overlay) {
-                            if (e.code === 'Escape' || e.key === 'Escape' || e.code === 'KeyZ' || e.key.toLowerCase() === 'z') {
-                                if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
-                                e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
-                                closeSpecsModal();
-                            }
+                        if (e.code === 'Escape' || e.key === 'Escape' || e.code === 'KeyZ' || e.key.toLowerCase() === 'z') {
+                            if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+                            forceHideTooltip();
                         }
                     }, true);
 
                     window.addEventListener('mousedown', (e) => {
-                        const overlay = document.querySelector('.custom-specs-modal-wrapper');
-                        if (overlay && (e.button === 3 || e.button === 4)) {
-                            e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
-                        }
-                    }, true);
-
-                    window.addEventListener('mouseup', (e) => {
-                        const overlay = document.querySelector('.custom-specs-modal-wrapper');
-                        if (overlay && (e.button === 3 || e.button === 4)) {
-                            e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
-                            closeSpecsModal();
+                        if (e.button === 3 || e.button === 4) {
+                            forceHideTooltip();
                         }
                     }, true);
                 }
 
+                const isGarage = state.currentScreen === 'garage';
+                const isContainers = !!document.querySelector('.ContainerInfoComponentStyle-lootBoxContainer');
                 const loadingScreen = document.querySelector('.ApplicationLoaderComponentStyle-container.-background');
-                if (loadingScreen) closeSpecsModal();
-
-                if (state.currentScreen === 'garage') scheduleUpdate();
+                
+                if (loadingScreen || (!isGarage && !isContainers)) {
+                    const hoverTooltip = document.getElementById('kasp-specs-tooltip');
+                    if (hoverTooltip) hoverTooltip.style.display = 'none';
+                }
+                
+                if (isGarage || isContainers) {
+                    scheduleUpdate();
+                }
             };
         })(),
 
@@ -1578,7 +1607,7 @@
         })(),
 
         welcomeModal: (() => {
-            const CURRENT_VERSION = '2.4.1';
+            const CURRENT_VERSION = chrome.runtime.getManifest().version;
             const STORAGE_KEY = 'kasp_last_version';
             let hasChecked = false;
 
@@ -2740,7 +2769,6 @@
                 }
             }
 
-            /** SYNC: создать `<th>` / `<td>` если их нет. Без чтения данных игроков. */
             function sync(): void {
                 const container = document.querySelector('.BattleTabStatisticComponentStyle-container');
                 if (!container) return;
@@ -2820,7 +2848,7 @@
                 'https://s.eu.tankionline.com/604/26114/260/103/30205423172266/image.svg': 'gt',
                 'https://s.eu.tankionline.com/604/26114/260/114/30205423171703/image.svg': 'sp',
                 'https://s.eu.tankionline.com/604/26114/260/115/30205423171700/image.svg': 'legacy',
-                'https://s.eu.tankionline.com/604/26114/260/111/30205423171761/image.svg': 'rt',
+                'https://s.eu.tankionline.com/604/26114/260/111/30205423171761/image.svg': 'rf',
                 'https://s.eu.tankionline.com/604/26114/260/120/30205423171677/image.svg': 'ultra',
                 'https://s.eu.tankionline.com/623/157032/211/246/31173606567127/image.svg': 'dk',
                 'https://s.eu.tankionline.com/605/166565/337/2/30275535357510/image.svg': 'ic',
@@ -2896,30 +2924,30 @@
                 "firebird": { "demonicOLD": "https://s.eu.tankionline.com/554/36647/151/167/27006222101177/image.webp", "xt": "https://s.eu.tankionline.com/544/55322/150/54/27006221137650/image.webp", "legacy": "https://s.eu.tankionline.com/606/154713/267/332/30333162755774/image.webp", "demonic": "https://s.eu.tankionline.com/574/111735/366/251/27623012454350/image.webp", "gt": "https://s.eu.tankionline.com/620/113220/245/225/31022644221725/image.webp" },
                 "freeze": { "dk": "https://s.eu.tankionline.com/626/144354/353/307/31331073273517/image.webp", "xtHD": "https://s.eu.tankionline.com/607/136170/201/132/30367436101741/image.webp", "xt": "https://s.eu.tankionline.com/545/127240/164/131/27006221125546/image.webp", "legacy": "https://s.eu.tankionline.com/605/14617/124/244/30243144544374/image.webp", "gt": "https://s.eu.tankionline.com/613/151460/263/146/30572314246641/image.webp" },
                 "isida": { "gt": "https://s.eu.tankionline.com/605/12655/270/305/30242555267625/image.webp", "xt": "https://s.eu.tankionline.com/547/121300/6/347/27006221135010/image.webp", "legacy": "https://s.eu.tankionline.com/606/155040/264/51/30333211016074/image.webp" },
-                "tesla": { "dk": "https://s.eu.tankionline.com/626/144357/43/323/31331073650002/image.webp", "xtHD": "https://s.eu.tankionline.com/571/164753/344/275/27475173126262/image.webp", "legacy": "https://s.eu.tankionline.com/604/60403/370/223/30214100775564/image.webp", "gt": "https://s.eu.tankionline.com/625/62773/333/270/31254577056311/image.webp", "rt": "https://s.eu.tankionline.com/616/165265/171/30/30735255276301/image.webp" },
+                "tesla": { "dk": "https://s.eu.tankionline.com/626/144357/43/323/31331073650002/image.webp", "xtHD": "https://s.eu.tankionline.com/571/164753/344/275/27475173126262/image.webp", "legacy": "https://s.eu.tankionline.com/604/60403/370/223/30214100775564/image.webp", "gt": "https://s.eu.tankionline.com/625/62773/333/270/31254577056311/image.webp", "rf": "https://s.eu.tankionline.com/616/165265/171/30/30735255276301/image.webp" },
                 "hammer": { "xt": "https://s.eu.tankionline.com/550/160444/177/127/27006221137644/image.webp", "legacy": "https://s.eu.tankionline.com/601/170515/147/375/30076123457044/image.webp", "gt": "https://s.eu.tankionline.com/623/151752/54/57/31172372477451/image.webp", "ic": "https://s.eu.tankionline.com/623/44445/126/376/31151111305122/image.webp", "sp": "https://s.eu.tankionline.com/627/73466/221/246/31356720510241/image.webp" },
                 "twins": { "xt": "https://s.eu.tankionline.com/547/35522/366/217/27006221446573/image.webp", "gt": "https://s.eu.tankionline.com/617/166341/206/340/30775470305001/image.webp", "legacy": "https://s.eu.tankionline.com/577/157474/222/174/27773717305444/image.webp" },
-                "ricochet": { "xt": "https://s.eu.tankionline.com/546/5476/203/247/27006221247376/image.webp", "legacy": "https://s.eu.tankionline.com/556/131237/223/64/27006221307447/image.webp", "gt": "https://s.eu.tankionline.com/623/45325/56/35/31151265266217/image.webp", "rt": "https://s.eu.tankionline.com/577/177107/117/226/27777622231563/image.webp" },
+                "ricochet": { "xt": "https://s.eu.tankionline.com/546/5476/203/247/27006221247376/image.webp", "legacy": "https://s.eu.tankionline.com/556/131237/223/64/27006221307447/image.webp", "gt": "https://s.eu.tankionline.com/623/45325/56/35/31151265266217/image.webp", "rf": "https://s.eu.tankionline.com/577/177107/117/226/27777622231563/image.webp" },
                 "vulcan": { "xt": "https://s.eu.tankionline.com/544/131127/26/163/27006222634650/image.webp", "prime": "https://s.eu.tankionline.com/556/15757/64/213/27006222451123/image.webp", "legacy": "https://s.eu.tankionline.com/624/106557/304/114/31221533775405/image.webp", "demonic": "https://s.eu.tankionline.com/613/14030/7/251/30543006303434/image.webp", "ultra": "https://s.eu.tankionline.com/560/31363/210/360/27006276703643/image.webp", "gt": "https://s.eu.tankionline.com/634/157107/355/324/31633622047562/image.webp" },
                 "smoky": { "xt": "https://s.eu.tankionline.com/545/14700/243/147/27006221742756/image.webp", "legacy": "https://s.eu.tankionline.com/577/174061/352/42/27777017045677/image.webp", "gt": "https://s.eu.tankionline.com/607/136171/102/2/30367436242300/image.webp" },
                 "striker": { "xtHD": "https://s.eu.tankionline.com/626/144362/322/210/31331074604612/image.webp", "ultra": "https://s.eu.tankionline.com/570/167463/110/26/31357732440710/image.webp", "xt": "https://s.eu.tankionline.com/551/73161/220/371/27006221457234/image.webp", "dk": "https://s.eu.tankionline.com/632/133612/321/202/31526742641351/image.webp", "gt": "https://s.eu.tankionline.com/632/57062/203/123/31634075062157/image.webp" },
                 "thunder": { "vt": "https://s.eu.tankionline.com/640/34054/106/324/32007013066364/image.webp", "dk": "https://s.eu.tankionline.com/624/130241/231/170/31247407370544/image.webp", "xt": "https://s.eu.tankionline.com/544/23374/230/164/27006222346434/image.webp", "legacy": "https://s.eu.tankionline.com/545/14701/163/26/27006222440647/image.webp", "gt": "https://s.eu.tankionline.com/603/104200/223/77/30161040124106/image.webp", "ultra": "https://s.eu.tankionline.com/556/23371/256/376/27006222447074/image.webp", "prime": "https://s.eu.tankionline.com/557/14337/235/24/27006221273433/image.webp", "xtHD": "https://s.eu.tankionline.com/617/134472/113/230/30767117003724/image.webp" },
                 "tsunami": { "dk": "https://s.eu.tankionline.com/636/15624/303/133/31704534736504/image.webp" },
-                "scorpion": { "rt": "https://s.eu.tankionline.com/627/130243/173/41/31366050734726/image.webp", "dk": "https://s.eu.tankionline.com/626/144356/211/215/31331073550674/image.webp", "xtHD": "https://s.eu.tankionline.com/602/142236/225/135/30131263063453/image.webp", "gt": "https://s.eu.tankionline.com/634/160574/373/213/31634137213712/image.webp" },
+                "scorpion": { "rf": "https://s.eu.tankionline.com/627/130243/173/41/31366050734726/image.webp", "dk": "https://s.eu.tankionline.com/626/144356/211/215/31331073550674/image.webp", "xtHD": "https://s.eu.tankionline.com/602/142236/225/135/30131263063453/image.webp", "gt": "https://s.eu.tankionline.com/634/160574/373/213/31634137213712/image.webp" },
                 "magnum": { "sp": "https://s.eu.tankionline.com/612/43174/244/260/30510637124120/image.webp", "xt": "https://s.eu.tankionline.com/550/75116/121/115/27006222156612/image.webp" },
                 "railgun": { "gt": "https://s.eu.tankionline.com/606/155010/246/46/30333202253104/image.webp", "legacy": "https://s.eu.tankionline.com/550/121477/171/157/27006221327105/image.webp", "xt": "https://s.eu.tankionline.com/544/23374/101/240/27006222467365/image.webp", "ultra": "https://s.eu.tankionline.com/557/14216/302/47/27006222235365/image.webp", "prime": "https://s.eu.tankionline.com/554/45667/335/160/27006221506161/image.webp" },
-                "gauss": { "rt": "https://s.eu.tankionline.com/635/24770/75/171/31645176163053/image.webp", "xt": "https://s.eu.tankionline.com/560/166470/223/123/27035516206046/image.webp", "prime": "https://s.eu.tankionline.com/554/43164/134/365/27006222545045/image.webp", "gt": "https://s.eu.tankionline.com/613/151460/263/2/30572765264737/image.webp", "ultra": "https://s.eu.tankionline.com/563/60021/200/371/27154004322450/image.webp", "ic": "https://s.eu.tankionline.com/614/101074/51/272/30620217025776/image.webp" },
+                "gauss": { "rf": "https://s.eu.tankionline.com/635/24770/75/171/31645176163053/image.webp", "xt": "https://s.eu.tankionline.com/560/166470/223/123/27035516206046/image.webp", "prime": "https://s.eu.tankionline.com/554/43164/134/365/27006222545045/image.webp", "gt": "https://s.eu.tankionline.com/613/151460/263/2/30572765264737/image.webp", "ultra": "https://s.eu.tankionline.com/563/60021/200/371/27154004322450/image.webp", "ic": "https://s.eu.tankionline.com/614/101074/51/272/30620217025776/image.webp" },
                 "shaft": { "legacy": "https://s.eu.tankionline.com/600/172117/242/22/30036424407361/image.webp", "xt": "https://s.eu.tankionline.com/546/76262/360/74/27006221440464/image.webp", "gt": "https://s.eu.tankionline.com/623/152641/25/44/31172550417505/image.webp" },
                 "wasp": { "legacy": "https://s.eu.tankionline.com/577/174061/352/34/27777016754412/image.webp", "xt": "https://s.eu.tankionline.com/544/55321/27/365/27006221715450/image.webp", "gt": "https://s.eu.tankionline.com/620/113057/312/163/31022614272635/image.webp" },
-                "hopper": { "dk": "https://s.eu.tankionline.com/634/21124/213/143/31604256121143/image.webp", "xtHD": "https://s.eu.tankionline.com/564/44403/372/46/27221401755636/image.webp", "rt": "https://s.eu.tankionline.com/616/165266/42/215/30735255423342/image.webp" },
+                "hopper": { "dk": "https://s.eu.tankionline.com/634/21124/213/143/31604256121143/image.webp", "xtHD": "https://s.eu.tankionline.com/564/44403/372/46/27221401755636/image.webp", "rf": "https://s.eu.tankionline.com/616/165266/42/215/30735255423342/image.webp" },
                 "hornet": { "xtHD": "https://s.eu.tankionline.com/623/132270/76/254/31166456253644/image.webp", "xt": "https://s.eu.tankionline.com/544/23373/367/174/27006221615421/image.webp", "ultra": "https://s.eu.tankionline.com/562/167731/132/2/27135766300240/image.webp", "gt": "https://s.eu.tankionline.com/605/27506/77/266/30245722451746/image.webp", "legacy": "https://s.eu.tankionline.com/554/36653/207/221/27006221767456/image.webp", "sp": "https://s.eu.tankionline.com/636/174463/275/327/31737115153727/image.webp", "dk": "https://s.eu.tankionline.com/626/144360/341/233/31331074463357/image.webp", "prime": "https://s.eu.tankionline.com/553/11125/61/23/27006221422730/image.webp" },
                 "viking": { "vt": "https://s.eu.tankionline.com/640/34117/212/274/32007023724174/image.webp", "xtHD": "https://s.eu.tankionline.com/606/162165/343/3/30334435362646/image.webp", "ultra": "https://s.eu.tankionline.com/552/63515/71/331/27006222526007/image.webp", "xt": "https://s.eu.tankionline.com/544/23374/341/44/27006221645475/image.webp", "legacy": "https://s.eu.tankionline.com/545/14701/310/206/27006221256304/image.webp", "gt": "https://s.eu.tankionline.com/603/101654/323/65/30160353152727/image.webp", "dk": "https://s.eu.tankionline.com/624/130241/112/33/31243624274176/image.webp", "prime": "https://s.eu.tankionline.com/557/14335/173/371/27006222537526/image.webp" },
-                "crusader": { "xtHD": "https://s.eu.tankionline.com/566/40735/240/67/27310167345113/image.webp", "rt": "https://s.eu.tankionline.com/607/24073/366/376/30345016775402/image.webp" },
+                "crusader": { "xtHD": "https://s.eu.tankionline.com/566/40735/240/67/27310167345113/image.webp", "rf": "https://s.eu.tankionline.com/607/24073/366/376/30345016775402/image.webp" },
                 "hunter": { "xt": "https://s.eu.tankionline.com/547/121275/335/127/27006222147461/image.webp", "legacy": "https://s.eu.tankionline.com/577/157474/222/171/27773717262060/image.webp", "sp": "https://s.eu.tankionline.com/632/72364/102/227/31516475423716/image.webp", "gt": "https://s.eu.tankionline.com/607/136171/1/41/30367436201726/image.webp", "prime": "https://s.eu.tankionline.com/554/155740/111/54/27006222537520/image.webp", "ultra": "https://s.eu.tankionline.com/561/116016/365/77/27063403712301/image.webp" },
-                "paladin": { "dk": "https://s.eu.tankionline.com/636/15627/202/330/31703345754725/image.webp", "xtHD": "https://s.eu.tankionline.com/573/71447/126/37/31645107310146/image.webp", "rt": "https://s.eu.tankionline.com/577/177107/117/225/27777622013534/image.webp" },
+                "paladin": { "dk": "https://s.eu.tankionline.com/636/15627/202/330/31703345754725/image.webp", "xtHD": "https://s.eu.tankionline.com/573/71447/126/37/31645107310146/image.webp", "rf": "https://s.eu.tankionline.com/577/177107/117/225/27777622013534/image.webp" },
                 "dictator": { "xt": "https://s.eu.tankionline.com/553/20722/371/101/27006221171476/image.webp", "sp": "https://s.eu.tankionline.com/621/140410/154/251/31070103077064/image.webp", "legacy": "https://s.eu.tankionline.com/600/172117/242/15/31364321620222/image.webp", "gt": "https://s.eu.tankionline.com/606/154745/266/2/30333172146453/image.webp" },
                 "titan": { "xt": "https://s.eu.tankionline.com/545/43351/66/26/27006222061714/image.webp", "prime": "https://s.eu.tankionline.com/555/103066/317/332/27006222042503/image.webp", "gt": "https://s.eu.tankionline.com/623/45322/65/215/31151265113717/image.webp", "sp": "https://s.eu.tankionline.com/612/43367/221/355/30510675712024/image.webp", "legacy": "https://s.eu.tankionline.com/601/170515/147/372/30076123372407/image.webp" },
-                "ares": { "dk": "https://s.eu.tankionline.com/626/144353/222/354/31331072771326/image.webp", "xtHD": "https://s.eu.tankionline.com/562/161156/242/234/31331074061754/image.webp", "rt": "https://s.eu.tankionline.com/626/36656/275/136/31307553605617/image.webp" },
+                "ares": { "dk": "https://s.eu.tankionline.com/626/144353/222/354/31331072771326/image.webp", "xtHD": "https://s.eu.tankionline.com/562/161156/242/234/31331074061754/image.webp", "rf": "https://s.eu.tankionline.com/626/36656/275/136/31307553605617/image.webp" },
                 "mammoth": { "xt": "https://s.eu.tankionline.com/544/131126/51/354/27006221626237/image.webp", "sp": "https://s.eu.tankionline.com/573/113617/26/345/27562743700674/image.webp", "gt": "https://s.eu.tankionline.com/617/166341/256/13/30775470330175/image.webp", "legacy": "https://s.eu.tankionline.com/557/31406/53/112/27006222625462/image.webp", "ultra": "https://s.eu.tankionline.com/571/77135/256/372/27457627403320/image.webp" }
             };
 
@@ -2979,8 +3007,10 @@
                     const finalUrls = urlsToOverride.filter(url => url !== targetUrl);
                     
                     if (finalUrls.length > 0) {
-                        const selectors = finalUrls.map(url => `img[src="${url}"]`).join(',\n');
-                        css += `${selectors} {\n    content: url("${targetUrl}") !important;\n    object-fit: contain !important;\n}\n\n`;
+                        const selectors = finalUrls.map(url => 
+                            `.GarageItemComponentStyle-mainImg[src="${url}"], .garage-item img[src="${url}"], .MountedItemsStyle-itemPreview[src="${url}"]`
+                        ).join(',\n');
+                        css += `${selectors} {\n    content: url("${targetUrl}") !important;\n    object-fit: contain !important;\n    pointer-events: none !important;\n}\n\n`;
                     }
                 }
                 
@@ -3668,23 +3698,15 @@
 
     const performMasterCheck = () => {
         isMasterUpdateScheduled = false;
-        const newLang = utils.getLang();
-        if (newLang !== state.lang) {
-            state.lang = newLang;
-            lastFullRefresh = 0;
-            if (refreshScheduled) refreshScheduled = false;
-            runHeavyModules();
-            return;
-        }
-
         let newScreen = state.currentScreen;
-        if (document.querySelector('.ApplicationLoaderComponentStyle-container.-background')) {
+        
+        if (document.querySelector('.ApplicationLoaderComponentStyle-container')) {
             newScreen = 'loading';
         }
         else if (document.querySelector('.BattleHudComponentStyle-container')) {
             newScreen = 'battle';
         }
-        else if (document.querySelector('.GarageCommonStyle-positionContent, .GarageItemComponent-container')) {
+        else if (document.querySelector('.GarageCommonStyle-positionContent, .GarageItemComponent-container, .ContainerInfoComponentStyle-lootBoxContainer')) {
             newScreen = 'garage';
         }
         else if (document.querySelector('.MainScreenComponentStyle-blockMainMenu')) {
@@ -3697,10 +3719,25 @@
         const screenChanged = newScreen !== state.currentScreen;
         state.currentScreen = newScreen;
 
+        if (screenChanged) {
+            if (newScreen === 'loading' || newScreen === 'battle') {
+                
+                const specsTooltip = document.getElementById('kasp-specs-tooltip');
+                if (specsTooltip) specsTooltip.style.display = 'none';
+
+                const quickUpgradeOverlay = document.getElementById('quick-upgrade-overlay') as (HTMLElement & {
+                    closeDialogMethod?: () => void;
+                }) | null;
+                if (quickUpgradeOverlay && quickUpgradeOverlay.closeDialogMethod) {
+                    quickUpgradeOverlay.closeDialogMethod();
+                }
+            }
+        }
+
         const isFriendsMenuOpen = !!document.querySelector('.FriendListComponentStyle-containerFriends, .InvitationWindowsComponentStyle-centerBlock');
         const friendsChanged = isFriendsMenuOpen !== state.friendsMenuOpen;
         state.friendsMenuOpen = isFriendsMenuOpen;
-
+        
         const isSettingsOpen = !!document.querySelector('.SettingsComponentStyle-blockContentOptions');
         if (isSettingsOpen !== state.settingsOpen) {
             state.settingsOpen = isSettingsOpen;
@@ -3711,16 +3748,17 @@
                 coreSettings.onClose();
             }
         }
-
+        
         if (screenChanged || friendsChanged) {
             lastFullRefresh = 0;
-            if (refreshScheduled) refreshScheduled = false;
+            if (refreshScheduled)
+                refreshScheduled = false;
             runHeavyModules();
         }
         else {
             scheduleHeavyModules();
         }
-
+        
         if (state.currentScreen === 'garage') {
             modules.garageButtons();
         }
