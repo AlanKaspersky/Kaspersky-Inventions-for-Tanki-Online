@@ -1,0 +1,760 @@
+.custom-history-button {
+    cursor: pointer;
+}
+
+.custom-history-button>div {
+    width: 2.3em !important;
+    height: 2.3em !important;
+    background-color: rgb(0, 0, 0) !important;
+    transition: transform 0.2s, background-color 0.2s !important;
+    -webkit-mask-image: url('https://s.eu.tankionline.com/static/images/score.b3ca71b2.svg') !important;
+    mask-image: url('https://s.eu.tankionline.com/static/images/score.b3ca71b2.svg') !important;
+    -webkit-mask-size: contain !important;
+    mask-size: contain !important;
+    -webkit-mask-repeat: no-repeat !important;
+    mask-repeat: no-repeat !important;
+    -webkit-mask-position: center !important;
+    mask-position: center !important;
+}
+
+.custom-history-button:hover>div {
+    background-color: rgb(0, 0, 0) !important;
+    transform: translateY(-0.2em) !important;
+}
+
+.custom-history-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: radial-gradient(rgb(15, 17, 22) 0%, rgb(3, 5, 8) 100%);
+    z-index: 9999;
+    display: none;
+    flex-direction: column;
+    color: rgb(210, 210, 210);
+    font-size: max(min(1.48148vh, 1vw), 3px);
+}
+
+.custom-history-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #232326;
+    height: 4.5em;
+    flex-shrink: 0;
+    padding: 0 0.5em;
+}
+
+.custom-history-title {
+    font-family: BaseFontMedium, FallbackFontMedium, sans-serif;
+    font-weight: 500;
+    font-size: 1.6em;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin: 0;
+    color: #f4f4f4;
+}
+
+.custom-history-close {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.5em;
+    height: 3.5em;
+    background: transparent;
+    border: none;
+    border-left: 1px solid #232326;
+}
+
+.custom-history-close:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.custom-history-close:hover .custom-history-logout-icon {
+    background-color: rgb(255, 255, 255);
+}
+
+.custom-history-logout-icon {
+    background-color: rgb(191, 213, 255);
+    height: 1.3em;
+    width: 1.3em;
+    -webkit-mask-image: url(https://s.eu.tankionline.com/static/images/logOut.29b47580.svg);
+    mask-image: url(https://s.eu.tankionline.com/static/images/logOut.29b47580.svg);
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+}
+
+.custom-history-content {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    gap: 1.5em;
+    overflow: hidden;
+    padding: 1.5em 2em 2em 2em;
+}
+
+.bh-left-panel {
+    width: 87em;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    min-height: 0;
+}
+
+.bh-right-panel {
+    width: 22em;
+    display: flex;
+    flex-direction: column;
+    gap: 1em;
+    flex-shrink: 0;
+    padding-top: 4em;
+}
+
+/* ============ Статистика (правая панель) ============ */
+.bh-stats-box {
+    background: #111114;
+    border: 1px solid #222226;
+    padding: 1.2em;
+    display: flex;
+    flex-direction: column;
+    gap: 1em;
+    height: 7em;
+}
+
+.bh-stats-title {
+    font-family: BaseFontBold, FallbackFontBold, sans-serif;
+    font-size: 0.9em;
+    color: rgb(120, 120, 120);
+    text-transform: uppercase;
+    text-align: center;
+    letter-spacing: 0.1em;
+}
+
+.bh-stats-grid {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.bh-stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5em;
+    flex: 1;
+}
+
+.bh-stat-separator {
+    width: 1px;
+    height: 3.8em;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.12) 30%, rgba(255, 255, 255, 0.12) 70%, rgba(255, 255, 255, 0));
+}
+
+.bh-stat-icon {
+    width: 1.9em;
+    height: 1.9em;
+    background-color: rgb(255, 255, 255);
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    opacity: 0.85;
+}
+
+.bh-stat-label {
+    font-family: BaseFontMedium, FallbackFontMedium, sans-serif;
+    font-size: 0.7em;
+    color: rgba(255, 255, 255, 0.4);
+    text-transform: uppercase;
+    white-space: nowrap;
+    letter-spacing: 0.08em;
+}
+
+.bh-stat-value {
+    font-family: BaseFontBold, FallbackFontBold, sans-serif;
+    font-size: 1.9em;
+    color: rgb(255, 221, 44);
+    line-height: 1;
+}
+
+.bh-controls-container {
+    width: 87em;
+    justify-content: space-between;
+    z-index: 5;
+    display: flex;
+    margin-bottom: 1.5em;
+}
+
+.bh-controls-left,
+.bh-controls-right {
+    display: flex;
+    gap: 0.6em;
+}
+
+.bh-control-btn {
+    position: relative;
+    height: 2.6em;
+    padding: 0 1.6em;
+    border-radius: 0.75em;
+    cursor: pointer;
+    border: 0.063em solid transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: BaseFontBold, FallbackFontBold, sans-serif;
+    font-weight: 500;
+    font-size: 0.95em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    box-sizing: border-box;
+    overflow: hidden;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: rgba(255, 255, 255, 0.25) 0em 0em 0em 0.063em;
+}
+
+.bh-control-btn > span {
+    position: relative;
+    z-index: 2;
+    color: rgb(0, 0, 0);
+}
+
+.bh-control-btn::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -150%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.55) 50%,
+        rgba(255, 255, 255, 0) 100%
+    );
+    transform: skewX(-25deg);
+    pointer-events: none;
+    z-index: 1;
+}
+
+.bh-control-btn:hover {
+    box-shadow: rgb(255, 255, 255) 0em 0em 0em 2px;
+}
+
+.bh-control-btn:hover::after {
+    animation: kasp-metal-shine 0.6s ease-in-out;
+}
+
+.bh-btn-clear {
+    background-color: rgb(218, 218, 218);
+    color: rgb(0, 0, 0);
+}
+.bh-btn-clear:hover {
+    background-color: rgb(197, 197, 197);
+}
+
+.bh-btn-export {
+    background-color: rgb(255, 255, 255);
+    color: rgb(0, 10, 15);
+}
+.bh-btn-export:hover {
+    background-color: rgb(197, 197, 197);
+}
+
+.bh-btn-import {
+    background-color: rgb(255, 255, 255);
+    color: rgb(0, 10, 15);
+}
+.bh-btn-import:hover {
+    background-color: rgb(197, 197, 197);
+}
+
+.bh-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5em;
+    flex-grow: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 0;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    overscroll-behavior: contain;
+}
+
+.bh-list::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none; 
+}
+
+.bh-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.bh-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
+}
+
+.bh-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4em 2em;
+    color: rgba(255, 255, 255, 0.35);
+    font-family: BaseFontMedium, FallbackFontMedium, sans-serif;
+    font-size: 0.95em;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border: 1px dashed #232326;
+    border-radius: 0.4em;
+}
+
+.bh-card {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(18em, 1.15fr) minmax(18em, 1.05fr) minmax(27em, 1.7fr) 10em;    
+    min-height: 9em;
+    overflow: hidden;
+    background: #111114;
+    border: 1px solid #1e1e22;
+    flex-shrink: 0;
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.bh-card:hover {
+    background: #151519;
+    border-color: #35353a;
+}
+
+.bh-card-map {
+    position: relative;
+    display: flex;
+    align-items: end;
+    min-width: 0;
+    overflow: hidden;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.06)), linear-gradient(135deg, #202024, #090909);
+}
+
+.bh-card-map::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent 20%, rgba(10, 10, 10, 0.05) 45%, #111114 100%);
+    pointer-events: none;
+}
+
+.bh-card-map::after {
+    content: "";
+    position: absolute;
+    width: 16em;
+    height: 16em;
+    right: -6em;
+    top: -5em;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.025);
+    filter: blur(35px);
+}
+
+.bh-card-map-icon {
+    position: absolute;
+    top: 1em;
+    left: 1.1em;
+    width: 2.1em;
+    height: 2.1em;
+    background-color: #ffffff;
+    opacity: 0.65;
+    z-index: 3;
+    pointer-events: none;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    transition: opacity 0.2s ease;
+}
+
+.bh-card:hover .bh-card-map-icon {
+    opacity: 0.9;
+}
+
+.bh-card-map-content {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    padding: 1.1em 1.4em;
+}
+
+.bh-card-map-name {
+    color: #f4f4f4;
+    font-family: BaseFontBold, FallbackFontBold, sans-serif;
+    font-size: 0.95em;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    line-height: 1.2;
+    word-break: break-word;
+}
+
+.bh-card-map-label {
+    margin-top: 0.4em;
+    color: rgba(255, 255, 255, 0.35);
+    font-family: BaseFontMedium, FallbackFontMedium, sans-serif;
+    font-size: 0.65em;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+}
+
+.bh-card-result {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 1.4em 1.8em;
+    border-left: 1px solid #1e1e22;
+}
+
+.bh-card-result-status {
+    margin-bottom: 1.1em;
+    color: #f4f4f4;
+    font-family: BaseFontBold, FallbackFontBold, sans-serif;
+    font-size: 1.15em;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.bh-card-result--win .bh-card-result-status {
+    color: #f4f4f4;
+}
+
+.bh-card-result--draw .bh-card-result-status {
+    color: #a0a0a0;
+}
+
+.bh-card-result--loss .bh-card-result-status {
+    color: #787878;
+}
+
+.bh-card-result--dm .bh-card-result-status {
+    color: #d4a24a;
+}
+
+.bh-combat-stats {
+    display: grid;
+    grid-template-columns: 6em 11em;
+    gap: 2em;
+    align-items: end;
+    min-width: 0;
+}
+
+.bh-stat {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.bh-stat-value {
+    color: #f4f4f4;
+    font-family: BaseFontBold, FallbackFontBold, sans-serif;
+    font-size: 1.4em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    max-width: 100%;
+}
+
+.bh-stat-sep {
+    color: rgba(255, 255, 255, 0.4);
+    margin: 0 0.1em;
+    font-weight: 400;
+}
+
+.bh-stat-label {
+    margin-top: 0.5em;
+    color: rgba(255, 255, 255, 0.4);
+    font-family: BaseFontMedium, FallbackFontMedium, sans-serif;
+    font-size: 0.6em;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+
+.bh-card-details {
+    display: grid;
+    grid-template-columns: 5.5em 1fr;
+    align-items: center;
+    padding: 1.2em 1.6em;
+    border-left: 1px solid #1e1e22;
+    min-width: 0;
+}
+
+.bh-rank {
+    padding-right: 1.4em;
+    border-right: 1px solid #1e1e22;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    height: 100%;
+}
+
+.bh-rank-value {
+    color: #f4f4f4;
+    font-family: BaseFontBold, FallbackFontBold, sans-serif;
+    font-size: 1.5em;
+    line-height: 1;
+}
+
+.bh-rank-label {
+    margin-top: 0.4em;
+    color: rgba(255, 255, 255, 0.4);
+    font-family: BaseFontMedium, FallbackFontMedium, sans-serif;
+    font-size: 0.6em;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+}
+
+.bh-loadout {
+    display: flex;
+    justify-content: space-evenly;
+    align-items: center;
+    padding-left: 1.2em;
+    min-width: 0em;
+}
+
+.bh-equip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 5em;
+}
+
+.bh-equip-icon {
+    display: grid;
+    place-items: center;
+    width: 2.3em;
+    height: 5em;
+    aspect-ratio: 1 / 1;
+    margin-bottom: 0.5em;
+    overflow: hidden;
+}
+
+.bh-equip-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    filter: grayscale(0.2);
+    transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.bh-card:hover .bh-equip-img {
+    transform: translateY(-2px);
+    filter: grayscale(0);
+}
+
+.bh-equip-placeholder {
+    color: rgba(255, 255, 255, 0.15);
+    font-size: 1.6em;
+    line-height: 1;
+}
+
+.bh-equip-type {
+    color: rgba(255, 255, 255, 0.4);
+    font-family: BaseFontMedium, FallbackFontMedium, sans-serif;
+    font-size: 0.6em;
+    text-align: center;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+
+.bh-card-mode {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 1em;
+    border-left: 1px solid #1e1e22;
+    overflow: hidden;
+}
+
+.bh-card-mode::before {
+    content: "";
+    position: absolute;
+    width: 9em;
+    height: 9em;
+    right: -4.5em;
+    top: 50%;
+    transform: translateY(-50%);
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.07), transparent 65%);
+    filter: blur(10px);
+    pointer-events: none;
+}
+
+.bh-mode-icon {
+    position: relative;
+    color: #c0c0c0;
+    font-size: 1.5em;
+    opacity: 0.7;
+}
+
+.bh-mode-name {
+    position: relative;
+    margin-top: 0.4em;
+    color: #f4f4f4;
+    font-family: BaseFontBold, FallbackFontBold, sans-serif;
+    font-size: 0.95em;
+    letter-spacing: 0.14em;
+}
+
+.bh-mode-rewards {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25em;
+    margin-top: 0.5em;
+    align-items: center;
+}
+
+.bh-reward {
+    display: flex;
+    align-items: center;
+    gap: 0.35em;
+}
+
+.bh-reward-icon {
+    display: inline-block;
+    width: 0.75em;
+    height: 0.75em;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+}
+
+.bh-reward-icon--crystal {
+    background-color: rgb(0, 215, 255);
+    -webkit-mask-image: url(https://s.eu.tankionline.com/static/images/crystalSmall.242e6c15.svg);
+    mask-image: url(https://s.eu.tankionline.com/static/images/crystalSmall.242e6c15.svg);
+}
+
+.bh-reward-icon--star {
+    background-color: rgb(255, 221, 44);
+    -webkit-mask-image: url(https://s.eu.tankionline.com/static/images/Star.5a891709.svg);
+    mask-image: url(https://s.eu.tankionline.com/static/images/Star.5a891709.svg);
+}
+
+.bh-reward-value {
+    color: rgba(255, 255, 255, 0.75);
+    font-family: BaseFontMedium, FallbackFontMedium, sans-serif;
+    font-size: 0.9em;
+}
+
+.bh-mode-date {
+    position: relative;
+    margin-top: 0.6em;
+    color: rgba(255, 255, 255, 0.35);
+    font-family: BaseFontRegular, FallbackFontRegular, sans-serif;
+    font-size: 0.6em;
+    letter-spacing: 0.05em;
+    text-align: center;
+}
+
+.bh-pagination {
+    display: flex;
+    align-items: center;
+    margin-top: 1.2em;
+    flex-shrink: 0;
+    user-select: none;
+}
+
+.bh-page-list {
+    display: flex;
+    align-items: center;
+    gap: 0.15em;
+}
+
+.bh-page {
+    display: grid;
+    place-items: center;
+    min-width: 2.4em;
+    height: 2.1em;
+    padding: 0 0.3em;
+    color: rgba(255, 255, 255, 0.5);
+    font-family: BaseFontMedium, FallbackFontMedium, sans-serif;
+    font-size: 1.05em;
+    line-height: 1;
+    background: transparent;
+    border: 0.06em solid transparent;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+.bh-page:hover {
+    color: #f4f4f4;
+    border-color: #333;
+    background: #151516;
+}
+
+.bh-page.bh-page-active {
+    color: #f4f4f4;
+    border-color: #333;
+    background: #151516;
+}
+
+.bh-page:disabled {
+    opacity: 0.25;
+    pointer-events: none;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.bh-page-arrow {
+    color: rgba(255, 255, 255, 0.3);
+    font-size: 1.05em;
+}
+
+.bh-page-arrow:hover {
+    color: #f4f4f4;
+}
+
+.bh-page-dots {
+    color: rgba(255, 255, 255, 0.3);
+    pointer-events: none;
+    cursor: default;
+}
+
+.bh-total {
+    margin-left: auto;
+    color: rgba(255, 255, 255, 0.35);
+    font-family: BaseFontMedium, FallbackFontMedium, sans-serif;
+    font-size: 0.75em;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+}
+
+.bh-total-value {
+    color: #f4f4f4;
+    font-family: BaseFontBold, FallbackFontBold, sans-serif;
+    font-size: 1.1em;
+    letter-spacing: 0.08em;
+}

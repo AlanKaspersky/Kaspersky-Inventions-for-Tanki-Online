@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Tanki Online: Kaspersky's Inventions",
-  "version": "2.4.2",
+  "version": "2.5",
   "default_locale": "en",
   "description": "__MSG_extensionDescription__",
   "icons": {
@@ -10,7 +10,7 @@
   "content_scripts": [
     {
       "matches": ["*://*.tankionline.com/*", "*://tankionline.com/*"],
-      "css": ["styles/mainUI.css"],
+      "css": ["styles/mainUI.css", "styles/battleHistory.css"],
       "js": ["dist/kasp_injector.js"],
       "run_at": "document_start",
       "world": "MAIN"
@@ -23,7 +23,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["assets/playButton.png", "assets/background.png", "assets/54bb1e72f5a61a0a5d6b.svg", "database/paints.json", "database/augments.json"],
+      "resources": ["assets/playButton.png", "assets/background.png", "assets/54bb1e72f5a61a0a5d6b.svg", "assets/map-icon.png", "database/paints.json", "database/augments.json", "database/maps.json"],
       "matches": ["*://*.tankionline.com/*"]
     }
   ]

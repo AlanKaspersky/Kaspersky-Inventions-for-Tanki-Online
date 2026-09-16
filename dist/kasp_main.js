@@ -9,20 +9,24 @@
         const state = {
             paints: null,
             augments: null,
+            maps: null,
             shared: null,
             ready: false,
             error: null,
         };
         const readyPromise = (async () => {
             try {
-                const [paintsRes, augmentsRes] = await Promise.all([
+                const [paintsRes, augmentsRes, mapsRes] = await Promise.all([
                     fetch(chrome.runtime.getURL('database/paints.json')),
                     fetch(chrome.runtime.getURL('database/augments.json')),
+                    fetch(chrome.runtime.getURL('database/maps.json')),
                 ]);
                 if (!paintsRes.ok)
                     throw new Error('paints.json: HTTP ' + paintsRes.status);
                 if (!augmentsRes.ok)
                     throw new Error('augments.json: HTTP ' + augmentsRes.status);
+                if (!mapsRes.ok)
+                    throw new Error('maps.json: HTTP ' + mapsRes.status);
                 state.paints = await paintsRes.json();
                 const augRaw = await augmentsRes.json();
                 state.shared = augRaw._shared || {};
@@ -34,8 +38,20 @@
                     }
                 }
                 state.augments = devices;
+                const mapsRaw = await mapsRes.json();
+                const byRu = new Map();
+                const byEn = new Map();
+                for (const entry of mapsRaw) {
+                    if (entry.ru)
+                        byRu.set(entry.ru.toLowerCase(), entry);
+                    if (entry.en)
+                        byEn.set(entry.en.toLowerCase(), entry);
+                }
+                state.maps = { list: mapsRaw, byRu, byEn };
                 state.ready = true;
-                console.log(`[KI] DB loaded: paints=${Object.keys(state.paints).length}, augments=${Object.keys(state.augments).length}`);
+                console.log(`[KI] DB loaded: paints=${Object.keys(state.paints).length}, ` +
+                    `augments=${Object.keys(state.augments).length}, ` +
+                    `maps=${mapsRaw.length}`);
             }
             catch (e) {
                 state.error = e;
@@ -48,6 +64,21 @@
             getPaint: (url) => state.paints ? state.paints[url] : undefined,
             getDevice: (url) => state.augments ? state.augments[url] : undefined,
             hasDevice: (url) => !!state.augments && url in state.augments,
+            translateMap: (rawName, targetLang) => {
+                if (!state.maps || !rawName)
+                    return rawName;
+                const key = String(rawName).trim().toLowerCase();
+                const entry = state.maps.byRu.get(key) || state.maps.byEn.get(key);
+                if (!entry)
+                    return rawName;
+                return targetLang === 'RU' ? entry.ru : entry.en;
+            },
+            getMapInfo: (rawName) => {
+                if (!state.maps || !rawName)
+                    return null;
+                const key = String(rawName).trim().toLowerCase();
+                return state.maps.byRu.get(key) || state.maps.byEn.get(key) || null;
+            },
         };
     })();
     const state = {
@@ -2752,48 +2783,27 @@
                 const bodyRows = container.querySelectorAll('table > tbody > tr');
                 for (let i = 0; i < bodyRows.length; i++) {
                     const row = bodyRows[i];
-                    if (!row.querySelector('.kasp-change-td')) {
-                        const td = document.createElement('td');
+                    let td = row.querySelector('.kasp-change-td');
+                    if (!td) {
+                        td = document.createElement('td');
                         td.className = 'kasp-change-td';
                         row.appendChild(td);
                     }
+                    const cell = row.querySelector('.BattleTabStatisticComponentStyle-nicknameCell');
+                    if (!cell)
+                        continue;
+                    const nickname = (cell.textContent || '').replace(/^\[.*?\]\s*/, '').trim();
+                    if (!nickname)
+                        continue;
+                    const count = playerChanges.get(nickname) ?? 0;
+                    const hasClass = td.classList.contains('kasp-changed');
+                    if (count > 0 && !hasClass)
+                        td.classList.add('kasp-changed');
+                    else if (count === 0 && hasClass)
+                        td.classList.remove('kasp-changed');
                 }
             }
-            function update() {
-                if (isUpdating)
-                    return;
-                isUpdating = true;
-                try {
-                    const container = document.querySelector('.BattleTabStatisticComponentStyle-container');
-                    if (!container)
-                        return;
-                    sync();
-                    const cells = container.querySelectorAll('.BattleTabStatisticComponentStyle-nicknameCell');
-                    if (!cells.length)
-                        return;
-                    cells.forEach(cell => {
-                        const rawText = cell.textContent || '';
-                        const nickname = rawText.replace(/^\[.*?\]\s*/, '').trim();
-                        const row = cell.closest('tr');
-                        if (!row || !nickname)
-                            return;
-                        let changeTd = row.querySelector('.kasp-change-td');
-                        if (!changeTd)
-                            return;
-                        const count = playerChanges.get(nickname) ?? 0;
-                        const hasClass = changeTd.classList.contains('kasp-changed');
-                        if (count > 0 && !hasClass) {
-                            changeTd.classList.add('kasp-changed');
-                        }
-                        else if (count === 0 && hasClass) {
-                            changeTd.classList.remove('kasp-changed');
-                        }
-                    });
-                }
-                finally {
-                    isUpdating = false;
-                }
-            }
+            function update() { sync(); }
             return {
                 onTick: () => { checkBattleCanvas(); },
                 sync,
@@ -3325,6 +3335,21 @@
                 'shaft': 'https://s.eu.tankionline.com/static/images/shaft_resistance.0778fd3e.svg'
             };
             const TAB_SELECTOR = '.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults';
+            const iconStyleCache = new WeakMap();
+            function getIconStyle(iconDiv) {
+                const cached = iconStyleCache.get(iconDiv);
+                if (cached !== undefined)
+                    return cached;
+                const cs = window.getComputedStyle(iconDiv);
+                const result = {
+                    mask: (cs.getPropertyValue('-webkit-mask-image') ||
+                        cs.getPropertyValue('mask-image') ||
+                        '').toLowerCase(),
+                    bg: cs.backgroundColor || '',
+                };
+                iconStyleCache.set(iconDiv, result);
+                return result;
+            }
             function getCssUrl(el) {
                 if (!el)
                     return null;
@@ -3353,22 +3378,10 @@
             function getIconUrl(lbl) {
                 const iconDiv = lbl.querySelector('div');
                 if (iconDiv) {
-                    const cs = window.getComputedStyle(iconDiv);
-                    const candidates = [
-                        cs.getPropertyValue('-webkit-mask-image'),
-                        cs.getPropertyValue('mask-image'),
-                        cs.getPropertyValue('background-image'),
-                        cs.webkitMaskImage,
-                        cs.maskImage,
-                        cs.backgroundImage,
-                    ];
-                    for (const raw of candidates) {
-                        if (!raw || raw === 'none')
-                            continue;
-                        const m = raw.match(/url\(["']?([^"')]+)["']?\)/);
-                        if (m && m[1])
-                            return m[1].toLowerCase();
-                    }
+                    const style = getIconStyle(iconDiv);
+                    const m = style.mask.match(/url\(["']?([^"')]+)["']?\)/);
+                    if (m && m[1])
+                        return m[1].toLowerCase();
                 }
                 const img = lbl.querySelector('img');
                 if (img)
@@ -3397,10 +3410,9 @@
                             const iconDiv = lbl.querySelector('div');
                             if (!iconDiv)
                                 continue;
-                            const cs = window.getComputedStyle(iconDiv);
-                            const bg = cs.backgroundColor;
-                            const isRed = bg.includes('254') || bg.includes('255, 80') ||
-                                bg.includes('255, 102') || bg.includes('254, 102');
+                            const style = getIconStyle(iconDiv);
+                            const isRed = style.bg.includes('254') || style.bg.includes('255, 80') ||
+                                style.bg.includes('255, 102') || style.bg.includes('254, 102');
                             if (isRed) {
                                 protectLabel = lbl;
                                 break;
@@ -3508,41 +3520,834 @@
                 });
             }
             function sync() {
-                const theadRows = document.querySelectorAll(':is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults) table thead tr');
-                theadRows.forEach(row => {
-                    if (row.querySelector('.kasp-defence-th'))
-                        return;
-                    const gsHeader = row.children[1];
-                    if (!gsHeader)
-                        return;
-                    const th = document.createElement('th');
-                    th.className = 'kasp-defence-th';
-                    th.innerHTML = `<img src="${SHIELD_ICON_URL}" alt="" class="kasp-shield-img">`;
-                    gsHeader.after(th);
-                });
-                const cells = document.querySelectorAll('.BattleTabStatisticComponentStyle-resistanceModuleCell');
-                for (let i = 0; i < cells.length; i++) {
-                    const cell = cells[i];
-                    if (cell.querySelector('.kasp-compact-cell'))
-                        continue;
-                    const compact = document.createElement('div');
-                    compact.className = 'kasp-compact-cell';
-                    compact.innerHTML =
-                        '<div class="kasp-slot"><span class="kasp-dash">—</span></div>' +
-                            '<div class="kasp-slot"><span class="kasp-dash">—</span></div>';
-                    cell.prepend(compact);
-                }
-            }
-            function update() {
                 if (!document.querySelector(TAB_SELECTOR))
                     return;
                 injectHeaderShield();
                 injectCompactCells();
                 injectZeroSummary();
             }
-            return {
-                sync,
-                update,
+            function update() { sync(); }
+            return { sync, update };
+        })(),
+        equipmentTracker: (() => {
+            const STORAGE_KEY = 'kasp_my_equipment';
+            let lastSignature = '';
+            const urlFrom = (el) => {
+                if (!el)
+                    return '';
+                const cs = getComputedStyle(el);
+                const bg = cs.getPropertyValue('background-image');
+                if (bg && bg !== 'none') {
+                    const m = bg.match(/url\(["']?([^"')]+)["']?\)/);
+                    if (m && m[1])
+                        return m[1];
+                }
+                const mask = cs.getPropertyValue('-webkit-mask-image') ||
+                    cs.getPropertyValue('mask-image');
+                if (mask && mask !== 'none') {
+                    const m = mask.match(/url\(["']?([^"')]+)["']?\)/);
+                    if (m && m[1])
+                        return m[1];
+                }
+                const img = el.querySelector('img');
+                if (img && img.src)
+                    return img.src;
+                if (el instanceof HTMLImageElement && el.src)
+                    return el.src;
+                return '';
+            };
+            const iconsOf = (cell) => {
+                if (!cell)
+                    return [];
+                const block = cell.querySelector('.BattleTabStatisticComponentStyle-commonBlock');
+                if (!block)
+                    return [];
+                return Array.from(block.children);
+            };
+            const getOwnNickname = () => {
+                const el = document.querySelector('.UserInfoContainerStyle-userNameRank');
+                if (!el)
+                    return '';
+                return (el.textContent || '').trim().replace(/^\[.*?\]\s*/, '').trim();
+            };
+            const findSelfRow = () => {
+                const byId = document.getElementById('selfUserBg');
+                if (byId)
+                    return byId;
+                const selected = document.querySelector('.BattleTabStatisticComponentStyle-selectedRowBackGround');
+                if (selected)
+                    return selected;
+                const own = getOwnNickname();
+                if (!own)
+                    return null;
+                const cells = document.querySelectorAll('.BattleTabStatisticComponentStyle-nicknameCell');
+                for (let i = 0; i < cells.length; i++) {
+                    const nick = (cells[i].textContent || '')
+                        .trim().replace(/^\[.*?\]\s*/, '').trim();
+                    if (nick === own)
+                        return cells[i].closest('tr');
+                }
+                return null;
+            };
+            const sync = () => {
+                const selfRow = findSelfRow();
+                if (!selfRow)
+                    return;
+                const device = selfRow.querySelector('.BattleTabStatisticComponentStyle-deviceCell');
+                const defence = selfRow.querySelector('.BattleTabStatisticComponentStyle-defenceCell');
+                if (!device && !defence)
+                    return;
+                const dIcons = iconsOf(device);
+                const hIcons = iconsOf(defence);
+                const entry = {
+                    turret: urlFrom(dIcons[0] ?? null),
+                    turretAugment: urlFrom(dIcons[1] ?? null),
+                    hull: urlFrom(hIcons[0] ?? null),
+                    hullAugment: urlFrom(hIcons[1] ?? null),
+                    savedAt: Date.now(),
+                };
+                if (!entry.turret && !entry.hull)
+                    return;
+                const sig = `${entry.turret}|${entry.turretAugment}|${entry.hull}|${entry.hullAugment}`;
+                if (sig === lastSignature)
+                    return;
+                lastSignature = sig;
+                try {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(entry));
+                }
+                catch (e) {
+                    console.error('[KI:equipment] save failed', e);
+                }
+            };
+            const get = () => {
+                try {
+                    const raw = localStorage.getItem(STORAGE_KEY);
+                    return raw ? JSON.parse(raw) : null;
+                }
+                catch {
+                    return null;
+                }
+            };
+            const clear = () => {
+                localStorage.removeItem(STORAGE_KEY);
+                lastSignature = '';
+            };
+            return { sync, get, clear };
+        })(),
+        battleHistory: (() => {
+            let initialized = false;
+            let battleProcessed = false;
+            const NICK_KEY = 'kasp_last_nickname';
+            let currentPage = 1;
+            const ROWS_PER_PAGE = 15;
+            let currentNickname = (() => {
+                try {
+                    return localStorage.getItem(NICK_KEY) || 'Unknown';
+                }
+                catch {
+                    return 'Unknown';
+                }
+            })();
+            const updateNickname = () => {
+                const nameEl = document.querySelector('.UserInfoContainerStyle-userNameRank.UserInfoContainerStyle-textDecoration, ' +
+                    '.UserInfoContainerStyle-userNameRank');
+                if (!nameEl)
+                    return false;
+                const text = nameEl.textContent?.trim() || '';
+                const cleanName = text.replace(/^\[.*?\]\s*/, '').trim();
+                if (!cleanName || cleanName === 'Unknown')
+                    return false;
+                if (cleanName !== currentNickname) {
+                    const overlay = document.querySelector('.custom-history-overlay');
+                    if (overlay)
+                        overlay.remove();
+                    currentNickname = cleanName;
+                    try {
+                        localStorage.setItem(NICK_KEY, cleanName);
+                    }
+                    catch { }
+                }
+                return true;
+            };
+            const openDB = () => {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open('TankiBattlesDB', 4);
+                    request.onupgradeneeded = (event) => {
+                        const db = event.target.result;
+                        let store;
+                        if (!db.objectStoreNames.contains('battles')) {
+                            store = db.createObjectStore('battles', { keyPath: 'id', autoIncrement: true });
+                        }
+                        else {
+                            store = event.target.transaction.objectStore('battles');
+                        }
+                        if (!store.indexNames.contains('date'))
+                            store.createIndex('date', 'date', { unique: false });
+                        if (!store.indexNames.contains('map'))
+                            store.createIndex('map', 'map', { unique: false });
+                        if (!store.indexNames.contains('mode'))
+                            store.createIndex('mode', 'mode', { unique: false });
+                        if (!store.indexNames.contains('top'))
+                            store.createIndex('top', 'top', { unique: false });
+                        if (!store.indexNames.contains('nickname'))
+                            store.createIndex('nickname', 'nickname', { unique: false });
+                    };
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            };
+            const addBattle = async (battleData) => {
+                const db = await openDB();
+                return new Promise((resolve, reject) => {
+                    const transaction = db.transaction('battles', 'readwrite');
+                    const store = transaction.objectStore('battles');
+                    const request = store.add(battleData);
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            };
+            const getAllBattles = async (nickname) => {
+                try {
+                    const db = await openDB();
+                    return new Promise((resolve, reject) => {
+                        const transaction = db.transaction('battles', 'readonly');
+                        const store = transaction.objectStore('battles');
+                        let request;
+                        if (nickname && store.indexNames.contains('nickname')) {
+                            request = store.index('nickname').getAll(nickname);
+                        }
+                        else {
+                            request = store.getAll();
+                        }
+                        request.onsuccess = () => resolve(request.result || []);
+                        request.onerror = () => reject(request.error);
+                    });
+                }
+                catch (e) {
+                    console.error('[Tanki Battle History] Error reading DB:', e);
+                    return [];
+                }
+            };
+            const removeDuplicateBattles = async (nickname) => {
+                try {
+                    const battles = await getAllBattles(nickname);
+                    if (battles.length === 0)
+                        return;
+                    const uniqueMap = new Map();
+                    const idsToDelete = [];
+                    battles.forEach(b => {
+                        const signature = `${Math.floor(b.date / 60000)}_${b.map}_${b.kills}_${b.deaths}_${b.crystals}`;
+                        if (uniqueMap.has(signature))
+                            idsToDelete.push(b.id);
+                        else
+                            uniqueMap.set(signature, b.id);
+                    });
+                    if (idsToDelete.length > 0) {
+                        const db = await openDB();
+                        const transaction = db.transaction('battles', 'readwrite');
+                        const store = transaction.objectStore('battles');
+                        idsToDelete.forEach(id => store.delete(id));
+                    }
+                }
+                catch (e) {
+                    console.error('[Tanki Battle History] Error cleaning duplicates:', e);
+                }
+            };
+            const translateMapName = (rawMapWithMode, targetLang) => {
+                const cleanText = (rawMapWithMode || '').trim();
+                if (!cleanText)
+                    return 'Unknown';
+                const translated = DataLoader.translateMap(cleanText, targetLang);
+                return translated || cleanText;
+            };
+            function showClearConfirmModal(onConfirm) {
+                const existing = document.getElementById('clear-confirm-overlay');
+                if (existing)
+                    existing.remove();
+                const lang = state.lang;
+                const t = {
+                    RU: { title: 'ОЧИСТКА ИСТОРИИ', text: 'Вы уверены, что хотите удалить всю историю матчей?', cancel: 'Отмена', confirm: 'УДАЛИТЬ' },
+                    EN: { title: 'CLEAR HISTORY', text: 'Are you sure you want to delete all match history?', cancel: 'Cancel', confirm: 'DELETE' }
+                };
+                const dict = t[lang] || t['EN'];
+                const overlay = document.createElement('div');
+                overlay.id = 'clear-confirm-overlay';
+                overlay.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 9999; display: flex; align-items: center; justify-content: center;`;
+                const dialog = document.createElement('div');
+                dialog.style.cssText = `display: flex; flex-direction: column; align-items: stretch; justify-content: space-between; pointer-events: auto; min-width: 31.625em; max-width: 31.625em; width: auto; min-height: 14.125em; z-index: 60; box-shadow: rgba(0, 0, 0, 0.25) 0px 0.313em 1.25em 0px; outline: rgba(255, 255, 255, 0.25) solid 0.063em; padding: 2em; background: radial-gradient(100% 100% at 0% 0%, rgba(118, 255, 51, 0.75) 0%, rgba(119, 255, 51, 0) 100%), rgba(0, 25, 38, 0.75);`;
+                dialog.innerHTML = `
+                    <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; margin-bottom: 1.5em;">
+                        <h1 style="font-size: 1.5em; color: rgb(255, 255, 255); font-family: BaseFontBold, sans-serif; font-weight: 500; margin: 0;">${dict.title}</h1>
+                        <div id="clear-dlg-close" style="width: 1.5em; height: 1.5em; cursor: pointer; background-image: url(https://s.eu.tankionline.com/static/images/iconDelete.b879b0ab.svg); background-size: contain; background-repeat: no-repeat; background-position: center center;"></div>
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: center; width: 100%; flex: 1; margin-bottom: 1.5em; text-align: center;">
+                        <span style="font-size: 1em; color: rgb(255, 255, 255); font-family: BaseFont, sans-serif;">${dict.text}</span>
+                    </div>
+                    <div style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 1.25em;">
+                        <div id="clear-dlg-cancel" style="width: 12.375em; height: 3em; border-radius: 0.75em; cursor: pointer; background-color: rgba(255, 255, 255, 0.15); display: flex; align-items: center; justify-content: center; color: white; font-family: BaseFontBold, sans-serif; text-transform: uppercase;">${dict.cancel}</div>
+                        <div id="clear-dlg-confirm" style="width: 12.375em; height: 3em; border-radius: 0.75em; cursor: pointer; background-color: rgb(118, 255, 51); display: flex; align-items: center; justify-content: center; color: rgb(0, 25, 38); font-family: BaseFontBold, sans-serif; text-transform: uppercase;">${dict.confirm}</div>
+                    </div>
+                `;
+                overlay.appendChild(dialog);
+                let isClosing = false;
+                function closeDialog() {
+                    if (!overlay.parentNode)
+                        return;
+                    overlay.remove();
+                }
+                overlay.closeDialogMethod = closeDialog;
+                document.body.appendChild(overlay);
+                dialog.querySelector('#clear-dlg-confirm')?.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (!isClosing) {
+                        isClosing = true;
+                        closeDialog();
+                        onConfirm();
+                    }
+                });
+                dialog.querySelector('#clear-dlg-cancel')?.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (!isClosing) {
+                        isClosing = true;
+                        closeDialog();
+                    }
+                });
+                dialog.querySelector('#clear-dlg-close')?.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (!isClosing) {
+                        isClosing = true;
+                        closeDialog();
+                    }
+                });
+            }
+            const t = {
+                RU: { title: 'История Битв', date: 'Дата', map: 'Карта', status: 'Статус', top: 'Место', mode: 'Режим', score: 'Очки', kills: 'Убийства', deaths: 'Смерти', kd: 'У/С', turret: 'Пушка', hull: 'Корпус', augment: 'Устройство', crystals: 'Кристаллы', stars: 'Звёзды', win: 'Победа', lose: 'Поражение', draw: 'Ничья', dm: 'DM', clear: 'Очистить', export: 'Экспорт', import: 'Импорт', last20: 'Статистика 20 битв', battles: 'Боёв', noBattles: 'Пока нет сохранённых боёв' },
+                EN: { title: 'Battle History', date: 'Date', map: 'Map', status: 'Status', top: 'Top', mode: 'Mode', score: 'Score', kills: 'Kills', deaths: 'Deaths', kd: 'K/D', turret: 'Turret', hull: 'Hull', augment: 'Augment', crystals: 'Crystals', stars: 'Stars', win: 'Victory', lose: 'Defeat', draw: 'Draw', dm: 'DM', clear: 'Clear', export: 'Export', import: 'Import', last20: 'Last 20 Match Stats', battles: 'Battles', noBattles: 'No saved battles yet' }
+            };
+            const parseMapAndMode = (rawMapText) => {
+                if (!rawMapText)
+                    return { map: 'Unknown Map', mode: 'MM' };
+                let text = rawMapText.trim();
+                const modesList = ['CTF', 'TDM', 'DM', 'CP', 'SGE', 'RGB', 'JGR', 'TJR', 'ASL', 'AR'];
+                let foundMode = 'MM';
+                const parts = text.split(/\s+/);
+                if (parts.length > 0) {
+                    const lastWord = parts[parts.length - 1].toUpperCase();
+                    if (modesList.includes(lastWord)) {
+                        foundMode = parts.pop() || 'MM';
+                        text = parts.join(' ');
+                    }
+                }
+                const cleanMapName = text.replace(/\s+/g, ' ').trim();
+                return { map: cleanMapName || 'Unknown', mode: foundMode };
+            };
+            const MAP_ICON_URL = chrome.runtime.getURL('assets/map-icon.png');
+            const buildBattleCard = (b, dict, lang) => {
+                const dateObj = new Date(b.date);
+                const dateStr = dateObj.toLocaleDateString();
+                const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const statusLower = (b.status || '').toLowerCase();
+                const isWin = statusLower.includes('victory') || statusLower.includes('победа');
+                const isDraw = statusLower.includes('draw') || statusLower.includes('ничья');
+                const isDM = statusLower === 'dm' || statusLower.includes('каждый сам за себя');
+                let statusClass = 'bh-card-result--loss';
+                let statusLocalized = dict.lose;
+                if (isDM) {
+                    statusClass = 'bh-card-result--dm';
+                    statusLocalized = dict.dm;
+                }
+                else if (isWin) {
+                    statusClass = 'bh-card-result--win';
+                    statusLocalized = dict.win;
+                }
+                else if (isDraw) {
+                    statusClass = 'bh-card-result--draw';
+                    statusLocalized = dict.draw;
+                }
+                const mapInfo = DataLoader.getMapInfo(b.map);
+                const localizedMap = (mapInfo
+                    ? (lang === 'RU' ? mapInfo.ru : mapInfo.en)
+                    : translateMapName(b.map, lang)) || 'Unknown';
+                const mapUpper = String(localizedMap).toUpperCase();
+                const mapImage = mapInfo && mapInfo.image ? mapInfo.image : '';
+                const modeUpper = String(b.mode || 'MM').toUpperCase();
+                const topDisplay = b.top && b.top !== '-' ? `#${b.top}` : '—';
+                const turretIcon = b.turretIcon
+                    ? `<img class="bh-equip-img" src="${b.turretIcon}" alt="">`
+                    : `<div class="bh-equip-placeholder">▰</div>`;
+                const turretAugIcon = b.turretAugmentIcon
+                    ? `<img class="bh-equip-img" src="${b.turretAugmentIcon}" alt="">`
+                    : `<div class="bh-equip-placeholder">◇</div>`;
+                const hullIcon = b.hullIcon
+                    ? `<img class="bh-equip-img" src="${b.hullIcon}" alt="">`
+                    : `<div class="bh-equip-placeholder">▱</div>`;
+                const hullAugIcon = b.hullAugmentIcon
+                    ? `<img class="bh-equip-img" src="${b.hullAugmentIcon}" alt="">`
+                    : `<div class="bh-equip-placeholder">◇</div>`;
+                const card = document.createElement('article');
+                card.className = `bh-card ${statusClass} ${b.turretAugmentIcon || b.hullAugmentIcon ? '' : 'bh-card--no-aug'}`;
+                card.innerHTML = `
+                    <div class="bh-card-map" ${mapImage ? `style="background-image: linear-gradient(90deg, rgba(10,10,10,0.15), rgba(10,10,10,0.75)), url('${mapImage}'); background-size: cover; background-position: center;"` : ''}>
+                        <div class="bh-card-map-icon" style="
+                            -webkit-mask-image: url('${MAP_ICON_URL}');
+                            mask-image: url('${MAP_ICON_URL}');
+                        "></div>
+                        <div class="bh-card-map-content">
+                            <div class="bh-card-map-name">${mapUpper}</div>
+                            <div class="bh-card-map-label">${dict.map}</div>
+                        </div>
+                    </div>
+
+                    <div class="bh-card-result">
+                        <div class="bh-card-result-status">${statusLocalized}</div>
+                        <div class="bh-combat-stats">
+                            <div class="bh-stat">
+                                <span class="bh-stat-value">${b.reputation ?? 0}</span>
+                                <span class="bh-stat-label">${dict.score}</span>
+                            </div>
+                            <div class="bh-stat">
+                                <span class="bh-stat-value">${b.kills ?? 0}<span class="bh-stat-sep">/</span>${b.deaths ?? 0}</span>
+                                <span class="bh-stat-label">${dict.kills} / ${dict.deaths}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bh-card-details">
+                        <div class="bh-rank">
+                            <div class="bh-rank-value">${topDisplay}</div>
+                            <div class="bh-rank-label">${dict.top}</div>
+                        </div>
+                        <div class="bh-loadout">
+                            <div class="bh-equip">
+                                <div class="bh-equip-icon">${turretIcon}</div>
+                                <div class="bh-equip-type">${dict.turret}</div>
+                            </div>
+                            <div class="bh-equip">
+                                <div class="bh-equip-icon">${turretAugIcon}</div>
+                                <div class="bh-equip-type">${dict.augment}</div>
+                            </div>
+                            <div class="bh-equip">
+                                <div class="bh-equip-icon">${hullIcon}</div>
+                                <div class="bh-equip-type">${dict.hull}</div>
+                            </div>
+                            <div class="bh-equip">
+                                <div class="bh-equip-icon">${hullAugIcon}</div>
+                                <div class="bh-equip-type">${dict.augment}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bh-card-mode">
+                        <div class="bh-mode-icon">${isDM ? '☠' : isWin ? '★' : '♟'}</div>
+                        <div class="bh-mode-name">${modeUpper}</div>
+                        <div class="bh-mode-rewards">
+                            <div class="bh-reward">
+                                <span class="bh-reward-icon bh-reward-icon--crystal"></span>
+                                <span class="bh-reward-value">${(b.crystals ?? 0).toLocaleString()}</span>
+                            </div>
+                            <div class="bh-reward">
+                                <span class="bh-reward-icon bh-reward-icon--star"></span>
+                                <span class="bh-reward-value">${b.stars ?? 0}</span>
+                            </div>
+                        </div>
+                        <div class="bh-mode-date">${dateStr} · ${timeStr}</div>
+                    </div>
+                `;
+                return card;
+            };
+            const buildPageNumbers = (current, total) => {
+                if (total <= 7) {
+                    const arr = [];
+                    for (let i = 1; i <= total; i++)
+                        arr.push(i);
+                    return arr;
+                }
+                const result = [];
+                result.push(1);
+                if (current > 4)
+                    result.push('…');
+                const start = Math.max(2, current - 1);
+                const end = Math.min(total - 1, current + 1);
+                for (let i = start; i <= end; i++)
+                    result.push(i);
+                if (current < total - 3)
+                    result.push('…');
+                result.push(total);
+                return result;
+            };
+            const renderPagination = (current, total) => {
+                const list = document.getElementById('bh-page-list');
+                if (!list)
+                    return;
+                list.textContent = '';
+                const prev = document.createElement('button');
+                prev.type = 'button';
+                prev.className = 'bh-page bh-page-arrow';
+                prev.textContent = '‹';
+                prev.disabled = current <= 1;
+                prev.addEventListener('click', () => renderBattleList(current - 1));
+                list.appendChild(prev);
+                const pages = buildPageNumbers(current, total);
+                for (const p of pages) {
+                    if (p === '…') {
+                        const dots = document.createElement('span');
+                        dots.className = 'bh-page bh-page-dots';
+                        dots.textContent = '…';
+                        list.appendChild(dots);
+                        continue;
+                    }
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'bh-page' + (p === current ? ' bh-page-active' : '');
+                    btn.textContent = String(p);
+                    btn.addEventListener('click', () => renderBattleList(p));
+                    list.appendChild(btn);
+                }
+                const next = document.createElement('button');
+                next.type = 'button';
+                next.className = 'bh-page bh-page-arrow';
+                next.textContent = '›';
+                next.disabled = current >= total;
+                next.addEventListener('click', () => renderBattleList(current + 1));
+                list.appendChild(next);
+            };
+            const renderBattleList = async (page = 1) => {
+                updateNickname();
+                const listEl = document.querySelector('.bh-list');
+                if (!listEl)
+                    return;
+                await removeDuplicateBattles(currentNickname);
+                const lang = state.lang;
+                const dict = t[lang] || t['EN'];
+                const battles = await getAllBattles(currentNickname);
+                battles.sort((a, b) => b.date - a.date);
+                const recent20 = battles.slice(0, 20);
+                let validTops = 0, sumTop = 0, totalKills = 0, totalDeaths = 0, totalScore = 0;
+                recent20.forEach(b => {
+                    const topNum = parseInt(b.top);
+                    if (!isNaN(topNum)) {
+                        sumTop += topNum;
+                        validTops++;
+                    }
+                    totalKills += (b.kills || 0);
+                    totalDeaths += (b.deaths || 0);
+                    totalScore += (b.reputation || 0);
+                });
+                const avgTop = validTops > 0 ? Math.round(sumTop / validTops) : '-';
+                const avgKd = totalDeaths > 0 ? (totalKills / totalDeaths).toFixed(2) : (totalKills > 0 ? totalKills.toFixed(2) : '0.00');
+                const avgScore = recent20.length > 0 ? Math.round(totalScore / recent20.length) : '-';
+                const topEl = document.getElementById('bh-stat-top');
+                const kdEl = document.getElementById('bh-stat-kd');
+                const scoreEl = document.getElementById('bh-stat-score');
+                if (topEl)
+                    topEl.textContent = avgTop !== '-' ? `#${avgTop}` : '-';
+                if (kdEl)
+                    kdEl.textContent = avgKd.toString();
+                if (scoreEl)
+                    scoreEl.textContent = avgScore !== '-' ? avgScore.toLocaleString() : '-';
+                const totalPages = Math.max(1, Math.ceil(battles.length / ROWS_PER_PAGE));
+                if (page > totalPages)
+                    page = totalPages;
+                if (page < 1)
+                    page = 1;
+                currentPage = page;
+                const startIndex = (currentPage - 1) * ROWS_PER_PAGE;
+                const pageBattles = battles.slice(startIndex, startIndex + ROWS_PER_PAGE);
+                listEl.innerHTML = '';
+                if (pageBattles.length === 0) {
+                    listEl.innerHTML = `<div class="bh-empty">${dict.noBattles}</div>`;
+                }
+                else {
+                    pageBattles.forEach(b => {
+                        listEl.appendChild(buildBattleCard(b, dict, lang));
+                    });
+                }
+                renderPagination(currentPage, totalPages);
+                const totalEl = document.getElementById('bh-total-battles');
+                if (totalEl)
+                    totalEl.textContent = String(battles.length);
+            };
+            const clearHistoryDb = () => {
+                showClearConfirmModal(async () => {
+                    try {
+                        const db = await openDB();
+                        const transaction = db.transaction('battles', 'readwrite');
+                        const store = transaction.objectStore('battles');
+                        const request = store.index('nickname').getAllKeys(currentNickname);
+                        request.onsuccess = () => {
+                            request.result.forEach((key) => store.delete(key));
+                            renderBattleList(1);
+                        };
+                    }
+                    catch (e) {
+                        console.error('[Tanki Battle History] Error clearing DB:', e);
+                    }
+                });
+            };
+            const exportHistoryData = async () => {
+                const battles = await getAllBattles(currentNickname);
+                if (battles.length === 0)
+                    return;
+                const blob = new Blob([JSON.stringify(battles, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Tanki_BattleHistory_${currentNickname}_${new Date().toISOString().slice(0, 10)}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+            const importHistoryData = () => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.json';
+                input.onchange = (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file)
+                        return;
+                    const reader = new FileReader();
+                    reader.onload = async (ev) => {
+                        try {
+                            const data = JSON.parse(ev.target.result);
+                            if (Array.isArray(data)) {
+                                for (const battle of data) {
+                                    delete battle.id;
+                                    await addBattle(battle);
+                                }
+                                await removeDuplicateBattles(currentNickname);
+                                renderBattleList(1);
+                            }
+                        }
+                        catch (err) {
+                            console.error('[Tanki Battle History] Import error:', err);
+                        }
+                    };
+                    reader.readAsText(file);
+                };
+                input.click();
+            };
+            const createHistoryPage = () => {
+                updateNickname();
+                const lang = state.lang;
+                const dict = t[lang] || t['EN'];
+                const overlay = document.createElement('div');
+                overlay.className = 'custom-history-overlay';
+                overlay.innerHTML = `
+                    <div class="custom-history-header">
+                        <div style="width: 6rem;"></div>
+                        <h1 class="custom-history-title">${dict.title}</h1>
+                        <button class="custom-history-close" title="Close">
+                            <div class="custom-history-logout-icon"></div>
+                        </button>
+                    </div>
+                    <div class="custom-history-content">
+                        <div class="bh-left-panel">
+                            <div class="bh-controls-container">
+                                <div class="bh-controls-left">
+                                    <button class="bh-control-btn bh-btn-clear" id="bh-clear-btn"><span>${dict.clear}</span></button>
+                                </div>
+                                <div class="bh-controls-right">
+                                    <button class="bh-control-btn bh-btn-export" id="bh-export-btn"><span>${dict.export}</span></button>
+                                    <button class="bh-control-btn bh-btn-import" id="bh-import-btn"><span>${dict.import}</span></button>
+                                </div>
+                            </div>
+                            <div class="bh-list"></div>
+                            <div class="bh-pagination">
+                                <div class="bh-page-list" id="bh-page-list"></div>
+                                <div class="bh-total">
+                                    ${dict.battles ?? 'Боёв'}: <span class="bh-total-value" id="bh-total-battles">0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bh-right-panel">
+                            <div class="bh-stats-box">
+                                <div class="bh-stats-title">${dict.last20}</div>
+                                <div class="bh-stats-grid">
+                                    <div class="bh-stat-item">
+                                        <div class="bh-stat-icon" style="-webkit-mask-image: url('https://s.eu.tankionline.com/static/images/ctf_mode.fba37902.svg');"></div>
+                                        <div class="bh-stat-label">${dict.top}</div>
+                                        <div class="bh-stat-value" id="bh-stat-top">-</div>
+                                    </div>
+                                    <div class="bh-stat-separator"></div>
+                                    <div class="bh-stat-item">
+                                        <div class="bh-stat-icon" style="-webkit-mask-image: url('https://s.eu.tankionline.com/static/images/kills.f9b82d9f.svg');"></div>
+                                        <div class="bh-stat-label">${dict.kd}</div>
+                                        <div class="bh-stat-value" id="bh-stat-kd">-</div>
+                                    </div>
+                                    <div class="bh-stat-separator"></div>
+                                    <div class="bh-stat-item">
+                                        <div class="bh-stat-icon" style="-webkit-mask-image: url('https://s.eu.tankionline.com/static/images/score.b3ca71b2.svg');"></div>
+                                        <div class="bh-stat-label">${dict.score}</div>
+                                        <div class="bh-stat-value" id="bh-stat-score">-</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(overlay);
+                overlay.querySelector('.custom-history-close')?.addEventListener('click', () => { overlay.style.display = 'none'; });
+                document.getElementById('bh-clear-btn')?.addEventListener('click', clearHistoryDb);
+                document.getElementById('bh-export-btn')?.addEventListener('click', exportHistoryData);
+                document.getElementById('bh-import-btn')?.addEventListener('click', importHistoryData);
+            };
+            const injectFooterButton = () => {
+                const footerList = document.querySelector('.FooterComponentStyle-footer ul');
+                if (!footerList || footerList.querySelector('.custom-history-button'))
+                    return;
+                const lang = state.lang;
+                const dict = t[lang] || t['EN'];
+                const btn = document.createElement('li');
+                btn.className = 'FooterComponentStyle-containerMenu custom-history-button';
+                btn.innerHTML = '<div></div>';
+                btn.title = dict.title;
+                btn.addEventListener('click', async () => {
+                    let overlay = document.querySelector('.custom-history-overlay');
+                    if (!overlay) {
+                        createHistoryPage();
+                        overlay = document.querySelector('.custom-history-overlay');
+                    }
+                    if (!overlay)
+                        return;
+                    await renderBattleList(1);
+                    overlay.style.display = 'flex';
+                });
+                footerList.appendChild(btn);
+            };
+            const extractAndSaveBattleResult = async () => {
+                updateNickname();
+                const selfRow = document.querySelector('#selfUserBg');
+                if (!selfRow || battleProcessed)
+                    return;
+                if (currentNickname === 'Unknown') {
+                    const nickCell = selfRow.querySelector('.BattleKillBoardComponentStyle-col1, [class*="BattleKillBoardComponentStyle-col1"]');
+                    if (nickCell) {
+                        const raw = (nickCell.textContent || '').trim();
+                        const clean = raw.replace(/^\[.*?\]\s*/, '').trim();
+                        if (clean && clean !== 'Unknown') {
+                            currentNickname = clean;
+                            try {
+                                localStorage.setItem(NICK_KEY, clean);
+                            }
+                            catch { }
+                        }
+                    }
+                }
+                if (currentNickname === 'Unknown')
+                    return;
+                try {
+                    const scoreEl = selfRow.querySelector('.BattleKillBoardComponentStyle-col3');
+                    const killsEl = selfRow.querySelector('.BattleKillBoardComponentStyle-col4');
+                    const deathsEl = selfRow.querySelector('.BattleKillBoardComponentStyle-col5');
+                    if (!scoreEl || !killsEl || !deathsEl)
+                        return;
+                    const scoreText = (scoreEl.textContent || '').trim();
+                    const killsText = (killsEl.textContent || '').trim();
+                    const deathsText = (deathsEl.textContent || '').trim();
+                    if (!scoreText || !killsText || !deathsText)
+                        return;
+                    battleProcessed = true;
+                    const mapEl = document.querySelector('.BattleResultHeaderComponentStyle-mapName');
+                    const rawMapText = mapEl ? mapEl.textContent?.trim() || '' : 'Unknown Map';
+                    const parsedMapData = parseMapAndMode(rawMapText);
+                    const statusEl = document.querySelector('.BattleResultHeaderComponentStyle-resultText') ||
+                        document.querySelector('[class*="descriptionVictory"], [class*="descriptionDefeat"], [class*="descriptionDraw"]');
+                    const isDM = parsedMapData.mode.toUpperCase() === 'DM' || (statusEl && statusEl.textContent?.trim() === '');
+                    const statusText = isDM ? 'DM' : (statusEl ? statusEl.textContent?.trim() || 'Victory' : 'Victory');
+                    let topVal = '-';
+                    if (selfRow.parentElement) {
+                        const allRows = Array.from(selfRow.parentElement.children);
+                        const selfIndex = allRows.indexOf(selfRow);
+                        const teamDividerIndex = allRows.findIndex((r) => r.id === 'teamRowSpace');
+                        let teamRows = [];
+                        if (teamDividerIndex === -1)
+                            teamRows = allRows;
+                        else if (selfIndex < teamDividerIndex)
+                            teamRows = allRows.slice(0, teamDividerIndex);
+                        else
+                            teamRows = allRows.slice(teamDividerIndex + 1);
+                        const actualPlayers = teamRows.filter((r) => r.id && r.id !== 'rowSpace' && r.id !== 'teamRowSpace');
+                        const rank = actualPlayers.indexOf(selfRow) + 1;
+                        if (rank > 0)
+                            topVal = rank.toString();
+                    }
+                    const score = parseInt(scoreText) || 0;
+                    const kills = parseInt(killsText) || 0;
+                    const deaths = parseInt(deathsText) || 0;
+                    const kd = deaths > 0 ? parseFloat((kills / deaths).toFixed(2)) : kills;
+                    const crystals = parseInt((selfRow.querySelector('.BattleKillBoardComponentStyle-col7')?.textContent || '0').replace(/\s/g, '')) || 0;
+                    const stars = parseInt(selfRow.querySelector('.BattleKillBoardComponentStyle-col8')?.textContent || '0') || 0;
+                    const eq = modules.equipmentTracker.get();
+                    if (currentNickname === 'Unknown') {
+                        return;
+                    }
+                    const battleData = {
+                        nickname: currentNickname, date: Date.now(), status: statusText, map: parsedMapData.map,
+                        mode: parsedMapData.mode, top: topVal, reputation: score, kills, deaths,
+                        kd, crystals, stars,
+                        turretIcon: eq?.turret ?? '',
+                        turretAugmentIcon: eq?.turretAugment ?? '',
+                        hullIcon: eq?.hull ?? '',
+                        hullAugmentIcon: eq?.hullAugment ?? '',
+                    };
+                    await addBattle(battleData);
+                }
+                catch (err) {
+                    console.error('[Tanki Battle History] Error saving battle result:', err);
+                    battleProcessed = false;
+                }
+            };
+            return () => {
+                if (!utils.getSetting('k_history', false))
+                    return;
+                if (!initialized) {
+                    initialized = true;
+                    document.addEventListener('keydown', (e) => {
+                        const overlay = document.querySelector('.custom-history-overlay');
+                        const isHistoryOpen = overlay && window.getComputedStyle(overlay).display !== 'none';
+                        if (!isHistoryOpen)
+                            return;
+                        if (e.code === 'Space' || /^(Digit|Numpad)[1-7]$/.test(e.code)) {
+                            if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName))
+                                return;
+                            e.preventDefault();
+                            e.stopPropagation();
+                            e.stopImmediatePropagation();
+                        }
+                    }, true);
+                    window.addEventListener('keydown', (e) => {
+                        const overlay = document.querySelector('.custom-history-overlay');
+                        if (overlay && overlay.style.display === 'flex') {
+                            if (e.code === 'Escape' || e.code === 'KeyZ' || e.key.toLowerCase() === 'z') {
+                                if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName))
+                                    return;
+                                overlay.style.display = 'none';
+                                e.preventDefault();
+                            }
+                        }
+                    });
+                    window.addEventListener('mousedown', (e) => {
+                        const overlay = document.querySelector('.custom-history-overlay');
+                        if (overlay && overlay.style.display === 'flex' && (e.button === 3 || e.button === 4)) {
+                            overlay.style.display = 'none';
+                            e.preventDefault();
+                        }
+                    });
+                    setTimeout(() => {
+                        updateNickname();
+                        if (currentNickname !== 'Unknown')
+                            removeDuplicateBattles(currentNickname);
+                    }, 5000);
+                }
+                injectFooterButton();
+                const selfRow = document.querySelector('#selfUserBg');
+                const inResults = document.querySelector('.BattleResultHeaderComponentStyle-resultText');
+                if (selfRow && inResults) {
+                    extractAndSaveBattleResult();
+                }
+                else if (!inResults) {
+                    battleProcessed = false;
+                }
             };
         })(),
     };
@@ -3555,8 +4360,6 @@
         lastFullRefresh = performance.now();
         refreshScheduled = false;
         modules.changeCounter.onTick();
-        modules.changeCounter.update();
-        modules.zeroResists.update();
         modules.welcomeModal();
         modules.hideNickname();
         modules.hideCurrency();
@@ -3627,6 +4430,16 @@
                 if (quickUpgradeOverlay && quickUpgradeOverlay.closeDialogMethod) {
                     quickUpgradeOverlay.closeDialogMethod();
                 }
+                const historyOverlay = document.querySelector('.custom-history-overlay');
+                if (historyOverlay)
+                    historyOverlay.style.display = 'none';
+                const clearConfirmOverlay = document.getElementById('clear-confirm-overlay');
+                if (clearConfirmOverlay && clearConfirmOverlay.closeDialogMethod) {
+                    clearConfirmOverlay.closeDialogMethod();
+                }
+                else if (clearConfirmOverlay) {
+                    clearConfirmOverlay.remove();
+                }
             }
         }
         const isFriendsMenuOpen = !!document.querySelector('.FriendListComponentStyle-containerFriends, .InvitationWindowsComponentStyle-centerBlock');
@@ -3654,11 +4467,18 @@
         if (state.currentScreen === 'garage') {
             modules.garageButtons();
         }
+        if (state.currentScreen === 'match_results' || state.currentScreen === 'lobby') {
+            modules.battleHistory();
+        }
     };
     const masterObserver = new MutationObserver(() => {
         if (document.querySelector('.BattleTabStatisticComponentStyle-container')) {
             modules.changeCounter.sync();
             modules.zeroResists.sync();
+            modules.equipmentTracker.sync();
+        }
+        if (document.querySelector('.GarageCommonStyle-positionContent, .ContainerInfoComponentStyle-lootBoxContainer')) {
+            modules.augmentSpecs();
         }
         if (!isMasterUpdateScheduled) {
             isMasterUpdateScheduled = true;

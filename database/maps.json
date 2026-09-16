@@ -1,0 +1,442 @@
+[
+    {
+        "ru": "Александровск",
+        "en": "Aleksandrovsk",
+        "image": "https://s.eu.tankionline.com/601/107774/12/160/30061777053324/image.webp"
+    },
+    {
+        "ru": "Арена",
+        "en": "Arena",
+        "image": "https://s.eu.tankionline.com/601/107774/12/243/30066341753726/image.webp"
+    },
+    {
+        "ru": "Архипелаг",
+        "en": "Archipelago",
+        "image": "https://s.eu.tankionline.com/601/107774/13/6/30061777035300/image.webp"
+    },
+    {
+        "ru": "Атра",
+        "en": "Atra",
+        "image": "https://s.eu.tankionline.com/601/107774/12/102/30061777061430/image.webp"
+    },
+    {
+        "ru": "Барда",
+        "en": "Barda",
+        "image": "https://s.eu.tankionline.com/601/107774/12/331/30061777050145/image.webp"
+    },
+    {
+        "ru": "Безумие",
+        "en": "Madness",
+        "image": "https://s.eu.tankionline.com/601/107774/12/142/31364612443311/image.webp"
+    },
+    {
+        "ru": "Безумие 2",
+        "en": "Madness 2",
+        "image": "https://s.eu.tankionline.com/627/123052/263/76/31364612556655/image.webp"
+    },
+    {
+        "ru": "Берлин",
+        "en": "Berlin",
+        "image": "https://s.eu.tankionline.com/613/151330/20/127/30572266011567/image.webp"
+    },
+    {
+        "ru": "Бобруйск",
+        "en": "Bobruisk",
+        "image": "https://s.eu.tankionline.com/601/107774/12/264/30061777043335/image.webp"
+    },
+    {
+        "ru": "Бойня",
+        "en": "Massacre",
+        "image": "https://s.eu.tankionline.com/601/107774/13/21/30061777037332/image.webp"
+    },
+    {
+        "ru": "Брест",
+        "en": "Brest",
+        "image": "https://s.eu.tankionline.com/601/107774/12/256/30061777035411/image.webp"
+    },
+    {
+        "ru": "Будущее",
+        "en": "Future",
+        "image": "https://s.eu.tankionline.com/601/107774/12/263/30061777040433/image.webp"
+    },
+    {
+        "ru": "Бумбокс",
+        "en": "Boombox",
+        "image": "https://s.eu.tankionline.com/634/136431/332/233/31627506673770/image.webp"
+    },
+    {
+        "ru": "Волна",
+        "en": "Wave",
+        "image": "https://s.eu.tankionline.com/601/107774/13/63/30061777043211/image.webp"
+    },
+    {
+        "ru": "Вольфенштейн",
+        "en": "Wolfenstein",
+        "image": "https://s.eu.tankionline.com/601/107774/12/212/30061777057614/image.webp"
+    },
+    {
+        "ru": "Гардер",
+        "en": "Garder",
+        "image": "https://s.eu.tankionline.com/601/107774/13/47/30333663432322/image.webp"
+    },
+    {
+        "ru": "Гравити",
+        "en": "Gravity",
+        "image": "https://s.eu.tankionline.com/601/107774/12/311/30061777031411/image.webp"
+    },
+    {
+        "ru": "Год 2042",
+        "en": "Year 2042",
+        "image": "https://s.eu.tankionline.com/601/107774/12/337/30061777036636/image.webp"
+    },
+    {
+        "ru": "Губаха",
+        "en": "Gubakha",
+        "image": "https://s.eu.tankionline.com/601/107774/12/274/30061777063601/image.webp"
+    },
+    {
+        "ru": "Долина",
+        "en": "Valley",
+        "image": "https://s.eu.tankionline.com/603/104726/157/162/30161165471424/image.webp"
+    },
+    {
+        "ru": "Дуалити",
+        "en": "Duality",
+        "image": "https://s.eu.tankionline.com/601/107774/12/377/30061777052521/image.webp"
+    },
+    {
+        "ru": "Дуэль",
+        "en": "Duel",
+        "image": "https://s.eu.tankionline.com/601/107774/12/236/30061777056514/image.webp"
+    },
+    {
+        "ru": "Дюссельдорф",
+        "en": "Dusseldorf",
+        "image": "https://s.eu.tankionline.com/601/107774/13/31/30061777057247/image.webp"
+    },
+    {
+        "ru": "Жаворонки",
+        "en": "Skylark",
+        "image": "https://s.eu.tankionline.com/613/151333/15/114/30572266610151/image.webp"
+    },
+    {
+        "ru": "Зона",
+        "en": "Zone",
+        "image": "https://s.eu.tankionline.com/601/107774/12/140/30061777063346/image.webp"
+    },
+    {
+        "ru": "Иран",
+        "en": "Iran",
+        "image": "https://s.eu.tankionline.com/601/107774/12/277/31343433343114/image.webp"
+    },
+    {
+        "ru": "Йоркшир",
+        "en": "Yorkshire",
+        "image": "https://s.eu.tankionline.com/601/107774/12/232/30061777055615/image.webp"
+    },
+    {
+        "ru": "Каньон",
+        "en": "Canyon",
+        "image": "https://s.eu.tankionline.com/601/107774/13/53/30061777054737/image.webp"
+    },
+    {
+        "ru": "Колхоз",
+        "en": "Kolhoz",
+        "image": "https://s.eu.tankionline.com/601/107774/13/2/30061777051553/image.webp"
+    },
+    {
+        "ru": "Кунгур",
+        "en": "Kungur",
+        "image": "https://s.eu.tankionline.com/601/107774/12/174/30061777047000/image.webp"
+    },
+    {
+        "ru": "Кураж",
+        "en": "Courage",
+        "image": "https://s.eu.tankionline.com/601/107774/13/44/30061777051120/image.webp"
+    },
+    {
+        "ru": "Кёльн",
+        "en": "Cologne",
+        "image": "https://s.eu.tankionline.com/601/107774/12/316/30061777061130/image.webp"
+    },
+    {
+        "ru": "Лагерь",
+        "en": "Camp",
+        "image": "https://s.eu.tankionline.com/601/107774/12/254/30061777041133/image.webp"
+    },
+    {
+        "ru": "Магадан",
+        "en": "Magadan",
+        "image": "https://s.eu.tankionline.com/601/107774/12/156/30061777036430/image.webp"
+    },
+    {
+        "ru": "Магистраль",
+        "en": "Magistral",
+        "image": "https://s.eu.tankionline.com/601/107774/12/374/30061777061431/image.webp"
+    },
+    {
+        "ru": "Молотов",
+        "en": "Molotov",
+        "image": "https://s.eu.tankionline.com/601/107774/12/262/30061777040461/image.webp"
+    },
+    {
+        "ru": "Монте-Карло",
+        "en": "Monte Carlo",
+        "image": "https://s.eu.tankionline.com/601/107774/12/223/30061777056542/image.webp"
+    },
+    {
+        "ru": "Мостик",
+        "en": "Short Bridge",
+        "image": "https://s.eu.tankionline.com/601/107774/13/57/30061777045160/image.webp"
+    },
+    {
+        "ru": "Мосты",
+        "en": "Bridges",
+        "image": "https://s.eu.tankionline.com/601/107774/12/121/30061777053441/image.webp"
+    },
+    {
+        "ru": "Небоскрёбы",
+        "en": "Skyscrapers",
+        "image": "https://s.eu.tankionline.com/601/107774/12/226/30061777035631/image.webp"
+    },
+    {
+        "ru": "Новэл",
+        "en": "Novel",
+        "image": "https://s.eu.tankionline.com/601/107774/12/313/30066341754145/image.webp"
+    },
+    {
+        "ru": "Овраг",
+        "en": "Combe",
+        "image": "https://s.eu.tankionline.com/601/107774/12/235/30061777047362/image.webp"
+    },
+    {
+        "ru": "Оса",
+        "en": "Osa",
+        "image": "https://s.eu.tankionline.com/601/107774/12/103/30061777061067/image.webp"
+    },
+    {
+        "ru": "Осада",
+        "en": "Siege",
+        "image": "https://s.eu.tankionline.com/613/144551/261/363/31035110442024/image.webp"
+    },
+    {
+        "ru": "Остров",
+        "en": "Island",
+        "image": "https://s.eu.tankionline.com/601/107774/12/336/30061777057147/image.webp"
+    },
+    {
+        "ru": "Палуба 9",
+        "en": "Deck 9",
+        "image": "https://s.eu.tankionline.com/601/107774/12/104/30061777035140/image.webp"
+    },
+    {
+        "ru": "Парма",
+        "en": "Parma",
+        "image": "https://s.eu.tankionline.com/601/107774/13/11/30061777042731/image.webp"
+    },
+    {
+        "ru": "Парма REMASTER",
+        "en": "Parma REMASTER",
+        "image": "https://s.eu.tankionline.com/627/13317/36/53/31343425736415/image.webp"
+    },
+    {
+        "ru": "Перевал",
+        "en": "Pass",
+        "image": "https://s.eu.tankionline.com/601/107774/12/230/30061777044517/image.webp"
+    },
+    {
+        "ru": "Перекрёсток",
+        "en": "Cross",
+        "image": "https://s.eu.tankionline.com/601/107774/13/14/30061777055502/image.webp"
+    },
+    {
+        "ru": "Перекрёсток REMASTER",
+        "en": "Cross REMASTER",
+        "image": "https://s.eu.tankionline.com/632/143013/110/313/31530603017663/image.webp"
+    },
+    {
+        "ru": "Песочница",
+        "en": "Sandbox",
+        "image": "https://s.eu.tankionline.com/601/107774/12/176/30061777033536/image.webp"
+    },
+    {
+        "ru": "Песочница REMASTER",
+        "en": "Sandbox REMASTER",
+        "image": "https://s.eu.tankionline.com/601/107774/12/323/30061777045632/image.webp"
+    },
+    {
+        "ru": "Песочница REMASTER XS",
+        "en": "Sandbox REMASTER XS",
+        "image": "https://s.eu.tankionline.com/601/107774/12/323/30061777045632/image.webp"
+    },
+    {
+        "ru": "Пинг-Понг",
+        "en": "Ping-Pong",
+        "image": "https://s.eu.tankionline.com/601/107774/13/36/30061777053471/image.webp"
+    },
+    {
+        "ru": "Плато",
+        "en": "Highland",
+        "image": "https://s.eu.tankionline.com/601/107774/12/213/30061777063716/image.webp"
+    },
+    {
+        "ru": "Плато REMASTER",
+        "en": "Highland REMASTER",
+        "image": "https://s.eu.tankionline.com/631/160676/214/242/31474160134637/image.webp"
+    },
+    {
+        "ru": "Подземка",
+        "en": "Subway",
+        "image": "https://s.eu.tankionline.com/601/107774/12/361/30061777061310/image.webp"
+    },
+    {
+        "ru": "Полигон",
+        "en": "Polygon",
+        "image": "https://s.eu.tankionline.com/601/107774/12/177/30061777044204/image.webp"
+    },
+    {
+        "ru": "Промзона",
+        "en": "Industrial Zone",
+        "image": "https://s.eu.tankionline.com/601/107774/12/354/30061777036740/image.webp"
+    },
+    {
+        "ru": "Простор",
+        "en": "Scope",
+        "image": "https://s.eu.tankionline.com/613/151334/373/213/30572267177663/image.webp"
+    },
+    {
+        "ru": "Противостояние",
+        "en": "Opposition",
+        "image": "https://s.eu.tankionline.com/601/107774/12/76/30061777051230/image.webp"
+    },
+    {
+        "ru": "Пустыня",
+        "en": "Desert",
+        "image": "https://s.eu.tankionline.com/601/107774/12/155/30061777054146/image.webp"
+    },
+    {
+        "ru": "Ред Алерт",
+        "en": "Red Alert",
+        "image": "https://s.eu.tankionline.com/601/107774/12/330/30061777035270/image.webp"
+    },
+    {
+        "ru": "Рио",
+        "en": "Rio",
+        "image": "https://s.eu.tankionline.com/601/107774/12/245/30061777061111/image.webp"
+    },
+    {
+        "ru": "Сандал",
+        "en": "Sandal",
+        "image": "https://s.eu.tankionline.com/601/107774/13/55/30061777053474/image.webp"
+    },
+    {
+        "ru": "Сандал REMASTER",
+        "en": "Sandal REMASTER",
+        "image": "https://s.eu.tankionline.com/606/157320/226/216/30333664115041/image.webp"
+    },
+    {
+        "ru": "Серпухов",
+        "en": "Serpuhov",
+        "image": "https://s.eu.tankionline.com/601/107774/12/372/30061777035151/image.webp"
+    },
+    {
+        "ru": "Соликамск",
+        "en": "Solikamsk",
+        "image": "https://s.eu.tankionline.com/601/107774/12/72/30061777036761/image.webp"
+    },
+    {
+        "ru": "Стадион",
+        "en": "Stadium",
+        "image": "https://s.eu.tankionline.com/601/107774/12/126/30061777044517/image.webp"
+    },
+    {
+        "ru": "Станция",
+        "en": "Station",
+        "image": "https://s.eu.tankionline.com/601/107774/12/234/30061777042653/image.webp"
+    },
+    {
+        "ru": "Тишина",
+        "en": "Silence",
+        "image": "https://s.eu.tankionline.com/601/107774/13/20/30061777035062/image.webp"
+    },
+    {
+        "ru": "Трек",
+        "en": "Track",
+        "image": "https://s.eu.tankionline.com/601/107774/12/365/30061777062306/image.webp"
+    },
+    {
+        "ru": "Трибьют",
+        "en": "Tribute",
+        "image": "https://s.eu.tankionline.com/601/107774/13/22/30061777044651/image.webp"
+    },
+    {
+        "ru": "Тэмпл",
+        "en": "Lost Temple",
+        "image": "https://s.eu.tankionline.com/601/107774/12/357/30061777033307/image.webp"
+    },
+    {
+        "ru": "Ущелье",
+        "en": "Rift",
+        "image": "https://s.eu.tankionline.com/601/107774/12/206/30061777035137/image.webp"
+    },
+    {
+        "ru": "Фабрика",
+        "en": "Factory",
+        "image": "https://s.eu.tankionline.com/601/107774/12/210/30061777046371/image.webp"
+    },
+    {
+        "ru": "Ферма",
+        "en": "Farm",
+        "image": "https://s.eu.tankionline.com/601/107774/12/325/30061777036640/image.webp"
+    },
+    {
+        "ru": "Форест",
+        "en": "Forest",
+        "image": "https://s.eu.tankionline.com/601/107774/12/273/30061777050554/image.webp"
+    },
+    {
+        "ru": "Форест REMASTER",
+        "en": "Forest REMASTER",
+        "image": "https://s.eu.tankionline.com/602/167003/105/167/30135600644410/image.webp"
+    },
+    {
+        "ru": "Форт Нокс",
+        "en": "Fort Knox",
+        "image": "https://s.eu.tankionline.com/601/107774/12/101/30061777031562/image.webp"
+    },
+    {
+        "ru": "Холм",
+        "en": "Hill",
+        "image": "https://s.eu.tankionline.com/601/107774/12/326/30061777054065/image.webp"
+    },
+    {
+        "ru": "Чернобыль",
+        "en": "Chernobyl",
+        "image": "https://s.eu.tankionline.com/601/107774/13/51/30061777042530/image.webp"
+    },
+    {
+        "ru": "Чернушка",
+        "en": "Chernushka",
+        "image": "https://s.eu.tankionline.com/601/107774/12/221/30061777063354/image.webp"
+    },
+    {
+        "ru": "Шоссе",
+        "en": "Highways",
+        "image": "https://s.eu.tankionline.com/601/107774/12/305/30061777031530/image.webp"
+    },
+    {
+        "ru": "Шум",
+        "en": "Noise",
+        "image": "https://s.eu.tankionline.com/601/107774/12/147/30061777042165/image.webp"
+    },
+    {
+        "ru": "Эдинбург",
+        "en": "Edinburgh",
+        "image": "https://s.eu.tankionline.com/601/107774/12/127/30061777054436/image.webp"
+    },
+    {
+        "ru": "Эспланада",
+        "en": "Esplanade",
+        "image": "https://s.eu.tankionline.com/601/107774/13/10/30061777040707/image.webp"
+    }
+]
