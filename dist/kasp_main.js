@@ -184,11 +184,12 @@
         const MY_SETTINGS = [
             { id: 'k_ext_btn', label: { RU: 'Расширенная кнопка «Играть»', EN: 'Enhanced «Play» button' }, default: false },
             { id: 'k_augments', label: { RU: 'Характеристики устройств', EN: 'Augment specifications' }, default: false },
-            { id: 'k_auto_upgrade', label: { RU: 'Быстрое улучшение вооружения [Нестабильно]', EN: 'Quick weapon upgrades [Unstable]' }, default: false },
+            { id: 'k_auto_upgrade', label: { RU: 'Быстрое улучшение вооружения', EN: 'Quick weapon upgrades' }, default: false },
             { id: 'k_friends', label: { RU: 'Метки и категории друзей', EN: 'Friend tags & categories' }, default: false },
             { id: 'k_paints', label: { RU: 'Умный поиск красок', EN: 'Smart paint search' }, default: false },
             { id: 'k_hideCurrency', label: { RU: 'Скрыть валюту', EN: 'Hide currency' }, default: false },
-            { id: 'k_hideNicknameXP', label: { RU: 'Скрыть никнейм и опыт', EN: 'Hide nickname and score' }, default: false }
+            { id: 'k_hideNicknameXP', label: { RU: 'Скрыть никнейм и опыт', EN: 'Hide nickname and score' }, default: false },
+            { id: 'k_history', label: { RU: 'Вести историю битв', EN: 'Keep a history of battles' }, default: false }
         ];
         function showWarningDialog(callback) {
             const existing = document.getElementById('kasp-warning-overlay');
@@ -2220,6 +2221,9 @@
             let initialized = false;
             let isRunning = false;
             let upgradeQueue = 0;
+            let unavailableRetries = 0;
+            const MAX_UNAVAILABLE_RETRIES = 80;
+            const RETRY_DELAY = 100;
             let upgraded = 0;
             let timer = null;
             let lastItemSignature = '';
@@ -2295,6 +2299,18 @@
                         if (text === 'ЗАВЕРШЕНО' || text === 'COMPLETED')
                             return true;
                     }
+                }
+                return false;
+            }
+            function isUnavailableButton() {
+                const btns = document.querySelectorAll('.SquarePriceButtonComponentStyle-commonBlockButton');
+                for (let i = 0; i < btns.length; i++) {
+                    const btn = btns[i];
+                    if (btn.closest('.TanksPartBaseComponentStyle-marginTop'))
+                        continue;
+                    const text = (btn.textContent || '').toLowerCase();
+                    if (text.includes('недоступно') || text.includes('unavailable'))
+                        return true;
                 }
                 return false;
             }
@@ -2493,23 +2509,37 @@
                     isRunning = true;
                     upgradeQueue = count;
                     upgraded = 0;
+                    let isWaitingForDialogClose = false;
                     function doStep() {
                         if (!isRunning) {
                             finish();
                             return;
+                        }
+                        if (isWaitingForDialogClose) {
+                            if (isDialogOpen()) {
+                                timer = window.setTimeout(doStep, DELAY);
+                                return;
+                            }
+                            isWaitingForDialogClose = false;
                         }
                         if (isMaxLevel()) {
                             finish();
                             return;
                         }
                         if (isCompleted() && !isDialogOpen()) {
-                            timer = window.setTimeout(doStep, DELAY);
-                            return;
-                        }
-                        if (!shouldShowQuickButtons() && !isDialogOpen()) {
                             finish();
                             return;
                         }
+                        if (!shouldShowQuickButtons() && !isDialogOpen()) {
+                            if (unavailableRetries < MAX_UNAVAILABLE_RETRIES) {
+                                unavailableRetries++;
+                                timer = window.setTimeout(doStep, RETRY_DELAY);
+                                return;
+                            }
+                            finish();
+                            return;
+                        }
+                        unavailableRetries = 0;
                         if (upgraded >= upgradeQueue) {
                             finish();
                             return;
@@ -2523,21 +2553,23 @@
                             if (hasNormalButton()) {
                                 clickConfirmButton();
                                 upgraded++;
+                                isWaitingForDialogClose = true;
                                 timer = window.setTimeout(doStep, DELAY);
                                 return;
                             }
                             pressEnter();
                             upgraded++;
+                            isWaitingForDialogClose = true;
                             timer = window.setTimeout(doStep, DELAY);
                             return;
                         }
                         pressEnter();
-                        upgraded++;
                         timer = window.setTimeout(doStep, DELAY);
                     }
                     function finish() {
                         isRunning = false;
                         upgradeQueue = 0;
+                        unavailableRetries = 0;
                         if (timer) {
                             window.clearTimeout(timer);
                             timer = null;
@@ -2609,13 +2641,16 @@
                     categorySwitchTimeout = window.setTimeout(() => { isCategorySwitch = false; }, 2000);
                     document.addEventListener('click', (e) => {
                         const target = e.target;
-                        if (!target)
+                        if (!(target instanceof Element))
                             return;
                         if (target.closest('#quick-upgrade-overlay'))
                             return;
-                        const menuCategory = target.closest('.MenuComponentStyle-mainMenuItem');
-                        const mainGarageBlock = target.closest('[class*="MountedItemsStyle-commonBlock"], .tt-garage-paints-button');
-                        const itemElement = target.closest('[class*="Item"], [class*="card"], [class*="Garage"]');
+                        let menuCategory = target.closest('.MenuComponentStyle-mainMenuItem');
+                        if (menuCategory && menuCategory.classList.contains('-activeMenu')) {
+                            menuCategory = null;
+                        }
+                        const mainGarageBlock = target.closest('[class*="MountedItemsStyle-commonBlock"]');
+                        const itemElement = target.closest('[class*="Item"], [class*="item"], [class*="Equipment"], [class*="equipment"]');
                         const backButton = target.closest('.BreadcrumbsComponentStyle-backButton, .IconStyle-iconBackArrow, [class*="backButton" i]');
                         if (menuCategory || mainGarageBlock || backButton) {
                             isCategorySwitch = true;
@@ -4479,6 +4514,7 @@
         }
         if (document.querySelector('.GarageCommonStyle-positionContent, .ContainerInfoComponentStyle-lootBoxContainer')) {
             modules.augmentSpecs();
+            modules.autoUpgrade();
         }
         if (!isMasterUpdateScheduled) {
             isMasterUpdateScheduled = true;

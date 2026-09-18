@@ -197,11 +197,12 @@
         const MY_SETTINGS = [
             { id: 'k_ext_btn', label: { RU: 'Расширенная кнопка «Играть»', EN: 'Enhanced «Play» button' }, default: false },
             { id: 'k_augments', label: { RU: 'Характеристики устройств', EN: 'Augment specifications' }, default: false },
-            { id: 'k_auto_upgrade', label: { RU: 'Быстрое улучшение вооружения [Нестабильно]', EN: 'Quick weapon upgrades [Unstable]' }, default: false },
+            { id: 'k_auto_upgrade', label: { RU: 'Быстрое улучшение вооружения', EN: 'Quick weapon upgrades' }, default: false },
             { id: 'k_friends', label: { RU: 'Метки и категории друзей', EN: 'Friend tags & categories' }, default: false },
             { id: 'k_paints', label: { RU: 'Умный поиск красок', EN: 'Smart paint search' }, default: false },
             { id: 'k_hideCurrency', label: { RU: 'Скрыть валюту', EN: 'Hide currency' }, default: false },
-            { id: 'k_hideNicknameXP', label: { RU: 'Скрыть никнейм и опыт', EN: 'Hide nickname and score' }, default: false }
+            { id: 'k_hideNicknameXP', label: { RU: 'Скрыть никнейм и опыт', EN: 'Hide nickname and score' }, default: false },
+            { id: 'k_history', label: { RU: 'Вести историю битв', EN: 'Keep a history of battles' }, default: false }
         ];
 
         function showWarningDialog(callback: () => void) {
@@ -2284,6 +2285,9 @@
             let initialized = false;
             let isRunning = false;
             let upgradeQueue = 0;
+            let unavailableRetries = 0;
+            const MAX_UNAVAILABLE_RETRIES = 80; // ~4 секунды ожидания при 100мс
+            const RETRY_DELAY = 100;
             let upgraded = 0;
             let timer: number | null = null;
             let lastItemSignature = '';
@@ -2351,6 +2355,19 @@
                         const text = span.textContent?.trim().toUpperCase() || '';
                         if (text === 'ЗАВЕРШЕНО' || text === 'COMPLETED') return true;
                     }
+                }
+                return false;
+            }
+
+            function isUnavailableButton() {
+                const btns = document.querySelectorAll('.SquarePriceButtonComponentStyle-commonBlockButton');
+                for (let i = 0; i < btns.length; i++) {
+                    const btn = btns[i];
+                    if (btn.closest('.TanksPartBaseComponentStyle-marginTop'))
+                        continue;
+                    const text = (btn.textContent || '').toLowerCase();
+                    if (text.includes('недоступно') || text.includes('unavailable'))
+                        return true;
                 }
                 return false;
             }
@@ -2523,53 +2540,87 @@
                 document.addEventListener('mouseup', onMouseUp, true);
             }
 
-            function performAction(count: number) {
+            function performAction(count) {
                 if (isRunning) return;
                 if (!shouldShowQuickButtons()) return;
-                
+
                 showConfirmDialog(count, () => {
                     isRunning = true;
                     upgradeQueue = count;
                     upgraded = 0;
-                    
+                    let isWaitingForDialogClose = false; // Блокировка до полного закрытия окна
+
                     function doStep() {
                         if (!isRunning) { finish(); return; }
-                        
+
+                        // 1. Ждем, пока модульное окно полностью исчезнет после подтверждения
+                        if (isWaitingForDialogClose) {
+                            if (isDialogOpen()) {
+                                timer = window.setTimeout(doStep, DELAY);
+                                return;
+                            }
+                            isWaitingForDialogClose = false;
+                        }
+
                         if (isMaxLevel()) { finish(); return; }
-                        
-                        if (isCompleted() && !isDialogOpen()) {
+                        if (isCompleted() && !isDialogOpen()) { finish(); return; }
+
+                        // 2. Если кнопка не готова (переходное состояние или "Недоступно") - просто ждем
+                        if (!shouldShowQuickButtons() && !isDialogOpen()) {
+                            if (unavailableRetries < MAX_UNAVAILABLE_RETRIES) {
+                                unavailableRetries++;
+                                timer = window.setTimeout(doStep, RETRY_DELAY);
+                                return;
+                            }
+                            finish(); // Таймаут ожидания
+                            return;
+                        }
+
+                        unavailableRetries = 0;
+
+                        // 3. Проверка достижения нужного количества шагов
+                        if (upgraded >= upgradeQueue) {
+                            finish();
+                            return;
+                        }
+
+                        // 4. Окно открыто - подтверждаем улучшение
+                        if (isDialogOpen()) {
+                            if (isRubyButton()) {
+                                clickCancel();
+                                finish();
+                                return;
+                            }
+                            if (hasNormalButton()) {
+                                clickConfirmButton();
+                                upgraded++;
+                                isWaitingForDialogClose = true;
+                                timer = window.setTimeout(doStep, DELAY);
+                                return;
+                            }
+                            pressEnter();
+                            upgraded++;
+                            isWaitingForDialogClose = true;
                             timer = window.setTimeout(doStep, DELAY);
                             return;
                         }
 
-                        if (!shouldShowQuickButtons() && !isDialogOpen()) { finish(); return; }
-                        if (upgraded >= upgradeQueue) { finish(); return; }
-                        
-                        if (isDialogOpen()) {
-                            if (isRubyButton()) { clickCancel(); finish(); return; }
-                            if (hasNormalButton()) { 
-                                clickConfirmButton(); 
-                                upgraded++; 
-                                timer = window.setTimeout(doStep, DELAY); 
-                                return; 
-                            }
-                            pressEnter(); 
-                            upgraded++; 
-                            timer = window.setTimeout(doStep, DELAY); 
-                            return;
-                        }
-                        
+                        // 5. Окно закрыто, кнопка доступна - открываем диалог
                         pressEnter();
-                        upgraded++;
+                        // Здесь мы НЕ делаем upgraded++, так как только запросили открытие окна
                         timer = window.setTimeout(doStep, DELAY);
                     }
 
                     function finish() {
                         isRunning = false;
                         upgradeQueue = 0;
-                        if (timer) { window.clearTimeout(timer); timer = null; }
+                        unavailableRetries = 0;
+                        if (timer) {
+                            window.clearTimeout(timer);
+                            timer = null;
+                        }
                     }
-                    
+
                     timer = window.setTimeout(doStep, DELAY);
                 });
             }
@@ -2647,14 +2698,22 @@
 
                     categorySwitchTimeout = window.setTimeout(() => { isCategorySwitch = false; }, 2000);
 
-                    document.addEventListener('click', (e: MouseEvent) => {
-                        const target = e.target as HTMLElement;
-                        if (!target) return;
-                        if (target.closest('#quick-upgrade-overlay')) return;
+                    document.addEventListener('click', (e) => {
+                        const target = e.target;
+                        if (!(target instanceof Element))
+                            return;
+                        if (target.closest('#quick-upgrade-overlay'))
+                            return;
+                            
+                        let menuCategory = target.closest('.MenuComponentStyle-mainMenuItem');
                         
-                        const menuCategory = target.closest('.MenuComponentStyle-mainMenuItem');
-                        const mainGarageBlock = target.closest('[class*="MountedItemsStyle-commonBlock"], .tt-garage-paints-button');
-                        const itemElement = target.closest('[class*="Item"], [class*="card"], [class*="Garage"]');
+                        // Если кликнули по уже активной вкладке - игнорируем, это не смена категории
+                        if (menuCategory && menuCategory.classList.contains('-activeMenu')) {
+                            menuCategory = null;
+                        }
+                        
+                        const mainGarageBlock = target.closest('[class*="MountedItemsStyle-commonBlock"]');
+                        const itemElement = target.closest('[class*="Item"], [class*="item"], [class*="Equipment"], [class*="equipment"]');
                         const backButton = target.closest('.BreadcrumbsComponentStyle-backButton, .IconStyle-iconBackArrow, [class*="backButton" i]');
                         
                         if (menuCategory || mainGarageBlock || backButton) {
@@ -4585,6 +4644,7 @@
         }
         if (document.querySelector('.GarageCommonStyle-positionContent, .ContainerInfoComponentStyle-lootBoxContainer')) {
             modules.augmentSpecs();
+            modules.autoUpgrade();
         }
 
         if (!isMasterUpdateScheduled) {
