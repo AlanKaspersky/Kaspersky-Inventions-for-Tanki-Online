@@ -18,5 +18,36 @@ and merge this Software into their project.
 3. DISCLAIMER OF WARRANTY
 THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, 
 BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. 
-IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, 
-OR CONSEQUENTIAL DAMAGES ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ DAMAGES ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+OFFICIAL DISCLAIMER AND USER AGREEMENT
+
+By downloading, installing, and using the “Kaspersky's Inventions” extension (hereinafter the “Extension”), 
+you automatically and unconditionally accept the following terms:
+
+1. Provision on an “AS IS” Basis:
+The Extension is provided to the user in its current state, without any express or implied warranties. 
+The author does not warrant uninterrupted operation of the code, absence of errors, or continued compatibility
+of the Extension upon the release of new updates to the game “Tanki Online.”
+
+2. Complete Limitation of Liability:
+Under no circumstances shall the author of the Extension bear any legal, financial, or other liability 
+for any direct, indirect, incidental, or consequential damages arising out of or in connection with 
+the use of or inability to use this software.
+
+3. Assumption of Risk by the User:
+The user acknowledges that they use this third-party modification at their own risk. 
+All responsibility for possible consequences rests entirely with the user. Such consequences include, 
+but are not limited to: technical malfunctions, browser instability, reduced frame rate (FPS), 
+as well as possible disciplinary measures (including suspension of account) on the part of the 
+administration of the original game for violation of its User Agreement.
+
+4. Independent Status:
+This software is an independent development created solely for integration with the “Tanki Tweaks” 
+project and is in no way affiliated with, approved by, or supported by the official developers 
+or rights holders of the game “Tanki Online.”
+
+Continued installation or use of the Extension constitutes your full acceptance of these terms. 
+If you do not agree with the provisions of this document, you must refrain from installing 
+the Extension or immediately delete it from your device.
