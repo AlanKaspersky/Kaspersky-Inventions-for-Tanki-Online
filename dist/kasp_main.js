@@ -3,6 +3,52 @@
     'use strict';
     if (window !== window.top)
         return;
+    const isElectronClient = (() => {
+        try {
+            if (navigator.userAgent && navigator.userAgent.indexOf('Electron') !== -1)
+                return true;
+            if (window.process && typeof window.process === 'object' && window.process.type)
+                return true;
+        }
+        catch (_) { }
+        return false;
+    })();
+    if (isElectronClient) {
+        const dispatchZKey = (type) => {
+            const event = new KeyboardEvent(type, {
+                key: 'z',
+                code: 'KeyZ',
+                keyCode: 90,
+                which: 90,
+                bubbles: true,
+                cancelable: true,
+                composed: true
+            });
+            document.dispatchEvent(event);
+        };
+        document.addEventListener('mousedown', (e) => {
+            if (e.button !== 3 && e.button !== 4)
+                return;
+            const ae = document.activeElement;
+            if (ae instanceof HTMLElement &&
+                (ae.tagName === 'INPUT' ||
+                    ae.tagName === 'TEXTAREA' ||
+                    ae.tagName === 'SELECT' ||
+                    ae.isContentEditable))
+                return;
+            e.preventDefault();
+            dispatchZKey('keydown');
+            dispatchZKey('keyup');
+        }, true);
+        document.addEventListener('mouseup', (e) => {
+            if (e.button === 3 || e.button === 4)
+                e.preventDefault();
+        }, true);
+        document.addEventListener('click', (e) => {
+            if (e.button === 3 || e.button === 4)
+                e.preventDefault();
+        }, true);
+    }
     const loaderBg = chrome.runtime.getURL("assets/background.png");
     document.documentElement.style.setProperty('--kasp-loader-bg', `url("${loaderBg}")`);
     const DataLoader = (() => {
@@ -10,16 +56,18 @@
             paints: null,
             augments: null,
             maps: null,
+            skins: null,
             shared: null,
             ready: false,
             error: null,
         };
         const readyPromise = (async () => {
             try {
-                const [paintsRes, augmentsRes, mapsRes] = await Promise.all([
+                const [paintsRes, augmentsRes, mapsRes, skinsRes] = await Promise.all([
                     fetch(chrome.runtime.getURL('database/paints.json')),
                     fetch(chrome.runtime.getURL('database/augments.json')),
                     fetch(chrome.runtime.getURL('database/maps.json')),
+                    fetch(chrome.runtime.getURL('database/skins.json')),
                 ]);
                 if (!paintsRes.ok)
                     throw new Error('paints.json: HTTP ' + paintsRes.status);
@@ -27,6 +75,8 @@
                     throw new Error('augments.json: HTTP ' + augmentsRes.status);
                 if (!mapsRes.ok)
                     throw new Error('maps.json: HTTP ' + mapsRes.status);
+                if (!skinsRes.ok)
+                    throw new Error('skins.json: HTTP ' + skinsRes.status);
                 state.paints = await paintsRes.json();
                 const augRaw = await augmentsRes.json();
                 state.shared = augRaw._shared || {};
@@ -48,10 +98,11 @@
                         byEn.set(entry.en.toLowerCase(), entry);
                 }
                 state.maps = { list: mapsRaw, byRu, byEn };
+                state.skins = await skinsRes.json();
                 state.ready = true;
                 console.log(`[KI] DB loaded: paints=${Object.keys(state.paints).length}, ` +
                     `augments=${Object.keys(state.augments).length}, ` +
-                    `maps=${mapsRaw.length}`);
+                    `maps=${mapsRaw.length}`, `skins=${Object.keys(state.skins.database).length}`);
             }
             catch (e) {
                 state.error = e;
@@ -79,6 +130,7 @@
                 const key = String(rawName).trim().toLowerCase();
                 return state.maps.byRu.get(key) || state.maps.byEn.get(key) || null;
             },
+            getSkinsData: () => state.skins,
         };
     })();
     const state = {
@@ -94,7 +146,8 @@
         'k_friends',
         'k_paints',
         'k_hideCurrency',
-        'k_hideNicknameXP'
+        'k_hideNicknameXP',
+        'k_history'
     ];
     const settingsCache = new Map();
     function readSetting(id, def) {
@@ -1162,7 +1215,6 @@
                         .MainScreenComponentStyle-playButtonContainer div[class*="ksc-"],
                         .MainScreenComponentStyle-playButtonContainer [class*="lock"]:not(.main-lock-icon),
                         .MainScreenComponentStyle-playButtonContainer img[src*="lock"] { display: none !important; }
-                        .ClientInfoComponentStyle-container { display: none !important; }
                         .custom-inner-btn > *:not(.custom-main-bg-layer):not(.main-lock-icon):not(.custom-main-text) { display: none !important; }
                         .MainScreenComponentStyle-playButtonContainer:not([data-overridden="true"]) { opacity: 0 !important; pointer-events: none !important; }
                         
@@ -2338,7 +2390,7 @@
                 if (isMaxLevel())
                     return false;
                 if (isCompleted())
-                    return true;
+                    return false;
                 const buttonsContainer = document.querySelector('.TanksPartBaseComponentStyle-buttonsContainer');
                 if (!buttonsContainer)
                     return false;
@@ -2848,113 +2900,10 @@
         customGarageSkins: (() => {
             const STORAGE_KEY = 'kasp_equipped_skins';
             const BASE_IMG_KEY = 'kasp_base_images';
-            const SKIN_BRANDS_MAP = {
-                'https://s.eu.tankionline.com/614/34717/306/41/30607167046040/image.svg': 'default',
-                'https://s.eu.tankionline.com/605/161575/257/125/30275543521753/image.svg': 'xt',
-                'https://s.eu.tankionline.com/604/26114/260/116/30205423172265/image.svg': 'xtHD',
-                'https://s.eu.tankionline.com/604/26114/260/112/30205423211144/image.svg': 'prime',
-                'https://s.eu.tankionline.com/604/26114/260/103/30205423172266/image.svg': 'gt',
-                'https://s.eu.tankionline.com/604/26114/260/114/30205423171703/image.svg': 'sp',
-                'https://s.eu.tankionline.com/604/26114/260/115/30205423171700/image.svg': 'legacy',
-                'https://s.eu.tankionline.com/604/26114/260/111/30205423171761/image.svg': 'rf',
-                'https://s.eu.tankionline.com/604/26114/260/120/30205423171677/image.svg': 'ultra',
-                'https://s.eu.tankionline.com/623/157032/211/246/31173606567127/image.svg': 'dk',
-                'https://s.eu.tankionline.com/605/166565/337/2/30275535357510/image.svg': 'ic',
-                'https://s.eu.tankionline.com/604/26114/260/117/30271053650212/image.svg': 'demonic',
-                'none': 'demoncOLD',
-                'none1': 'vt',
-                'none2': 'se'
-            };
-            const NAME_TRANSLATE = {
-                "огнемёт": "firebird", "firebird": "firebird",
-                "фриз": "freeze", "freeze": "freeze",
-                "изида": "isida", "isida": "isida",
-                "тесла": "tesla", "tesla": "tesla",
-                "молот": "hammer", "hammer": "hammer",
-                "твинс": "twins", "twins": "twins",
-                "рикошет": "ricochet", "ricochet": "ricochet",
-                "вулкан": "vulcan", "vulcan": "vulcan",
-                "смоки": "smoky", "smoky": "smoky",
-                "страйкер": "striker", "striker": "striker",
-                "гром": "thunder", "thunder": "thunder",
-                "цунами": "tsunami", "tsunami": "tsunami",
-                "скорпион": "scorpion", "scorpion": "scorpion",
-                "магнум": "magnum", "magnum": "magnum",
-                "рельса": "railgun", "railgun": "railgun",
-                "гаусс": "gauss", "gauss": "gauss",
-                "шафт": "shaft", "shaft": "shaft",
-                "васп": "wasp", "wasp": "wasp",
-                "хоппер": "hopper", "hopper": "hopper",
-                "хорнет": "hornet", "hornet": "hornet",
-                "викинг": "viking", "viking": "viking",
-                "крусейдер": "crusader", "crusader": "crusader",
-                "хантер": "hunter", "hunter": "hunter",
-                "паладин": "paladin", "paladin": "paladin",
-                "диктатор": "dictator", "dictator": "dictator",
-                "титан": "titan", "titan": "titan",
-                "арес": "ares", "ares": "ares",
-                "мамонт": "mammoth", "mammoth": "mammoth"
-            };
-            const PREFILLED_DEFAULTS = {
-                "firebird": "https://s.eu.tankionline.com/0/114/134/163/27571212744112/image.webp",
-                "freeze": "https://s.eu.tankionline.com/575/156205/46/235/27673441764603/image.webp",
-                "isida": "https://s.eu.tankionline.com/605/12650/335/51/30242554322574/image.webp",
-                "tesla": "https://s.eu.tankionline.com/571/164753/344/273/31254566614710/image.webp",
-                "hammer": "https://s.eu.tankionline.com/611/147301/37/346/30471660553063/image.webp",
-                "twins": "https://s.eu.tankionline.com/575/72153/171/306/27656433310704/image.webp",
-                "ricochet": "https://s.eu.tankionline.com/603/146215/116/130/30171443247472/image.webp",
-                "vulcan": "https://s.eu.tankionline.com/622/115017/367/224/31123203774154/image.webp",
-                "smoky": "https://s.eu.tankionline.com/566/114246/64/16/27323052543056/image.webp",
-                "striker": "https://s.eu.tankionline.com/626/176502/177/71/31337521147306/image.webp",
-                "thunder": "https://s.eu.tankionline.com/601/112676/250/233/30062557707304/image.webp",
-                "tsunami": "https://s.eu.tankionline.com/633/142777/142/76/31570600103535/image.webp",
-                "scorpion": "https://s.eu.tankionline.com/601/17263/233/51/30043654742567/image.webp",
-                "magnum": "https://s.eu.tankionline.com/632/23036/322/273/31504607631061/image.webp",
-                "railgun": "https://s.eu.tankionline.com/567/105205/202/144/27361241363510/image.webp",
-                "gauss": "https://s.eu.tankionline.com/611/61722/256/267/30454367266373/image.webp",
-                "shaft": "https://s.eu.tankionline.com/622/43505/151/101/31110721265007/image.webp",
-                "wasp": "https://s.eu.tankionline.com/576/154321/271/157/27733064335367/image.webp",
-                "hopper": "https://s.eu.tankionline.com/576/154317/260/212/27733063731464/image.webp",
-                "hornet": "https://s.eu.tankionline.com/566/70102/323/356/27316026113551/image.webp",
-                "viking": "https://s.eu.tankionline.com/576/154321/207/23/27733064304256/image.webp",
-                "crusader": "https://s.eu.tankionline.com/566/43504/240/13/27310721146137/image.webp",
-                "hunter": "https://s.eu.tankionline.com/567/167060/364/46/27375614356144/image.webp",
-                "paladin": "https://s.eu.tankionline.com/573/71447/126/57/27602130021260/image.webp",
-                "dictator": "https://s.eu.tankionline.com/602/61754/171/44/30114373231460/image.webp",
-                "titan": "https://s.eu.tankionline.com/606/26070/125/222/30305416231374/image.webp",
-                "ares": "https://s.eu.tankionline.com/576/154316/224/223/27733063513342/image.webp",
-                "mammoth": "https://s.eu.tankionline.com/576/154320/262/304/30015725757347/image.webp"
-            };
-            const SKINS_DATABASE = {
-                "firebird": { "demonicOLD": "https://s.eu.tankionline.com/554/36647/151/167/27006222101177/image.webp", "xt": "https://s.eu.tankionline.com/544/55322/150/54/27006221137650/image.webp", "legacy": "https://s.eu.tankionline.com/606/154713/267/332/30333162755774/image.webp", "demonic": "https://s.eu.tankionline.com/574/111735/366/251/27623012454350/image.webp", "gt": "https://s.eu.tankionline.com/620/113220/245/225/31022644221725/image.webp" },
-                "freeze": { "dk": "https://s.eu.tankionline.com/626/144354/353/307/31331073273517/image.webp", "xtHD": "https://s.eu.tankionline.com/607/136170/201/132/30367436101741/image.webp", "xt": "https://s.eu.tankionline.com/545/127240/164/131/27006221125546/image.webp", "legacy": "https://s.eu.tankionline.com/605/14617/124/244/30243144544374/image.webp", "gt": "https://s.eu.tankionline.com/613/151460/263/146/30572314246641/image.webp" },
-                "isida": { "gt": "https://s.eu.tankionline.com/605/12655/270/305/30242555267625/image.webp", "xt": "https://s.eu.tankionline.com/547/121300/6/347/27006221135010/image.webp", "legacy": "https://s.eu.tankionline.com/606/155040/264/51/30333211016074/image.webp" },
-                "tesla": { "dk": "https://s.eu.tankionline.com/626/144357/43/323/31331073650002/image.webp", "xtHD": "https://s.eu.tankionline.com/571/164753/344/275/27475173126262/image.webp", "legacy": "https://s.eu.tankionline.com/604/60403/370/223/30214100775564/image.webp", "gt": "https://s.eu.tankionline.com/625/62773/333/270/31254577056311/image.webp", "rf": "https://s.eu.tankionline.com/616/165265/171/30/30735255276301/image.webp" },
-                "hammer": { "xt": "https://s.eu.tankionline.com/550/160444/177/127/27006221137644/image.webp", "legacy": "https://s.eu.tankionline.com/601/170515/147/375/30076123457044/image.webp", "gt": "https://s.eu.tankionline.com/623/151752/54/57/31172372477451/image.webp", "ic": "https://s.eu.tankionline.com/623/44445/126/376/31151111305122/image.webp", "sp": "https://s.eu.tankionline.com/627/73466/221/246/31356720510241/image.webp" },
-                "twins": { "xt": "https://s.eu.tankionline.com/547/35522/366/217/27006221446573/image.webp", "gt": "https://s.eu.tankionline.com/617/166341/206/340/30775470305001/image.webp", "legacy": "https://s.eu.tankionline.com/577/157474/222/174/27773717305444/image.webp" },
-                "ricochet": { "xt": "https://s.eu.tankionline.com/546/5476/203/247/27006221247376/image.webp", "legacy": "https://s.eu.tankionline.com/556/131237/223/64/27006221307447/image.webp", "gt": "https://s.eu.tankionline.com/623/45325/56/35/31151265266217/image.webp", "rf": "https://s.eu.tankionline.com/577/177107/117/226/27777622231563/image.webp" },
-                "vulcan": { "xt": "https://s.eu.tankionline.com/544/131127/26/163/27006222634650/image.webp", "prime": "https://s.eu.tankionline.com/556/15757/64/213/27006222451123/image.webp", "legacy": "https://s.eu.tankionline.com/624/106557/304/114/31221533775405/image.webp", "demonic": "https://s.eu.tankionline.com/613/14030/7/251/30543006303434/image.webp", "ultra": "https://s.eu.tankionline.com/560/31363/210/360/27006276703643/image.webp", "gt": "https://s.eu.tankionline.com/634/157107/355/324/31633622047562/image.webp" },
-                "smoky": { "xt": "https://s.eu.tankionline.com/545/14700/243/147/27006221742756/image.webp", "legacy": "https://s.eu.tankionline.com/577/174061/352/42/27777017045677/image.webp", "gt": "https://s.eu.tankionline.com/607/136171/102/2/30367436242300/image.webp" },
-                "striker": { "xtHD": "https://s.eu.tankionline.com/626/144362/322/210/31331074604612/image.webp", "ultra": "https://s.eu.tankionline.com/570/167463/110/26/31357732440710/image.webp", "xt": "https://s.eu.tankionline.com/551/73161/220/371/27006221457234/image.webp", "dk": "https://s.eu.tankionline.com/632/133612/321/202/31526742641351/image.webp", "gt": "https://s.eu.tankionline.com/632/57062/203/123/31634075062157/image.webp" },
-                "thunder": { "vt": "https://s.eu.tankionline.com/640/34054/106/324/32007013066364/image.webp", "dk": "https://s.eu.tankionline.com/624/130241/231/170/31247407370544/image.webp", "xt": "https://s.eu.tankionline.com/544/23374/230/164/27006222346434/image.webp", "legacy": "https://s.eu.tankionline.com/545/14701/163/26/27006222440647/image.webp", "gt": "https://s.eu.tankionline.com/603/104200/223/77/30161040124106/image.webp", "ultra": "https://s.eu.tankionline.com/556/23371/256/376/27006222447074/image.webp", "prime": "https://s.eu.tankionline.com/557/14337/235/24/27006221273433/image.webp", "xtHD": "https://s.eu.tankionline.com/617/134472/113/230/30767117003724/image.webp" },
-                "tsunami": { "dk": "https://s.eu.tankionline.com/636/15624/303/133/31704534736504/image.webp" },
-                "scorpion": { "rf": "https://s.eu.tankionline.com/627/130243/173/41/31366050734726/image.webp", "dk": "https://s.eu.tankionline.com/626/144356/211/215/31331073550674/image.webp", "xtHD": "https://s.eu.tankionline.com/602/142236/225/135/30131263063453/image.webp", "gt": "https://s.eu.tankionline.com/634/160574/373/213/31634137213712/image.webp" },
-                "magnum": { "sp": "https://s.eu.tankionline.com/612/43174/244/260/30510637124120/image.webp", "xt": "https://s.eu.tankionline.com/550/75116/121/115/27006222156612/image.webp" },
-                "railgun": { "gt": "https://s.eu.tankionline.com/606/155010/246/46/30333202253104/image.webp", "legacy": "https://s.eu.tankionline.com/550/121477/171/157/27006221327105/image.webp", "xt": "https://s.eu.tankionline.com/544/23374/101/240/27006222467365/image.webp", "ultra": "https://s.eu.tankionline.com/557/14216/302/47/27006222235365/image.webp", "prime": "https://s.eu.tankionline.com/554/45667/335/160/27006221506161/image.webp" },
-                "gauss": { "rf": "https://s.eu.tankionline.com/635/24770/75/171/31645176163053/image.webp", "xt": "https://s.eu.tankionline.com/560/166470/223/123/27035516206046/image.webp", "prime": "https://s.eu.tankionline.com/554/43164/134/365/27006222545045/image.webp", "gt": "https://s.eu.tankionline.com/613/151460/263/2/30572765264737/image.webp", "ultra": "https://s.eu.tankionline.com/563/60021/200/371/27154004322450/image.webp", "ic": "https://s.eu.tankionline.com/614/101074/51/272/30620217025776/image.webp" },
-                "shaft": { "legacy": "https://s.eu.tankionline.com/600/172117/242/22/30036424407361/image.webp", "xt": "https://s.eu.tankionline.com/546/76262/360/74/27006221440464/image.webp", "gt": "https://s.eu.tankionline.com/623/152641/25/44/31172550417505/image.webp" },
-                "wasp": { "legacy": "https://s.eu.tankionline.com/577/174061/352/34/27777016754412/image.webp", "xt": "https://s.eu.tankionline.com/544/55321/27/365/27006221715450/image.webp", "gt": "https://s.eu.tankionline.com/620/113057/312/163/31022614272635/image.webp" },
-                "hopper": { "dk": "https://s.eu.tankionline.com/634/21124/213/143/31604256121143/image.webp", "xtHD": "https://s.eu.tankionline.com/564/44403/372/46/27221401755636/image.webp", "rf": "https://s.eu.tankionline.com/616/165266/42/215/30735255423342/image.webp" },
-                "hornet": { "xtHD": "https://s.eu.tankionline.com/623/132270/76/254/31166456253644/image.webp", "xt": "https://s.eu.tankionline.com/544/23373/367/174/27006221615421/image.webp", "ultra": "https://s.eu.tankionline.com/562/167731/132/2/27135766300240/image.webp", "gt": "https://s.eu.tankionline.com/605/27506/77/266/30245722451746/image.webp", "legacy": "https://s.eu.tankionline.com/554/36653/207/221/27006221767456/image.webp", "sp": "https://s.eu.tankionline.com/636/174463/275/327/31737115153727/image.webp", "dk": "https://s.eu.tankionline.com/626/144360/341/233/31331074463357/image.webp", "prime": "https://s.eu.tankionline.com/553/11125/61/23/27006221422730/image.webp" },
-                "viking": { "vt": "https://s.eu.tankionline.com/640/34117/212/274/32007023724174/image.webp", "xtHD": "https://s.eu.tankionline.com/606/162165/343/3/30334435362646/image.webp", "ultra": "https://s.eu.tankionline.com/552/63515/71/331/27006222526007/image.webp", "xt": "https://s.eu.tankionline.com/544/23374/341/44/27006221645475/image.webp", "legacy": "https://s.eu.tankionline.com/545/14701/310/206/27006221256304/image.webp", "gt": "https://s.eu.tankionline.com/603/101654/323/65/30160353152727/image.webp", "dk": "https://s.eu.tankionline.com/624/130241/112/33/31243624274176/image.webp", "prime": "https://s.eu.tankionline.com/557/14335/173/371/27006222537526/image.webp" },
-                "crusader": { "xtHD": "https://s.eu.tankionline.com/566/40735/240/67/27310167345113/image.webp", "rf": "https://s.eu.tankionline.com/607/24073/366/376/30345016775402/image.webp" },
-                "hunter": { "xt": "https://s.eu.tankionline.com/547/121275/335/127/27006222147461/image.webp", "legacy": "https://s.eu.tankionline.com/577/157474/222/171/27773717262060/image.webp", "sp": "https://s.eu.tankionline.com/632/72364/102/227/31516475423716/image.webp", "gt": "https://s.eu.tankionline.com/607/136171/1/41/30367436201726/image.webp", "prime": "https://s.eu.tankionline.com/554/155740/111/54/27006222537520/image.webp", "ultra": "https://s.eu.tankionline.com/561/116016/365/77/27063403712301/image.webp" },
-                "paladin": { "dk": "https://s.eu.tankionline.com/636/15627/202/330/31703345754725/image.webp", "xtHD": "https://s.eu.tankionline.com/573/71447/126/37/31645107310146/image.webp", "rf": "https://s.eu.tankionline.com/577/177107/117/225/27777622013534/image.webp" },
-                "dictator": { "xt": "https://s.eu.tankionline.com/553/20722/371/101/27006221171476/image.webp", "sp": "https://s.eu.tankionline.com/621/140410/154/251/31070103077064/image.webp", "legacy": "https://s.eu.tankionline.com/600/172117/242/15/31364321620222/image.webp", "gt": "https://s.eu.tankionline.com/606/154745/266/2/30333172146453/image.webp" },
-                "titan": { "xt": "https://s.eu.tankionline.com/545/43351/66/26/27006222061714/image.webp", "prime": "https://s.eu.tankionline.com/555/103066/317/332/27006222042503/image.webp", "gt": "https://s.eu.tankionline.com/623/45322/65/215/31151265113717/image.webp", "sp": "https://s.eu.tankionline.com/612/43367/221/355/30510675712024/image.webp", "legacy": "https://s.eu.tankionline.com/601/170515/147/372/30076123372407/image.webp" },
-                "ares": { "dk": "https://s.eu.tankionline.com/626/144353/222/354/31331072771326/image.webp", "xtHD": "https://s.eu.tankionline.com/562/161156/242/234/31331074061754/image.webp", "rf": "https://s.eu.tankionline.com/626/36656/275/136/31307553605617/image.webp" },
-                "mammoth": { "xt": "https://s.eu.tankionline.com/544/131126/51/354/27006221626237/image.webp", "sp": "https://s.eu.tankionline.com/573/113617/26/345/27562743700674/image.webp", "gt": "https://s.eu.tankionline.com/617/166341/256/13/30775470330175/image.webp", "legacy": "https://s.eu.tankionline.com/557/31406/53/112/27006222625462/image.webp", "ultra": "https://s.eu.tankionline.com/571/77135/256/372/27457627403320/image.webp" }
-            };
+            let SKIN_BRANDS_MAP = null;
+            let NAME_TRANSLATE = null;
+            let PREFILLED_DEFAULTS = null;
+            let SKINS_DATABASE = null;
             function getSavedSkins() {
                 try {
                     return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
@@ -3032,6 +2981,15 @@
             return () => {
                 if (state.currentScreen !== 'garage')
                     return;
+                if (!SKIN_BRANDS_MAP) {
+                    const data = DataLoader.getSkinsData();
+                    if (!data)
+                        return;
+                    SKIN_BRANDS_MAP = data.brands;
+                    NAME_TRANSLATE = data.names;
+                    PREFILLED_DEFAULTS = data.defaults;
+                    SKINS_DATABASE = data.database;
+                }
                 const defaultImages = getDefaultImages();
                 let defaultsUpdated = false;
                 const garageItems = document.querySelectorAll('.garage-item');
@@ -3061,7 +3019,8 @@
                 if (defaultsUpdated) {
                     localStorage.setItem(BASE_IMG_KEY, JSON.stringify(defaultImages));
                 }
-                const nameEl = document.querySelector('.ItemDescriptionComponentStyle-nameItem span, .GarageItemComponentStyle-descriptionDevice span');
+                const nameEl = document.querySelector('.ItemDescriptionComponentStyle-nameItem span')
+                    || document.querySelector('.garage-item.-active .GarageItemComponentStyle-descriptionDevice span');
                 if (nameEl) {
                     const rawName = nameEl.textContent.trim().toLowerCase();
                     const firstWord = rawName.split(/\s+/)[0];
@@ -3082,6 +3041,20 @@
                             else if (src.includes('ic_standard') || src.includes('standard')) {
                                 foundBrand = 'default';
                                 break;
+                            }
+                        }
+                        if (!foundBrand) {
+                            const previewImg = document.querySelector('.MountedItemsStyle-itemPreview, .ItemDescriptionComponentStyle-previewImg img');
+                            if (previewImg) {
+                                const currentSrc = previewImg.getAttribute('src') || '';
+                                if (SKINS_DATABASE[itemNameEN]) {
+                                    for (const [brand, url] of Object.entries(SKINS_DATABASE[itemNameEN])) {
+                                        if (url === currentSrc) {
+                                            foundBrand = brand;
+                                            break;
+                                        }
+                                    }
+                                }
                             }
                         }
                         if (foundBrand) {
@@ -3347,7 +3320,7 @@
             };
         })(),
         zeroResists: (() => {
-            const SHIELD_ICON_URL = chrome.runtime.getURL("assets/54bb1e72f5a61a0a5d6b.svg");
+            const SHIELD_ICON_URL = chrome.runtime.getURL("assets/modulesTAB.svg");
             const RESISTANCE_MAP = {
                 'mine': 'https://s.eu.tankionline.com/static/images/mine_resistance.dd581c90.svg',
                 'crit': 'https://s.eu.tankionline.com/static/images/crit_resistance.94e32312.svg',
@@ -4306,9 +4279,9 @@
                         if (rank > 0)
                             topVal = rank.toString();
                     }
-                    const score = parseInt(scoreText) || 0;
-                    const kills = parseInt(killsText) || 0;
-                    const deaths = parseInt(deathsText) || 0;
+                    const score = parseInt(scoreText.replace(/\s/g, '')) || 0;
+                    const kills = parseInt(killsText.replace(/\s/g, '')) || 0;
+                    const deaths = parseInt(deathsText.replace(/\s/g, '')) || 0;
                     const kd = deaths > 0 ? parseFloat((kills / deaths).toFixed(2)) : kills;
                     const crystals = parseInt((selfRow.querySelector('.BattleKillBoardComponentStyle-col7')?.textContent || '0').replace(/\s/g, '')) || 0;
                     const stars = parseInt(selfRow.querySelector('.BattleKillBoardComponentStyle-col8')?.textContent || '0') || 0;
@@ -4436,8 +4409,22 @@
             runHeavyModules();
         }, wait);
     };
+    function syncKillBoardDoubleHeader() {
+        const thead = document.querySelector('.BattleKillBoardComponentStyle-tableContainer table > thead');
+        if (!thead)
+            return;
+        if (thead.children.length === 1) {
+            const headRow = thead.children[0];
+            const clone = headRow.cloneNode(true);
+            clone.classList.add('kasp-cloned-header');
+            thead.appendChild(clone);
+        }
+    }
     const performMasterCheck = () => {
         isMasterUpdateScheduled = false;
+        const currentLang = utils.getLang();
+        if (currentLang !== state.lang)
+            applyLanguageChange();
         let newScreen = state.currentScreen;
         if (document.querySelector('.ApplicationLoaderComponentStyle-container')) {
             newScreen = 'loading';
@@ -4504,6 +4491,7 @@
         }
         if (state.currentScreen === 'match_results' || state.currentScreen === 'lobby') {
             modules.battleHistory();
+            syncKillBoardDoubleHeader();
         }
     };
     const masterObserver = new MutationObserver(() => {
@@ -4521,9 +4509,52 @@
             requestAnimationFrame(performMasterCheck);
         }
     });
+    const applyLanguageChange = () => {
+        const newLang = utils.getLang();
+        if (newLang === state.lang)
+            return;
+        state.lang = newLang;
+        lastFullRefresh = 0;
+        if (refreshScheduled)
+            refreshScheduled = false;
+        if (state.settingsOpen) {
+            const oldTab = document.getElementById('kaspersky-tab');
+            if (oldTab)
+                oldTab.remove();
+            const oldContent = document.getElementById('kaspersky-settings-content');
+            if (oldContent)
+                oldContent.remove();
+            const oldTooltip = document.getElementById('kaspersky-reload-tooltip');
+            if (oldTooltip)
+                oldTooltip.remove();
+            coreSettings.inject();
+        }
+        if (!isMasterUpdateScheduled) {
+            isMasterUpdateScheduled = true;
+            requestAnimationFrame(performMasterCheck);
+        }
+    };
     const boot = () => {
         state.lang = utils.getLang();
         masterObserver.observe(document.documentElement, { childList: true, subtree: true });
+        const langObserver = new MutationObserver(() => {
+            applyLanguageChange();
+        });
+        langObserver.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ['lang']
+        });
+        if (!document.documentElement.lang) {
+            document.addEventListener('DOMContentLoaded', () => {
+                applyLanguageChange();
+            }, { once: true });
+            window.setTimeout(() => {
+                applyLanguageChange();
+            }, 500);
+            window.setTimeout(() => {
+                applyLanguageChange();
+            }, 2000);
+        }
     };
     if (document.documentElement) {
         boot();

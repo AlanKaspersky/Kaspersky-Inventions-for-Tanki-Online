@@ -5,7 +5,11 @@
     background-repeat: no-repeat !important;
 }
 
-.-container, .-entranceGradient, .LobbyLoaderComponentStyle-container, .preloader, div#root.wrapper {
+.-container,
+.-entranceGradient,
+.LobbyLoaderComponentStyle-container,
+.preloader,
+div#root.wrapper {
     background: radial-gradient(rgb(39 39 39) 0%, rgb(3, 8, 13) 100%) !important;
 }
 
@@ -21,7 +25,10 @@
     background-color: rgb(255 255 255) !important;
 }
 
-.SquarePriceButtonComponentStyle-discountLabel, span.-discount.-medium.-flexCenterAlignCenter, .SuppliesComponentStyle-discountLabel, .PrimaryMenuItemComponentStyle-discountNotification {
+.SquarePriceButtonComponentStyle-discountLabel,
+span.-discount.-medium.-flexCenterAlignCenter,
+.SuppliesComponentStyle-discountLabel,
+.PrimaryMenuItemComponentStyle-discountNotification {
     background-color: rgb(255 255 255) !important;
 }
 
@@ -29,20 +36,36 @@
     color: rgb(0 0 0) !important;
 }
 
-.ApplicationLoaderComponentStyle-container > div[style*="linear-gradient"] {
+.ApplicationLoaderComponentStyle-container>div[style*="linear-gradient"] {
     background: linear-gradient(rgba(0, 25, 38, 0) 0%, rgba(18, 18, 18, 0.75) 100%) !important;
 }
 
 @keyframes kasp-btn-anim {
-    0%   { background-color: rgb(255, 255, 255); }
-    50%  { background-color: rgba(255, 255, 255, 0.8); }
-    100% { background-color: rgb(255, 255, 255); }
+    0% {
+        background-color: rgb(255, 255, 255);
+    }
+
+    50% {
+        background-color: rgba(255, 255, 255, 0.8);
+    }
+
+    100% {
+        background-color: rgb(255, 255, 255);
+    }
 }
 
 @keyframes kasp-btn-anim-gray {
-    0%   { background-color: rgb(218, 218, 218); }
-    50%  { background-color: rgba(255, 255, 255, 0.7); }
-    100% { background-color: rgb(218, 218, 218); }
+    0% {
+        background-color: rgb(218, 218, 218);
+    }
+
+    50% {
+        background-color: rgba(255, 255, 255, 0.7);
+    }
+
+    100% {
+        background-color: rgb(218, 218, 218);
+    }
 }
 
 .GarageCommonStyle-bigActionButton,
@@ -50,14 +73,17 @@
     background-image: none !important;
     transition: none !important;
 }
+
 .GarageCommonStyle-bigActionButton:not(.kasp-active-btn):not(.kasp-disabled-btn),
 .AlterationButtonStyle-commonButton:not(.kasp-active-btn):not(.kasp-disabled-btn) {
     background-color: rgb(218, 218, 218) !important;
 }
+
 .GarageCommonStyle-bigActionButton:first-child:not(.kasp-active-btn):not(.kasp-disabled-btn),
 .AlterationButtonStyle-commonButton:first-child:not(.kasp-active-btn):not(.kasp-disabled-btn) {
     background-color: rgb(255, 255, 255) !important;
 }
+
 .GarageCommonStyle-bigActionButton:not(.kasp-active-btn):not(.kasp-disabled-btn) [class*="-backgroundImage"],
 .AlterationButtonStyle-commonButton:not(.kasp-active-btn):not(.kasp-disabled-btn) [class*="-backgroundImage"] {
     opacity: 0 !important;
@@ -69,14 +95,17 @@
     box-shadow: rgb(255 255 255 / 25%) 0em 0em 0em 0.063em !important;
     pointer-events: auto !important;
 }
+
 .GarageCommonStyle-bigActionButton.kasp-active-btn.kasp-btn-white,
 .AlterationButtonStyle-commonButton.kasp-active-btn.kasp-btn-white {
     background-color: rgb(255, 255, 255) !important;
 }
+
 .GarageCommonStyle-bigActionButton.kasp-active-btn.kasp-btn-gray,
 .AlterationButtonStyle-commonButton.kasp-active-btn.kasp-btn-gray {
     background-color: rgb(218, 218, 218) !important;
 }
+
 .GarageCommonStyle-bigActionButton.kasp-active-btn:hover,
 .AlterationButtonStyle-commonButton.kasp-active-btn:hover {
     background-color: rgb(197, 197, 197) !important;
@@ -87,10 +116,12 @@
 .AlterationButtonStyle-commonButton.kasp-active-btn.kasp-hover-up:hover .-backgroundImage {
     transform: translateY(-0.4em) !important;
 }
+
 .GarageCommonStyle-bigActionButton.kasp-active-btn.kasp-hover-down:hover .-backgroundImage,
 .AlterationButtonStyle-commonButton.kasp-active-btn.kasp-hover-down:hover .-backgroundImage {
     transform: translateY(0.4em) !important;
 }
+
 .GarageCommonStyle-bigActionButton.kasp-active-btn .-backgroundImage,
 .AlterationButtonStyle-commonButton.kasp-active-btn .-backgroundImage {
     transition: transform 0.2s ease !important;
@@ -134,14 +165,14 @@
 
 .GarageCommonStyle-bigActionButton,
 .AlterationButtonStyle-commonButton,
-#quick-buttons > div {
+#quick-buttons>div {
     position: relative !important;
-    overflow: hidden !important; 
+    overflow: hidden !important;
 }
 
 .GarageCommonStyle-bigActionButton::after,
 .AlterationButtonStyle-commonButton::after,
-#quick-buttons > div::after {
+#quick-buttons>div::after {
     content: "";
     position: absolute;
     top: 0;
@@ -156,18 +187,23 @@
 
 .GarageCommonStyle-bigActionButton:hover::after,
 .AlterationButtonStyle-commonButton:hover::after,
-#quick-buttons > div:hover::after {
+#quick-buttons>div:hover::after {
     animation: kasp-metal-shine 0.6s ease-in-out forwards;
 }
 
 @keyframes kasp-metal-shine {
-    0% { left: -150%; }
-    100% { left: 200%; }
+    0% {
+        left: -150%;
+    }
+
+    100% {
+        left: 200%;
+    }
 }
 
-.GarageCommonStyle-bigActionButton > *,
-.AlterationButtonStyle-commonButton > *,
-#quick-buttons > div > span {
+.GarageCommonStyle-bigActionButton>*,
+.AlterationButtonStyle-commonButton>*,
+#quick-buttons>div>span {
     position: relative;
     z-index: 2;
 }
@@ -177,12 +213,12 @@
     margin-left: 0.25em !important;
 }
 
-.TanksPartComponentStyle-tankPartUpgrades .-flexSpaceBetweenAlignStretch > div > div:nth-child(2) {
-    background-color: rgb(147 147 147) !important; 
+.TanksPartComponentStyle-tankPartUpgrades .-flexSpaceBetweenAlignStretch>div>div:nth-child(2) {
+    background-color: rgb(147 147 147) !important;
     border-radius: 6.25em !important;
 }
 
-.TanksPartComponentStyle-tankPartUpgrades .-flexSpaceBetweenAlignStretch > div > div:nth-child(3) {
+.TanksPartComponentStyle-tankPartUpgrades .-flexSpaceBetweenAlignStretch>div>div:nth-child(3) {
     background-color: rgb(159 159 159 / 25%) !important;
     border-radius: 6.25em !important;
 }
@@ -215,11 +251,11 @@ img[class*="TankParametersStyle-iconGS"] {
 .PrimaryMenuItemComponentStyle-itemCommonLi {
     position: relative !important;
     border-radius: 0.5em !important;
-    
+
     overflow: hidden !important;
-    
+
     transition: background-color 0.2s ease, box-shadow 0.2s ease !important;
-    
+
     box-shadow: rgba(255, 255, 255, 0.25) 0em 0em 0em 0.063em !important;
 }
 
@@ -245,7 +281,7 @@ img[class*="TankParametersStyle-iconGS"] {
     animation: kasp-metal-shine 0.6s ease-in-out !important;
 }
 
-.PrimaryMenuItemComponentStyle-itemCommonLi > * {
+.PrimaryMenuItemComponentStyle-itemCommonLi>* {
     position: relative !important;
     z-index: 4 !important;
     transition: transform 0.2s ease !important;
@@ -273,7 +309,7 @@ span.PrimaryMenuItemComponentStyle-itemName {
 .PrimaryMenuItemComponentStyle-itemLiContainers,
 .PrimaryMenuItemComponentStyle-itemLiOption {
     margin-left: 0.565em !important;
-    background-color:rgb(0, 0, 0) !important;
+    background-color: rgb(0, 0, 0) !important;
 }
 
 .PrimaryMenuItemComponentStyle-itemCommonLi:hover div {
@@ -323,7 +359,7 @@ span.PrimaryMenuItemComponentStyle-itemName {
     animation: kasp-metal-shine 0.6s ease-in-out !important;
 }
 
-.FooterComponentStyle-footer li > * {
+.FooterComponentStyle-footer li>* {
     position: relative !important;
     z-index: 4 !important;
 }
@@ -344,7 +380,9 @@ span.PrimaryMenuItemComponentStyle-itemName {
     transform: translateY(-0.2em) !important;
 }
 
-img.PrimaryMenuItemComponentStyle-notificationIconNewNews, .MainScreenComponentStyle-noNew, img.MainScreenComponentStyle-new.FooterComponentStyle-marginEllips {
+img.PrimaryMenuItemComponentStyle-notificationIconNewNews,
+.MainScreenComponentStyle-noNew,
+img.MainScreenComponentStyle-new.FooterComponentStyle-marginEllips {
     display: none !important;
 }
 
@@ -359,9 +397,9 @@ img.PrimaryMenuItemComponentStyle-notificationIconNewNews, .MainScreenComponentS
     right: 0 !important;
     width: 100% !important;
     height: 100% !important;
-    
+
     background: radial-gradient(circle at top right, rgb(255, 204, 0) 0%, rgba(255, 204, 0, 0) 60%) !important;
-    
+
     z-index: 10 !important;
     pointer-events: none !important;
     border-radius: inherit !important;
@@ -395,7 +433,7 @@ div:has(> .HeaderCommonStyle-icons + .HeaderCommonStyle-icons) {
     width: auto !important;
 }
 
-div:has(> .HeaderCommonStyle-icons + .HeaderCommonStyle-icons) + div {
+div:has(> .HeaderCommonStyle-icons + .HeaderCommonStyle-icons)+div {
     margin-left: -2em !important;
 }
 
@@ -482,382 +520,514 @@ div:has(> .SkinsAndAlterationsStyle-nameDevices).-active {
 
 div.BattleTabStatisticComponentStyle-containerInsideResults {
     width: 58.25em !important;
-    
+
 }
 
-.BattleTabStatisticComponentStyle-container > :first-child {
+.BattleTabStatisticComponentStyle-container> :first-child {
     max-height: unset !important;
 }
 
 div.BattleTabStatisticComponentStyle-containerInsideTeams {
     width: 95.25em !important;
-  max-width: 96vw !important;
+    max-width: 96vw !important;
 }
 
 :is(.BattleTabStatisticComponentStyle-containerInsideTeams) tr {
-  width: 45.75em !important;
+    width: 45.75em !important;
 }
 
 div.BattleTabStatisticComponentStyle-containerInsideResults {
-  width: 67.125em !important;
-  max-width: 96vw !important;
+    width: 67.125em !important;
+    max-width: 96vw !important;
 }
 
 :is(.BattleTabStatisticComponentStyle-containerInsideResults) tr {
-  width: 65.25em !important;
+    width: 65.25em !important;
 }
 
 .BattleTabStatisticComponentStyle-commonBlockScroll {
-  margin-top: 0.5em !important;
-  max-height: 42em !important;
-  padding: 0 0 0.3em !important;
+    margin-top: 0.5em !important;
+    max-height: 42em !important;
+    padding: 0 0 0.3em !important;
 }
 
 .BattleTabStatisticComponentStyle-commonContainerIconOptions {
-  right: 1em !important;
+    right: 1em !important;
 }
 
 .BattleTabStatisticComponentStyle-container table {
-  border-spacing: 0 !important;
-  margin: 0 !important;
-  padding-bottom: 0 !important;
-  width: 100% !important;
+    border-spacing: 0 !important;
+    margin: 0 !important;
+    padding-bottom: 0 !important;
+    width: 100% !important;
 }
 
 :is(.BattleTabStatisticComponentStyle-container table) td,
 :is(.BattleTabStatisticComponentStyle-container table) th {
-  box-sizing: border-box !important;
-  flex-shrink: 0 !important;
-  margin: 0 !important;
-  max-width: unset !important;
-  min-width: unset !important;
+    box-sizing: border-box !important;
+    flex-shrink: 0 !important;
+    margin: 0 !important;
+    max-width: unset !important;
+    min-width: unset !important;
 }
 
-.BattleTabStatisticComponentStyle-container table > thead {
-  display: block !important;
-  width: 100% !important;
-  position: sticky !important;
-  top: 0 !important;
-  z-index: 10 !important;
+.BattleTabStatisticComponentStyle-container table>thead {
+    display: block !important;
+    width: 100% !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 10 !important;
 }
 
-.BattleTabStatisticComponentStyle-container table > thead > tr {
-  display: flex !important;
-  align-items: center !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
+.BattleTabStatisticComponentStyle-container table>thead>tr {
+    display: flex !important;
+    align-items: center !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
 }
 
-.BattleTabStatisticComponentStyle-container table > thead > tr > * {
-  flex-shrink: 0 !important;
-  box-sizing: border-box !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
+.BattleTabStatisticComponentStyle-container table>thead>tr>* {
+    flex-shrink: 0 !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
 }
 
-.BattleTabStatisticComponentStyle-container table > thead > tr > :first-child {
-  order: -3 !important;
-  flex: 0 0 37% !important;
-  width: 37% !important;
-  justify-content: flex-start !important;
-  padding-left: 0.5em !important;
+.BattleTabStatisticComponentStyle-container table>thead>tr> :first-child {
+    order: -3 !important;
+    flex: 0 0 37% !important;
+    width: 37% !important;
+    justify-content: flex-start !important;
+    padding-left: 0.5em !important;
 }
 
-.BattleTabStatisticComponentStyle-container table > thead > tr > :nth-child(2) {
-  order: -1 !important;
-  flex: 0 0 10% !important;
-  width: 10% !important;
+.BattleTabStatisticComponentStyle-container table>thead>tr> :nth-child(2) {
+    order: -1 !important;
+    flex: 0 0 10% !important;
+    width: 10% !important;
 }
 
-.BattleTabStatisticComponentStyle-container table > thead > tr > .kasp-defence-th,
-.BattleTabStatisticComponentStyle-container table > thead > tr > :nth-child(3) {
-  order: 0 !important;
-  flex: 0 0 15% !important;
-  width: 15% !important;
+.BattleTabStatisticComponentStyle-container table>thead>tr>.kasp-defence-th,
+.BattleTabStatisticComponentStyle-container table>thead>tr> :nth-child(3) {
+    order: 0 !important;
+    flex: 0 0 15% !important;
+    width: 15% !important;
 }
 
 .kasp-shield-img {
-  height: 1em !important;
-  width: 1.5em !important;
-  object-fit: contain !important;
-  display: block !important;
+    height: 1em !important;
+    width: 1.5em !important;
+    object-fit: contain !important;
+    display: block !important;
 }
 
-.BattleTabStatisticComponentStyle-container table > thead > tr > :nth-child(4),
-.BattleTabStatisticComponentStyle-container table > thead > tr > :nth-child(5) {
-  flex: 0 0 7% !important;
-  width: 7% !important;
+.BattleTabStatisticComponentStyle-container table>thead>tr> :nth-child(4),
+.BattleTabStatisticComponentStyle-container table>thead>tr> :nth-child(5) {
+    flex: 0 0 7% !important;
+    width: 7% !important;
 }
 
-.BattleTabStatisticComponentStyle-container table > thead > tr > :nth-child(6),
-.BattleTabStatisticComponentStyle-container table > thead > tr > :nth-child(7) {
-  flex: 0 0 10% !important;
-  width: 10% !important;
+.BattleTabStatisticComponentStyle-container table>thead>tr> :nth-child(6),
+.BattleTabStatisticComponentStyle-container table>thead>tr> :nth-child(7) {
+    flex: 0 0 10% !important;
+    width: 10% !important;
 }
 
-.BattleTabStatisticComponentStyle-container table > tbody {
-  display: block !important;
-  width: 100% !important;
+.BattleTabStatisticComponentStyle-container table>tbody {
+    display: block !important;
+    width: 100% !important;
 }
 
-.BattleTabStatisticComponentStyle-container table > tbody > tr {
-  display: flex !important;
-  contain: layout style paint !important;
-  align-items: center !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-  margin-top: 0.3em !important;
-  box-shadow: unset !important;
-  cursor: unset !important;
+.BattleTabStatisticComponentStyle-container table>tbody>tr {
+    display: flex !important;
+    contain: layout style paint !important;
+    align-items: center !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    margin-top: 0.3em !important;
+    box-shadow: unset !important;
+    cursor: unset !important;
 }
 
-.BattleTabStatisticComponentStyle-container table > tbody > tr > * {
-  flex-shrink: 0 !important;
-  box-sizing: border-box !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  visibility: visible !important;
+.BattleTabStatisticComponentStyle-container table>tbody>tr>* {
+    flex-shrink: 0 !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    visibility: visible !important;
 }
 
-.BattleTabStatisticComponentStyle-container table tbody tr > :nth-child(3) > .GearScoreStyle-bestGsLight {
-  display: none !important;
+.BattleTabStatisticComponentStyle-container table tbody tr> :nth-child(3)>.GearScoreStyle-bestGsLight {
+    display: none !important;
 }
 
-.BattleTabStatisticComponentStyle-container table tbody tr > :first-child {
-  order: -3 !important;
-  flex: 0 0 37% !important;
-  width: 37% !important;
-  justify-content: flex-start !important;
-  padding-left: 0.5em !important;
+.BattleTabStatisticComponentStyle-container table tbody tr> :first-child {
+    order: -3 !important;
+    flex: 0 0 37% !important;
+    width: 37% !important;
+    justify-content: flex-start !important;
+    padding-left: 0.5em !important;
 }
 
-.BattleTabStatisticComponentStyle-container table tbody tr > :nth-child(3) {
-  order: -1 !important;
-  flex: 0 0 10% !important;
-  width: 10% !important;
+.BattleTabStatisticComponentStyle-container table tbody tr> :nth-child(3) {
+    order: -1 !important;
+    flex: 0 0 10% !important;
+    width: 10% !important;
 }
 
-.BattleTabStatisticComponentStyle-container table tbody tr > :nth-child(2),
+.BattleTabStatisticComponentStyle-container table tbody tr> :nth-child(2),
 .BattleTabStatisticComponentStyle-resistanceModuleCell {
-  order: 0 !important;
-  flex: 0 0 15% !important;
-  width: 15% !important;
-  height: 1.8em !important;
-  background-color: rgba(3, 41, 48, 0) !important;
-  border: 0.06em solid rgba(191, 213, 255, 0) !important;
-  border-radius: 0.4em !important;
-  padding: 0.15em 0 !important;
-  overflow: hidden !important;
-  transition: none !important;
-  justify-content: space-evenly !important;
+    order: 0 !important;
+    flex: 0 0 15% !important;
+    width: 15% !important;
+    height: 1.8em !important;
+    background-color: rgba(3, 41, 48, 0) !important;
+    border: 0.06em solid rgba(191, 213, 255, 0) !important;
+    border-radius: 0.4em !important;
+    padding: 0.15em 0 !important;
+    overflow: hidden !important;
+    transition: none !important;
+    justify-content: space-evenly !important;
 }
 
-.BattleTabStatisticComponentStyle-container table tbody tr > :nth-child(4) {
-  order: 1 !important;
-  flex: 0 0 7% !important;
-  width: 7% !important;
+.BattleTabStatisticComponentStyle-container table tbody tr> :nth-child(4) {
+    order: 1 !important;
+    flex: 0 0 7% !important;
+    width: 7% !important;
 }
 
-.BattleTabStatisticComponentStyle-container table tbody tr > :nth-child(5) {
-  order: 2 !important;
-  flex: 0 0 7% !important;
-  width: 7% !important;
+.BattleTabStatisticComponentStyle-container table tbody tr> :nth-child(5) {
+    order: 2 !important;
+    flex: 0 0 7% !important;
+    width: 7% !important;
 }
 
-.BattleTabStatisticComponentStyle-container table tbody tr > :nth-child(6) {
-  order: 3 !important;
-  flex: 0 0 10% !important;
-  width: 10% !important;
+.BattleTabStatisticComponentStyle-container table tbody tr> :nth-child(6) {
+    order: 3 !important;
+    flex: 0 0 10% !important;
+    width: 10% !important;
 }
 
-.BattleTabStatisticComponentStyle-container table tbody tr > :nth-child(7) {
-  order: 4 !important;
-  flex: 0 0 10% !important;
-  width: 10% !important;
+.BattleTabStatisticComponentStyle-container table tbody tr> :nth-child(7) {
+    order: 4 !important;
+    flex: 0 0 10% !important;
+    width: 10% !important;
 }
 
 .kasp-change-th,
 .kasp-change-td {
-  order: -2 !important;
-  flex: 0 0 4% !important;
-  width: 4% !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  box-sizing: border-box !important;
-  border: none !important;
+    order: -2 !important;
+    flex: 0 0 4% !important;
+    width: 4% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+    border: none !important;
 }
 
-.kasp-change-th > div {
-  background-color: rgb(191, 213, 255) !important;
-  -webkit-mask-image: url('https://s.eu.tankionline.com/static/images/WeaponChange.89d8adcc.svg') !important;
-  mask-image: url('https://s.eu.tankionline.com/static/images/WeaponChange.89d8adcc.svg') !important;
-  -webkit-mask-size: 1.5em 1em !important;
-  mask-size: 1.5em 1em !important;
-  -webkit-mask-repeat: no-repeat !important;
-  mask-repeat: no-repeat !important;
-  -webkit-mask-position: center !important;
-  mask-position: center !important;
-  width: 1.5em !important;
-  height: 1em !important;
+.kasp-change-th>div {
+    background-color: rgb(191, 213, 255) !important;
+    -webkit-mask-image: url('https://s.eu.tankionline.com/static/images/WeaponChange.89d8adcc.svg') !important;
+    mask-image: url('https://s.eu.tankionline.com/static/images/WeaponChange.89d8adcc.svg') !important;
+    -webkit-mask-size: 1.5em 1em !important;
+    mask-size: 1.5em 1em !important;
+    -webkit-mask-repeat: no-repeat !important;
+    mask-repeat: no-repeat !important;
+    -webkit-mask-position: center !important;
+    mask-position: center !important;
+    width: 1.5em !important;
+    height: 1em !important;
 }
 
-.kasp-change-td > img {
-  width: 1.25em !important;
-  height: 1.25em !important;
-  object-fit: contain !important;
-  display: block !important;
+.kasp-change-td>img {
+    width: 1.25em !important;
+    height: 1.25em !important;
+    object-fit: contain !important;
+    display: block !important;
 }
 
-.BattleTabStatisticComponentStyle-resistanceModuleCell > :not(.kasp-compact-cell) {
-  display: none !important;
+.BattleTabStatisticComponentStyle-resistanceModuleCell> :not(.kasp-compact-cell) {
+    display: none !important;
 }
 
 .kasp-compact-cell {
-  display: grid !important;
-  grid-template-columns: 1fr 1fr !important;
-  align-items: center !important;
-  justify-items: center !important;
-  width: 100% !important;
-  height: 100% !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    align-items: center !important;
+    justify-items: center !important;
+    width: 100% !important;
+    height: 100% !important;
 }
 
 .kasp-slot {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: 100% !important;
-  height: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    height: 100% !important;
 }
 
 .kasp-dash {
-  color: rgba(255, 255, 255, 0.35) !important;
-  font-family: BaseFontRegular, FallbackFontRegular, sans-serif !important;
-  font-size: 1em !important;
-  line-height: 1 !important;
-  user-select: none !important;
+    color: rgba(255, 255, 255, 0.35) !important;
+    font-family: BaseFontRegular, FallbackFontRegular, sans-serif !important;
+    font-size: 1em !important;
+    line-height: 1 !important;
+    user-select: none !important;
 }
 
 .kasp-compact-cell .BattleTabStatisticComponentStyle-defenceLabel {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  width: auto !important;
-  height: 100% !important;
-  background: transparent !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: auto !important;
+    height: 100% !important;
+    background: transparent !important;
 }
 
-.kasp-compact-cell .BattleTabStatisticComponentStyle-defenceLabel > div {
-  width: 1em !important;
-  height: 1em !important;
-  margin-right: 0.2em !important;
+.kasp-compact-cell .BattleTabStatisticComponentStyle-defenceLabel>div {
+    width: 1em !important;
+    height: 1em !important;
+    margin-right: 0.2em !important;
 }
 
-.kasp-compact-cell .BattleTabStatisticComponentStyle-defenceLabel > h3 {
-  font-size: 0.9375em !important;
-  margin: 0 !important;
+.kasp-compact-cell .BattleTabStatisticComponentStyle-defenceLabel>h3 {
+    font-size: 0.9375em !important;
+    margin: 0 !important;
 }
 
-.kasp-cloned-resist.kasp-protecting > h3 {
-  color: #ff5050 !important;
+.kasp-cloned-resist.kasp-protecting>h3 {
+    color: #ff5050 !important;
 }
 
-.kasp-cloned-resist.kasp-armadillo > h3 {
-  color: #ffffff !important;
+.kasp-cloned-resist.kasp-armadillo>h3 {
+    color: #ffffff !important;
 }
 
-.BattleTabStatisticComponentStyle-container table tbody tr > .BattleTabStatisticComponentStyle-resistanceModuleCell:hover {
-  cursor: pointer !important;
-  flex: 0 0 29% !important;
-  width: 29% !important;
-  justify-content: space-evenly !important;
+.BattleTabStatisticComponentStyle-container table tbody tr>.BattleTabStatisticComponentStyle-resistanceModuleCell:hover {
+    cursor: pointer !important;
+    flex: 0 0 29% !important;
+    width: 29% !important;
+    justify-content: space-evenly !important;
 }
 
-.BattleTabStatisticComponentStyle-resistanceModuleCell:hover > .kasp-compact-cell {
-  display: none !important;
+.BattleTabStatisticComponentStyle-resistanceModuleCell:hover>.kasp-compact-cell {
+    display: none !important;
 }
 
-.BattleTabStatisticComponentStyle-resistanceModuleCell:hover > :not(.kasp-compact-cell) {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  flex: 0 0 25% !important;
-  width: 25% !important;
-  margin: 0 !important;
-  padding: 0 !important;
+.BattleTabStatisticComponentStyle-resistanceModuleCell:hover> :not(.kasp-compact-cell) {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 0 0 25% !important;
+    width: 25% !important;
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
 .BattleTabStatisticComponentStyle-resistanceModuleCell:hover .BattleTabStatisticComponentStyle-defenceLabel {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  margin: 0 !important;
-  padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
-.BattleTabStatisticComponentStyle-container table tbody tr:has(> .BattleTabStatisticComponentStyle-resistanceModuleCell:hover) > :nth-child(4),
-.BattleTabStatisticComponentStyle-container table tbody tr:has(> .BattleTabStatisticComponentStyle-resistanceModuleCell:hover) > :nth-child(5) {
-  display: none !important;
+.BattleTabStatisticComponentStyle-container table tbody tr:has(> .BattleTabStatisticComponentStyle-resistanceModuleCell:hover)> :nth-child(4),
+.BattleTabStatisticComponentStyle-container table tbody tr:has(> .BattleTabStatisticComponentStyle-resistanceModuleCell:hover)> :nth-child(5) {
+    display: none !important;
 }
 
-.kasp-zero-summary { 
-  order: 999 !important; 
+.kasp-zero-summary {
+    order: 999 !important;
 }
 
-:is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults) > .-flexCenterAlignCenter:not([class*="header"]) {
-  flex-wrap: wrap !important;
-  justify-content: center !important;
-  padding-top: 0.5em !important;
-  margin-top: 0.5em !important;
-  transition: 0.2s ease !important;
+:is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults)>.-flexCenterAlignCenter:not([class*="header"]) {
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    padding-top: 0.5em !important;
+    margin-top: 0.5em !important;
+    transition: 0.2s ease !important;
 }
 
 .kasp-custom-summary-row {
-  width: 100% !important;
-  min-height: 2em !important;
-  padding: 0.5em 1em !important;
-  box-sizing: border-box !important;
+    width: 100% !important;
+    min-height: 2em !important;
+    padding: 0.5em 1em !important;
+    box-sizing: border-box !important;
 }
 
 .kasp-change-td {
-  background-repeat: no-repeat !important;
-  background-position: center center !important;
-  background-size: 1.25em 1.25em !important;
-  background-image: none;
+    background-repeat: no-repeat !important;
+    background-position: center center !important;
+    background-size: 1.25em 1.25em !important;
+    background-image: none;
 }
 
 .kasp-change-td.kasp-changed {
-  background-image: url('https://s.eu.tankionline.com/static/images/notification.d58f4b55.svg') !important;
+    background-image: url('https://s.eu.tankionline.com/static/images/notification.d58f4b55.svg') !important;
 }
 
-.kasp-cloned-resist.kasp-protecting > h3 {
-  color: #ff5050 !important;
+.kasp-cloned-resist.kasp-protecting>h3 {
+    color: #ff5050 !important;
 }
 
 .kasp-cloned-resist.kasp-protecting.kasp-spectrum {
     color: #4fdefb !important;
 }
 
-.kasp-cloned-resist.kasp-protecting.kasp-spectrum > h3 {
+.kasp-cloned-resist.kasp-protecting.kasp-spectrum>h3 {
     color: #4fdefb !important;
 }
 
-.kasp-cloned-resist.kasp-protecting.kasp-spectrum > div,
-.kasp-cloned-resist.kasp-protecting.kasp-spectrum > .-maskImage,
-.kasp-cloned-resist.kasp-protecting.kasp-spectrum > .-maskImageContain {
+.kasp-cloned-resist.kasp-protecting.kasp-spectrum>div,
+.kasp-cloned-resist.kasp-protecting.kasp-spectrum>.-maskImage,
+.kasp-cloned-resist.kasp-protecting.kasp-spectrum>.-maskImageContain {
     background-color: #4fdefb !important;
     color: #4fdefb !important;
 }
 
-.kasp-cloned-resist.kasp-protecting.kasp-spectrum > img {
+.kasp-cloned-resist.kasp-protecting.kasp-spectrum>img {
     filter: brightness(0) saturate(100%) invert(70%) sepia(66%) saturate(2233%) hue-rotate(155deg) brightness(101%) contrast(101%) !important;
 }
 
-.kasp-cloned-resist.kasp-protecting.kasp-spectrum > div {
-  background-color: #4fdefb !important;
+.kasp-cloned-resist.kasp-protecting.kasp-spectrum>div {
+    background-color: #4fdefb !important;
 }
 
+.BattleKillBoardComponentStyle-tableContainer {
+    width: 102em !important;
+    max-width: 102em !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    overflow-x: visible !important;
+}
+
+.BattleKillBoardComponentStyle-tableContainer table {
+    align-items: center !important;
+    height: 42em !important;
+    width: 100em !important;
+}
+
+.BattleKillBoardComponentStyle-tableContainer table,
+.BattleKillBoardComponentStyle-tableContainer .TableComponentStyle-table {
+    width: 100em !important;
+    max-width: 100em !important;
+    table-layout: fixed !important;
+    box-sizing: border-box !important;
+}
+
+:is(.BattleKillBoardComponentStyle-tableContainer table) td,
+:is(.BattleKillBoardComponentStyle-tableContainer table) th {
+    box-sizing: border-box !important;
+    flex-shrink: 0 !important;
+    margin: 0 !important;
+    max-width: unset !important;
+    min-width: unset !important;
+}
+
+:is(.BattleKillBoardComponentStyle-tableContainer table) tr {
+    display: flex !important;
+    align-items: center !important;
+    width: 49.5em !important;
+    max-width: 49.5em !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+}
+
+:is(.BattleKillBoardComponentStyle-tableContainer table) > tbody {
+    display: grid !important;
+    grid-template-columns: 49.5em 49.5em !important;
+    column-gap: 1em !important;
+    row-gap: 0.3em !important;
+    grid-auto-flow: column !important;
+    grid-auto-rows: 2.5em !important;
+    width: 100em !important;
+    box-sizing: border-box !important;
+    padding-right: 0 !important;
+}
+
+:is(:is(.BattleKillBoardComponentStyle-tableContainer table) > tbody) > tr {
+    grid-column: 1 / 2 !important;
+    height: 2.5em !important;
+}
+
+#enemyCommand:is(:is(:is(.BattleKillBoardComponentStyle-tableContainer table) > tbody) > tr) {
+    grid-column: 2 / 3 !important;
+}
+
+#rowSpace:is(:is(:is(.BattleKillBoardComponentStyle-tableContainer table) > tbody) > tr),
+#teamRowSpace:is(:is(:is(.BattleKillBoardComponentStyle-tableContainer table) > tbody) > tr) {
+    display: none !important;
+}
+
+:is(.BattleKillBoardComponentStyle-tableContainer table) > thead {
+    display: flex !important;
+    justify-content: space-between !important;
+    gap: 1em !important;
+    width: 100em !important;
+    box-sizing: border-box !important;
+}
+
+:is(:is(.BattleKillBoardComponentStyle-tableContainer table) > thead) > tr {
+    pointer-events: none !important;
+    width: 49.5em !important;
+    max-width: 49.5em !important;
+    display: flex !important;
+    align-items: center !important;
+}
+
+:is(:is(:is(.BattleKillBoardComponentStyle-tableContainer table) > thead) > tr) > th > :nth-child(2) {
+    display: none !important;
+}
+
+:is(:is(.BattleKillBoardComponentStyle-tableContainer table) tr) > * {
+    width: 9.28% !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+    white-space: nowrap !important;
+}
+
+:is(:is(.BattleKillBoardComponentStyle-tableContainer table) tr) > :first-child {
+    width: 35% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+.BattleKillBoardComponentStyle-tableContainer table thead tr th > :first-child {
+    margin-left: 0em !important;
+}
+
+.BattleKillBoardComponentStyle-tableContainer table thead tr th.BattleKillBoardComponentStyle-col8 > img.BattleResultStyle-starSize {
+    margin-left: 0.35em !important;
+}
+
+.BattleKillBoardComponentStyle-tableContainer table tbody tr td > :last-child {
+    margin-right: 0em !important;
+}
+
+.BattleKillBoardComponentStyle-tableContainer table thead tr th {
+    margin-left: 0.056em !important;
+}
+
+:is(.BattleKillBoardComponentStyle-tableContainer table):not(:has(> tbody > #teamRowSpace)) {
+    width: 50em !important;
+}
+
+:is(.BattleKillBoardComponentStyle-tableContainer table):not(:has(> tbody > #teamRowSpace)) tr {
+    grid-column: 1 / 2 !important;
+    width: 50em !important;
+}
+
+:is(.BattleKillBoardComponentStyle-tableContainer table):not(:has(> tbody > #teamRowSpace)) > thead > :nth-child(2) {
+    display: none !important;
+}
+
+:is(.BattleKillBoardComponentStyle-tableContainer table):not(:has(> tbody > #teamRowSpace)) > tbody {
+    grid-template-columns: 1fr !important;
+}

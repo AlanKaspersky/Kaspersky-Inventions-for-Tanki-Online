@@ -1,0 +1,22 @@
+Copyright (c) 2026 Alan Kaspersky. All Rights Reserved.
+
+PROPRIETARY AND CONFIDENTIAL
+
+This software, including all associated source code and documentation (the "Software"), 
+is the exclusive property of Kaspersky (the "Author").
+
+1. RESTRICTIONS ON USE AND DISTRIBUTION
+You may not copy, reproduce, distribute, publish, display, modify, create derivative works, transmit, 
+or in any way exploit any part of this Software without the express prior written consent of the Author. 
+Unauthorized copying, reverse engineering, decompiling, or disassembling of this Software is strictly prohibited.
+
+2. EXCLUSIVE RIGHTS FOR "TANKI TWEAKS"
+This Software is developed specifically and exclusively for integration with the "Tanki Tweaks" extension. 
+The official developers and maintainers of "Tanki Tweaks" are granted the express right to use, modify, 
+and merge this Software into their project. 
+
+3. DISCLAIMER OF WARRANTY
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, 
+BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. 
+IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, 
+OR CONSEQUENTIAL DAMAGES ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
