@@ -2224,6 +2224,56 @@
         "TURNING_SPEED": 1.15
       }
     },
+    "https://s.eu.tankionline.com/640/122071/165/276/32024416345146/image.svg": {
+      "name": {
+        "RU": "Хадукен",
+        "EN": "Hadoken"
+      },
+      "advantages": [
+        {
+          "RU": "Урон шаровой молнии: +35%",
+          "EN": "Ball Lightning damage: +35%"
+        },
+        {
+          "RU": "Сила удара взрыва: +1000%",
+          "EN": "Explosion impact force: +1000%"
+        },
+        {
+          "RU": "Перезарядка шаровой молнии: -85%",
+          "EN": "Ball Lightning cooldown: -85%"
+        },
+        {
+          "RU": "Скорость шаровой молнии: +300%",
+          "EN": "Ball Lightning speed: +300%"
+        },
+        {
+          "RU": "Радиус полного поражения взрывом: 3 м",
+          "EN": "Full explosion damage radius: 3 m"
+        },
+        {
+          "RU": "Радиус промежуточного поражения взрывом: 6 м",
+          "EN": "Intermediate explosion damage radius: 6 m"
+        },
+        {
+          "RU": "Предельный радиус поражения взрывом: 6 м",
+          "EN": "Maximum explosion damage radius: 6 m"
+        }
+      ],
+      "disadvantages": [
+        {
+          "RU": "Радиус добавления союзника в цепочку: -90%",
+          "EN": "Ally chain connection radius: -90%"
+        },
+        {
+          "RU": "Радиус добавления противника в цепочку: -90%",
+          "EN": "Enemy chain connection radius: -90%"
+        },
+        {
+          "RU": "Радиус добавления шаровой молнии в цепочку: -90%",
+          "EN": "Ball Lightning chain connection radius: -90%"
+        }
+      ]
+    },
     "https://s.eu.tankionline.com/605/115404/233/226/31771402141070/image.svg": {
       "name": {
         "RU": "Адреналин",

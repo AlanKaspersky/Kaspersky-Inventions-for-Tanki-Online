@@ -1705,6 +1705,7 @@
                     role1: `Идею создал`,
                     role2: `В создании участвовали`,
                     role3: `Качество оценивали`,
+                    role4: `Помогали`,
                     outro: `Проект выражает им огромную благодарность!`,
                     close: `ЗАКРЫТЬ`
                 },
@@ -1714,6 +1715,7 @@
                     role1: `Idea Created By`,
                     role2: `Co-created By`,
                     role3: `Quality Assessed By`,
+                    role4: `Helped`,
                     outro: `The project expresses huge gratitude to them!`,
                     close: `CLOSE`
                 }
@@ -1768,9 +1770,14 @@
                         </p>
                         
                         <p style="margin: 0; color: rgba(255, 255, 255, 0.5); font-size: 0.9em; text-transform: uppercase;">${dict.role3}</p>
-                        <p style="margin: 0.2em 0 1.5em 0; color: white; line-height: 1.3;">
+                        <p style="margin: 0.2em 0 1em 0; color: white; line-height: 1.3;">
                             Claude Fable 5.1<br>
                             Claude Opus 5
+                        </p>
+
+                        <p style="margin: 0; color: rgba(255, 255, 255, 0.5); font-size: 0.9em; text-transform: uppercase;">${dict.role4}</p>
+                        <p style="margin: 0.2em 0 1.5em 0; color: white; line-height: 1.3;">
+                            safwan
                         </p>
                         
                         <p style="margin: 0; font-family: BaseFontMedium, FallbackFontMedium, sans-serif; color: rgb(211 211 211); font-size: 1.1em; text-transform: uppercase;">${dict.outro}</p>
@@ -3099,7 +3106,7 @@
                     if (Date.now() >= readAllowedTime) {
                         const skinImgs = document.querySelectorAll('.SkinsIconComponentStyle-cellSkins img');
                         let foundBrand = null;
-                        
+
                         for (const skinImg of skinImgs) {
                             const src = skinImg.getAttribute('src') || '';
                             if (SKIN_BRANDS_MAP[src]) {
@@ -3144,6 +3151,13 @@
                             }
 
                             if (skinsUpdated) {
+                                localStorage.setItem(STORAGE_KEY, JSON.stringify(savedSkins));
+                            }
+                        } else if (skinImgs.length > 0) {
+                            const savedSkins = getSavedSkins();
+                            const fallbackUrl = PREFILLED_DEFAULTS[itemNameEN];
+                            if (fallbackUrl && savedSkins[itemNameEN] !== fallbackUrl) {
+                                savedSkins[itemNameEN] = fallbackUrl;
                                 localStorage.setItem(STORAGE_KEY, JSON.stringify(savedSkins));
                             }
                         }
@@ -4480,6 +4494,7 @@
         modules.hideNickname();
         modules.hideCurrency();
         modules.weaponAugmentTracker();
+        modules.customGarageSkins();
 
         try {
             if (state.currentScreen === 'lobby' || state.currentScreen === 'loading') {
@@ -4495,7 +4510,6 @@
                 modules.autoUpgrade();
                 modules.augmentSpecs();
                 modules.customPaints();
-                modules.customGarageSkins();
             }
         }
         catch (e) {
@@ -4664,6 +4678,7 @@
     const boot = () => {
         state.lang = utils.getLang();
         masterObserver.observe(document.documentElement, { childList: true, subtree: true });
+        window.setInterval(() => modules.customGarageSkins(), 250);
 
         const langObserver = new MutationObserver(() => {
             applyLanguageChange();

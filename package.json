@@ -1,6 +1,6 @@
 {
   "name": "Kaspersky's Inventions",
-  "version": "2.5.2",
+  "version": "2.5.4",
   "description": "Browser extension for Kaspersky's Inventions",
   "private": true,
   "scripts": {

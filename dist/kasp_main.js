@@ -1662,6 +1662,7 @@
                     role1: `Идею создал`,
                     role2: `В создании участвовали`,
                     role3: `Качество оценивали`,
+                    role4: `Помогали`,
                     outro: `Проект выражает им огромную благодарность!`,
                     close: `ЗАКРЫТЬ`
                 },
@@ -1671,6 +1672,7 @@
                     role1: `Idea Created By`,
                     role2: `Co-created By`,
                     role3: `Quality Assessed By`,
+                    role4: `Helped`,
                     outro: `The project expresses huge gratitude to them!`,
                     close: `CLOSE`
                 }
@@ -1721,9 +1723,14 @@
                         </p>
                         
                         <p style="margin: 0; color: rgba(255, 255, 255, 0.5); font-size: 0.9em; text-transform: uppercase;">${dict.role3}</p>
-                        <p style="margin: 0.2em 0 1.5em 0; color: white; line-height: 1.3;">
+                        <p style="margin: 0.2em 0 1em 0; color: white; line-height: 1.3;">
                             Claude Fable 5.1<br>
                             Claude Opus 5
+                        </p>
+
+                        <p style="margin: 0; color: rgba(255, 255, 255, 0.5); font-size: 0.9em; text-transform: uppercase;">${dict.role4}</p>
+                        <p style="margin: 0.2em 0 1.5em 0; color: white; line-height: 1.3;">
+                            safwan
                         </p>
                         
                         <p style="margin: 0; font-family: BaseFontMedium, FallbackFontMedium, sans-serif; color: rgb(211 211 211); font-size: 1.1em; text-transform: uppercase;">${dict.outro}</p>
@@ -3077,6 +3084,14 @@
                                 localStorage.setItem(STORAGE_KEY, JSON.stringify(savedSkins));
                             }
                         }
+                        else if (skinImgs.length > 0) {
+                            const savedSkins = getSavedSkins();
+                            const fallbackUrl = PREFILLED_DEFAULTS[itemNameEN];
+                            if (fallbackUrl && savedSkins[itemNameEN] !== fallbackUrl) {
+                                savedSkins[itemNameEN] = fallbackUrl;
+                                localStorage.setItem(STORAGE_KEY, JSON.stringify(savedSkins));
+                            }
+                        }
                     }
                 }
                 updateGlobalCSS();
@@ -3322,25 +3337,25 @@
         zeroResists: (() => {
             const SHIELD_ICON_URL = chrome.runtime.getURL("assets/modulesTAB.svg");
             const RESISTANCE_MAP = {
-                'mine': { url: 'https://s.eu.tankionline.com/static/images/mine_resistance.dd581c90.svg', color: '#83F1CD' },
-                'crit': { url: 'https://s.eu.tankionline.com/static/images/crit_resistance.94e32312.svg', color: '#FA5757' },
-                'firebird': { url: 'https://s.eu.tankionline.com/static/images/firebird_resistance.785a9d6b.svg', color: '#F67F68' },
-                'freeze': { url: 'https://s.eu.tankionline.com/static/images/freeze_resistance.33bdf642.svg', color: '#72B3F3' },
-                'isis': { url: 'https://s.eu.tankionline.com/static/images/isis_resistance.30a69ffc.svg', color: '#58CC7E' },
-                'tesla': { url: 'https://s.eu.tankionline.com/static/images/tesla_resistance.3e686c8e.svg', color: '#5CDBF5' },
-                'hammer': { url: 'https://s.eu.tankionline.com/static/images/hammer_resistance.6c549d29.svg', color: '#7699AA' },
-                'twins': { url: 'https://s.eu.tankionline.com/static/images/twins_resistance.ad189f61.svg', color: '#A6F181' },
-                'ricochet': { url: 'https://s.eu.tankionline.com/static/images/ricochet_resistance.8247beaa.svg', color: '#F1E5B6' },
-                'vulcan': { url: 'https://s.eu.tankionline.com/static/images/vulcan_resistance.824f6f0e.svg', color: '#7195A7' },
-                'smoky': { url: 'https://s.eu.tankionline.com/static/images/smoky_resistance.845afc14.svg', color: '#F0DC8B' },
-                'rocket_launcher': { url: 'https://s.eu.tankionline.com/static/images/rocket_launcher_resistance.b7dfd64f.svg', color: '#C6C6F0' },
-                'thunder': { url: 'https://s.eu.tankionline.com/static/images/thunder_resistance.6d7f4531.svg', color: '#F6AB55' },
-                'tsunami': { url: 'https://s.eu.tankionline.com/static/images/tsunami_resistance.6200aad9.svg', color: '#F2DA77' },
-                'scorpio': { url: 'https://s.eu.tankionline.com/static/images/scorpio_resistance.e8f1787f.svg', color: '#F87070' },
-                'artillery': { url: 'https://s.eu.tankionline.com/static/images/artillery_resistance.9b4cbc34.svg', color: '#F97B3C' },
-                'railgun': { url: 'https://s.eu.tankionline.com/static/images/railgun_resistance.636a554f.svg', color: '#F0D08E' },
-                'gauss': { url: 'https://s.eu.tankionline.com/static/images/gauss_resistance.bb8f409c.svg', color: '#70F3C7' },
-                'shaft': { url: 'https://s.eu.tankionline.com/static/images/shaft_resistance.0778fd3e.svg', color: '#F58282' }
+                'mine': 'https://s.eu.tankionline.com/static/images/mine_resistance.dd581c90.svg',
+                'crit': 'https://s.eu.tankionline.com/static/images/crit_resistance.94e32312.svg',
+                'firebird': 'https://s.eu.tankionline.com/static/images/firebird_resistance.785a9d6b.svg',
+                'freeze': 'https://s.eu.tankionline.com/static/images/freeze_resistance.33bdf642.svg',
+                'isis': 'https://s.eu.tankionline.com/static/images/isis_resistance.30a69ffc.svg',
+                'tesla': 'https://s.eu.tankionline.com/static/images/tesla_resistance.3e686c8e.svg',
+                'hammer': 'https://s.eu.tankionline.com/static/images/hammer_resistance.6c549d29.svg',
+                'twins': 'https://s.eu.tankionline.com/static/images/twins_resistance.ad189f61.svg',
+                'ricochet': 'https://s.eu.tankionline.com/static/images/ricochet_resistance.8247beaa.svg',
+                'vulcan': 'https://s.eu.tankionline.com/static/images/vulcan_resistance.824f6f0e.svg',
+                'smoky': 'https://s.eu.tankionline.com/static/images/smoky_resistance.845afc14.svg',
+                'rocket_launcher': 'https://s.eu.tankionline.com/static/images/rocket_launcher_resistance.b7dfd64f.svg',
+                'thunder': 'https://s.eu.tankionline.com/static/images/thunder_resistance.6d7f4531.svg',
+                'tsunami': 'https://s.eu.tankionline.com/static/images/tsunami_resistance.6200aad9.svg',
+                'scorpio': 'https://s.eu.tankionline.com/static/images/scorpio_resistance.e8f1787f.svg',
+                'artillery': 'https://s.eu.tankionline.com/static/images/artillery_resistance.9b4cbc34.svg',
+                'railgun': 'https://s.eu.tankionline.com/static/images/railgun_resistance.636a554f.svg',
+                'gauss': 'https://s.eu.tankionline.com/static/images/gauss_resistance.bb8f409c.svg',
+                'shaft': 'https://s.eu.tankionline.com/static/images/shaft_resistance.0778fd3e.svg'
             };
             const TAB_SELECTOR = '.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults';
             const iconStyleCache = new WeakMap();
@@ -3479,124 +3494,53 @@
                 const tabContainer = document.querySelector(TAB_SELECTOR);
                 if (!tabContainer)
                     return;
-                let summaryRow = Array.from(tabContainer.children).find(el => el.className && typeof el.className === 'string' && el.className.includes('-flexCenterAlignCenter') && !el.className.toLowerCase().includes('header'));
+                let summaryRow = Array.from(tabContainer.children).find(el => el.className.includes('-flexCenterAlignCenter') && !el.className.toLowerCase().includes('header'));
                 if (!summaryRow) {
                     summaryRow = document.createElement('div');
                     summaryRow.className = '-flexCenterAlignCenter kasp-custom-summary-row';
                     const optionsContainer = tabContainer.querySelector('.BattleTabStatisticComponentStyle-commonContainerIconOptions');
-                    if (optionsContainer) {
+                    if (optionsContainer)
                         optionsContainer.before(summaryRow);
-                    }
-                    else {
+                    else
                         tabContainer.appendChild(summaryRow);
-                    }
-                }
-                let equippedTurret = null;
-                const selfRow = document.getElementById('selfUserBg') || document.querySelector('.BattleTabStatisticComponentStyle-selectedRowBackGround');
-                if (selfRow) {
-                    const device = selfRow.querySelector('.BattleTabStatisticComponentStyle-deviceCell');
-                    if (device) {
-                        const block = device.querySelector('.BattleTabStatisticComponentStyle-commonBlock');
-                        if (block && block.firstElementChild) {
-                            const url = getCssUrl(block.firstElementChild);
-                            if (url) {
-                                for (const key of Object.keys(RESISTANCE_MAP)) {
-                                    if (url.toLowerCase().includes(key)) {
-                                        equippedTurret = key;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
                 }
                 const presentResistances = new Set();
                 const children = Array.from(summaryRow.children);
-                children.forEach((child) => {
-                    if (child.classList && (child.classList.contains('kasp-zero-summary') || child.classList.contains('kasp-zero-group'))) {
+                children.forEach(child => {
+                    if (child.classList.contains('kasp-zero-summary'))
                         return;
-                    }
                     const icon = child.querySelector('div') || child;
                     const maskImg = getCssUrl(icon);
                     if (!maskImg)
                         return;
                     const match = maskImg.match(/\/([a-zA-Z_]+)_resistance(?:\.[0-9a-f]+)?\.(?:svg|webp|png)/);
-                    if (match && match[1]) {
-                        const turret = match[1];
-                        presentResistances.add(turret);
-                        const span = child.querySelector('span');
-                        child.style.removeProperty('border');
-                        child.style.removeProperty('border-radius');
-                        child.style.removeProperty('padding');
-                        child.style.removeProperty('margin');
-                        icon.style.removeProperty('background-color');
-                        if (span)
-                            span.style.removeProperty('color');
-                        let isRed = (turret === equippedTurret);
-                        if (!isRed) {
-                            const color = span ? window.getComputedStyle(span).color || '' : '';
-                            const bg = window.getComputedStyle(icon).backgroundColor || '';
-                            if (color.includes('254') || color.includes('255, 80') || color.includes('255, 102') || color.includes('254, 102') || color.includes('255, 0, 0')) {
-                                isRed = true;
-                            }
-                            else if (bg.includes('254') || bg.includes('255, 80') || bg.includes('255, 102') || bg.includes('254, 102') || bg.includes('255, 0, 0')) {
-                                isRed = true;
-                            }
-                        }
-                        if (isRed) {
-                            child.style.setProperty('border', '1px solid #FA5757', 'important');
-                            child.style.setProperty('border-radius', '4px', 'important');
-                            child.style.setProperty('padding', '2px 4px', 'important');
-                            child.style.setProperty('margin', '0 2px', 'important');
-                        }
-                        if (RESISTANCE_MAP[turret]) {
-                            const iconColor = RESISTANCE_MAP[turret].color;
-                            icon.style.setProperty('background-color', iconColor, 'important');
-                            if (span) {
-                                span.style.setProperty('color', iconColor, 'important');
-                            }
-                        }
-                    }
+                    if (match && match[1])
+                        presentResistances.add(match[1]);
                 });
-                const missingTurrets = [];
+                const zeroBlocks = summaryRow.querySelectorAll('.kasp-zero-summary');
+                zeroBlocks.forEach(block => {
+                    const turret = block.getAttribute('data-turret');
+                    if (turret && presentResistances.has(turret))
+                        block.remove();
+                });
                 Object.keys(RESISTANCE_MAP).forEach((turret) => {
-                    if (!presentResistances.has(turret)) {
-                        missingTurrets.push(turret);
-                    }
-                });
-                const stateKey = missingTurrets.join(',');
-                let zeroGroup = summaryRow.querySelector('.kasp-zero-group');
-                if (zeroGroup && zeroGroup.dataset.state === stateKey) {
-                    return;
-                }
-                const oldZeros = summaryRow.querySelectorAll('.kasp-zero-summary, .kasp-zero-group');
-                oldZeros.forEach(el => el.remove());
-                if (missingTurrets.length > 0) {
-                    zeroGroup = document.createElement('div');
-                    zeroGroup.className = 'kasp-zero-group';
-                    zeroGroup.dataset.state = stateKey;
-                    zeroGroup.style.cssText = 'display: flex !important; align-items: center !important; flex-wrap: wrap !important; gap: 4px !important; border: 1px solid #5cfc47 !important; border-radius: 4px !important; padding: 2px 4px !important; margin: 0 2px !important;';
-                    missingTurrets.forEach(turret => {
-                        const resistance = RESISTANCE_MAP[turret];
-                        const iconUrl = resistance.url;
-                        const iconColor = resistance.color;
+                    if (!presentResistances.has(turret) && !summaryRow.querySelector(`.kasp-zero-summary[data-turret="${turret}"]`)) {
                         const zeroLabel = document.createElement('div');
                         zeroLabel.className = 'kasp-zero-summary -flexStart';
                         zeroLabel.setAttribute('data-turret', turret);
-                        zeroLabel.style.cssText = 'display: flex !important; align-items: center !important; justify-content: flex-start !important; cursor: default !important; opacity: 1 !important; pointer-events: none !important;';
+                        zeroLabel.style.cssText = 'display: flex !important; align-items: center !important; justify-content: flex-start !important; margin-right: 0.75em !important; cursor: default !important; opacity: 1 !important; pointer-events: none !important;';
                         const iconDiv = document.createElement('div');
                         iconDiv.className = '-maskImageContain -maskImage';
-                        iconDiv.style.cssText = `background-color: ${iconColor} !important; height: 1em !important; width: 1em !important; margin-right: 0.1875em !important; -webkit-mask-image: url('${iconUrl}') !important; mask-image: url('${iconUrl}') !important; -webkit-mask-size: contain !important; mask-size: contain !important; -webkit-mask-repeat: no-repeat !important; mask-repeat: no-repeat !important; -webkit-mask-position: center center !important; mask-position: center center !important;`;
+                        iconDiv.style.cssText = `background-color: #5cfc47 !important; height: 1em !important; width: 1em !important; margin-right: 0.1875em !important; -webkit-mask-image: url('${RESISTANCE_MAP[turret]}') !important; mask-image: url('${RESISTANCE_MAP[turret]}') !important; -webkit-mask-size: contain !important; mask-size: contain !important; -webkit-mask-repeat: no-repeat !important; mask-repeat: no-repeat !important; -webkit-mask-position: center center !important; mask-position: center center !important;`;
                         const textSpan = document.createElement('span');
                         textSpan.className = '-regular';
                         textSpan.innerHTML = '&#215;0';
-                        textSpan.style.cssText = `font-size: 0.875em !important; color: ${iconColor} !important; font-family: BaseFontRegular, FallbackFontRegular, sans-serif !important; font-style: normal !important; font-weight: normal !important;`;
+                        textSpan.style.cssText = 'font-size: 0.875em !important; color: #5cfc47 !important; font-family: BaseFontRegular, FallbackFontRegular, sans-serif !important; font-style: normal !important; font-weight: normal !important; line-height: 1 !important;';
                         zeroLabel.appendChild(iconDiv);
                         zeroLabel.appendChild(textSpan);
-                        zeroGroup.appendChild(zeroLabel);
-                    });
-                    summaryRow.appendChild(zeroGroup);
-                }
+                        summaryRow.appendChild(zeroLabel);
+                    }
+                });
             }
             function sync() {
                 if (!document.querySelector(TAB_SELECTOR))
@@ -4443,6 +4387,7 @@
         modules.hideNickname();
         modules.hideCurrency();
         modules.weaponAugmentTracker();
+        modules.customGarageSkins();
         try {
             if (state.currentScreen === 'lobby' || state.currentScreen === 'loading') {
                 modules.customPlayButton();
@@ -4457,7 +4402,6 @@
                 modules.autoUpgrade();
                 modules.augmentSpecs();
                 modules.customPaints();
-                modules.customGarageSkins();
             }
         }
         catch (e) {
@@ -4608,6 +4552,7 @@
     const boot = () => {
         state.lang = utils.getLang();
         masterObserver.observe(document.documentElement, { childList: true, subtree: true });
+        window.setInterval(() => modules.customGarageSkins(), 250);
         const langObserver = new MutationObserver(() => {
             applyLanguageChange();
         });
