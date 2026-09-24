@@ -1,0 +1,62 @@
+.currency-masked {
+    position: relative;
+    cursor: pointer !important;
+}
+
+.currency-masked::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    background: rgba(15, 17, 21, 0.95);
+    border: 0.08em solid rgba(255, 255, 255, 0.15);
+    padding: 0.6em 1em;
+    border-radius: 0.5em;
+    font-family: BaseFontMedium, FallbackFontMedium, sans-serif;
+    font-size: 1rem;
+    pointer-events: none;
+    white-space: nowrap;
+    box-shadow: 0 0.3em 1em rgba(0, 0, 0, 0.6);
+    opacity: 0;
+    z-index: 99999;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 8px;
+    transition: opacity 0.15s ease;
+    text-transform: uppercase;
+}
+
+.currency-masked::before {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-bottom-color: rgba(15, 17, 21, 0.95);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 99999;
+    margin-top: -4px;
+    transition: opacity 0.15s ease;
+}
+
+.currency-masked:hover::after,
+.currency-masked:hover::before {
+    opacity: 1;
+}
+
+.HeaderCommonStyle-icons:has(img[src*="ruby"]).currency-masked::after,
+.ksc-22.currency-masked::after,
+.ksc-62.currency-masked::after {
+    color: rgb(255, 102, 102);
+}
+
+.HeaderCommonStyle-icons:has(img[src*="crystal"]).currency-masked::after,
+.ksc-24.currency-masked::after {
+    color: rgb(0, 215, 255);
+}
+
+.UserScoreComponentStyle-coinBlock.currency-masked::after,
+.HeaderCommonStyle-icons:has(img[src*="coin"]).currency-masked::after {
+    color: rgb(255, 188, 9);
+}

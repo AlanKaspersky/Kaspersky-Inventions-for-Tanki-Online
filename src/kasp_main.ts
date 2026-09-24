@@ -9,7 +9,7 @@
                 return true;
             if ((window as any).process && typeof (window as any).process === 'object' && (window as any).process.type)
                 return true;
-        } catch (_) {}
+        } catch (_) { }
         return false;
     })();
 
@@ -32,9 +32,9 @@
             const ae = document.activeElement;
             if (ae instanceof HTMLElement &&
                 (ae.tagName === 'INPUT' ||
-                ae.tagName === 'TEXTAREA' ||
-                ae.tagName === 'SELECT' ||
-                ae.isContentEditable))
+                    ae.tagName === 'TEXTAREA' ||
+                    ae.tagName === 'SELECT' ||
+                    ae.isContentEditable))
                 return;
             e.preventDefault();
             dispatchZKey('keydown');
@@ -103,7 +103,7 @@
                     if (entry.en) byEn.set(entry.en.toLowerCase(), entry);
                 }
                 state.maps = { list: mapsRaw, byRu, byEn };
-                state.skins = await skinsRes.json();  
+                state.skins = await skinsRes.json();
                 state.ready = true;
                 console.log(
                     `[KI] DB loaded: paints=${Object.keys(state.paints).length}, ` +
@@ -138,7 +138,7 @@
                 const key = String(rawName).trim().toLowerCase();
                 return state.maps.byRu.get(key) || state.maps.byEn.get(key) || null;
             },
-            getSkinsData: () => state.skins, 
+            getSkinsData: () => state.skins,
         };
     })();
 
@@ -191,21 +191,21 @@
 
     const utils = {
         getLang: () => {
-        try {
-            const stored = (localStorage.getItem('language_store_key') || '').toLowerCase();
-            if (stored.startsWith('ru')) return 'RU';
-            if (stored.startsWith('en')) return 'EN';
-        }
-        catch (e) {}
+            try {
+                const stored = (localStorage.getItem('language_store_key') || '').toLowerCase();
+                if (stored.startsWith('ru')) return 'RU';
+                if (stored.startsWith('en')) return 'EN';
+            }
+            catch (e) { }
 
-        const htmlLang = (document.documentElement.lang || '').toLowerCase();
-        if (htmlLang.includes('ru')) return 'RU';
-        if (htmlLang.includes('en')) return 'EN';
+            const htmlLang = (document.documentElement.lang || '').toLowerCase();
+            if (htmlLang.includes('ru')) return 'RU';
+            if (htmlLang.includes('en')) return 'EN';
 
-        if (window.location.hostname.includes('ru.')) return 'RU';
+            if (window.location.hostname.includes('ru.')) return 'RU';
 
-        return 'EN';
-    },
+            return 'EN';
+        },
 
         getSetting: (id, def) => {
             if (settingsCache.has(id)) {
@@ -223,7 +223,7 @@
             settingsCache.set(id, value === true || value === 'true');
         },
 
-        injectStyle: (css: string, id: string) => { 
+        injectStyle: (css: string, id: string) => {
             if (document.getElementById(id)) return;
             const style = document.createElement('style');
             style.id = id;
@@ -239,11 +239,11 @@
         let stylesInjected = false;
 
         const t: any = {
-            RU: { 
+            RU: {
                 title: 'НАСТРОЙКИ KASPERSKY\'S INVENTIONS', tooltip: 'ТРЕБУЕТСЯ ПЕРЕЗАГРУЗКА',
                 warnTitle: 'ПРЕДУПРЕЖДЕНИЕ', warnText: 'Включение этой функции сломает Историю битв и раздел Кланы в друзьях, а также возможны просадки ФПС. Вы уверены, что хотите продолжить?', warnCancel: 'ОТМЕНА', warnConfirm: 'ВКЛЮЧИТЬ'
             },
-            EN: { 
+            EN: {
                 title: 'KASPERSKY\'S INVENTIONS SETTINGS', tooltip: 'REQUIRES RELOAD',
                 warnTitle: 'WARNING', warnText: 'Enabling this feature will break Battle History and the Clans section in Friends, and may also result in FPS drops. Are you sure you want to continue?', warnCancel: 'CANCEL', warnConfirm: 'ENABLE'
             }
@@ -263,36 +263,36 @@
         function showWarningDialog(callback: () => void) {
             const existing = document.getElementById('kasp-warning-overlay');
             if (existing) existing.remove();
-            
+
             const lang = state.lang;
             const dict = t[lang] || t['EN'];
 
             const overlay = document.createElement('div');
             overlay.id = 'kasp-warning-overlay';
             overlay.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 99999; display: flex; align-items: center; justify-content: center;`;
-            
+
             const dialog = document.createElement('div');
             dialog.style.cssText = `display: flex; flex-direction: column; align-items: stretch; justify-content: space-between; pointer-events: auto; min-width: 31.625em; max-width: 31.625em; width: auto; min-height: 14.125em; z-index: 60; box-shadow: rgba(0, 0, 0, 0.25) 0px 0.313em 1.25em 0px; outline: rgba(255, 255, 255, 0.25) solid 0.063em; padding: 2em; background: radial-gradient(100% 100% at 0% 0%, rgba(118, 255, 51, 0.75) 0%, rgba(119, 255, 51, 0) 100%), rgba(0, 25, 38, 0.75)`;
-            
+
             const header = document.createElement('div');
             header.style.cssText = `display: flex; align-items: center; justify-content: space-between; background-color: transparent; width: 100%; position: relative; margin-bottom: 1.5em;`;
             const title = document.createElement('h1');
             title.textContent = dict.warnTitle;
             title.style.cssText = `font-size: 1.5em; color: rgb(255, 255, 255); font-family: BaseFontBold, FallbackFontBold, sans-serif; font-weight: 500; margin: 0; padding: 0; line-height: 1.2; flex: 1;`;
-            
+
             const closeBtn = document.createElement('div');
             closeBtn.style.cssText = `width: 1.5em; height: 1.5em; cursor: pointer; background-image: url(https://s.eu.tankionline.com/static/images/iconDelete.b879b0ab.svg); background-repeat: no-repeat; background-size: contain; background-position: center center; flex-shrink: 0; margin-left: 0.5em;`;
             closeBtn.addEventListener('mouseenter', () => { closeBtn.style.backgroundImage = 'url(https://s.eu.tankionline.com/static/images/deleteHoverModal.3aceb055.svg)'; });
             closeBtn.addEventListener('mouseleave', () => { closeBtn.style.backgroundImage = 'url(https://s.eu.tankionline.com/static/images/iconDelete.b879b0ab.svg)'; });
             header.appendChild(title); header.appendChild(closeBtn);
-            
+
             const content = document.createElement('div');
             content.style.cssText = `display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; flex: 1; margin-bottom: 1.5em; text-align: center;`;
             const textSpan = document.createElement('span');
             textSpan.textContent = dict.warnText;
             textSpan.style.cssText = `font-size: 1em; color: rgb(255, 255, 255); font-family: BaseFont, FallbackFont, sans-serif; line-height: 1.4;`;
             content.appendChild(textSpan);
-            
+
             const footer = document.createElement('div');
             footer.style.cssText = `background-color: transparent; width: 100%; display: flex; align-items: center; justify-content: center; gap: 1.25em;`;
             const cancelBtn = document.createElement('div');
@@ -300,13 +300,13 @@
             cancelBtn.style.cssText = `width: 12.375em; height: 3em; text-align: center; border-radius: 0.75em; cursor: pointer; background-color: rgba(255, 255, 255, 0.15); border: 0.063em solid transparent; display: flex; align-items: center; justify-content: center; color: rgb(255, 255, 255); font-family: BaseFontBold, FallbackFontBold, sans-serif; font-style: normal; font-weight: 500; font-size: 1em; line-height: 1.2; text-transform: uppercase; white-space: nowrap; padding: 0.2em 1.8em; box-sizing: border-box; flex-shrink: 0;`;
             cancelBtn.addEventListener('mouseenter', () => { cancelBtn.style.borderColor = 'rgb(255, 255, 255)'; cancelBtn.style.boxShadow = '0 0 0 1px rgb(255, 255, 255)'; });
             cancelBtn.addEventListener('mouseleave', () => { cancelBtn.style.borderColor = 'transparent'; cancelBtn.style.boxShadow = 'none'; });
-            
+
             const confirmBtn = document.createElement('div');
             confirmBtn.textContent = dict.warnConfirm;
             confirmBtn.style.cssText = `width: 12.375em; height: 3em; text-align: center; border-radius: 0.75em; cursor: pointer; background-color: rgb(118, 255, 51); border: 0.063em solid transparent; display: flex; align-items: center; justify-content: center; color: rgb(0, 25, 38); font-family: BaseFontBold, FallbackFontBold, sans-serif; font-style: normal; font-weight: 500; font-size: 1em; line-height: 1.2; text-transform: uppercase; white-space: nowrap; padding: 0.2em 1.8em; box-sizing: border-box; flex-shrink: 0;`;
             confirmBtn.addEventListener('mouseenter', () => { confirmBtn.style.borderColor = 'rgb(255, 255, 255)'; confirmBtn.style.boxShadow = '0 0 0 1px rgb(255, 255, 255)'; });
             confirmBtn.addEventListener('mouseleave', () => { confirmBtn.style.borderColor = 'transparent'; confirmBtn.style.boxShadow = 'none'; });
-            
+
             footer.appendChild(cancelBtn); footer.appendChild(confirmBtn);
             dialog.appendChild(header); dialog.appendChild(content); dialog.appendChild(footer);
             overlay.appendChild(dialog); document.body.appendChild(overlay);
@@ -361,28 +361,6 @@
         return {
             inject: () => {
                 if (!stylesInjected) {
-                    utils.injectStyle(`
-                        .SettingsComponentStyle-blockContentOptions > ul { position: relative !important; overflow-y: auto !important; scrollbar-width: none !important; }
-                        .SettingsComponentStyle-blockContentOptions > ul::-webkit-scrollbar { display: none !important; }
-                        #kaspersky-tab { position: relative !important; width: 100% !important; height: 5em !important; z-index: 5; display: flex; align-items: center; justify-content: flex-start; cursor: pointer; margin-top: 21em; }
-                        #kaspersky-tab span { font-family: BaseFontBold, FallbackFontBold, sans-serif; font-style: normal; font-weight: 500; font-size: 1.125em; text-transform: uppercase; margin-left: 1.875em; margin-top: 0.1em; color: rgba(255, 255, 255, 0.6); position: relative; z-index: 5; transition: 0.5s; }
-                        #kaspersky-tab span:hover, #kaspersky-tab.SettingsMenuComponentStyle-activeItemOptions span { color: white; }
-                        .kasp-hide-native-slider .SettingsMenuComponentStyle-slideMenuOptions { opacity: 0 !important; }
-                        .kasp-fake-highlight { display: none; flex-direction: column; justify-content: center; background: linear-gradient(to right, rgb(46, 50, 53), rgba(46, 50, 53, 0)); width: 18em; height: 2.5em; position: absolute; left: 0; top: 1.25em; z-index: 1; pointer-events: none; }
-                        .kasp-fake-line { background-color: rgb(255, 188, 9); box-shadow: rgb(255, 188, 9) 0px 0px 0.676em 0px; width: 0.313em; height: 2.5em; position: absolute; left: 0; top: 0; z-index: 3; }
-                        #kaspersky-tab.SettingsMenuComponentStyle-activeItemOptions .kasp-fake-highlight { display: flex; }
-                        .kasp-hidden { display: none !important; }
-                        #kaspersky-settings-content { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; width: 46.875em; height: 100%; margin-left: 2.625em; margin-top: 0px; padding: 1.875em 1.875em 0px; position: relative; background-color: rgba(255, 255, 255, 0.1); overflow-x: hidden; overflow-y: auto; scrollbar-color: rgb(188, 188, 188) rgba(255, 255, 255, 0.2); scrollbar-width: thin; }
-                        .kasp-toggle-row { display: flex; align-items: center; justify-content: flex-start; width: 100%; height: 2.25em; margin-bottom: 1.25em; }
-                        .kasp-toggle-switch { width: 2.75em; height: 1.5em; border: 0.063em solid rgba(255, 255, 255, 0.2); border-radius: 6.25rem; background-color: rgba(191, 213, 255, 0.25); display: flex; align-items: center; position: relative; transition: background-color 0.2s; flex-shrink: 0; cursor: pointer; }
-                        .kasp-toggle-row.kasp-active .kasp-toggle-switch { background-color: rgba(118, 255, 51, 0.25); }
-                        .kasp-toggle-switch::before { content: ""; position: absolute; width: 1em; height: 1em; left: 0.25em; background: url(https://s.eu.tankionline.com/static/images/incorrectCheck.1918884a.svg) 50% 50% / 100% 100% no-repeat; transition: left 0.2s ease, background 0.2s ease; }
-                        .kasp-toggle-row.kasp-active .kasp-toggle-switch::before { background: url(https://s.eu.tankionline.com/static/images/correct.afad1b22.svg) 50% 50% / 100% 100% no-repeat; left: 1.5em; }
-                        .kasp-toggle-label { color: rgba(255, 255, 255, 0.5); font-family: BaseFontRegular, FallbackFontRegular, sans-serif; font-size: 1em; margin-left: 1em; margin-right: 1em; z-index: 2; user-select: none; cursor: pointer; }
-                        .kasp-toggle-row.kasp-active .kasp-toggle-label { color: rgb(255, 255, 255); }
-                        .kasp-tooltip { position: fixed !important; background-color: #032930 !important; border-radius: .4em !important; box-shadow: 0 0 .2em rgba(0, 0, 0, .5) !important; color: #fff !important; padding: .3em .7em !important; text-transform: uppercase !important; transform: translate(-50%, -3.3em) !important; z-index: 99999 !important; pointer-events: none !important; font-family: BaseFontMedium, FallbackFontMedium, sans-serif !important; white-space: nowrap !important; font-size: 1.3vh !important; }
-                        .kasp-tooltip::before { border: .6em solid transparent !important; border-top-color: #032930 !important; content: "" !important; height: 0 !important; left: 50% !important; position: absolute !important; top: calc(100% - 1px) !important; transform: translateX(-50%) !important; width: 0 !important; }
-                    `, 'kasp-settings-styles');
                     stylesInjected = true;
                 }
 
@@ -512,7 +490,7 @@
             onClose: () => {
                 const tooltip = document.getElementById('kaspersky-reload-tooltip');
                 if (tooltip) tooltip.classList.add('kasp-hidden');
-                
+
                 if (needsReload) window.location.reload();
             }
         };
@@ -534,7 +512,7 @@
                 const rawQuery = input.value.trim();
                 const queryWords = normalizeText(rawQuery).split(/\s+/).filter(word => word.length > 0);
                 const items = document.querySelectorAll('.kasp-paints-container .garage-item');
-                
+
                 items.forEach(itemEl => {
                     const item = itemEl as HTMLElement;
                     if (queryWords.length === 0) {
@@ -579,7 +557,7 @@
                 searchContainer.className = 'kasp-SearchInputComponentStyle-search';
                 const searchInputDiv = document.createElement('div');
                 searchInputDiv.className = 'kasp-SearchInputComponentStyle-searchInput';
-                
+
                 const input = document.createElement('input');
                 input.type = 'text';
                 input.placeholder = state.lang === 'RU' ? 'Найти' : 'Search';
@@ -588,7 +566,7 @@
 
                 const searchIcon = document.createElement('div');
                 searchIcon.className = 'kasp-search-icon';
-                
+
                 searchInputDiv.appendChild(input);
                 searchInputDiv.appendChild(searchIcon);
                 searchContainer.appendChild(searchInputDiv);
@@ -602,20 +580,6 @@
 
                 if (!initialized) {
                     initialized = true;
-                    utils.injectStyle(`
-                        .PaintsCollectionComponentStyle-commonBlockFOrInfoAndCaptionCategory { position: relative !important; }
-                        .kasp-search-wrapper { position: absolute; left: 0em; top: 50%; transform: translateY(-50%); z-index: 10; }
-                        .kasp-SearchInputComponentStyle-search { margin: 0; width: 18em; }
-                        .kasp-SearchInputComponentStyle-searchInput { height: 3.125em; background-color: transparent; border-radius: 0.5rem; box-sizing: border-box; display: flex; align-items: center; position: relative; width: 100%; }
-                        .kasp-SearchInputComponentStyle-searchInput input { width: 100%; height: 100%; margin: 0; padding-left: 1.063em; padding-right: 3.375em; border: 0 transparent; outline: none; box-sizing: border-box; border-radius: 0.5rem; font-size: 1em; color: rgb(255, 255, 255); background: initial; box-shadow: rgb(255, 255, 255) 0 0 0 1px; transition: box-shadow 0.2s; }
-                        .kasp-SearchInputComponentStyle-searchInput input:hover, .kasp-SearchInputComponentStyle-searchInput input:focus { box-shadow: rgb(255, 255, 255) 0 0 0 2px !important; }
-                        .kasp-SearchInputComponentStyle-searchInput input::placeholder { color: rgba(255, 255, 255, 0.5); }
-                        .kasp-search-icon { position: absolute; right: 0.875em; width: 1.5em; height: 1.5em; background-image: url(https://s.eu.tankionline.com/static/images/search.8c2b7c7b.svg); background-size: contain; background-repeat: no-repeat; background-position: center center; pointer-events: none; }
-                        .kasp-paints-container { display: flex !important; flex-direction: column !important; flex-wrap: wrap !important; height: 11.875em !important; max-height: 11.875em !important; overflow-x: auto !important; overflow-y: hidden !important; gap: 0.625em !important; }
-                        .kasp-paints-container > div { display: contents !important; }
-                        .kasp-paints-container .garage-item { flex: 0 0 auto; }
-                        .kasp-paints-container .garage-item[style*="display: none"] { display: none !important; }
-                    `, 'kasp-paints-styles');
                 }
 
                 addSearchInput();
@@ -667,7 +631,7 @@
 
             const injectButtons = () => {
                 if (!utils.getSetting('k_augments', false)) return;
-                
+
                 let hoverTooltip = document.getElementById('kasp-specs-tooltip');
                 if (!hoverTooltip) {
                     hoverTooltip = document.createElement('div');
@@ -680,7 +644,7 @@
                     const offset = 15;
                     let x = e.clientX + offset;
                     let y = e.clientY + offset;
-                    
+
                     const rect = hoverTooltip.getBoundingClientRect();
                     if (x + rect.width > window.innerWidth) {
                         x = e.clientX - rect.width - offset;
@@ -688,7 +652,7 @@
                     if (y + rect.height > window.innerHeight) {
                         y = e.clientY - rect.height - offset;
                     }
-                    
+
                     hoverTooltip.style.left = `${x}px`;
                     hoverTooltip.style.top = `${y}px`;
                 };
@@ -696,12 +660,12 @@
                 const applyButtonToCard = (card, url) => {
                     if (!card) return;
                     let existingBtn = card.querySelector('.custom-card-specs-btn');
-                    
+
                     if (existingBtn && existingBtn.dataset.url !== url) {
                         existingBtn.remove();
                         existingBtn = null;
                     }
-                    
+
                     if (!existingBtn && DataLoader.hasDevice(url)) {
                         if (window.getComputedStyle(card).position === 'static') {
                             card.style.position = 'relative';
@@ -710,7 +674,7 @@
                         btn.className = 'custom-card-specs-btn';
                         btn.dataset.url = url;
                         btn.innerHTML = `<div class="custom-card-specs-icon"></div>`;
-                        
+
                         btn.addEventListener('click', (e) => {
                             e.stopPropagation();
                             e.preventDefault();
@@ -719,11 +683,11 @@
                         btn.addEventListener('mouseenter', (e) => {
                             const deviceData = DataLoader.getDevice(url);
                             if (!deviceData) return;
-                            
+
                             const lang = state.lang;
                             const advList = renderList(deviceData.advantages, lang);
                             const disadvList = renderList(deviceData.disadvantages, lang);
-                            
+
                             hoverTooltip.innerHTML = `
                                 <div class="device-stats-wrapper">
                                     <div class="device-stats">
@@ -736,7 +700,7 @@
                                     </div>
                                 </div>
                             `;
-                            
+
                             hoverTooltip.style.display = 'block';
                             updateTooltipPos(e);
                         });
@@ -760,7 +724,7 @@
                 containerImageBlocks.forEach(block => {
                     if (block.closest('.ContainersComponentStyle-possibleRewardsBlock')) return;
 
-                    const card = block.parentElement; 
+                    const card = block.parentElement;
                     const imageDiv = block.querySelector('div[class*="-backgroundImageContain"]');
                     if (!imageDiv || !card) return;
 
@@ -780,7 +744,7 @@
                     htmlEl.classList.remove('hidden-by-script');
                     htmlEl.style.display = '';
                 });
-                
+
                 const deviceImg = document.querySelector<HTMLImageElement>('.DeviceButtonComponentStyle-deviceIcon');
                 if (!deviceImg) return;
                 const deviceData = DataLoader.getDevice(deviceImg.src);
@@ -807,7 +771,7 @@
                                 let isBuff = multiplier > 1;
                                 if (['RELOAD'].includes(matchedTag)) isBuff = multiplier < 1;
                                 if (matchedTag === 'WEIGHT' && multiplier < origNumber) isBuff = false;
-                                
+
                                 const color = isBuff ? '#00ff38' : '#fe6666';
                                 valueSpan.classList.add('hidden-by-script');
                                 (valueSpan as HTMLElement).style.display = 'none';
@@ -827,11 +791,11 @@
                 requestAnimationFrame(() => {
                     updateQueued = false;
                     if (!utils.getSetting('k_augments', false)) return;
-                    
+
                     const isGarage = state.currentScreen === 'garage';
                     const isContainers = !!document.querySelector('.ContainerInfoComponentStyle-lootBoxContainer');
                     if (!isGarage && !isContainers) return;
-                    
+
                     injectButtons();
                     updateLiveStats();
                 });
@@ -842,27 +806,6 @@
 
                 if (!initialized) {
                     initialized = true;
-                    utils.injectStyle(`
-                        .custom-card-specs-btn { position: absolute; bottom: 0.5em; left: 0.5em; width: 2.5em; height: 2.5em; border-radius: 0.5em; background-color: rgb(255, 255, 255); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 10; box-shadow: rgba(255, 255, 255, 0.25) 0em 0em 0em 0.063em; overflow: hidden; transition: background-color 0.2s ease, box-shadow 0.2s ease; }
-                        .custom-card-specs-btn:hover, .custom-card-specs-btn.active { background-color: rgb(197, 197, 197); box-shadow: rgb(255, 255, 255) 0em 0em 0em 2px; }
-                        .custom-card-specs-btn::after { content: ""; position: absolute; top: 0; left: -150%; width: 50%; height: 100%; background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.5) 50%, rgba(255, 255, 255, 0) 100%); transform: skewX(-25deg); z-index: 3; pointer-events: none; }
-                        .custom-card-specs-btn:hover::after, .custom-card-specs-btn.active::after { animation: kasp-metal-shine 0.6s ease-in-out; }
-                        .custom-card-specs-icon { width: 1.3em; height: 1.3em; display: block; background-color: rgb(0, 0, 0); -webkit-mask-image: url(https://s.eu.tankionline.com/static/images/unavailable.5c3ecd75.svg); mask-image: url(https://s.eu.tankionline.com/static/images/unavailable.5c3ecd75.svg); -webkit-mask-position: center; mask-position: center; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-size: contain; mask-size: contain; position: relative; z-index: 4; transition: background-color 0.2s ease, transform 0.2s ease; }
-                        .custom-card-specs-btn:hover .custom-card-specs-icon, .custom-card-specs-btn.active .custom-card-specs-icon { background-color: rgb(0, 0, 0); transform: translateY(-0.2em); }
-                        #kasp-specs-tooltip { position: fixed; z-index: 999999; pointer-events: none; display: none; background-color: rgba(0, 0, 0, 0.75); backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(6px); border: 0.063rem solid rgba(255, 255, 255, 0.1); border-radius: 0.5rem; padding: 1.25rem 0; box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.5); color: white; font-family: BaseFontMedium, FallbackFontMedium, sans-serif; font-size: max(min(1.48148vh, 1vw), 3px); min-width: 30em; max-width: 48em; }
-                        #kasp-specs-tooltip .device-stats-wrapper { display: flex; width: 100%; box-sizing: border-box; }
-                        #kasp-specs-tooltip .device-stats { flex: 1; flex-basis: 50%; padding: 0 1.5rem; box-sizing: border-box; }
-                        #kasp-specs-tooltip .device-stats:first-child { border-right: 0.063rem solid rgba(255, 255, 255, 0.15); }
-                        #kasp-specs-tooltip .device-stats .heading { font-weight: 600; font-family: BaseFontBold, FallbackFontBold, sans-serif; text-transform: uppercase; color: #46df11; display: flex; align-items: center; margin-bottom: 0.8rem; font-size: 1.1em; }
-                        #kasp-specs-tooltip .device-stats.negative .heading { color: #f33; }
-                        #kasp-specs-tooltip .device-stats .heading::before { content: ""; min-width: 1.2rem; min-height: 1.2rem; width: 1.2rem; height: 1.2rem; margin-right: 0.625rem; background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" fill="%2346df11"/><path d="M12 7V17M7 12H17" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg>'); background-size: contain; background-position: center; background-repeat: no-repeat; }
-                        #kasp-specs-tooltip .device-stats.negative .heading::before { background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" fill="%23f33"/><path d="M7 12H17" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg>'); }
-                        #kasp-specs-tooltip .device-stats ul { list-style: none; padding: 0; margin: 0; }
-                        #kasp-specs-tooltip .device-stats ul li { position: relative; padding-left: 1.2rem; margin-bottom: 0.5rem; font-size: 1.05em; line-height: 1.4; color: white; }
-                        #kasp-specs-tooltip .device-stats ul li::before { content: "\\25b8"; color: #46df11; position: absolute; left: 0; top: 0; font-size: 1.2em; line-height: 1.1; }
-                        #kasp-specs-tooltip .device-stats.negative ul li::before { color: #f33; }
-                        #kasp-specs-tooltip .device-stats ul ul { margin-top: 0.4rem; margin-bottom: 0.2rem; margin-left: 0.5rem; }                    
-                        `, 'kasp-augment-specs-styles');
 
                     const forceHideTooltip = () => {
                         const hoverTooltip = document.getElementById('kasp-specs-tooltip');
@@ -886,12 +829,12 @@
                 const isGarage = state.currentScreen === 'garage';
                 const isContainers = !!document.querySelector('.ContainerInfoComponentStyle-lootBoxContainer');
                 const loadingScreen = document.querySelector('.ApplicationLoaderComponentStyle-container.-background');
-                
+
                 if (loadingScreen || (!isGarage && !isContainers)) {
                     const hoverTooltip = document.getElementById('kasp-specs-tooltip');
                     if (hoverTooltip) hoverTooltip.style.display = 'none';
                 }
-                
+
                 if (isGarage || isContainers) {
                     scheduleUpdate();
                 }
@@ -1056,7 +999,7 @@
                     const innerBtn = (playButton.querySelector('.MainScreenComponentStyle-buttonPlay') || playButton) as HTMLElement;
                     let customText = innerBtn.querySelector('.custom-main-text') as HTMLElement;
                     let lockDiv = innerBtn.querySelector('.main-lock-icon') as HTMLElement;
-                    
+
                     if (searching) {
                         playButton.style.boxShadow = 'rgba(255, 255, 255, 0.25) 0em 0em 0em 1px';
                         playButton.style.cursor = 'default';
@@ -1121,7 +1064,7 @@
                 const quickWrapper = document.createElement('div');
                 quickWrapper.id = 'quick-play-wrapper';
                 quickWrapper.style.cssText = `width: ${MAIN_WIDTH}em; display: flex; flex-direction: column; gap: ${ROW_GAP}em; margin-top: ${ROW_GAP}em; position: relative; z-index: 10; box-sizing: border-box; flex-shrink: 0;`;
-                
+
                 const row2 = document.createElement('div');
                 row2.style.cssText = `display: flex; gap: ${ROW_GAP}em; width: 100%; height: ${BUTTON_HEIGHT}em;`;
                 const yOffsetRow2 = -(MAIN_HEIGHT + ROW_GAP);
@@ -1222,7 +1165,7 @@
 
             return () => {
                 if (!utils.getSetting('k_ext_btn', false)) return;
-                
+
                 if (state.currentScreen === 'battle') return;
 
                 if (!initialized) {
@@ -1259,7 +1202,7 @@
                 }
             };
         })(),
-        
+
         customFriends: (() => {
             let initialized = false;
 
@@ -1323,14 +1266,14 @@
                 const isClan = Boolean(clanTag && cardText.includes(clanTag));
                 const cats = getCustomCategories();
                 const customColor = cats[nickText];
-                
+
                 let rarityType = null;
                 if (customColor) {
                     rarityType = customColor;
                 } else if (isClan) {
                     rarityType = 'blue';
                 }
-                
+
                 let badge = el.querySelector('.custom-rarity-badge') as HTMLImageElement;
                 if (rarityType) {
                     if (!badge) {
@@ -1354,7 +1297,7 @@
                 const isFriendsList = scrollBlock.classList.contains('FriendListComponentStyle-scrollCommunity');
                 const itemSelector = isFriendsList ? '.FriendListComponentStyle-blockList' : '.InvitationWindowsComponentStyle-usersScroll > div > div';
                 const items = scrollBlock.querySelectorAll(itemSelector);
-                
+
                 items.forEach(node => {
                     const el = node as HTMLElement;
                     updateCardBadge(el, isFriendsList);
@@ -1368,7 +1311,7 @@
                     const isOffline = isFriendsList ? !!el.querySelector('.FriendListComponentStyle-offline') : !isOnline;
                     const span = Array.from(el.querySelectorAll('span')).find(s => s.className.includes('whiteSpaceNoWrap')) as HTMLElement;
                     const nickText = span ? span.innerText.trim() : cardText.split('\n')[0].trim();
-                    
+
                     let match = true;
                     if (filterType === 'online') match = isOnline;
                     else if (filterType === 'offline') match = isOffline;
@@ -1387,19 +1330,19 @@
                 if (!rankItem) return;
                 const span = Array.from(rankItem.querySelectorAll('span')).find(s => s.className.includes('whiteSpaceNoWrap')) as HTMLElement;
                 if (!span) return;
-                
+
                 const nickname = span.innerText.trim();
                 const row = document.createElement('div');
                 row.className = 'custom-category-row';
                 const cats = getCustomCategories();
                 const currentColor = cats[nickname];
-                
+
                 const customButtons = [
                     { type: 'purple', url: 'https://s.eu.tankionline.com/static/images/iconEpicFiolet.d91b1151.svg' },
                     { type: 'yellow', url: 'https://s.eu.tankionline.com/static/images/iconLegendaryGold.7c76cb29.svg' },
                     { type: 'red', url: 'https://s.eu.tankionline.com/static/images/iconCustomiseRed.2b5c8828.svg' }
                 ];
-                
+
                 customButtons.forEach(c => {
                     const btn = document.createElement('div');
                     btn.className = `custom-category-menu-btn ${currentColor === c.type ? 'active' : ''}`;
@@ -1415,7 +1358,7 @@
                     };
                     row.appendChild(btn);
                 });
-                
+
                 menu.appendChild(row);
                 requestAnimationFrame(() => {
                     const rect = menu.getBoundingClientRect();
@@ -1431,7 +1374,7 @@
                 if (scrollBlock.dataset.sidebarInjected === 'true') return;
                 scrollBlock.dataset.sidebarInjected = 'true';
                 const isFriends = scrollBlock.classList.contains('FriendListComponentStyle-scrollCommunity');
-                
+
                 if (isFriends) {
                     const wrapper = document.createElement('div');
                     wrapper.className = 'custom-friends-wrapper';
@@ -1440,7 +1383,7 @@
                         scrollBlock.parentNode.insertBefore(wrapper, scrollBlock);
                     }
                     wrapper.appendChild(scrollBlock);
-                    
+
                     const sidebar = document.createElement('div');
                     sidebar.className = 'custom-friends-sidebar sidebar-friends';
                     filtersConfig.forEach((config, index) => {
@@ -1486,49 +1429,21 @@
 
             return () => {
                 if (!utils.getSetting('k_friends', false)) return;
-                
+
                 if (state.currentScreen === 'battle') return;
 
                 if (!initialized) {
                     initialized = true;
-                    utils.injectStyle(`
-                        .custom-friends-sidebar { position: absolute; display: flex; flex-direction: column; align-items: center; z-index: 10; }
-                        .custom-friends-sidebar.sidebar-friends { top: 1.7em !important; left: -3.5em !important; gap: 0.25em; }
-                        .custom-friends-sidebar.sidebar-invites { top: 8.5em !important; left: -3.5em !important; gap: 0.25em; }
-                        .custom-filter-btn { display: flex; justify-content: center; align-items: center; width: 2.5em; height: 2.5em; cursor: pointer; border-radius: 6.25em; background-color: transparent; }
-                        .custom-filter-btn:hover { box-shadow: rgb(191, 213, 255) 0em 0em 0em 0.125em; }
-                        .custom-filter-btn:active, .custom-filter-btn.active { background-color: rgba(255, 255, 255, 0.15); }
-                        .custom-filter-btn img { width: 2.5em; height: 2.5em; pointer-events: none; }
-                        .custom-filter-btn:first-child img { width: 1.5em; height: 1.5em; }
-                        .custom-friends-sidebar.sidebar-invites .custom-filter-btn:nth-child(2),
-                        .custom-friends-sidebar.sidebar-invites .custom-filter-btn:nth-child(3) { display: none !important; }
-                        .FriendListComponentStyle-scrollCommunity { display: grid !important; grid-template-columns: repeat(2, 35em) !important; justify-content: space-between !important; row-gap: 0.5em !important; min-height: 50em !important; align-content: start !important; width: 72.375em !important; height: calc(100% - 661em) !important; }
-                        .FriendListComponentStyle-blockList { width: 35em !important; box-sizing: border-box; margin: 0 !important; position: relative !important; }
-                        .FriendListComponentStyle-stringCommunity { display: contents !important; }
-                        .InvitationWindowsComponentStyle-usersScroll { width: 100% !important; display: grid !important; grid-template-columns: repeat(2, 1fr) !important; column-gap: 0em !important; row-gap: 0.5em !important; align-content: start !important; box-sizing: border-box !important; }
-                        .InvitationWindowsComponentStyle-usersScroll > div { display: contents !important; }
-                        .InvitationWindowsComponentStyle-usersScroll > div > div { width: 35em !important; box-sizing: border-box; margin: 0 !important; position: relative !important; }
-                        .custom-rarity-badge { width: 0.75em !important; height: 0.75em !important; margin-left: 0px !important; position: absolute !important; top: 0px !important; left: 0px !important; z-index: 5; pointer-events: none; }
-                        .rarity-blue { filter: invert(34%) sepia(76%) saturate(2266%) hue-rotate(149deg) brightness(104%) contrast(103%); }
-                        .rarity-purple { filter: invert(34%) sepia(59%) saturate(1928%) hue-rotate(223deg) brightness(105%) contrast(102%); }
-                        .rarity-yellow { filter: invert(34%) sepia(48%) saturate(2983%) hue-rotate(359deg) brightness(104%) contrast(104%); }
-                        .rarity-red { filter: invert(71%) sepia(61%) saturate(2771%) hue-rotate(337deg) brightness(96%) contrast(111%); }
-                        .custom-category-row { display: flex; justify-content: center; align-items: center; gap: 0.75em; padding: 0.5em 0.5em; margin-top: 0.1em; }
-                        .custom-category-menu-btn { width: 2.5em; height: 2.5em; border-radius: 50%; cursor: pointer; display: flex; justify-content: center; align-items: center; transition: background-color, transform, box-shadow; }
-                        .custom-category-menu-btn:hover { box-shadow: rgb(191, 213, 255) 0em 0em 0em 0.125em; }
-                        .custom-category-menu-btn.active { background-color: rgba(255, 255, 255, 0.15); }
-                        .custom-category-menu-btn img { width: 2.5em; height: 2.5em; pointer-events: none; }
-                    `, 'kasp-friends-styles');
                 }
 
                 const scrollBlocks = document.querySelectorAll('.FriendListComponentStyle-scrollCommunity, .InvitationWindowsComponentStyle-usersScroll');
                 scrollBlocks.forEach(node => {
                     const scrollBlock = node as HTMLElement;
                     if (scrollBlock.dataset.sidebarInjected !== 'true') setupSidebar(scrollBlock);
-                    
+
                     const isFriendsList = scrollBlock.classList.contains('FriendListComponentStyle-scrollCommunity');
                     const itemSelector = isFriendsList ? '.FriendListComponentStyle-blockList' : '.InvitationWindowsComponentStyle-usersScroll > div > div';
-                    
+
                     scrollBlock.querySelectorAll(itemSelector).forEach(el => {
                         updateCardBadge(el as HTMLElement, isFriendsList);
                     });
@@ -1721,94 +1636,59 @@
                 }
             };
 
-            function showWelcomeModal() {
+            async function showWelcomeModal() {
                 const lang = state.lang;
                 const dict = t[lang] || t['EN'];
 
-                const overlay = document.createElement('div');
-                overlay.id = 'kasp-welcome-overlay';
-                overlay.style.cssText = `
-                    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-                    background: rgba(0, 0, 0, 0.7); z-index: 99999;
-                    display: flex; align-items: center; justify-content: center;
-                    backdrop-filter: blur(3px);
-                `;
+                const templateUrl = chrome.runtime.getURL('templates/welcome-modal.html');
+                try {
+                    const response = await fetch(templateUrl);
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    let html = await response.text();
 
-                const dialog = document.createElement('div');
-                dialog.style.cssText = `
-                    display: flex; flex-direction: column; align-items: stretch;
-                    width: 45em; max-width: 90vw;
-                    z-index: 60; box-shadow: rgba(0, 0, 0, 0.5) 0px 0.5em 2em 0px;
-                    outline: rgba(255, 255, 255, 0.25) solid 0.063em;
-                    padding: 2.5em; border-radius: 0.75em;
-                    background: radial-gradient(100% 100% at 0% 0%, rgb(255 255 255 / 15%) 0%, rgb(0 0 0 / 95%) 100%), rgb(56 56 56);
-                    font-family: BaseFont, FallbackFont, sans-serif; color: white;
-                `;
+                    html = html
+                        .replace(/{{version}}/g, dict.version)
+                        .replace(/{{intro}}/g, dict.intro)
+                        .replace(/{{role1}}/g, dict.role1)
+                        .replace(/{{role2}}/g, dict.role2)
+                        .replace(/{{role3}}/g, dict.role3)
+                        .replace(/{{role4}}/g, dict.role4)
+                        .replace(/{{outro}}/g, dict.outro)
+                        .replace(/{{close}}/g, dict.close);
 
-                dialog.innerHTML = `
-                    <div style="text-align: center; margin-bottom: 1.5em;">
-                        <h1 style="font-family: BaseFontBold, FallbackFontBold, sans-serif; font-size: 2.2em; color: rgb(211 211 211); margin: 0 0 0.2em 0; text-transform: uppercase; letter-spacing: 0.5px;">Kaspersky's Inventions</h1>
-                        <h2 style="font-family: BaseFontMedium, FallbackFontMedium, sans-serif; font-size: 1.1em; color: rgba(255, 255, 255, 0.6); margin: 0; text-transform: uppercase; letter-spacing: 1px;">${dict.version}</h2>
-                    </div>
-                    
-                    <div style="font-size: 1.05em; line-height: 1.4; color: rgb(220, 220, 220); margin-bottom: 2em; text-align: center;">
-                        <p style="margin-bottom: 1.5em;">${dict.intro}</p>
-                        
-                        <p style="margin: 0; color: rgba(255, 255, 255, 0.5); font-size: 0.9em; text-transform: uppercase;">${dict.role1}</p>
-                        <p style="margin: 0.2em 0 1em 0; font-family: BaseFontBold, FallbackFontBold, sans-serif; color: white; font-size: 1.2em;">Kaspersky</p>
-                        
-                        <p style="margin: 0; color: rgba(255, 255, 255, 0.5); font-size: 0.9em; text-transform: uppercase;">${dict.role2}</p>
-                        <p style="margin: 0.2em 0 1em 0; color: white; line-height: 1.3;">
-                            ChatGPT<br>
-                            DeepSeek<br>
-                            Claude Sonnet 5<br>
-                            Claude Haiku 4.5<br>
-                            Gemini 3.5 Flash-Lite<br>
-                            Gemini 3.8 Flash<br>
-                            Gemini 3.1 Pro<br>
-                            Grok 4.6
-                        </p>
-                        
-                        <p style="margin: 0; color: rgba(255, 255, 255, 0.5); font-size: 0.9em; text-transform: uppercase;">${dict.role3}</p>
-                        <p style="margin: 0.2em 0 1em 0; color: white; line-height: 1.3;">
-                            Claude Fable 5.1<br>
-                            Claude Opus 5
-                        </p>
+                    const overlay = document.createElement('div');
+                    overlay.id = 'kasp-welcome-overlay';
+                    overlay.style.cssText = `
+                        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                        background: rgba(0, 0, 0, 0.7); z-index: 99999;
+                        display: flex; align-items: center; justify-content: center;
+                        backdrop-filter: blur(3px);
+                    `;
 
-                        <p style="margin: 0; color: rgba(255, 255, 255, 0.5); font-size: 0.9em; text-transform: uppercase;">${dict.role4}</p>
-                        <p style="margin: 0.2em 0 1.5em 0; color: white; line-height: 1.3;">
-                            safwan
-                        </p>
-                        
-                        <p style="margin: 0; font-family: BaseFontMedium, FallbackFontMedium, sans-serif; color: rgb(211 211 211); font-size: 1.1em; text-transform: uppercase;">${dict.outro}</p>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: center; gap: 1em; flex-wrap: wrap;">
-                        <a href="https://discord.gg/yNeB7Ah752" target="_blank" style="text-decoration: none;">
-                            <div style="height: 3em; border-radius: 0.75em; background-color: #5865F2; display: flex; align-items: center; justify-content: center; color: white; font-family: BaseFontBold, FallbackFontBold, sans-serif; font-weight: 500; text-transform: uppercase; padding: 0 1.5em; cursor: pointer; border: 1px solid transparent;" onmouseover="this.style.borderColor='white'; this.style.boxShadow='0 0 0 1px white';" onmouseout="this.style.borderColor='transparent'; this.style.boxShadow='none';">
-                                DISCORD
-                            </div>
-                        </a>
-                        <a href="https://github.com/AlanKaspersky/Kaspersky-Inventions-for-Tanki-Online.git" target="_blank" style="text-decoration: none;">
-                            <div style="height: 3em; border-radius: 0.75em; background-color: rgba(255, 255, 255, 0.15); display: flex; align-items: center; justify-content: center; color: white; font-family: BaseFontBold, FallbackFontBold, sans-serif; font-weight: 500; text-transform: uppercase; padding: 0 1.5em; cursor: pointer; border: 1px solid transparent;" onmouseover="this.style.borderColor='white'; this.style.boxShadow='0 0 0 1px white';" onmouseout="this.style.borderColor='transparent'; this.style.boxShadow='none';">
-                                GITHUB
-                            </div>
-                        </a>
-                        <div id="kasp-welcome-close" style="height: 3em; border-radius: 0.75em; background-color: rgb(213 213 213); display: flex; align-items: center; justify-content: center; color: rgb(0, 25, 38); font-family: BaseFontBold, FallbackFontBold, sans-serif; font-weight: 500; text-transform: uppercase; padding: 0 1.5em; cursor: pointer; border: 1px solid transparent;" onmouseover="this.style.borderColor='white'; this.style.boxShadow='0 0 0 1px white';" onmouseout="this.style.borderColor='transparent'; this.style.boxShadow='none';">
-                            ${dict.close}
-                        </div>
-                    </div>
-                `;
+                    const dialog = document.createElement('div');
+                    dialog.style.cssText = `
+                        display: flex; flex-direction: column; align-items: stretch;
+                        width: 45em; max-width: 90vw;
+                        z-index: 60; box-shadow: rgba(0, 0, 0, 0.5) 0px 0.5em 2em 0px;
+                        outline: rgba(255, 255, 255, 0.25) solid 0.063em;
+                        padding: 2.5em; border-radius: 0.75em;
+                        background: radial-gradient(100% 100% at 0% 0%, rgb(255 255 255 / 15%) 0%, rgb(0 0 0 / 95%) 100%), rgb(56 56 56);
+                        font-family: BaseFont, FallbackFont, sans-serif; color: white;
+                    `;
 
-                overlay.appendChild(dialog);
-                document.body.appendChild(overlay);
+                    dialog.innerHTML = html;
+                    overlay.appendChild(dialog);
+                    document.body.appendChild(overlay);
 
-                const closeBtn = document.getElementById('kasp-welcome-close') as HTMLElement | null;
-                if (closeBtn) {
-                    closeBtn.addEventListener('click', () => {
-                        overlay.remove();
-                        localStorage.setItem(STORAGE_KEY, CURRENT_VERSION);
-                    });
+                    const closeBtn = document.getElementById('kasp-welcome-close') as HTMLElement | null;
+                    if (closeBtn) {
+                        closeBtn.addEventListener('click', () => {
+                            overlay.remove();
+                            localStorage.setItem(STORAGE_KEY, CURRENT_VERSION);
+                        });
+                    }
+                } catch (error) {
+                    console.error('[Kaspersky Inventions] Failed to load welcome modal template:', error);
                 }
             }
 
@@ -1827,7 +1707,7 @@
                 showWelcomeModal();
             };
         })(),
-        
+
         hideNickname: (() => {
             let initialized = false;
             let cachedOriginalNick: string | null = null;
@@ -1840,7 +1720,7 @@
                 const hiddenText = getHiddenText();
                 const expectedClass = state.lang === 'RU' ? 'hidden-text-ru' : 'hidden-text';
                 const hiddenSpan = userNameElement.querySelector('.hidden-text, .hidden-text-ru');
-                
+
                 if (!hiddenSpan) {
                     const originalName = cachedOriginalNick || userNameElement.textContent?.trim() || '';
                     if (originalName && originalName !== 'Скрыто' && originalName !== 'Hidden') {
@@ -1865,7 +1745,7 @@
                 const hiddenText = getHiddenText();
                 const expectedClass = state.lang === 'RU' ? 'hidden-xp-ru' : 'hidden-xp';
                 const hiddenXpSpan = xpContainer.querySelector('.hidden-xp, .hidden-xp-ru');
-                
+
                 if (!hiddenXpSpan) {
                     const originalXp = xpContainer.textContent?.trim() || '';
                     xpContainer.innerHTML = '';
@@ -1893,9 +1773,9 @@
                     }
                 }
                 if (!cachedOriginalNick) return;
-                
+
                 const hiddenText = getHiddenText();
-                
+
                 const tabContainer = document.querySelector('.BattleTabStatisticComponentStyle-containerInsideTeams');
                 if (tabContainer) {
                     const tabSpans = tabContainer.querySelectorAll('.BattleTabStatisticComponentStyle-nicknameCell span');
@@ -1909,7 +1789,7 @@
                         }
                     }
                 }
-                
+
                 const selfRow = document.getElementById('selfUserBg');
                 if (selfRow) {
                     const resultSpans = selfRow.querySelectorAll('td[class*="col1"] span');
@@ -1934,17 +1814,6 @@
 
                 if (!initialized) {
                     initialized = true;
-                    utils.injectStyle(`
-                        .hidden-text, .hidden-text-ru, .hidden-xp, .hidden-xp-ru { position: relative; cursor: pointer; font-weight: 500; text-shadow: rgba(0, 0, 0, 0.5) 0em 0em 0.25em; user-select: none; display: inline-block; }
-                        .hidden-text, .hidden-text-ru { color: #ffffff !important; }
-                        .hidden-text:hover, .hidden-text-ru:hover { color: rgb(255, 188, 9) !important; }
-                        .hidden-xp, .hidden-xp-ru { color: rgb(118, 255, 51) !important; font-family: BaseFontMedium, FallbackFontMedium, sans-serif; font-style: normal; text-transform: uppercase; font-size: 1em; }
-                        .hidden-text::after, .hidden-text-ru::after, .hidden-xp::after, .hidden-xp-ru::after { content: attr(data-tooltip); position: absolute; background: rgba(0, 0, 0, 0.9); padding: 5px 12px; border-radius: 4px; font-size: 13px; white-space: nowrap; pointer-events: none; opacity: 0; z-index: 99999; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 8px; border: 1px solid rgba(255,255,255,0.1); font-weight: 500; font-family: BaseFontMedium, FallbackFontMedium, sans-serif; text-transform: uppercase; transition: opacity 0.15s ease; }
-                        .hidden-text::after, .hidden-text-ru::after { color: #ffffff; }
-                        .hidden-xp::after, .hidden-xp-ru::after { color: rgb(118, 255, 51); }
-                        .hidden-text::before, .hidden-text-ru::before, .hidden-xp::before, .hidden-xp-ru::before { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 6px solid transparent; border-bottom-color: rgba(0, 0, 0, 0.9); opacity: 0; pointer-events: none; z-index: 99999; margin-top: -4px; transition: opacity 0.15s ease; }
-                        .hidden-text:hover::after, .hidden-text:hover::before, .hidden-text-ru:hover::after, .hidden-text-ru:hover::before, .hidden-xp:hover::after, .hidden-xp:hover::before, .hidden-xp-ru:hover::after, .hidden-xp-ru:hover::before { opacity: 1; }
-                    `, 'kasp-hidenickname-styles');
 
                     document.addEventListener('keydown', (e) => {
                         if (e.key === 'Tab') {
@@ -1955,14 +1824,14 @@
 
                 const userName = document.querySelector('.UserInfoContainerStyle-userNameRank.UserInfoContainerStyle-textDecoration') as HTMLElement;
                 if (userName) processNickElement(userName);
-                
+
                 const xp = document.querySelector('.UserInfoContainerStyle-progressValue') as HTMLElement;
                 if (xp) processXpElement(xp);
 
                 hideNicknameInTables();
             };
         })(),
-        
+
         hideCurrency: (() => {
             let initialized = false;
 
@@ -1973,9 +1842,9 @@
             function processSpan(span: HTMLElement) {
                 const text = span.textContent?.trim() || '';
                 const targetText = getHiddenText();
-                
+
                 const parentElement = (span.closest('.HeaderCommonStyle-icons') || span.parentElement) as HTMLElement;
-                
+
                 if (text && text !== targetText && text !== 'Скрыто' && text !== 'Hidden' && /\d/.test(text)) {
                     span.dataset.originalValue = text;
                     span.textContent = targetText;
@@ -1985,7 +1854,7 @@
                 } else if (span.dataset.originalValue && parentElement && !parentElement.hasAttribute('data-tooltip')) {
                     parentElement.setAttribute('data-tooltip', span.dataset.originalValue);
                 }
-                
+
                 if (parentElement && !parentElement.classList.contains('currency-masked')) {
                     parentElement.classList.add('currency-masked');
                 }
@@ -1997,65 +1866,6 @@
 
                 if (!initialized) {
                     initialized = true;
-                    
-                    utils.injectStyle(`
-                        .currency-masked { 
-                            position: relative; 
-                            cursor: pointer !important; 
-                        }
-                        
-                        .currency-masked::after {
-                            content: attr(data-tooltip);
-                            position: absolute;
-                            background: rgba(15, 17, 21, 0.95);
-                            border: 0.08em solid rgba(255, 255, 255, 0.15);
-                            padding: 0.6em 1em;
-                            border-radius: 0.5em;
-                            font-family: BaseFontMedium, FallbackFontMedium, sans-serif;
-                            font-size: 1rem;
-                            pointer-events: none;
-                            white-space: nowrap;
-                            box-shadow: 0 0.3em 1em rgba(0, 0, 0, 0.6);
-                            opacity: 0;
-                            z-index: 99999;
-                            top: 100%;
-                            left: 50%;
-                            transform: translateX(-50%);
-                            margin-top: 8px;
-                            transition: opacity 0.15s ease;
-                            text-transform: uppercase;
-                        }
-
-                        .currency-masked::before {
-                            content: '';
-                            position: absolute;
-                            top: 100%;
-                            left: 50%;
-                            transform: translateX(-50%);
-                            border: 6px solid transparent;
-                            border-bottom-color: rgba(15, 17, 21, 0.95);
-                            opacity: 0;
-                            pointer-events: none;
-                            z-index: 99999;
-                            margin-top: -4px;
-                            transition: opacity 0.15s ease;
-                        }
-
-                        .currency-masked:hover::after,
-                        .currency-masked:hover::before {
-                            opacity: 1;
-                        }
-
-                        .HeaderCommonStyle-icons:has(img[src*="ruby"]).currency-masked::after,
-                        .ksc-22.currency-masked::after, 
-                        .ksc-62.currency-masked::after { color: rgb(255, 102, 102); }
-                        
-                        .HeaderCommonStyle-icons:has(img[src*="crystal"]).currency-masked::after,
-                        .ksc-24.currency-masked::after { color: rgb(0, 215, 255); }
-                        
-                        .UserScoreComponentStyle-coinBlock.currency-masked::after,
-                        .HeaderCommonStyle-icons:has(img[src*="coin"]).currency-masked::after { color: rgb(255, 188, 9); }
-                    `, 'kasp-currency-tooltip-styles');
 
                     window.setInterval(() => {
                         if (state.currentScreen === 'battle') return;
@@ -2077,36 +1887,22 @@
 
             type Trophy = { id: string; type: string; icon: string; current: number; max: number };
 
-            const DICTIONARY: Record<string, { id: string; ru: string; en: string; type: string }> = {
-                'огнемёт': { id: 'firebird', ru: 'Огнемёт', en: 'Firebird', type: 'turret' }, 'firebird': { id: 'firebird', ru: 'Огнемёт', en: 'Firebird', type: 'turret' },
-                'фриз': { id: 'freeze', ru: 'Фриз', en: 'Freeze', type: 'turret' }, 'freeze': { id: 'freeze', ru: 'Фриз', en: 'Freeze', type: 'turret' },
-                'изида': { id: 'isida', ru: 'Изида', en: 'Isida', type: 'turret' }, 'isida': { id: 'isida', ru: 'Изида', en: 'Isida', type: 'turret' },
-                'тесла': { id: 'tesla', ru: 'Тесла', en: 'Tesla', type: 'turret' }, 'tesla': { id: 'tesla', ru: 'Тесла', en: 'Tesla', type: 'turret' },
-                'молот': { id: 'hammer', ru: 'Молот', en: 'Hammer', type: 'turret' }, 'hammer': { id: 'hammer', ru: 'Молот', en: 'Hammer', type: 'turret' },
-                'твинс': { id: 'twins', ru: 'Твинс', en: 'Twins', type: 'turret' }, 'twins': { id: 'twins', ru: 'Твинс', en: 'Twins', type: 'turret' },
-                'рикошет': { id: 'ricochet', ru: 'Рикошет', en: 'Ricochet', type: 'turret' }, 'ricochet': { id: 'ricochet', ru: 'Рикошет', en: 'Ricochet', type: 'turret' },
-                'смоки': { id: 'smoky', ru: 'Смоки', en: 'Smoky', type: 'turret' }, 'smoky': { id: 'smoky', ru: 'Смоки', en: 'Smoky', type: 'turret' },
-                'вулкан': { id: 'vulcan', ru: 'Вулкан', en: 'Vulcan', type: 'turret' }, 'vulcan': { id: 'vulcan', ru: 'Вулкан', en: 'Vulcan', type: 'turret' },
-                'страйкер': { id: 'striker', ru: 'Страйкер', en: 'Striker', type: 'turret' }, 'striker': { id: 'striker', ru: 'Страйкер', en: 'Striker', type: 'turret' },
-                'гром': { id: 'thunder', ru: 'Гром', en: 'Thunder', type: 'turret' }, 'thunder': { id: 'thunder', ru: 'Гром', en: 'Thunder', type: 'turret' },
-                'цунами': { id: 'tsunami', ru: 'Цунами', en: 'Tsunami', type: 'turret' }, 'tsunami': { id: 'tsunami', ru: 'Цунами', en: 'Tsunami', type: 'turret' },
-                'скорпион': { id: 'scorpion', ru: 'Скорпион', en: 'Scorpion', type: 'turret' }, 'scorpion': { id: 'scorpion', ru: 'Скорпион', en: 'Scorpion', type: 'turret' },
-                'магнум': { id: 'magnum', ru: 'Магнум', en: 'Magnum', type: 'turret' }, 'magnum': { id: 'magnum', ru: 'Магнум', en: 'Magnum', type: 'turret' },
-                'рельса': { id: 'railgun', ru: 'Рельса', en: 'Railgun', type: 'turret' }, 'railgun': { id: 'railgun', ru: 'Рельса', en: 'Railgun', type: 'turret' },
-                'гаусс': { id: 'gauss', ru: 'Гаусс', en: 'Gauss', type: 'turret' }, 'gauss': { id: 'gauss', ru: 'Гаусс', en: 'Gauss', type: 'turret' },
-                'шафт': { id: 'shaft', ru: 'Шафт', en: 'Shaft', type: 'turret' }, 'shaft': { id: 'shaft', ru: 'Шафт', en: 'Shaft', type: 'turret' },
-                'васп': { id: 'wasp', ru: 'Васп', en: 'Wasp', type: 'hull' }, 'wasp': { id: 'wasp', ru: 'Васп', en: 'Wasp', type: 'hull' },
-                'хоппер': { id: 'hopper', ru: 'Хоппер', en: 'Hopper', type: 'hull' }, 'hopper': { id: 'hopper', ru: 'Хоппер', en: 'Hopper', type: 'hull' },
-                'хорнет': { id: 'hornet', ru: 'Хорнет', en: 'Hornet', type: 'hull' }, 'hornet': { id: 'hornet', ru: 'Хорнет', en: 'Hornet', type: 'hull' },
-                'викинг': { id: 'viking', ru: 'Викинг', en: 'Viking', type: 'hull' }, 'viking': { id: 'viking', ru: 'Викинг', en: 'Viking', type: 'hull' },
-                'крусейдер': { id: 'crusader', ru: 'Крусейдер', en: 'Crusader', type: 'hull' }, 'crusader': { id: 'crusader', ru: 'Крусейдер', en: 'Crusader', type: 'hull' },
-                'хантер': { id: 'hunter', ru: 'Хантер', en: 'Hunter', type: 'hull' }, 'hunter': { id: 'hunter', ru: 'Хантер', en: 'Hunter', type: 'hull' },
-                'паладин': { id: 'paladin', ru: 'Паладин', en: 'Paladin', type: 'hull' }, 'paladin': { id: 'paladin', ru: 'Паладин', en: 'Paladin', type: 'hull' },
-                'диктатор': { id: 'dictator', ru: 'Диктатор', en: 'Dictator', type: 'hull' }, 'dictator': { id: 'dictator', ru: 'Диктатор', en: 'Dictator', type: 'hull' },
-                'титан': { id: 'titan', ru: 'Титан', en: 'Titan', type: 'hull' }, 'titan': { id: 'titan', ru: 'Титан', en: 'Titan', type: 'hull' },
-                'арес': { id: 'ares', ru: 'Арес', en: 'Ares', type: 'hull' }, 'ares': { id: 'ares', ru: 'Арес', en: 'Ares', type: 'hull' },
-                'мамонт': { id: 'mammoth', ru: 'Мамонт', en: 'Mammoth', type: 'hull' }, 'mammoth': { id: 'mammoth', ru: 'Мамонт', en: 'Mammoth', type: 'hull' }
-            };
+            type TrophyDictionaryEntry = { id: string; ru: string; en: string; type: string };
+            let trophyDictionary: Record<string, TrophyDictionaryEntry> = {};
+            let trophyDictionaryLoaded = false;
+
+            async function loadTrophyDictionary(): Promise<void> {
+                if (trophyDictionaryLoaded) return;
+                try {
+                    const response = await fetch(chrome.runtime.getURL('database/trophies.json'));
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    trophyDictionary = await response.json();
+                    trophyDictionaryLoaded = true;
+                } catch (error) {
+                    console.error('[Kaspersky Inventions] Failed to load trophy dictionary:', error);
+                    trophyDictionary = {};
+                }
+            }
 
             let cachedFavs: Trophy[] | null = null;
 
@@ -2127,9 +1923,9 @@
 
             function parseItem(rawText: string) {
                 const lower = rawText.toLowerCase();
-                for (const key in DICTIONARY) {
+                for (const key in trophyDictionary) {
                     if (lower.includes(key)) {
-                        const item = DICTIONARY[key];
+                        const item = trophyDictionary[key];
                         return {
                             id: item.id,
                             name: state.lang === 'RU' ? item.ru : item.en,
@@ -2174,14 +1970,14 @@
                 let favsUpdated = false;
                 const favTurrets = favs.filter(f => f.type === 'turret').length;
                 const favHulls = favs.filter(f => f.type === 'hull').length;
-                
+
                 garageCards.forEach(card => {
                     const progressEl = card.querySelector('h4');
                     if (!progressEl) return;
                     const rawText = card.textContent || '';
                     const itemInfo = parseItem(rawText);
                     if (!itemInfo) return;
-                    
+
                     const isGrid = card.classList.contains('MainQuestComponentStyle-cardPlay');
                     card.style.position = 'relative';
                     if (isGrid) {
@@ -2189,23 +1985,23 @@
                     } else {
                         card.classList.add('card-type-list'); card.classList.remove('card-type-grid');
                     }
-                    
+
                     const type = itemInfo.type;
                     const cleanProgress = progressEl.textContent?.replace(/\s|\u00A0/g, '') || '';
                     const parts = cleanProgress.split('/');
                     const currentPoints = parseInt(parts[0], 10) || 0;
                     const maxPoints = parseInt(parts[1], 10) || 5000000;
-                    
+
                     const favItem = favs.find(f => f.id === itemInfo.id);
                     if (favItem && favItem.current !== currentPoints) {
                         favItem.current = currentPoints;
                         favItem.max = maxPoints;
                         favsUpdated = true;
                     }
-                    
+
                     const limitReached = !favItem && ((type === 'turret' && favTurrets >= 2) || (type === 'hull' && favHulls >= 2));
                     let starContainer = card.querySelector('.PaintsCollectionComponentStyle-favoriteIconContainer');
-                    
+
                     if (!starContainer) {
                         starContainer = document.createElement('div');
                         starContainer.className = 'PaintsCollectionComponentStyle-favoriteIconContainer';
@@ -2221,7 +2017,7 @@
                         const expectedIcon = favItem ? ICON_FAV : ICON_UNFAV;
                         if (img && img.src !== expectedIcon) img.src = expectedIcon;
                     }
-                    
+
                     if (limitReached) starContainer.classList.add('star-limit-reached');
                     else starContainer.classList.remove('star-limit-reached');
                 });
@@ -2248,12 +2044,12 @@
                     if (!rawText || !rawProgress) return;
                     const itemInfo = parseItem(rawText);
                     if (!itemInfo) return;
-                    
+
                     const cleanProgress = rawProgress.replace(/\s|\u00A0/g, '');
                     const parts = cleanProgress.split('/');
                     const currentPoints = parseInt(parts[0], 10) || 0;
                     const maxPoints = parseInt(parts[1], 10) || 5000000;
-                    
+
                     const favItem = favs.find(f => f.id === itemInfo.id);
                     if (favItem && favItem.current !== currentPoints) {
                         favItem.current = currentPoints;
@@ -2269,16 +2065,16 @@
                 panel.id = 'custom-trophy-panel';
                 panel.className = 'custom-trophy-panel';
                 const trophies = getFavs();
-                
+
                 trophies.sort((a, b) => {
                     if (a.type === 'turret' && b.type === 'hull') return -1;
                     if (a.type === 'hull' && b.type === 'turret') return 1;
                     return 0;
                 });
-                
+
                 trophies.forEach(trophy => {
                     const percent = Math.min(100, Math.max(0, (trophy.current / trophy.max) * 100));
-                    const match = Object.values(DICTIONARY).find(d => d.id === trophy.id);
+                    const match = Object.values(trophyDictionary).find(d => d.id === trophy.id);
                     const displayName = match ? (state.lang === 'RU' ? match.ru : match.en) : trophy.id;
                     const itemHTML = `
                         <div class="custom-trophy-item">
@@ -2300,7 +2096,7 @@
             function updateInterface() {
                 const challengesBlock = document.querySelector('.BattlePassLobbyComponentStyle-menuBattlePass');
                 const panel = document.getElementById('custom-trophy-panel');
-                
+
                 if (challengesBlock) {
                     if (!panel && getFavs().length > 0 && challengesBlock.parentElement) {
                         challengesBlock.parentElement.appendChild(createPanel());
@@ -2308,29 +2104,15 @@
                 } else {
                     if (panel) panel.remove();
                 }
-                
+
                 const cards = document.querySelectorAll('.MainQuestComponentStyle-cardPlayCommon, .TableMainQuestComponentStyle-commonTableMainQuest, .MainQuestComponentStyle-cardPlay');
                 if (cards.length > 0) processGarageMissions(Array.from(cards) as HTMLElement[]);
             }
 
-            return () => {
+            return async () => {
                 if (!initialized) {
                     initialized = true;
-                    utils.injectStyle(`
-                        .custom-trophy-panel { position: absolute; top: 19em; right: 3em; display: flex; flex-direction: column; gap: 1.5em; font-family: BaseFontRegular, FallbackFontRegular, sans-serif; z-index: 1; pointer-events: none; width: 17em; opacity: 1 !important; transform: none !important; }
-                        .custom-trophy-item { display: flex; align-items: center; gap: 1em; justify-content: flex-start; }
-                        .custom-trophy-icon { width: 3.5em; height: 3.5em; object-fit: contain; filter: drop-shadow(rgba(0, 0, 0, 0.5) 0em 0em 0.25em); }
-                        .custom-trophy-info { display: flex; flex-direction: column; align-items: flex-start; width: 100%; }
-                        .custom-trophy-title { color: rgb(255, 255, 255); font-weight: 500; font-size: 1em; text-shadow: rgba(0, 0, 0, 0.5) 0em 0em 0.25em; white-space: nowrap; }
-                        .custom-trophy-bar-bg { background-color: rgba(118, 255, 51, 0.5); border-radius: 0.375em; position: relative; min-width: 12.5em; width: 100%; height: 0.25em; margin-top: 0.375em; }
-                        .custom-trophy-bar-fill { background-color: rgb(118, 255, 51); border-radius: 6.25em; height: 100%; transition: width 0.5s ease-out; box-shadow: 0 0 0.2em rgba(118, 255, 51, 0.8); }
-                        .custom-trophy-text { color: rgb(118, 255, 51); font-weight: 500; font-size: 0.9em; text-shadow: rgba(0, 0, 0, 0.5) 0em 0em 0.25em; margin-top: 0.3em; }
-                        .PaintsCollectionComponentStyle-favoriteIconContainer { position: absolute; width: 2.2em; height: 2.2em; z-index: 10; cursor: pointer; }
-                        .PaintsCollectionComponentStyle-favoriteIconContainer img { width: 100%; height: 100%; pointer-events: none; transition: filter 0.2s; }
-                        .card-type-list .PaintsCollectionComponentStyle-favoriteIconContainer { right: 1em; top: 50%; transform: translateY(-50%); }
-                        .card-type-grid .PaintsCollectionComponentStyle-favoriteIconContainer { right: 0.8em; top: 0.8em; }
-                        .star-limit-reached img { filter: brightness(0.7) sepia(1) hue-rotate(310deg) saturate(5); }
-                    `, 'kasp-trophies-styles');
+                    await loadTrophyDictionary();
                 }
 
                 if (state.currentScreen === 'lobby' || state.currentScreen === 'garage') {
@@ -2452,9 +2234,9 @@
 
             function shouldShowQuickButtons() {
                 if (!utils.getSetting('k_auto_upgrade', false)) return false;
-                
+
                 if (isMaxLevel()) return false;
-                
+
                 if (isCompleted()) return false;
 
                 const buttonsContainer = document.querySelector('.TanksPartBaseComponentStyle-buttonsContainer');
@@ -2469,7 +2251,7 @@
                             const coinIcon = btn.querySelector('.GarageCommonStyle-iconCoinSmall');
                             if (coinIcon) {
                                 const bgImage = window.getComputedStyle(coinIcon).backgroundImage;
-                                if (!bgImage.includes('ruby')) return true; 
+                                if (!bgImage.includes('ruby')) return true;
                             }
                         }
                     }
@@ -2536,7 +2318,7 @@
 
                 dialog.appendChild(header); dialog.appendChild(content); dialog.appendChild(footer);
                 overlay.appendChild(dialog);
-                
+
                 let isClosing = false;
 
                 function closeDialog() {
@@ -2549,7 +2331,7 @@
                         document.removeEventListener('mouseup', onMouseUp, true);
                     }, 1000);
                 }
-                
+
                 (overlay as any).closeDialogMethod = closeDialog;
                 document.body.appendChild(overlay);
 
@@ -2563,11 +2345,11 @@
                         document.removeEventListener('keydown', onKeyDown, true);
                         return;
                     }
-                    if (e.key === 'Escape' || e.code === 'KeyZ' || e.key.toLowerCase() === 'z') { 
-                        e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); 
+                    if (e.key === 'Escape' || e.code === 'KeyZ' || e.key.toLowerCase() === 'z') {
+                        e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
                         if (!isClosing) { isClosing = true; closeDialog(); }
-                    } else if (e.key === 'Enter') { 
-                        e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); 
+                    } else if (e.key === 'Enter') {
+                        e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
                         if (!isClosing) { isClosing = true; closeDialog(); if (callback) callback(); }
                     }
                 }
@@ -2583,8 +2365,8 @@
                         document.removeEventListener('mousedown', onMouseDown, true);
                         return;
                     }
-                    if (e.button === 3 || e.button === 4) { 
-                        e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); 
+                    if (e.button === 3 || e.button === 4) {
+                        e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
                         if (!isClosing) { isClosing = true; closeDialog(); }
                     }
                 }
@@ -2684,7 +2466,7 @@
                 const containerNode = document.querySelector('.TanksPartBaseComponentStyle-buttonsContainer');
                 const panel = containerNode?.parentNode;
                 if (!panel) return;
-                
+
                 if (!shouldShowQuickButtons()) {
                     const existing = document.getElementById('quick-buttons');
                     if (existing) existing.remove();
@@ -2700,52 +2482,52 @@
                 quickButtonsWrapper.style.cssText = `display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.3em; margin-top: 0.28em; width: 100%; margin-left: 0.12em; box-sizing: border-box;`;
 
                 const buttons = [
-                    { label: 'X5', value: 5 }, 
-                    { label: 'X10', value: 10 }, 
-                    { label: 'X15', value: 15 }, 
+                    { label: 'X5', value: 5 },
+                    { label: 'X10', value: 10 },
+                    { label: 'X15', value: 15 },
                     { label: 'MAX', value: Infinity }
                 ];
-                
+
                 const tooltipMax = state.lang === 'RU' ? 'Прокачать до максимума' : 'Upgrade to max';
                 const tooltipSteps = state.lang === 'RU' ? 'Прокачать {n} раз' : 'Upgrade {n} times';
 
                 buttons.forEach(btn => {
                     const el = document.createElement('div');
-                    
+
                     el.className = 'SquarePriceButtonComponentStyle-commonBlockButton -commonButtonUpdate -flexCenterAlignCenter -displayFlex -alignCenter';
-                    
+
                     el.style.cssText = `cursor: pointer; background-color: rgb(218, 218, 218) !important; transition: background-color 0.2s, box-shadow 0.2s; box-shadow: rgba(255, 255, 255, 0.25) 0em 0em 0em 0.063em; border-radius: 0.75em; display: flex; min-width: 0; align-items: center; justify-content: center; height: 3em; box-sizing: border-box;`;
-                    
-                    el.addEventListener('mouseenter', () => { 
-                        el.style.backgroundColor = 'rgb(197, 197, 197)'; 
-                        el.style.boxShadow = 'rgb(255, 255, 255) 0em 0em 0em 1.4px'; 
+
+                    el.addEventListener('mouseenter', () => {
+                        el.style.backgroundColor = 'rgb(197, 197, 197)';
+                        el.style.boxShadow = 'rgb(255, 255, 255) 0em 0em 0em 1.4px';
                     });
-                    el.addEventListener('mouseleave', () => { 
-                        el.style.backgroundColor = 'rgb(218, 218, 218)'; 
-                        el.style.boxShadow = 'rgba(255, 255, 255, 0.25) 0em 0em 0em 0.063em'; 
+                    el.addEventListener('mouseleave', () => {
+                        el.style.backgroundColor = 'rgb(218, 218, 218)';
+                        el.style.boxShadow = 'rgba(255, 255, 255, 0.25) 0em 0em 0em 0.063em';
                     });
-                    
+
                     const span = document.createElement('span');
                     span.style.cssText = `color: rgb(0, 0, 0) !important; font-size: 1.3em; font-family: BaseFontBold, FallbackFontBold; font-weight: bold; white-space: nowrap;`;
                     span.textContent = btn.label;
-                    
+
                     el.appendChild(span);
-                    
+
                     el.title = btn.value === Infinity ? tooltipMax : tooltipSteps.replace('{n}', btn.value.toString());
-                    el.addEventListener('click', (e) => { 
-                        e.stopPropagation(); 
-                        if (typeof isRunning !== 'undefined' && !isRunning) performAction(btn.value); 
+                    el.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        if (typeof isRunning !== 'undefined' && !isRunning) performAction(btn.value);
                     });
-                    
+
                     quickButtonsWrapper.appendChild(el);
                 });
-                
+
                 panel.appendChild(quickButtonsWrapper);
             }
 
             return () => {
                 if (!utils.getSetting('k_auto_upgrade', false)) return;
-                
+
                 if (state.currentScreen !== 'garage') return;
 
                 if (!initialized) {
@@ -2759,17 +2541,17 @@
                             return;
                         if (target.closest('#quick-upgrade-overlay'))
                             return;
-                            
+
                         let menuCategory = target.closest('.MenuComponentStyle-mainMenuItem');
-                        
+
                         if (menuCategory && menuCategory.classList.contains('-activeMenu')) {
                             menuCategory = null;
                         }
-                        
+
                         const mainGarageBlock = target.closest('[class*="MountedItemsStyle-commonBlock"]');
                         const itemElement = target.closest('[class*="Item"], [class*="item"], [class*="Equipment"], [class*="equipment"]');
                         const backButton = target.closest('.BreadcrumbsComponentStyle-backButton, .IconStyle-iconBackArrow, [class*="backButton" i]');
-                        
+
                         if (menuCategory || mainGarageBlock || backButton) {
                             isCategorySwitch = true;
                             if (categorySwitchTimeout) window.clearTimeout(categorySwitchTimeout);
@@ -2778,7 +2560,7 @@
                             isCategorySwitch = false;
                             if (categorySwitchTimeout) window.clearTimeout(categorySwitchTimeout);
                         }
-                        
+
                         if (menuCategory || mainGarageBlock || itemElement || backButton) {
                             if (isRunning) {
                                 isRunning = false;
@@ -2792,7 +2574,7 @@
                     }, true);
 
                     document.addEventListener('keydown', (e: KeyboardEvent) => {
-                        if (document.getElementById('quick-upgrade-overlay')) return; 
+                        if (document.getElementById('quick-upgrade-overlay')) return;
                         if (e.key === 'Escape' || e.code === 'KeyZ' || e.key.toLowerCase() === 'z') {
                             if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
                             isCategorySwitch = true;
@@ -2803,7 +2585,7 @@
                     }, true);
 
                     document.addEventListener('mousedown', (e: MouseEvent) => {
-                        if (document.getElementById('quick-upgrade-overlay')) return; 
+                        if (document.getElementById('quick-upgrade-overlay')) return;
                         if (e.button === 3 || e.button === 4) {
                             isCategorySwitch = true;
                             if (categorySwitchTimeout) window.clearTimeout(categorySwitchTimeout);
@@ -2823,7 +2605,7 @@
 
                 const container = document.querySelector('.TanksPartBaseComponentStyle-buttonsContainer');
                 const nameElement = document.querySelector('.ItemDescriptionComponentStyle-nameItem') || container;
-                
+
                 if (container) {
                     const currentSignature = nameElement ? (nameElement.textContent?.trim() || '') : '';
                     if (currentSignature !== lastItemSignature) {
@@ -2859,7 +2641,7 @@
                     }
                 }
             }
-            catch (e) {}
+            catch (e) { }
 
             const saveCache = (): void => {
                 const obj: Record<string, number> = {};
@@ -2967,7 +2749,7 @@
             let SKINS_DATABASE = null;
 
             function getSavedSkins() {
-                try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } 
+                try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
                 catch (e) { return {}; }
             }
 
@@ -2975,11 +2757,11 @@
                 try {
                     const stored = JSON.parse(localStorage.getItem(BASE_IMG_KEY)) || {};
                     const merged = {};
-                    
+
                     for (const key in PREFILLED_DEFAULTS) {
                         merged[key] = [PREFILLED_DEFAULTS[key]];
                     }
-                    
+
                     for (const key in stored) {
                         if (!merged[key]) merged[key] = [];
                         const val = stored[key];
@@ -3003,32 +2785,32 @@
                 let css = '';
 
                 const allItems = new Set([...Object.keys(defaultImages), ...Object.keys(SKINS_DATABASE)]);
-                
+
                 for (const item of allItems) {
                     const targetUrl = savedSkins[item];
                     if (!targetUrl) continue;
-                    
+
                     const urlsToOverride = [];
                     if (defaultImages[item]) {
                         urlsToOverride.push(...defaultImages[item]);
                     }
-                    
+
                     if (SKINS_DATABASE[item]) {
                         for (const skinUrl of Object.values(SKINS_DATABASE[item])) {
                             if (skinUrl) urlsToOverride.push(skinUrl);
                         }
                     }
-                    
+
                     const finalUrls = urlsToOverride.filter(url => url !== targetUrl);
-                    
+
                     if (finalUrls.length > 0) {
-                        const selectors = finalUrls.map(url => 
+                        const selectors = finalUrls.map(url =>
                             `.GarageItemComponentStyle-mainImg[src="${url}"], .garage-item img[src="${url}"], .MountedItemsStyle-itemPreview[src="${url}"]`
                         ).join(',\n');
                         css += `${selectors} {\n    content: url("${targetUrl}") !important;\n    object-fit: contain !important;\n    pointer-events: none !important;\n}\n\n`;
                     }
                 }
-                
+
                 let styleEl = document.getElementById('kasp-skins-global-css');
                 if (!styleEl) {
                     styleEl = document.createElement('style');
@@ -3068,13 +2850,13 @@
                         const rawTitle = titleSpan.textContent.trim().toLowerCase();
                         const itemNameEN = NAME_TRANSLATE[rawTitle.split(/\s+/)[0]] || rawTitle.split(/\s+/)[0];
                         const originalSrc = imgMain.getAttribute('src') || '';
-                        
+
                         if (originalSrc && originalSrc.includes('tankionline.com')) {
                             let isCustomSkin = false;
                             if (SKINS_DATABASE[itemNameEN]) {
                                 isCustomSkin = Object.values(SKINS_DATABASE[itemNameEN]).includes(originalSrc);
                             }
-                            
+
                             if (!isCustomSkin) {
                                 if (!defaultImages[itemNameEN]) defaultImages[itemNameEN] = [];
                                 if (!defaultImages[itemNameEN].includes(originalSrc)) {
@@ -3090,8 +2872,8 @@
                     localStorage.setItem(BASE_IMG_KEY, JSON.stringify(defaultImages));
                 }
 
-                const nameEl = document.querySelector('.ItemDescriptionComponentStyle-nameItem span') 
-                    || document.querySelector('.garage-item.-active .GarageItemComponentStyle-descriptionDevice span');  
+                const nameEl = document.querySelector('.ItemDescriptionComponentStyle-nameItem span')
+                    || document.querySelector('.garage-item.-active .GarageItemComponentStyle-descriptionDevice span');
 
                 if (nameEl) {
                     const rawName = nameEl.textContent.trim().toLowerCase();
@@ -3100,7 +2882,7 @@
 
                     if (itemNameEN !== lastItemName) {
                         lastItemName = itemNameEN;
-                        readAllowedTime = Date.now() + 400; 
+                        readAllowedTime = Date.now() + 400;
                     }
 
                     if (Date.now() >= readAllowedTime) {
@@ -3170,18 +2952,18 @@
 
         weaponAugmentTracker: (() => {
             const STORAGE_KEY = 'kasp_weapon_augment_tracker';
-            let lastSignature = ''; 
+            let lastSignature = '';
             let currentReloadTime = 0;
             let barContainer = null;
             let barFill = null;
-            let currentTurret = ''; 
+            let currentTurret = '';
             let isPressed = false;
             let pressTime = 0;
             let reloadStart = 0;
             let initialized = false;
 
             const TURRETS = [
-                'firebird', 'freeze', 'isida', 'tesla', 'hammer', 'twins', 'ricochet', 'vulcan', 
+                'firebird', 'freeze', 'isida', 'tesla', 'hammer', 'twins', 'ricochet', 'vulcan',
                 'smoky', 'striker', 'thunder', 'tsunami', 'scorpion', 'magnum', 'railgun', 'gauss', 'shaft'
             ];
 
@@ -3210,10 +2992,10 @@
                     1: [2.70, 2.62, 2.54, 2.46],
                     2: [2.45, 2.43, 2.42, 2.40, 2.39, 2.37],
                     3: [2.36, 2.34, 2.33, 2.32, 2.30, 2.29, 2.28, 2.26, 2.25],
-                    4: [2.24, 2.22, 2.21, 2.20, 2.18, 2.17, 2.15, 2.14, 2.13, 2.11, 2.10], 
-                    5: [2.09, 2.09, 2.08, 2.07, 2.06, 2.06, 2.05, 2.04, 2.03, 2.03, 2.02, 2.01], 
-                    6: [2.00, 2.00, 1.99, 1.98, 1.98, 1.97, 1.96, 1.95, 1.95, 1.94, 1.93, 1.93, 1.92], 
-                    7: [1.91, 1.91, 1.90, 1.90, 1.89, 1.89, 1.88, 1.87, 1.87, 1.86, 1.86, 1.85, 1.85, 1.84, 1.83, 1.83, 1.82, 1.82, 1.81, 1.81, 1.80] 
+                    4: [2.24, 2.22, 2.21, 2.20, 2.18, 2.17, 2.15, 2.14, 2.13, 2.11, 2.10],
+                    5: [2.09, 2.09, 2.08, 2.07, 2.06, 2.06, 2.05, 2.04, 2.03, 2.03, 2.02, 2.01],
+                    6: [2.00, 2.00, 1.99, 1.98, 1.98, 1.97, 1.96, 1.95, 1.95, 1.94, 1.93, 1.93, 1.92],
+                    7: [1.91, 1.91, 1.90, 1.90, 1.89, 1.89, 1.88, 1.87, 1.87, 1.86, 1.86, 1.85, 1.85, 1.84, 1.83, 1.83, 1.82, 1.82, 1.81, 1.81, 1.80]
                 },
                 'scorpion': {
                     1: [4.05, 3.93, 3.81, 3.69],
@@ -3241,11 +3023,11 @@
                 if (data && typeof data.reloadTime === 'number') {
                     currentReloadTime = data.reloadTime;
                 }
-            } catch (e) {}
+            } catch (e) { }
 
             function createBar() {
                 if (document.getElementById('kasp-reload-bar-container')) return;
-                
+
                 barContainer = document.createElement('div');
                 barContainer.id = 'kasp-reload-bar-container';
                 barContainer.style.cssText = `
@@ -3319,7 +3101,7 @@
 
                 const buttons = document.querySelectorAll('.GarageCommonStyle-bigActionButton, .SquarePriceButtonComponentStyle-commonBlockButton');
                 let isEquipped = false;
-                
+
                 buttons.forEach(btn => {
                     const text = btn.textContent?.toLowerCase() || '';
                     if (text.includes('equipped') || text.includes('установлено') || text.includes('снять') || text.includes('unequip')) {
@@ -3335,10 +3117,10 @@
 
                 let mkLevel = 7;
                 let mkStep = 0;
-                
+
                 if (rawName.includes('max')) {
                     mkLevel = 7;
-                    mkStep = 20; 
+                    mkStep = 20;
                 } else {
                     const mkMatch = rawName.match(/mk\s*(\d+)(?:-(\d+))?/i);
                     if (mkMatch) {
@@ -3351,14 +3133,14 @@
                 if (currentSignature === lastSignature) return;
 
                 let reloadTime = null;
-                
+
                 if (DISABLE_TIMER_AUGMENTS.includes(augmentSrc)) {
                     reloadTime = 0;
                 } else if (RELOAD_BASE_STEPS[itemNameEN] && RELOAD_BASE_STEPS[itemNameEN][mkLevel]) {
                     const stepsArray = RELOAD_BASE_STEPS[itemNameEN][mkLevel];
                     const safeStep = Math.min(mkStep, stepsArray.length - 1);
                     const baseTime = stepsArray[safeStep];
-                    
+
                     const modifier = AUGMENT_MODIFIERS[augmentSrc] || 1.0;
                     reloadTime = Math.round(baseTime * modifier * 100) / 100;
                 }
@@ -3397,7 +3179,7 @@
                     const onPointerUp = (e) => {
                         if (e.type === 'pointerup' && e.button !== 0) return;
                         if (e.type === 'keyup' && e.code !== 'Space') return;
-                        
+
                         if (!isPressed) return;
                         isPressed = false;
 
@@ -3405,10 +3187,10 @@
                         if (!currentReloadTime) return;
 
                         const holdTime = Date.now() - pressTime;
-                        
+
                         if (holdTime > 200) {
                             if (currentTurret !== 'shaft') return;
-                        } 
+                        }
 
                         const durationMs = currentReloadTime * 1000;
                         if (reloadStart && (Date.now() - reloadStart) < durationMs) return;
@@ -3457,6 +3239,9 @@
             const TAB_SELECTOR = '.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults';
 
             const iconStyleCache = new WeakMap<Element, { mask: string; bg: string }>();
+
+            let isTabExpanded = localStorage.getItem('kasp_tab_expanded') === 'true';
+            let initialExpandedSet = false;
 
             function getIconStyle(iconDiv: Element): { mask: string; bg: string } {
                 const cached = iconStyleCache.get(iconDiv);
@@ -3537,7 +3322,7 @@
                             if (!iconDiv) continue;
                             const style = getIconStyle(iconDiv);
                             const isRed = style.bg.includes('254') || style.bg.includes('255, 80') ||
-                                        style.bg.includes('255, 102') || style.bg.includes('254, 102');
+                                style.bg.includes('255, 102') || style.bg.includes('254, 102');
                             if (isRed) { protectLabel = lbl; break; }
                         }
                     }
@@ -3594,7 +3379,7 @@
                 const tabContainer = document.querySelector(TAB_SELECTOR);
                 if (!tabContainer) return;
 
-                let summaryRow = Array.from(tabContainer.children).find(el => 
+                let summaryRow = Array.from(tabContainer.children).find(el =>
                     el.className.includes('-flexCenterAlignCenter') && !el.className.toLowerCase().includes('header')
                 ) as HTMLElement;
 
@@ -3637,7 +3422,7 @@
                         const textSpan = document.createElement('span');
                         textSpan.className = '-regular';
                         textSpan.innerHTML = '&#215;0';
-                        textSpan.style.cssText = 'font-size: 0.875em !important; color: #5cfc47 !important; font-family: BaseFontRegular, FallbackFontRegular, sans-serif !important; font-style: normal !important; font-weight: normal !important; line-height: 1 !important;';
+                        textSpan.style.cssText = 'font-size: 0.875em !important; color: #5cfc47 !important; font-family: BaseFontRegular, FallbackFontRegular, sans-serif !important; font-style: normal !important; font-weight: normal !important;';
 
                         zeroLabel.appendChild(iconDiv);
                         zeroLabel.appendChild(textSpan);
@@ -3646,15 +3431,54 @@
                 });
             }
 
+            function injectToggleButton() {
+                if (isTabExpanded && !initialExpandedSet && document.body) {
+                    document.body.classList.add('kasp-tab-expanded');
+                    initialExpandedSet = true;
+                }
+
+                const tabContainer = document.querySelector(TAB_SELECTOR);
+                if (!tabContainer) return;
+
+                const summaryRow = Array.from(tabContainer.children).find(el => el.className.includes('-flexCenterAlignCenter') && !el.className.toLowerCase().includes('header'));
+
+                if (!summaryRow || document.getElementById('kasp-tab-toggle-btn')) return;
+
+                if (window.getComputedStyle(summaryRow).position === 'static') {
+                    (summaryRow as HTMLElement).style.position = 'relative';
+                }
+
+                const btn = document.createElement('div');
+                btn.id = 'kasp-tab-toggle-btn';
+                btn.className = isTabExpanded ? 'kasp-active-toggle' : '';
+                btn.title = state.lang === 'RU' ? 'Всегда показывать все модули' : 'Always show all modules';
+                btn.innerHTML = `<div class="kasp-toggle-icon" style="-webkit-mask-image: url('${SHIELD_ICON_URL}'); mask-image: url('${SHIELD_ICON_URL}');"></div>`;
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    isTabExpanded = !isTabExpanded;
+                    localStorage.setItem('kasp_tab_expanded', String(isTabExpanded));
+
+                    if (isTabExpanded) {
+                        document.body.classList.add('kasp-tab-expanded');
+                        btn.classList.add('kasp-active-toggle');
+                    } else {
+                        document.body.classList.remove('kasp-tab-expanded');
+                        btn.classList.remove('kasp-active-toggle');
+                    }
+                });
+
+                summaryRow.appendChild(btn);
+            }
+
             function sync(): void {
                 if (!document.querySelector(TAB_SELECTOR)) return;
                 injectHeaderShield();
                 injectCompactCells();
                 injectZeroSummary();
+                injectToggleButton();
             }
 
             function update(): void { sync(); }
-
             return { sync, update };
         })(),
 
@@ -3671,7 +3495,7 @@
                     if (m && m[1]) return m[1];
                 }
                 const mask = cs.getPropertyValue('-webkit-mask-image') ||
-                            cs.getPropertyValue('mask-image');
+                    cs.getPropertyValue('mask-image');
                 if (mask && mask !== 'none') {
                     const m = mask.match(/url\(["']?([^"')]+)["']?\)/);
                     if (m && m[1]) return m[1];
@@ -3796,7 +3620,7 @@
                     if (overlay) overlay.remove();
 
                     currentNickname = cleanName;
-                    try { localStorage.setItem(NICK_KEY, cleanName); } catch {}
+                    try { localStorage.setItem(NICK_KEY, cleanName); } catch { }
                 }
                 return true;
             };
@@ -3884,7 +3708,7 @@
                 return translated || cleanText;
             };
 
-            function showClearConfirmModal(onConfirm: () => void): void {
+            async function showClearConfirmModal(onConfirm: () => void): Promise<void> {
                 const existing = document.getElementById('clear-confirm-overlay');
                 if (existing) existing.remove();
 
@@ -3895,49 +3719,50 @@
                 };
                 const dict = t[lang] || t['EN'];
 
-                const overlay = document.createElement('div');
-                overlay.id = 'clear-confirm-overlay';
-                overlay.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 9999; display: flex; align-items: center; justify-content: center;`;
+                try {
+                    const response = await fetch(chrome.runtime.getURL('templates/clear-history-modal.html'));
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-                const dialog = document.createElement('div');
-                dialog.style.cssText = `display: flex; flex-direction: column; align-items: stretch; justify-content: space-between; pointer-events: auto; min-width: 31.625em; max-width: 31.625em; width: auto; min-height: 14.125em; z-index: 60; box-shadow: rgba(0, 0, 0, 0.25) 0px 0.313em 1.25em 0px; outline: rgba(255, 255, 255, 0.25) solid 0.063em; padding: 2em; background: radial-gradient(100% 100% at 0% 0%, rgba(118, 255, 51, 0.75) 0%, rgba(119, 255, 51, 0) 100%), rgba(0, 25, 38, 0.75);`;
+                    let html = await response.text();
+                    html = html
+                        .replace(/{{title}}/g, dict.title)
+                        .replace(/{{text}}/g, dict.text)
+                        .replace(/{{cancel}}/g, dict.cancel)
+                        .replace(/{{confirm}}/g, dict.confirm);
 
-                dialog.innerHTML = `
-                    <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; margin-bottom: 1.5em;">
-                        <h1 style="font-size: 1.5em; color: rgb(255, 255, 255); font-family: BaseFontBold, sans-serif; font-weight: 500; margin: 0;">${dict.title}</h1>
-                        <div id="clear-dlg-close" style="width: 1.5em; height: 1.5em; cursor: pointer; background-image: url(https://s.eu.tankionline.com/static/images/iconDelete.b879b0ab.svg); background-size: contain; background-repeat: no-repeat; background-position: center center;"></div>
-                    </div>
-                    <div style="display: flex; align-items: center; justify-content: center; width: 100%; flex: 1; margin-bottom: 1.5em; text-align: center;">
-                        <span style="font-size: 1em; color: rgb(255, 255, 255); font-family: BaseFont, sans-serif;">${dict.text}</span>
-                    </div>
-                    <div style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 1.25em;">
-                        <div id="clear-dlg-cancel" style="width: 12.375em; height: 3em; border-radius: 0.75em; cursor: pointer; background-color: rgba(255, 255, 255, 0.15); display: flex; align-items: center; justify-content: center; color: white; font-family: BaseFontBold, sans-serif; text-transform: uppercase;">${dict.cancel}</div>
-                        <div id="clear-dlg-confirm" style="width: 12.375em; height: 3em; border-radius: 0.75em; cursor: pointer; background-color: rgb(118, 255, 51); display: flex; align-items: center; justify-content: center; color: rgb(0, 25, 38); font-family: BaseFontBold, sans-serif; text-transform: uppercase;">${dict.confirm}</div>
-                    </div>
-                `;
+                    const overlay = document.createElement('div');
+                    overlay.id = 'clear-confirm-overlay';
+                    overlay.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 9999; display: flex; align-items: center; justify-content: center;`;
 
-                overlay.appendChild(dialog);
-                let isClosing = false;
+                    const dialog = document.createElement('div');
+                    dialog.style.cssText = `display: flex; flex-direction: column; align-items: stretch; justify-content: space-between; pointer-events: auto; min-width: 31.625em; max-width: 31.625em; width: auto; min-height: 14.125em; z-index: 60; box-shadow: rgba(0, 0, 0, 0.25) 0px 0.313em 1.25em 0px; outline: rgba(255, 255, 255, 0.25) solid 0.063em; padding: 2em; background: radial-gradient(100% 100% at 0% 0%, rgba(118, 255, 51, 0.75) 0%, rgba(119, 255, 51, 0) 100%), rgba(0, 25, 38, 0.75);`;
+                    dialog.innerHTML = html;
 
-                function closeDialog(): void {
-                    if (!overlay.parentNode) return;
-                    overlay.remove();
+                    overlay.appendChild(dialog);
+                    let isClosing = false;
+
+                    function closeDialog(): void {
+                        if (!overlay.parentNode) return;
+                        overlay.remove();
+                    }
+                    (overlay as any).closeDialogMethod = closeDialog;
+                    document.body.appendChild(overlay);
+
+                    dialog.querySelector('#clear-dlg-confirm')?.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        if (!isClosing) { isClosing = true; closeDialog(); onConfirm(); }
+                    });
+                    dialog.querySelector('#clear-dlg-cancel')?.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        if (!isClosing) { isClosing = true; closeDialog(); }
+                    });
+                    dialog.querySelector('#clear-dlg-close')?.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        if (!isClosing) { isClosing = true; closeDialog(); }
+                    });
+                } catch (error) {
+                    console.error('[Kaspersky Inventions] Failed to load clear history modal template:', error);
                 }
-                (overlay as any).closeDialogMethod = closeDialog;
-                document.body.appendChild(overlay);
-
-                dialog.querySelector('#clear-dlg-confirm')?.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    if (!isClosing) { isClosing = true; closeDialog(); onConfirm(); }
-                });
-                dialog.querySelector('#clear-dlg-cancel')?.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    if (!isClosing) { isClosing = true; closeDialog(); }
-                });
-                dialog.querySelector('#clear-dlg-close')?.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    if (!isClosing) { isClosing = true; closeDialog(); }
-                });
             }
 
             const t: Record<string, any> = {
@@ -3963,7 +3788,20 @@
             };
 
             const MAP_ICON_URL = chrome.runtime.getURL('assets/map-icon.png');
-            const buildBattleCard = (b: any, dict: any, lang: string): HTMLElement => {
+            let battleCardTemplatePromise: Promise<string> | null = null;
+
+            const loadBattleCardTemplate = (): Promise<string> => {
+                if (!battleCardTemplatePromise) {
+                    battleCardTemplatePromise = fetch(chrome.runtime.getURL('templates/battle-history-card.html'))
+                        .then(response => {
+                            if (!response.ok) throw new Error(`Failed to load battle card template: ${response.status}`);
+                            return response.text();
+                        });
+                }
+                return battleCardTemplatePromise;
+            };
+
+            const buildBattleCard = async (b: any, dict: any, lang: string): Promise<HTMLElement> => {
                 const dateObj = new Date(b.date);
                 const dateStr = dateObj.toLocaleDateString();
                 const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -4002,79 +3840,45 @@
                     ? `<img class="bh-equip-img" src="${b.hullAugmentIcon}" alt="">`
                     : `<div class="bh-equip-placeholder">◇</div>`;
 
+                const replacements: Record<string, string> = {
+                    cardClass: `${statusClass} ${b.turretAugmentIcon || b.hullAugmentIcon ? '' : 'bh-card--no-aug'}`,
+                    mapStyle: mapImage ? `style="background-image: linear-gradient(90deg, rgba(10,10,10,0.15), rgba(10,10,10,0.75)), url('${mapImage}'); background-size: cover; background-position: center;"` : '',
+                    mapIconUrl: MAP_ICON_URL,
+                    mapUpper,
+                    mapLabel: dict.map,
+                    statusLocalized,
+                    scoreValue: String(b.reputation ?? 0),
+                    scoreLabel: dict.score,
+                    killsValue: String(b.kills ?? 0),
+                    deathsValue: String(b.deaths ?? 0),
+                    killsLabel: dict.kills,
+                    deathsLabel: dict.deaths,
+                    topDisplay,
+                    topLabel: dict.top,
+                    turretIcon,
+                    turretLabel: dict.turret,
+                    turretAugIcon,
+                    augmentLabel: dict.augment,
+                    hullIcon,
+                    hullLabel: dict.hull,
+                    hullAugIcon,
+                    modeIcon: isDM ? '☠' : isWin ? '★' : '♟',
+                    modeUpper,
+                    crystalsValue: (b.crystals ?? 0).toLocaleString(),
+                    starsValue: String(b.stars ?? 0),
+                    dateTime: `${dateStr} · ${timeStr}`
+                };
+
+                let html = await loadBattleCardTemplate();
+                for (const [key, value] of Object.entries(replacements)) {
+                    html = html.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
+                }
+
                 const card = document.createElement('article');
-                card.className = `bh-card ${statusClass} ${b.turretAugmentIcon || b.hullAugmentIcon ? '' : 'bh-card--no-aug'}`;
-                card.innerHTML = `
-                    <div class="bh-card-map" ${mapImage ? `style="background-image: linear-gradient(90deg, rgba(10,10,10,0.15), rgba(10,10,10,0.75)), url('${mapImage}'); background-size: cover; background-position: center;"` : ''}>
-                        <div class="bh-card-map-icon" style="
-                            -webkit-mask-image: url('${MAP_ICON_URL}');
-                            mask-image: url('${MAP_ICON_URL}');
-                        "></div>
-                        <div class="bh-card-map-content">
-                            <div class="bh-card-map-name">${mapUpper}</div>
-                            <div class="bh-card-map-label">${dict.map}</div>
-                        </div>
-                    </div>
-
-                    <div class="bh-card-result">
-                        <div class="bh-card-result-status">${statusLocalized}</div>
-                        <div class="bh-combat-stats">
-                            <div class="bh-stat">
-                                <span class="bh-stat-value">${b.reputation ?? 0}</span>
-                                <span class="bh-stat-label">${dict.score}</span>
-                            </div>
-                            <div class="bh-stat">
-                                <span class="bh-stat-value">${b.kills ?? 0}<span class="bh-stat-sep">/</span>${b.deaths ?? 0}</span>
-                                <span class="bh-stat-label">${dict.kills} / ${dict.deaths}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="bh-card-details">
-                        <div class="bh-rank">
-                            <div class="bh-rank-value">${topDisplay}</div>
-                            <div class="bh-rank-label">${dict.top}</div>
-                        </div>
-                        <div class="bh-loadout">
-                            <div class="bh-equip">
-                                <div class="bh-equip-icon">${turretIcon}</div>
-                                <div class="bh-equip-type">${dict.turret}</div>
-                            </div>
-                            <div class="bh-equip">
-                                <div class="bh-equip-icon">${turretAugIcon}</div>
-                                <div class="bh-equip-type">${dict.augment}</div>
-                            </div>
-                            <div class="bh-equip">
-                                <div class="bh-equip-icon">${hullIcon}</div>
-                                <div class="bh-equip-type">${dict.hull}</div>
-                            </div>
-                            <div class="bh-equip">
-                                <div class="bh-equip-icon">${hullAugIcon}</div>
-                                <div class="bh-equip-type">${dict.augment}</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="bh-card-mode">
-                        <div class="bh-mode-icon">${isDM ? '☠' : isWin ? '★' : '♟'}</div>
-                        <div class="bh-mode-name">${modeUpper}</div>
-                        <div class="bh-mode-rewards">
-                            <div class="bh-reward">
-                                <span class="bh-reward-icon bh-reward-icon--crystal"></span>
-                                <span class="bh-reward-value">${(b.crystals ?? 0).toLocaleString()}</span>
-                            </div>
-                            <div class="bh-reward">
-                                <span class="bh-reward-icon bh-reward-icon--star"></span>
-                                <span class="bh-reward-value">${b.stars ?? 0}</span>
-                            </div>
-                        </div>
-                        <div class="bh-mode-date">${dateStr} · ${timeStr}</div>
-                    </div>
-                `;
+                card.innerHTML = html;
                 return card;
             };
 
-                        /** Список номеров страниц с эллипсисами при большом количестве. */
             const buildPageNumbers = (current: number, total: number): (number | '…')[] => {
                 if (total <= 7) {
                     const arr: number[] = [];
@@ -4176,9 +3980,8 @@
                 if (pageBattles.length === 0) {
                     listEl.innerHTML = `<div class="bh-empty">${dict.noBattles}</div>`;
                 } else {
-                    pageBattles.forEach(b => {
-                        listEl.appendChild(buildBattleCard(b, dict, lang));
-                    });
+                    const cards = await Promise.all(pageBattles.map(b => buildBattleCard(b, dict, lang)));
+                    cards.forEach(card => listEl.appendChild(card));
                 }
 
                 renderPagination(currentPage, totalPages);
@@ -4245,72 +4048,60 @@
                 input.click();
             };
 
-            const createHistoryPage = (): void => {
+            let historyPagePromise: Promise<void> | null = null;
+
+            const createHistoryPage = async (): Promise<void> => {
+                if (document.querySelector('.custom-history-overlay')) return;
+
                 updateNickname();
                 const lang = state.lang;
                 const dict = t[lang] || t['EN'];
 
-                const overlay = document.createElement('div');
-                overlay.className = 'custom-history-overlay';
-                overlay.innerHTML = `
-                    <div class="custom-history-header">
-                        <div style="width: 6rem;"></div>
-                        <h1 class="custom-history-title">${dict.title}</h1>
-                        <button class="custom-history-close" title="Close">
-                            <div class="custom-history-logout-icon"></div>
-                        </button>
-                    </div>
-                    <div class="custom-history-content">
-                        <div class="bh-left-panel">
-                            <div class="bh-controls-container">
-                                <div class="bh-controls-left">
-                                    <button class="bh-control-btn bh-btn-clear" id="bh-clear-btn"><span>${dict.clear}</span></button>
-                                </div>
-                                <div class="bh-controls-right">
-                                    <button class="bh-control-btn bh-btn-export" id="bh-export-btn"><span>${dict.export}</span></button>
-                                    <button class="bh-control-btn bh-btn-import" id="bh-import-btn"><span>${dict.import}</span></button>
-                                </div>
-                            </div>
-                            <div class="bh-list"></div>
-                            <div class="bh-pagination">
-                                <div class="bh-page-list" id="bh-page-list"></div>
-                                <div class="bh-total">
-                                    ${dict.battles ?? 'Боёв'}: <span class="bh-total-value" id="bh-total-battles">0</span>
-                                </div>
-                            </div>
-                        </div>
+                try {
+                    const templateUrl = chrome.runtime.getURL('templates/battle-history-overlay.html');
+                    const response = await fetch(templateUrl);
+                    if (!response.ok) {
+                        throw new Error(`Failed to load history template: ${response.status}`);
+                    }
 
-                        <div class="bh-right-panel">
-                            <div class="bh-stats-box">
-                                <div class="bh-stats-title">${dict.last20}</div>
-                                <div class="bh-stats-grid">
-                                    <div class="bh-stat-item">
-                                        <div class="bh-stat-icon" style="-webkit-mask-image: url('https://s.eu.tankionline.com/static/images/ctf_mode.fba37902.svg');"></div>
-                                        <div class="bh-stat-label">${dict.top}</div>
-                                        <div class="bh-stat-value" id="bh-stat-top">-</div>
-                                    </div>
-                                    <div class="bh-stat-separator"></div>
-                                    <div class="bh-stat-item">
-                                        <div class="bh-stat-icon" style="-webkit-mask-image: url('https://s.eu.tankionline.com/static/images/kills.f9b82d9f.svg');"></div>
-                                        <div class="bh-stat-label">${dict.kd}</div>
-                                        <div class="bh-stat-value" id="bh-stat-kd">-</div>
-                                    </div>
-                                    <div class="bh-stat-separator"></div>
-                                    <div class="bh-stat-item">
-                                        <div class="bh-stat-icon" style="-webkit-mask-image: url('https://s.eu.tankionline.com/static/images/score.b3ca71b2.svg');"></div>
-                                        <div class="bh-stat-label">${dict.score}</div>
-                                        <div class="bh-stat-value" id="bh-stat-score">-</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                document.body.appendChild(overlay);
-                overlay.querySelector('.custom-history-close')?.addEventListener('click', () => { overlay.style.display = 'none'; });
-                document.getElementById('bh-clear-btn')?.addEventListener('click', clearHistoryDb);
-                document.getElementById('bh-export-btn')?.addEventListener('click', exportHistoryData);
-                document.getElementById('bh-import-btn')?.addEventListener('click', importHistoryData);
+                    const template = await response.text();
+                    const replacements: Record<string, string> = {
+                        title: String(dict.title ?? ''),
+                        clear: String(dict.clear ?? ''),
+                        export: String(dict.export ?? ''),
+                        import: String(dict.import ?? ''),
+                        battles: String(dict.battles ?? 'Боёв'),
+                        last20: String(dict.last20 ?? ''),
+                        top: String(dict.top ?? ''),
+                        kd: String(dict.kd ?? ''),
+                        score: String(dict.score ?? '')
+                    };
+
+                    let html = template;
+                    for (const [key, value] of Object.entries(replacements)) {
+                        html = html.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
+                    }
+
+                    const overlay = document.createElement('div');
+                    overlay.className = 'custom-history-overlay';
+                    overlay.style.display = 'none';
+                    overlay.innerHTML = html;
+                    document.body.appendChild(overlay);
+
+                    overlay.querySelector('.custom-history-close')?.addEventListener('click', () => { overlay.style.display = 'none'; });
+                    document.getElementById('bh-clear-btn')?.addEventListener('click', clearHistoryDb);
+                    document.getElementById('bh-export-btn')?.addEventListener('click', exportHistoryData);
+                    document.getElementById('bh-import-btn')?.addEventListener('click', importHistoryData);
+                } catch (error) {
+                    console.error('[Tanki Battle History] Error loading overlay template:', error);
+                }
+            };
+
+            const ensureHistoryPage = (): Promise<void> => {
+                if (!historyPagePromise) {
+                    historyPagePromise = createHistoryPage();
+                }
+                return historyPagePromise;
             };
 
             const injectFooterButton = (): void => {
@@ -4326,11 +4117,8 @@
                 btn.title = dict.title;
 
                 btn.addEventListener('click', async () => {
-                    let overlay = document.querySelector('.custom-history-overlay') as HTMLElement | null;
-                    if (!overlay) {
-                        createHistoryPage();
-                        overlay = document.querySelector('.custom-history-overlay') as HTMLElement | null;
-                    }
+                    await ensureHistoryPage();
+                    const overlay = document.querySelector('.custom-history-overlay') as HTMLElement | null;
                     if (!overlay) return;
                     await renderBattleList(1);
                     overlay.style.display = 'flex';
@@ -4352,7 +4140,7 @@
                         const clean = raw.replace(/^\[.*?\]\s*/, '').trim();
                         if (clean && clean !== 'Unknown') {
                             currentNickname = clean;
-                            try { localStorage.setItem(NICK_KEY, clean); } catch {}
+                            try { localStorage.setItem(NICK_KEY, clean); } catch { }
                         }
                     }
                 }
@@ -4463,6 +4251,7 @@
                 }
 
                 injectFooterButton();
+                void ensureHistoryPage();
 
                 const selfRow = document.querySelector('#selfUserBg') as HTMLElement;
                 const inResults = document.querySelector('.BattleResultHeaderComponentStyle-resultText');
@@ -4477,7 +4266,7 @@
     };
 
     state.lang = utils.getLang();
-    
+
     let isMasterUpdateScheduled = false;
 
     let lastFullRefresh = 0;
@@ -4553,7 +4342,7 @@
         if (currentLang !== state.lang)
             applyLanguageChange();
         let newScreen = state.currentScreen;
-        
+
         if (document.querySelector('.ApplicationLoaderComponentStyle-container')) {
             newScreen = 'loading';
         }
@@ -4601,7 +4390,7 @@
         const isFriendsMenuOpen = !!document.querySelector('.FriendListComponentStyle-containerFriends, .InvitationWindowsComponentStyle-centerBlock');
         const friendsChanged = isFriendsMenuOpen !== state.friendsMenuOpen;
         state.friendsMenuOpen = isFriendsMenuOpen;
-        
+
         const isSettingsOpen = !!document.querySelector('.SettingsComponentStyle-blockContentOptions');
         if (isSettingsOpen !== state.settingsOpen) {
             state.settingsOpen = isSettingsOpen;
@@ -4612,7 +4401,7 @@
                 coreSettings.onClose();
             }
         }
-        
+
         if (screenChanged || friendsChanged) {
             lastFullRefresh = 0;
             if (refreshScheduled)
@@ -4622,7 +4411,7 @@
         else {
             scheduleHeavyModules();
         }
-        
+
         if (state.currentScreen === 'garage') {
             modules.garageButtons();
         }

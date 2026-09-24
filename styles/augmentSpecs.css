@@ -1,0 +1,170 @@
+.custom-card-specs-btn {
+    position: absolute;
+    bottom: 0.5em;
+    left: 0.5em;
+    width: 2.5em;
+    height: 2.5em;
+    border-radius: 0.5em;
+    background-color: rgb(255, 255, 255);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10;
+    box-shadow: rgba(255, 255, 255, 0.25) 0em 0em 0em 0.063em;
+    overflow: hidden;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.custom-card-specs-btn:hover,
+.custom-card-specs-btn.active {
+    background-color: rgb(197, 197, 197);
+    box-shadow: rgb(255, 255, 255) 0em 0em 0em 2px;
+}
+
+.custom-card-specs-btn::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -150%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.5) 50%, rgba(255, 255, 255, 0) 100%);
+    transform: skewX(-25deg);
+    z-index: 3;
+    pointer-events: none;
+}
+
+.custom-card-specs-btn:hover::after,
+.custom-card-specs-btn.active::after {
+    animation: kasp-metal-shine 0.6s ease-in-out;
+}
+
+.custom-card-specs-icon {
+    width: 1.3em;
+    height: 1.3em;
+    display: block;
+    background-color: rgb(0, 0, 0);
+    -webkit-mask-image: url(https://s.eu.tankionline.com/static/images/unavailable.5c3ecd75.svg);
+    mask-image: url(https://s.eu.tankionline.com/static/images/unavailable.5c3ecd75.svg);
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    position: relative;
+    z-index: 4;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.custom-card-specs-btn:hover .custom-card-specs-icon,
+.custom-card-specs-btn.active .custom-card-specs-icon {
+    background-color: rgb(0, 0, 0);
+    transform: translateY(-0.2em);
+}
+
+#kasp-specs-tooltip {
+    position: fixed;
+    z-index: 999999;
+    pointer-events: none;
+    display: none;
+    background-color: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(6px);
+    border: 0.063rem solid rgba(255, 255, 255, 0.1);
+    border-radius: 0.5rem;
+    padding: 1.25rem 0;
+    box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.5);
+    color: white;
+    font-family: BaseFontMedium, FallbackFontMedium, sans-serif;
+    font-size: max(min(1.48148vh, 1vw), 3px);
+    min-width: 30em;
+    max-width: 48em;
+}
+
+#kasp-specs-tooltip .device-stats-wrapper {
+    display: flex;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+#kasp-specs-tooltip .device-stats {
+    flex: 1;
+    flex-basis: 50%;
+    padding: 0 1.5rem;
+    box-sizing: border-box;
+}
+
+#kasp-specs-tooltip .device-stats:first-child {
+    border-right: 0.063rem solid rgba(255, 255, 255, 0.15);
+}
+
+#kasp-specs-tooltip .device-stats .heading {
+    font-weight: 600;
+    font-family: BaseFontBold, FallbackFontBold, sans-serif;
+    text-transform: uppercase;
+    color: #46df11;
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.8rem;
+    font-size: 1.1em;
+}
+
+#kasp-specs-tooltip .device-stats.negative .heading {
+    color: #f33;
+}
+
+#kasp-specs-tooltip .device-stats .heading::before {
+    content: "";
+    min-width: 1.2rem;
+    min-height: 1.2rem;
+    width: 1.2rem;
+    height: 1.2rem;
+    margin-right: 0.625rem;
+    background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" fill="%2346df11"/><path d="M12 7V17M7 12H17" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg>');
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+#kasp-specs-tooltip .device-stats.negative .heading::before {
+    background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" fill="%23f33"/><path d="M7 12H17" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg>');
+}
+
+#kasp-specs-tooltip .device-stats ul {
+    list-style: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+#kasp-specs-tooltip .device-stats ul li {
+    position: relative;
+    padding-left: 1.2rem !important;
+    margin-bottom: 0.5rem !important;
+    font-size: 1.05em;
+    line-height: 1.4;
+    color: white !important;
+    list-style: none !important;
+}
+
+#kasp-specs-tooltip .device-stats ul li::before {
+    content: "\25b8";
+    color: #46df11;
+    position: absolute;
+    left: 0;
+    top: 0;
+    font-size: 1.2em;
+    line-height: 1.1;
+    pointer-events: none;
+}
+
+#kasp-specs-tooltip .device-stats.negative ul li::before {
+    color: #f33;
+}
+
+#kasp-specs-tooltip .device-stats ul ul {
+    margin-top: 0.4rem !important;
+    margin-bottom: 0.2rem !important;
+    margin-left: 0.5rem !important;
+}

@@ -1,0 +1,159 @@
+.custom-friends-sidebar {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 10;
+}
+
+.custom-friends-sidebar.sidebar-friends {
+    top: 1.7em !important;
+    left: -3.5em !important;
+    gap: 0.25em;
+}
+
+.custom-friends-sidebar.sidebar-invites {
+    top: 8.5em !important;
+    left: -3.5em !important;
+    gap: 0.25em;
+}
+
+.custom-filter-btn {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 2.5em;
+    height: 2.5em;
+    cursor: pointer;
+    border-radius: 6.25em;
+    background-color: transparent;
+}
+
+.custom-filter-btn:hover {
+    box-shadow: rgb(191, 213, 255) 0em 0em 0em 0.125em;
+}
+
+.custom-filter-btn:active,
+.custom-filter-btn.active {
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+.custom-filter-btn img {
+    width: 2.5em;
+    height: 2.5em;
+    pointer-events: none;
+}
+
+.custom-filter-btn:first-child img {
+    width: 1.5em;
+    height: 1.5em;
+}
+
+.custom-friends-sidebar.sidebar-invites .custom-filter-btn:nth-child(2),
+.custom-friends-sidebar.sidebar-invites .custom-filter-btn:nth-child(3) {
+    display: none !important;
+}
+
+.FriendListComponentStyle-scrollCommunity {
+    display: grid !important;
+    grid-template-columns: repeat(2, 35em) !important;
+    justify-content: space-between !important;
+    row-gap: 0.5em !important;
+    min-height: 50em !important;
+    align-content: start !important;
+    width: 72.375em !important;
+    height: calc(100% - 661em) !important;
+}
+
+.FriendListComponentStyle-blockList {
+    width: 35em !important;
+    box-sizing: border-box;
+    margin: 0 !important;
+    position: relative !important;
+}
+
+.FriendListComponentStyle-stringCommunity {
+    display: contents !important;
+}
+
+.InvitationWindowsComponentStyle-usersScroll {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    column-gap: 0em !important;
+    row-gap: 0.5em !important;
+    align-content: start !important;
+    box-sizing: border-box !important;
+}
+
+.InvitationWindowsComponentStyle-usersScroll>div {
+    display: contents !important;
+}
+
+.InvitationWindowsComponentStyle-usersScroll>div>div {
+    width: 35em !important;
+    box-sizing: border-box;
+    margin: 0 !important;
+    position: relative !important;
+}
+
+.custom-rarity-badge {
+    width: 0.75em !important;
+    height: 0.75em !important;
+    margin-left: 0px !important;
+    position: absolute !important;
+    top: 0px !important;
+    left: 0px !important;
+    z-index: 5;
+    pointer-events: none;
+}
+
+.rarity-blue {
+    filter: invert(34%) sepia(76%) saturate(2266%) hue-rotate(149deg) brightness(104%) contrast(103%);
+}
+
+.rarity-purple {
+    filter: invert(34%) sepia(59%) saturate(1928%) hue-rotate(223deg) brightness(105%) contrast(102%);
+}
+
+.rarity-yellow {
+    filter: invert(34%) sepia(48%) saturate(2983%) hue-rotate(359deg) brightness(104%) contrast(104%);
+}
+
+.rarity-red {
+    filter: invert(71%) sepia(61%) saturate(2771%) hue-rotate(337deg) brightness(96%) contrast(111%);
+}
+
+.custom-category-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.75em;
+    padding: 0.5em 0.5em;
+    margin-top: 0.1em;
+}
+
+.custom-category-menu-btn {
+    width: 2.5em;
+    height: 2.5em;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: background-color, transform, box-shadow;
+}
+
+.custom-category-menu-btn:hover {
+    box-shadow: rgb(191, 213, 255) 0em 0em 0em 0.125em;
+}
+
+.custom-category-menu-btn.active {
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+.custom-category-menu-btn img {
+    width: 2.5em;
+    height: 2.5em;
+    pointer-events: none;
+}

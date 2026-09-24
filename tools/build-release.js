@@ -1,12 +1,14 @@
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const {
+    execSync
+} = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const OUT_DIR = path.resolve(ROOT, 'release');
 
-const DIRS = ['dist', 'styles', 'assets', 'database', '_locales'];
-const FILES = ['manifest.json', 'README.md', 'icon128.png', 'LICENSE.txt'];
+const DIRS = ['dist', 'styles', 'assets', 'database', '_locales', 'templates'];
+const FILES = ['manifest.json', 'LICENSE.txt'];
 
 function log(msg) {
     process.stdout.write(`[build] ${msg}\n`);
@@ -30,7 +32,10 @@ function sanitize(name) {
 
 function rmIfExists(target) {
     if (fs.existsSync(target)) {
-        fs.rmSync(target, { recursive: true, force: true });
+        fs.rmSync(target, {
+            recursive: true,
+            force: true
+        });
     }
 }
 
@@ -39,7 +44,9 @@ function copyDir(src, dest) {
         log(`пропуск (нет папки): ${path.relative(ROOT, src)}`);
         return false;
     }
-    fs.cpSync(src, dest, { recursive: true });
+    fs.cpSync(src, dest, {
+        recursive: true
+    });
     log(`скопирована папка: ${path.relative(ROOT, src)}`);
     return true;
 }
@@ -61,13 +68,16 @@ function zipFolder(sourceDir, zipPath) {
 
     if (process.platform === 'win32') {
         execSync(
-            `tar -a -c -f "${zipAbs}" -C "${parent}" "${base}"`,
-            { stdio: 'inherit' }
+            `tar -a -c -f "${zipAbs}" -C "${parent}" "${base}"`, {
+                stdio: 'inherit'
+            }
         );
     } else {
         execSync(
-            `zip -r "${zipAbs}" "${base}"`,
-            { cwd: parent, stdio: 'inherit' }
+            `zip -r "${zipAbs}" "${base}"`, {
+                cwd: parent,
+                stdio: 'inherit'
+            }
         );
     }
 }
@@ -83,7 +93,9 @@ function main() {
 
     rmIfExists(buildDir);
     rmIfExists(zipPath);
-    fs.mkdirSync(buildDir, { recursive: true });
+    fs.mkdirSync(buildDir, {
+        recursive: true
+    });
 
     let dirCount = 0;
     let fileCount = 0;
@@ -110,8 +122,7 @@ function main() {
 
 try {
     main();
-}
-catch (err) {
+} catch (err) {
     console.error(`[build] ОШИБКА: ${err.message}`);
     process.exit(1);
 }

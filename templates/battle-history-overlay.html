@@ -1,0 +1,52 @@
+<div class="custom-history-header">
+    <div style="width: 6rem;"></div>
+    <h1 class="custom-history-title">{{title}}</h1>
+    <button class="custom-history-close" title="Close">
+        <div class="custom-history-logout-icon"></div>
+    </button>
+</div>
+<div class="custom-history-content">
+    <div class="bh-left-panel">
+        <div class="bh-controls-container">
+            <div class="bh-controls-left">
+                <button class="bh-control-btn bh-btn-clear" id="bh-clear-btn"><span>{{clear}}</span></button>
+            </div>
+            <div class="bh-controls-right">
+                <button class="bh-control-btn bh-btn-export" id="bh-export-btn"><span>{{export}}</span></button>
+                <button class="bh-control-btn bh-btn-import" id="bh-import-btn"><span>{{import}}</span></button>
+            </div>
+        </div>
+        <div class="bh-list"></div>
+        <div class="bh-pagination">
+            <div class="bh-page-list" id="bh-page-list"></div>
+            <div class="bh-total">
+                {{battles}}: <span class="bh-total-value" id="bh-total-battles">0</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="bh-right-panel">
+        <div class="bh-stats-box">
+            <div class="bh-stats-title">{{last20}}</div>
+            <div class="bh-stats-grid">
+                <div class="bh-stat-item">
+                    <div class="bh-stat-icon" style="-webkit-mask-image: url('https://s.eu.tankionline.com/static/images/ctf_mode.fba37902.svg'); mask-image: url('https://s.eu.tankionline.com/static/images/ctf_mode.fba37902.svg');"></div>
+                    <div class="bh-stat-label">{{top}}</div>
+                    <div class="bh-stat-value" id="bh-stat-top">-</div>
+                </div>
+                <div class="bh-stat-separator"></div>
+                <div class="bh-stat-item">
+                    <div class="bh-stat-icon" style="-webkit-mask-image: url('https://s.eu.tankionline.com/static/images/kills.f9b82d9f.svg'); mask-image: url('https://s.eu.tankionline.com/static/images/kills.f9b82d9f.svg');"></div>
+                    <div class="bh-stat-label">{{kd}}</div>
+                    <div class="bh-stat-value" id="bh-stat-kd">-</div>
+                </div>
+                <div class="bh-stat-separator"></div>
+                <div class="bh-stat-item">
+                    <div class="bh-stat-icon" style="-webkit-mask-image: url('https://s.eu.tankionline.com/static/images/score.b3ca71b2.svg'); mask-image: url('https://s.eu.tankionline.com/static/images/score.b3ca71b2.svg');"></div>
+                    <div class="bh-stat-label">{{score}}</div>
+                    <div class="bh-stat-value" id="bh-stat-score">-</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

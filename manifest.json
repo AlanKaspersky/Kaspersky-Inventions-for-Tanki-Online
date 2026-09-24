@@ -1,11 +1,14 @@
 {
   "manifest_version": 3,
   "name": "Tanki Online: Kaspersky's Inventions",
-  "version": "2.5.4",
+  "version": "2.5.5",
   "default_locale": "en",
   "description": "__MSG_extensionDescription__",
   "icons": {
-    "128": "icon128.png"
+    "16": "assets/icons/icon16.png",
+    "32": "assets/icons/icon32.png",
+    "48": "assets/icons/icon48.png",
+    "128": "assets/icons/icon128.png"
   },
   "content_scripts": [
     {
@@ -15,7 +18,21 @@
       ],
       "css": [
         "styles/mainUI.css",
-        "styles/battleHistory.css"
+        "styles/battleHistory.css",
+        "styles/animations.css",
+        "styles/shared.css",
+        "styles/garageButtons.css",
+        "styles/navigation.css",
+        "styles/header.css",
+        "styles/battleStats.css",
+        "styles/killBoard.css",
+        "styles/augmentSpecs.css",
+        "styles/customFriends.css",
+        "styles/customPaints.css",
+        "styles/customTrophies.css",
+        "styles/hideCurrency.css",
+        "styles/hideNickname.css",
+        "styles/settings.css"
       ],
       "js": [
         "dist/kasp_injector.js"
@@ -36,14 +53,9 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "assets/playButton.png",
-        "assets/background.png",
-        "assets/modulesTAB.svg",
-        "assets/map-icon.png",
-        "database/paints.json",
-        "database/augments.json",
-        "database/maps.json",
-        "database/skins.json"
+        "assets/*",
+        "templates/*.html",
+        "database/*.json"
       ],
       "matches": [
         "*://*.tankionline.com/*"

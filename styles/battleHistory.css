@@ -221,7 +221,7 @@
     box-shadow: rgba(255, 255, 255, 0.25) 0em 0em 0em 0.063em;
 }
 
-.bh-control-btn > span {
+.bh-control-btn>span {
     position: relative;
     z-index: 2;
     color: rgb(0, 0, 0);
@@ -234,12 +234,10 @@
     left: -150%;
     width: 50%;
     height: 100%;
-    background: linear-gradient(
-        90deg,
-        rgba(255, 255, 255, 0) 0%,
-        rgba(255, 255, 255, 0.55) 50%,
-        rgba(255, 255, 255, 0) 100%
-    );
+    background: linear-gradient(90deg,
+            rgba(255, 255, 255, 0) 0%,
+            rgba(255, 255, 255, 0.55) 50%,
+            rgba(255, 255, 255, 0) 100%);
     transform: skewX(-25deg);
     pointer-events: none;
     z-index: 1;
@@ -257,6 +255,7 @@
     background-color: rgb(218, 218, 218);
     color: rgb(0, 0, 0);
 }
+
 .bh-btn-clear:hover {
     background-color: rgb(197, 197, 197);
 }
@@ -265,6 +264,7 @@
     background-color: rgb(255, 255, 255);
     color: rgb(0, 10, 15);
 }
+
 .bh-btn-export:hover {
     background-color: rgb(197, 197, 197);
 }
@@ -273,6 +273,7 @@
     background-color: rgb(255, 255, 255);
     color: rgb(0, 10, 15);
 }
+
 .bh-btn-import:hover {
     background-color: rgb(197, 197, 197);
 }
@@ -294,7 +295,7 @@
 .bh-list::-webkit-scrollbar {
     width: 0;
     height: 0;
-    display: none; 
+    display: none;
 }
 
 .bh-list::-webkit-scrollbar-track {
@@ -323,7 +324,7 @@
 .bh-card {
     position: relative;
     display: grid;
-    grid-template-columns: minmax(18em, 1.15fr) minmax(18em, 1.05fr) minmax(27em, 1.7fr) 10em;    
+    grid-template-columns: minmax(18em, 1.15fr) minmax(18em, 1.05fr) minmax(27em, 1.7fr) 10em;
     min-height: 9em;
     overflow: hidden;
     background: #111114;
@@ -758,3 +759,4 @@
     font-size: 1.1em;
     letter-spacing: 0.08em;
 }
+

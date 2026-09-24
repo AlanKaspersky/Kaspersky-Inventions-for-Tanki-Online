@@ -1,7 +1,7 @@
 (function (): void {
     'use strict';
 
-    (window as any).__kaspSendAction = function(className: string, obj: any): void {
+    (window as any).__kaspSendAction = function (className: string, obj: any): void {
         try {
             let res: string[] = [className];
             let seen = new Set<any>();
@@ -41,7 +41,7 @@
 
             safeWalk(obj, 0);
             window.postMessage({ type: 'kasp:useraction', detail: res }, '*');
-        } catch (e) {}
+        } catch (e) { }
     };
 
     const observer = new MutationObserver((mutations: MutationRecord[]) => {

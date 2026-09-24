@@ -1,0 +1,338 @@
+{
+    "огнемёт": {
+        "id": "firebird",
+        "ru": "Огнемёт",
+        "en": "Firebird",
+        "type": "turret"
+    },
+    "firebird": {
+        "id": "firebird",
+        "ru": "Огнемёт",
+        "en": "Firebird",
+        "type": "turret"
+    },
+    "фриз": {
+        "id": "freeze",
+        "ru": "Фриз",
+        "en": "Freeze",
+        "type": "turret"
+    },
+    "freeze": {
+        "id": "freeze",
+        "ru": "Фриз",
+        "en": "Freeze",
+        "type": "turret"
+    },
+    "изида": {
+        "id": "isida",
+        "ru": "Изида",
+        "en": "Isida",
+        "type": "turret"
+    },
+    "isida": {
+        "id": "isida",
+        "ru": "Изида",
+        "en": "Isida",
+        "type": "turret"
+    },
+    "тесла": {
+        "id": "tesla",
+        "ru": "Тесла",
+        "en": "Tesla",
+        "type": "turret"
+    },
+    "tesla": {
+        "id": "tesla",
+        "ru": "Тесла",
+        "en": "Tesla",
+        "type": "turret"
+    },
+    "молот": {
+        "id": "hammer",
+        "ru": "Молот",
+        "en": "Hammer",
+        "type": "turret"
+    },
+    "hammer": {
+        "id": "hammer",
+        "ru": "Молот",
+        "en": "Hammer",
+        "type": "turret"
+    },
+    "твинс": {
+        "id": "twins",
+        "ru": "Твинс",
+        "en": "Twins",
+        "type": "turret"
+    },
+    "twins": {
+        "id": "twins",
+        "ru": "Твинс",
+        "en": "Twins",
+        "type": "turret"
+    },
+    "рикошет": {
+        "id": "ricochet",
+        "ru": "Рикошет",
+        "en": "Ricochet",
+        "type": "turret"
+    },
+    "ricochet": {
+        "id": "ricochet",
+        "ru": "Рикошет",
+        "en": "Ricochet",
+        "type": "turret"
+    },
+    "смоки": {
+        "id": "smoky",
+        "ru": "Смоки",
+        "en": "Smoky",
+        "type": "turret"
+    },
+    "smoky": {
+        "id": "smoky",
+        "ru": "Смоки",
+        "en": "Smoky",
+        "type": "turret"
+    },
+    "вулкан": {
+        "id": "vulcan",
+        "ru": "Вулкан",
+        "en": "Vulcan",
+        "type": "turret"
+    },
+    "vulcan": {
+        "id": "vulcan",
+        "ru": "Вулкан",
+        "en": "Vulcan",
+        "type": "turret"
+    },
+    "страйкер": {
+        "id": "striker",
+        "ru": "Страйкер",
+        "en": "Striker",
+        "type": "turret"
+    },
+    "striker": {
+        "id": "striker",
+        "ru": "Страйкер",
+        "en": "Striker",
+        "type": "turret"
+    },
+    "гром": {
+        "id": "thunder",
+        "ru": "Гром",
+        "en": "Thunder",
+        "type": "turret"
+    },
+    "thunder": {
+        "id": "thunder",
+        "ru": "Гром",
+        "en": "Thunder",
+        "type": "turret"
+    },
+    "цунами": {
+        "id": "tsunami",
+        "ru": "Цунами",
+        "en": "Tsunami",
+        "type": "turret"
+    },
+    "tsunami": {
+        "id": "tsunami",
+        "ru": "Цунами",
+        "en": "Tsunami",
+        "type": "turret"
+    },
+    "скорпион": {
+        "id": "scorpion",
+        "ru": "Скорпион",
+        "en": "Scorpion",
+        "type": "turret"
+    },
+    "scorpion": {
+        "id": "scorpion",
+        "ru": "Скорпион",
+        "en": "Scorpion",
+        "type": "turret"
+    },
+    "магнум": {
+        "id": "magnum",
+        "ru": "Магнум",
+        "en": "Magnum",
+        "type": "turret"
+    },
+    "magnum": {
+        "id": "magnum",
+        "ru": "Магнум",
+        "en": "Magnum",
+        "type": "turret"
+    },
+    "рельса": {
+        "id": "railgun",
+        "ru": "Рельса",
+        "en": "Railgun",
+        "type": "turret"
+    },
+    "railgun": {
+        "id": "railgun",
+        "ru": "Рельса",
+        "en": "Railgun",
+        "type": "turret"
+    },
+    "гаусс": {
+        "id": "gauss",
+        "ru": "Гаусс",
+        "en": "Gauss",
+        "type": "turret"
+    },
+    "gauss": {
+        "id": "gauss",
+        "ru": "Гаусс",
+        "en": "Gauss",
+        "type": "turret"
+    },
+    "шафт": {
+        "id": "shaft",
+        "ru": "Шафт",
+        "en": "Shaft",
+        "type": "turret"
+    },
+    "shaft": {
+        "id": "shaft",
+        "ru": "Шафт",
+        "en": "Shaft",
+        "type": "turret"
+    },
+    "васп": {
+        "id": "wasp",
+        "ru": "Васп",
+        "en": "Wasp",
+        "type": "hull"
+    },
+    "wasp": {
+        "id": "wasp",
+        "ru": "Васп",
+        "en": "Wasp",
+        "type": "hull"
+    },
+    "хоппер": {
+        "id": "hopper",
+        "ru": "Хоппер",
+        "en": "Hopper",
+        "type": "hull"
+    },
+    "hopper": {
+        "id": "hopper",
+        "ru": "Хоппер",
+        "en": "Hopper",
+        "type": "hull"
+    },
+    "хорнет": {
+        "id": "hornet",
+        "ru": "Хорнет",
+        "en": "Hornet",
+        "type": "hull"
+    },
+    "hornet": {
+        "id": "hornet",
+        "ru": "Хорнет",
+        "en": "Hornet",
+        "type": "hull"
+    },
+    "викинг": {
+        "id": "viking",
+        "ru": "Викинг",
+        "en": "Viking",
+        "type": "hull"
+    },
+    "viking": {
+        "id": "viking",
+        "ru": "Викинг",
+        "en": "Viking",
+        "type": "hull"
+    },
+    "крусейдер": {
+        "id": "crusader",
+        "ru": "Крусейдер",
+        "en": "Crusader",
+        "type": "hull"
+    },
+    "crusader": {
+        "id": "crusader",
+        "ru": "Крусейдер",
+        "en": "Crusader",
+        "type": "hull"
+    },
+    "хантер": {
+        "id": "hunter",
+        "ru": "Хантер",
+        "en": "Hunter",
+        "type": "hull"
+    },
+    "hunter": {
+        "id": "hunter",
+        "ru": "Хантер",
+        "en": "Hunter",
+        "type": "hull"
+    },
+    "паладин": {
+        "id": "paladin",
+        "ru": "Паладин",
+        "en": "Paladin",
+        "type": "hull"
+    },
+    "paladin": {
+        "id": "paladin",
+        "ru": "Паладин",
+        "en": "Paladin",
+        "type": "hull"
+    },
+    "диктатор": {
+        "id": "dictator",
+        "ru": "Диктатор",
+        "en": "Dictator",
+        "type": "hull"
+    },
+    "dictator": {
+        "id": "dictator",
+        "ru": "Диктатор",
+        "en": "Dictator",
+        "type": "hull"
+    },
+    "титан": {
+        "id": "titan",
+        "ru": "Титан",
+        "en": "Titan",
+        "type": "hull"
+    },
+    "titan": {
+        "id": "titan",
+        "ru": "Титан",
+        "en": "Titan",
+        "type": "hull"
+    },
+    "арес": {
+        "id": "ares",
+        "ru": "Арес",
+        "en": "Ares",
+        "type": "hull"
+    },
+    "ares": {
+        "id": "ares",
+        "ru": "Арес",
+        "en": "Ares",
+        "type": "hull"
+    },
+    "мамонт": {
+        "id": "mammoth",
+        "ru": "Мамонт",
+        "en": "Mammoth",
+        "type": "hull"
+    },
+    "mammoth": {
+        "id": "mammoth",
+        "ru": "Мамонт",
+        "en": "Mammoth",
+        "type": "hull"
+    }
+}

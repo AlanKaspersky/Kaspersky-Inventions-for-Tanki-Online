@@ -1,0 +1,132 @@
+.BattleKillBoardComponentStyle-tableContainer {
+    width: 102em !important;
+    max-width: 102em !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    overflow-x: visible !important;
+}
+
+.BattleKillBoardComponentStyle-tableContainer table {
+    align-items: center !important;
+    height: 42em !important;
+    width: 100em !important;
+}
+
+.BattleKillBoardComponentStyle-tableContainer table,
+.BattleKillBoardComponentStyle-tableContainer .TableComponentStyle-table {
+    width: 100em !important;
+    max-width: 100em !important;
+    table-layout: fixed !important;
+    box-sizing: border-box !important;
+}
+
+:is(.BattleKillBoardComponentStyle-tableContainer table) td,
+:is(.BattleKillBoardComponentStyle-tableContainer table) th {
+    box-sizing: border-box !important;
+    flex-shrink: 0 !important;
+    margin: 0 !important;
+    max-width: unset !important;
+    min-width: unset !important;
+}
+
+:is(.BattleKillBoardComponentStyle-tableContainer table) tr {
+    display: flex !important;
+    align-items: center !important;
+    width: 49.5em !important;
+    max-width: 49.5em !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+}
+
+:is(.BattleKillBoardComponentStyle-tableContainer table) > tbody {
+    display: grid !important;
+    grid-template-columns: 49.5em 49.5em !important;
+    column-gap: 1em !important;
+    row-gap: 0.3em !important;
+    grid-auto-flow: column !important;
+    grid-auto-rows: 2.5em !important;
+    width: 100em !important;
+    box-sizing: border-box !important;
+    padding-right: 0 !important;
+}
+
+:is(:is(.BattleKillBoardComponentStyle-tableContainer table) > tbody) > tr {
+    grid-column: 1 / 2 !important;
+    height: 2.5em !important;
+}
+
+#enemyCommand:is(:is(:is(.BattleKillBoardComponentStyle-tableContainer table) > tbody) > tr) {
+    grid-column: 2 / 3 !important;
+}
+
+#rowSpace:is(:is(:is(.BattleKillBoardComponentStyle-tableContainer table) > tbody) > tr),
+#teamRowSpace:is(:is(:is(.BattleKillBoardComponentStyle-tableContainer table) > tbody) > tr) {
+    display: none !important;
+}
+
+:is(.BattleKillBoardComponentStyle-tableContainer table) > thead {
+    display: flex !important;
+    justify-content: space-between !important;
+    gap: 1em !important;
+    width: 100em !important;
+    box-sizing: border-box !important;
+}
+
+:is(:is(.BattleKillBoardComponentStyle-tableContainer table) > thead) > tr {
+    pointer-events: none !important;
+    width: 49.5em !important;
+    max-width: 49.5em !important;
+    display: flex !important;
+    align-items: center !important;
+}
+
+:is(:is(:is(.BattleKillBoardComponentStyle-tableContainer table) > thead) > tr) > th > :nth-child(2) {
+    display: none !important;
+}
+
+:is(:is(.BattleKillBoardComponentStyle-tableContainer table) tr) > * {
+    width: 9.28% !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+    white-space: nowrap !important;
+}
+
+:is(:is(.BattleKillBoardComponentStyle-tableContainer table) tr) > :first-child {
+    width: 35% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+.BattleKillBoardComponentStyle-tableContainer table thead tr th > :first-child {
+    margin-left: 0em !important;
+}
+
+.BattleKillBoardComponentStyle-tableContainer table thead tr th.BattleKillBoardComponentStyle-col8 > img.BattleResultStyle-starSize {
+    margin-left: 0.35em !important;
+}
+
+.BattleKillBoardComponentStyle-tableContainer table tbody tr td > :last-child {
+    margin-right: 0em !important;
+}
+
+.BattleKillBoardComponentStyle-tableContainer table thead tr th {
+    margin-left: 0.056em !important;
+}
+
+:is(.BattleKillBoardComponentStyle-tableContainer table):not(:has(> tbody > #teamRowSpace)) {
+    width: 50em !important;
+}
+
+:is(.BattleKillBoardComponentStyle-tableContainer table):not(:has(> tbody > #teamRowSpace)) tr {
+    grid-column: 1 / 2 !important;
+    width: 50em !important;
+}
+
+:is(.BattleKillBoardComponentStyle-tableContainer table):not(:has(> tbody > #teamRowSpace)) > thead > :nth-child(2) {
+    display: none !important;
+}
+
+:is(.BattleKillBoardComponentStyle-tableContainer table):not(:has(> tbody > #teamRowSpace)) > tbody {
+    grid-template-columns: 1fr !important;
+}

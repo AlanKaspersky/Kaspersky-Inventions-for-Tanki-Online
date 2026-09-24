@@ -1,0 +1,587 @@
+div:is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults) {
+    background-color: rgb(21 21 21 / 92%) !important;
+    box-shadow: rgb(255 255 255) 0em 0em 0px 0.3em !important;
+    backdrop-filter: blur(6px) !important;
+}
+
+div[class*="SkinsAndAlterationsStyle"] div[class$="-flexCenterAlignCenterColumn"] {
+    width: clamp(125px, 9vw, 240px) !important;
+    height: clamp(165px, 12vw, 240px) !important;
+}
+
+div:has(> .SkinsAndAlterationsStyle-nameDevices):active,
+div:has(> .SkinsAndAlterationsStyle-nameDevices).-active {
+    width: clamp(125px, 9vw, 240px) !important;
+    height: clamp(165px, 12vw, 240px) !important;
+}
+
+.SkinsAndAlterationsStyle-SkinsVerticalComponent {
+    grid-template-columns: repeat(auto-fill, clamp(125px, 9vw, 240px)) !important;
+}
+
+div.BattleTabStatisticComponentStyle-containerInsideResults {
+    width: 58.25em !important;
+}
+
+.BattleTabStatisticComponentStyle-container> :first-child {
+    max-height: unset !important;
+}
+
+div.BattleTabStatisticComponentStyle-containerInsideTeams {
+    width: 95.25em !important;
+    max-width: 96vw !important;
+}
+
+:is(.BattleTabStatisticComponentStyle-containerInsideTeams) tr {
+    width: 45.75em !important;
+}
+
+div.BattleTabStatisticComponentStyle-containerInsideResults {
+    width: 67.125em !important;
+    max-width: 96vw !important;
+}
+
+:is(.BattleTabStatisticComponentStyle-containerInsideResults) tr {
+    width: 65.25em !important;
+}
+
+.BattleTabStatisticComponentStyle-commonBlockScroll {
+    margin-top: 0.5em !important;
+    max-height: 42em !important;
+    padding: 0 0 0.3em !important;
+}
+
+.BattleTabStatisticComponentStyle-commonContainerIconOptions {
+    right: 1em !important;
+}
+
+.BattleTabStatisticComponentStyle-container table {
+    border-spacing: 0 !important;
+    margin: 0 !important;
+    padding-bottom: 0 !important;
+    width: 100% !important;
+}
+
+:is(.BattleTabStatisticComponentStyle-container table) td,
+:is(.BattleTabStatisticComponentStyle-container table) th {
+    box-sizing: border-box !important;
+    flex-shrink: 0 !important;
+    margin: 0 !important;
+    max-width: unset !important;
+    min-width: unset !important;
+}
+
+.BattleTabStatisticComponentStyle-container table>thead {
+    display: block !important;
+    width: 100% !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 10 !important;
+}
+
+.BattleTabStatisticComponentStyle-container table>thead>tr {
+    display: flex !important;
+    align-items: center !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.BattleTabStatisticComponentStyle-container table>thead>tr>* {
+    flex-shrink: 0 !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.BattleTabStatisticComponentStyle-container table>thead>tr> :first-child {
+    order: -3 !important;
+    flex: 0 0 37% !important;
+    width: 37% !important;
+    justify-content: flex-start !important;
+    padding-left: 0.5em !important;
+}
+
+.BattleTabStatisticComponentStyle-container table>thead>tr> :nth-child(2) {
+    order: -1 !important;
+    flex: 0 0 10% !important;
+    width: 10% !important;
+}
+
+.BattleTabStatisticComponentStyle-container table>thead>tr>.kasp-defence-th,
+.BattleTabStatisticComponentStyle-container table>thead>tr> :nth-child(3) {
+    order: 0 !important;
+    flex: 0 0 15% !important;
+    width: 15% !important;
+}
+
+.kasp-shield-img {
+    height: 1em !important;
+    width: 1.5em !important;
+    object-fit: contain !important;
+    display: block !important;
+}
+
+.BattleTabStatisticComponentStyle-container table>thead>tr> :nth-child(4),
+.BattleTabStatisticComponentStyle-container table>thead>tr> :nth-child(5) {
+    flex: 0 0 7% !important;
+    width: 7% !important;
+}
+
+.BattleTabStatisticComponentStyle-container table>thead>tr> :nth-child(6),
+.BattleTabStatisticComponentStyle-container table>thead>tr> :nth-child(7) {
+    flex: 0 0 10% !important;
+    width: 10% !important;
+}
+
+.BattleTabStatisticComponentStyle-container table>tbody {
+    display: block !important;
+    width: 100% !important;
+}
+
+.BattleTabStatisticComponentStyle-container table>tbody>tr {
+    display: flex !important;
+    contain: layout style paint !important;
+    align-items: center !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    margin-top: 0.3em !important;
+    box-shadow: unset !important;
+    cursor: unset !important;
+}
+
+.BattleTabStatisticComponentStyle-container table>tbody>tr>* {
+    flex-shrink: 0 !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    visibility: visible !important;
+}
+
+.BattleTabStatisticComponentStyle-container table tbody tr> :nth-child(3)>.GearScoreStyle-bestGsLight {
+    display: none !important;
+}
+
+.BattleTabStatisticComponentStyle-container table tbody tr> :first-child {
+    order: -3 !important;
+    flex: 0 0 37% !important;
+    width: 37% !important;
+    justify-content: flex-start !important;
+    padding-left: 0.5em !important;
+}
+
+.BattleTabStatisticComponentStyle-container table tbody tr> :nth-child(3) {
+    order: -1 !important;
+    flex: 0 0 10% !important;
+    width: 10% !important;
+}
+
+.BattleTabStatisticComponentStyle-container table tbody tr> :nth-child(2),
+.BattleTabStatisticComponentStyle-resistanceModuleCell {
+    order: 0 !important;
+    flex: 0 0 15% !important;
+    width: 15% !important;
+    height: 1.95em !important;
+    background-color: rgb(2, 19, 21) !important;
+    border-color: rgb(151 187 255 / 14%) !important;
+    border-radius: 0.4em !important;
+    padding: 0.15em 0 !important;
+    overflow: hidden !important;
+    transition: none !important;
+    justify-content: space-evenly !important;
+}
+
+.BattleTabStatisticComponentStyle-container table tbody tr> :nth-child(4) {
+    order: 1 !important;
+    flex: 0 0 7% !important;
+    width: 7% !important;
+}
+
+.BattleTabStatisticComponentStyle-container table tbody tr> :nth-child(5) {
+    order: 2 !important;
+    flex: 0 0 7% !important;
+    width: 7% !important;
+}
+
+.BattleTabStatisticComponentStyle-container table tbody tr> :nth-child(6) {
+    order: 3 !important;
+    flex: 0 0 10% !important;
+    width: 10% !important;
+}
+
+.BattleTabStatisticComponentStyle-container table tbody tr> :nth-child(7) {
+    order: 4 !important;
+    flex: 0 0 10% !important;
+    width: 10% !important;
+}
+
+.kasp-change-th,
+.kasp-change-td {
+    order: -2 !important;
+    flex: 0 0 4% !important;
+    width: 4% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+    border: none !important;
+}
+
+.kasp-change-th>div {
+    background-color: rgb(191, 213, 255) !important;
+    -webkit-mask-image: url('https://s.eu.tankionline.com/static/images/WeaponChange.89d8adcc.svg') !important;
+    mask-image: url('https://s.eu.tankionline.com/static/images/WeaponChange.89d8adcc.svg') !important;
+    -webkit-mask-size: 1.5em 1em !important;
+    mask-size: 1.5em 1em !important;
+    -webkit-mask-repeat: no-repeat !important;
+    mask-repeat: no-repeat !important;
+    -webkit-mask-position: center !important;
+    mask-position: center !important;
+    width: 1.5em !important;
+    height: 1em !important;
+}
+
+.kasp-change-td>img {
+    width: 1.25em !important;
+    height: 1.25em !important;
+    object-fit: contain !important;
+    display: block !important;
+}
+
+.kasp-compact-cell {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    align-items: center !important;
+    justify-items: center !important;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.kasp-slot {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.kasp-dash {
+    color: rgba(255, 255, 255, 0.35) !important;
+    font-family: BaseFontRegular, FallbackFontRegular, sans-serif !important;
+    font-size: 1em !important;
+    line-height: 1 !important;
+    user-select: none !important;
+}
+
+.kasp-compact-cell .BattleTabStatisticComponentStyle-defenceLabel {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: auto !important;
+    height: 100% !important;
+    background: transparent !important;
+}
+
+.kasp-compact-cell .BattleTabStatisticComponentStyle-defenceLabel>div {
+    width: 1em !important;
+    height: 1em !important;
+    margin-right: 0.2em !important;
+}
+
+.kasp-compact-cell .BattleTabStatisticComponentStyle-defenceLabel>h3 {
+    font-size: 0.9375em !important;
+    margin: 0 !important;
+}
+
+.kasp-cloned-resist.kasp-protecting>h3 {
+    color: var(--kasp-red) !important;
+}
+
+.kasp-cloned-resist.kasp-armadillo>h3 {
+    color: var(--kasp-white) !important;
+}
+
+.kasp-cloned-resist.kasp-protecting.kasp-spectrum {
+    color: var(--kasp-sky) !important;
+}
+
+.kasp-cloned-resist.kasp-protecting.kasp-spectrum>h3 {
+    color: var(--kasp-sky) !important;
+}
+
+.kasp-cloned-resist.kasp-protecting.kasp-spectrum>div,
+.kasp-cloned-resist.kasp-protecting.kasp-spectrum>.-maskImage,
+.kasp-cloned-resist.kasp-protecting.kasp-spectrum>.-maskImageContain {
+    background-color: var(--kasp-sky) !important;
+    color: var(--kasp-sky) !important;
+}
+
+.kasp-cloned-resist.kasp-protecting.kasp-spectrum>img {
+    filter: brightness(0) saturate(100%) invert(70%) sepia(66%) saturate(2233%) hue-rotate(155deg) brightness(101%) contrast(101%) !important;
+}
+
+.BattleTabStatisticComponentStyle-container table tbody tr>.BattleTabStatisticComponentStyle-resistanceModuleCell:hover {
+    cursor: pointer !important;
+    flex: 0 0 29% !important;
+    width: 29% !important;
+    justify-content: space-evenly !important;
+}
+
+.BattleTabStatisticComponentStyle-resistanceModuleCell:hover>.kasp-compact-cell {
+    display: none !important;
+}
+
+.BattleTabStatisticComponentStyle-resistanceModuleCell:hover> :not(.kasp-compact-cell) {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 0 0 25% !important;
+    width: 25% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.BattleTabStatisticComponentStyle-resistanceModuleCell:hover .BattleTabStatisticComponentStyle-defenceLabel {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.BattleTabStatisticComponentStyle-container table tbody tr:has(> .BattleTabStatisticComponentStyle-resistanceModuleCell:hover)> :nth-child(4),
+.BattleTabStatisticComponentStyle-container table tbody tr:has(> .BattleTabStatisticComponentStyle-resistanceModuleCell:hover)> :nth-child(5) {
+    display: none !important;
+}
+
+.kasp-zero-summary {
+    order: 999 !important;
+}
+
+:is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults)>.-flexCenterAlignCenter:not([class*="header"]) {
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    padding-top: 0.5em !important;
+    margin-top: 0.5em !important;
+    transition: 0.2s ease !important;
+}
+
+.kasp-custom-summary-row {
+    width: 100% !important;
+    min-height: 2em !important;
+    padding: 0.5em 1em !important;
+    box-sizing: border-box !important;
+}
+
+.kasp-change-td {
+    background-repeat: no-repeat !important;
+    background-position: center center !important;
+    background-size: 1.25em 1.25em !important;
+    background-image: none;
+}
+
+.kasp-change-td.kasp-changed {
+    background-image: url('https://s.eu.tankionline.com/static/images/notification.d58f4b55.svg') !important;
+}
+
+#kasp-tab-toggle-btn {
+    position: absolute;
+    right: 1.5em;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1.8em;
+    height: 1.8em;
+    background-color: rgb(255, 255, 255);
+    border: 0.063em solid transparent;
+    border-radius: 0.4em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 100;
+    transition: background-color 0.2s, box-shadow 0.2s;
+    overflow: hidden;
+}
+
+#kasp-tab-toggle-btn:hover {
+    background-color: rgb(197, 197, 197);
+    box-shadow: rgb(255, 255, 255) 0em 0em 0em 2px;
+}
+
+#kasp-tab-toggle-btn.kasp-active-toggle {
+    background-color: rgb(118, 255, 51);
+    border-color: transparent;
+}
+
+#kasp-tab-toggle-btn .kasp-toggle-icon {
+    width: 1em;
+    height: 1em;
+    background-color: #000000;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    transition: background-color 0.2s, transform 0.2s;
+    position: relative;
+    z-index: 4;
+}
+
+#kasp-tab-toggle-btn:hover .kasp-toggle-icon,
+#kasp-tab-toggle-btn.kasp-active-toggle .kasp-toggle-icon {
+    background-color: rgb(0, 0, 0);
+    transform: translateY(-0.1em);
+}
+
+#kasp-tab-toggle-btn::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -150%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.5) 50%, rgba(255, 255, 255, 0) 100%);
+    transform: skewX(-25deg);
+    z-index: 3;
+    pointer-events: none;
+}
+
+#kasp-tab-toggle-btn:hover::after {
+    animation: kasp-metal-shine 0.6s ease-in-out forwards;
+}
+
+div.BattleTabStatisticComponentStyle-containerInsideTeams,
+div.BattleTabStatisticComponentStyle-containerInsideResults {
+    transition: width 0.2s ease-in-out, max-width 0.2s ease-in-out !important;
+}
+
+.BattleTabStatisticComponentStyle-container table > thead > tr > *,
+.BattleTabStatisticComponentStyle-container table tbody tr > * {
+    transition: width 0.2s ease-in-out, flex 0.2s ease-in-out !important;
+}
+
+body.kasp-tab-expanded div.BattleTabStatisticComponentStyle-containerInsideTeams {
+    width: 110em !important;
+    max-width: 100vw !important;
+}
+
+body.kasp-tab-expanded :is(.BattleTabStatisticComponentStyle-containerInsideTeams) tr {
+    width: 53.5em !important;
+}
+
+body.kasp-tab-expanded div.BattleTabStatisticComponentStyle-containerInsideResults {
+    width: 78em !important;
+    max-width: 98vw !important;
+}
+
+body.kasp-tab-expanded :is(.BattleTabStatisticComponentStyle-containerInsideResults) tr {
+    width: 76em !important;
+}
+
+body.kasp-tab-expanded .BattleTabStatisticComponentStyle-container table > thead > tr > :first-child,
+body.kasp-tab-expanded .BattleTabStatisticComponentStyle-container table tbody tr > :first-child {
+    flex: 0 0 32.4% !important; width: 32.4% !important;
+}
+
+body.kasp-tab-expanded .BattleTabStatisticComponentStyle-container table > thead > tr > .kasp-defence-th,
+body.kasp-tab-expanded .BattleTabStatisticComponentStyle-container table > thead > tr > :nth-child(3),
+body.kasp-tab-expanded .BattleTabStatisticComponentStyle-container table tbody tr > :nth-child(2),
+body.kasp-tab-expanded .BattleTabStatisticComponentStyle-resistanceModuleCell {
+    flex: 0 0 25.4% !important; width: 25.4% !important;
+}
+
+body.kasp-tab-expanded .BattleTabStatisticComponentStyle-container table > thead > tr > :nth-child(2),
+body.kasp-tab-expanded .BattleTabStatisticComponentStyle-container table tbody tr > :nth-child(3) {
+    flex: 0 0 8.8% !important; width: 8.8% !important;
+}
+
+body.kasp-tab-expanded .BattleTabStatisticComponentStyle-container table > thead > tr > :nth-child(4),
+body.kasp-tab-expanded .BattleTabStatisticComponentStyle-container table > thead > tr > :nth-child(5),
+body.kasp-tab-expanded .BattleTabStatisticComponentStyle-container table tbody tr > :nth-child(4),
+body.kasp-tab-expanded .BattleTabStatisticComponentStyle-container table tbody tr > :nth-child(5) {
+    flex: 0 0 6.1% !important; width: 6.1% !important;
+}
+
+body.kasp-tab-expanded .BattleTabStatisticComponentStyle-container table > thead > tr > :nth-child(6),
+body.kasp-tab-expanded .BattleTabStatisticComponentStyle-container table > thead > tr > :nth-child(7),
+body.kasp-tab-expanded .BattleTabStatisticComponentStyle-container table tbody tr > :nth-child(6),
+body.kasp-tab-expanded .BattleTabStatisticComponentStyle-container table tbody tr > :nth-child(7) {
+    flex: 0 0 8.8% !important; width: 8.8% !important;
+}
+
+body.kasp-tab-expanded .kasp-change-th,
+body.kasp-tab-expanded .kasp-change-td {
+    flex: 0 0 3.5% !important; width: 3.5% !important;
+}
+
+body.kasp-tab-expanded .kasp-compact-cell {
+    display: none !important;
+}
+
+body.kasp-tab-expanded .BattleTabStatisticComponentStyle-resistanceModuleCell > :not(.kasp-compact-cell) {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 0 0 25% !important;
+    width: 25% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+body.kasp-tab-expanded .BattleTabStatisticComponentStyle-resistanceModuleCell .BattleTabStatisticComponentStyle-defenceLabel {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+body.kasp-tab-expanded .BattleTabStatisticComponentStyle-container table tbody tr:has(> .BattleTabStatisticComponentStyle-resistanceModuleCell:hover) > :nth-child(4),
+body.kasp-tab-expanded .BattleTabStatisticComponentStyle-container table tbody tr:has(> .BattleTabStatisticComponentStyle-resistanceModuleCell:hover) > :nth-child(5) {
+    display: flex !important;
+}
+
+.kasp-compact-cell {
+    display: grid !important;
+    width: 100% !important;
+    opacity: 1 !important;
+    overflow: hidden !important;
+    visibility: visible !important;
+    transition: width 0.2s ease-in-out, opacity 0.2s ease-in-out, visibility 0s !important;
+}
+
+.BattleTabStatisticComponentStyle-resistanceModuleCell > :not(.kasp-compact-cell) {
+    display: flex !important;
+    width: 0% !important;
+    flex: 0 0 0% !important;
+    opacity: 0 !important;
+    overflow: hidden !important;
+    visibility: hidden !important;
+    white-space: nowrap !important;
+    transition: width 0.2s ease-in-out, flex 0.2s ease-in-out, opacity 0.2s ease-in-out, visibility 0s 0.2s !important;
+}
+
+body.kasp-tab-expanded .kasp-compact-cell,
+.BattleTabStatisticComponentStyle-resistanceModuleCell:hover > .kasp-compact-cell {
+    width: 0% !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    transition: width 0.2s ease-in-out, opacity 0.2s ease-in-out, visibility 0s 0.2s !important;
+}
+
+body.kasp-tab-expanded .BattleTabStatisticComponentStyle-resistanceModuleCell > :not(.kasp-compact-cell),
+.BattleTabStatisticComponentStyle-resistanceModuleCell:hover > :not(.kasp-compact-cell) {
+    width: 25% !important;
+    flex: 0 0 25% !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    transition: width 0.2s ease-in-out, flex 0.2s ease-in-out, opacity 0.2s ease-in-out, visibility 0s !important;
+}
+
+.BattleTabStatisticComponentStyle-container table tbody tr > :nth-child(2), .BattleTabStatisticComponentStyle-resistanceModuleCell {
+    padding-left: 0.4em !important;
+}

@@ -1,0 +1,37 @@
+@keyframes kasp-btn-anim {
+    0% {
+        background-color: rgb(255, 255, 255);
+    }
+
+    50% {
+        background-color: rgba(255, 255, 255, 0.8);
+    }
+
+    100% {
+        background-color: rgb(255, 255, 255);
+    }
+}
+
+@keyframes kasp-btn-anim-gray {
+    0% {
+        background-color: rgb(218, 218, 218);
+    }
+
+    50% {
+        background-color: rgba(255, 255, 255, 0.7);
+    }
+
+    100% {
+        background-color: rgb(218, 218, 218);
+    }
+}
+
+@keyframes kasp-metal-shine {
+    0% {
+        left: -150%;
+    }
+
+    100% {
+        left: 200%;
+    }
+}

@@ -1,0 +1,94 @@
+.hidden-text,
+.hidden-text-ru,
+.hidden-xp,
+.hidden-xp-ru {
+    position: relative;
+    cursor: pointer;
+    font-weight: 500;
+    text-shadow: rgba(0, 0, 0, 0.5) 0em 0em 0.25em;
+    user-select: none;
+    display: inline-block;
+}
+
+.hidden-text,
+.hidden-text-ru {
+    color: #ffffff !important;
+}
+
+.hidden-text:hover,
+.hidden-text-ru:hover {
+    color: rgb(255, 188, 9) !important;
+}
+
+.hidden-xp,
+.hidden-xp-ru {
+    color: rgb(118, 255, 51) !important;
+    font-family: BaseFontMedium, FallbackFontMedium, sans-serif;
+    font-style: normal;
+    text-transform: uppercase;
+    font-size: 1em;
+}
+
+.hidden-text::after,
+.hidden-text-ru::after,
+.hidden-xp::after,
+.hidden-xp-ru::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    background: rgba(0, 0, 0, 0.9);
+    padding: 5px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    z-index: 99999;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    font-weight: 500;
+    font-family: BaseFontMedium, FallbackFontMedium, sans-serif;
+    text-transform: uppercase;
+    transition: opacity 0.15s ease;
+}
+
+.hidden-text::after,
+.hidden-text-ru::after {
+    color: #ffffff;
+}
+
+.hidden-xp::after,
+.hidden-xp-ru::after {
+    color: rgb(118, 255, 51);
+}
+
+.hidden-text::before,
+.hidden-text-ru::before,
+.hidden-xp::before,
+.hidden-xp-ru::before {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-bottom-color: rgba(0, 0, 0, 0.9);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 99999;
+    margin-top: -4px;
+    transition: opacity 0.15s ease;
+}
+
+.hidden-text:hover::after,
+.hidden-text:hover::before,
+.hidden-text-ru:hover::after,
+.hidden-text-ru:hover::before,
+.hidden-xp:hover::after,
+.hidden-xp:hover::before,
+.hidden-xp-ru:hover::after,
+.hidden-xp-ru:hover::before {
+    opacity: 1;
+}

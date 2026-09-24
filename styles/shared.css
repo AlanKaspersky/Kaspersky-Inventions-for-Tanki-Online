@@ -1,0 +1,87 @@
+:root {
+    --kasp-white: rgb(255, 255, 255);
+    --kasp-gray-100: rgb(218, 218, 218);
+    --kasp-gray-200: rgb(197, 197, 197);
+    --kasp-gray-500: rgb(156 156 156);
+    --kasp-black: rgb(0, 0, 0);
+    --kasp-panel: rgb(21 21 21 / 92%);
+    --kasp-shadow: rgb(255 255 255 / 25%);
+    --kasp-sky: rgb(79, 222, 251);
+    --kasp-red: rgb(255, 80, 80);
+}
+
+.ApplicationLoaderComponentStyle-container.-background {
+    background-image: var(--kasp-loader-bg) !important;
+    background-size: cover !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
+}
+
+.-container,
+.-entranceGradient,
+.LobbyLoaderComponentStyle-container,
+.preloader,
+div#root.wrapper {
+    background: radial-gradient(rgb(39 39 39) 0%, rgb(3, 8, 13) 100%) !important;
+}
+
+.ListItemsComponentStyle-itemsListContainer {
+    background: linear-gradient(rgba(0, 25, 38, 0) 0%, rgb(0 0 0) 100%) !important;
+}
+
+.ListItemsComponentStyle-itemsListContainer.-appearFromBottom .-flexCenterAlignCenter {
+    background: none !important;
+}
+
+.GarageCommonStyle-discountLabel {
+    background-color: rgb(255 255 255) !important;
+}
+
+.SquarePriceButtonComponentStyle-discountLabel,
+span.-discount.-medium.-flexCenterAlignCenter,
+.SuppliesComponentStyle-discountLabel,
+.PrimaryMenuItemComponentStyle-discountNotification {
+    background-color: rgb(255, 255, 255) !important;
+}
+
+.DisplayPriceComponentStyle-discountTimer span {
+    color: rgb(0, 0, 0) !important;
+}
+
+.ApplicationLoaderComponentStyle-container>div[style*="linear-gradient"] {
+    background: linear-gradient(rgba(0, 25, 38, 0) 0%, rgba(18, 18, 18, 0.75) 100%) !important;
+}
+
+.TanksPartComponentStyle-tankPartUpgrades h2.TanksPartComponentStyle-nameUpgradeable:nth-of-type(2) {
+    color: rgb(156 156 156) !important;
+    margin-left: 0.25em !important;
+}
+
+.TanksPartComponentStyle-tankPartUpgrades .-flexSpaceBetweenAlignStretch>div>div:nth-child(2) {
+    background-color: rgb(147 147 147) !important;
+    border-radius: 6.25em !important;
+}
+
+.TanksPartComponentStyle-tankPartUpgrades .-flexSpaceBetweenAlignStretch>div>div:nth-child(3) {
+    background-color: rgb(159 159 159 / 25%) !important;
+    border-radius: 6.25em !important;
+}
+
+.TanksPartComponentStyle-tankPartUpgrades .-displayFlexColumn .-flexStart span.-bold.-flexEnd {
+    color: rgb(156 156 156) !important;
+}
+
+span[class="GearScoreStyle-bestGS bgClipText GearScoreStyle-fontSizeDigitGS"] {
+    background-image: linear-gradient(to left, rgb(96 96 96) 0%, rgb(255 255 255) 100%) !important;
+}
+
+img[class*="TankParametersStyle-iconGS"] {
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+    background-color: transparent !important;
+    filter: brightness(0) invert(1) !important;
+}
+
+.TankParametersStyle-parametersBlockGear span {
+    color: rgb(194 194 194) !important;
+}

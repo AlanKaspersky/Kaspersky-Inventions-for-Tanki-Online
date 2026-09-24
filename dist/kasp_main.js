@@ -344,28 +344,6 @@
         return {
             inject: () => {
                 if (!stylesInjected) {
-                    utils.injectStyle(`
-                        .SettingsComponentStyle-blockContentOptions > ul { position: relative !important; overflow-y: auto !important; scrollbar-width: none !important; }
-                        .SettingsComponentStyle-blockContentOptions > ul::-webkit-scrollbar { display: none !important; }
-                        #kaspersky-tab { position: relative !important; width: 100% !important; height: 5em !important; z-index: 5; display: flex; align-items: center; justify-content: flex-start; cursor: pointer; margin-top: 21em; }
-                        #kaspersky-tab span { font-family: BaseFontBold, FallbackFontBold, sans-serif; font-style: normal; font-weight: 500; font-size: 1.125em; text-transform: uppercase; margin-left: 1.875em; margin-top: 0.1em; color: rgba(255, 255, 255, 0.6); position: relative; z-index: 5; transition: 0.5s; }
-                        #kaspersky-tab span:hover, #kaspersky-tab.SettingsMenuComponentStyle-activeItemOptions span { color: white; }
-                        .kasp-hide-native-slider .SettingsMenuComponentStyle-slideMenuOptions { opacity: 0 !important; }
-                        .kasp-fake-highlight { display: none; flex-direction: column; justify-content: center; background: linear-gradient(to right, rgb(46, 50, 53), rgba(46, 50, 53, 0)); width: 18em; height: 2.5em; position: absolute; left: 0; top: 1.25em; z-index: 1; pointer-events: none; }
-                        .kasp-fake-line { background-color: rgb(255, 188, 9); box-shadow: rgb(255, 188, 9) 0px 0px 0.676em 0px; width: 0.313em; height: 2.5em; position: absolute; left: 0; top: 0; z-index: 3; }
-                        #kaspersky-tab.SettingsMenuComponentStyle-activeItemOptions .kasp-fake-highlight { display: flex; }
-                        .kasp-hidden { display: none !important; }
-                        #kaspersky-settings-content { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; width: 46.875em; height: 100%; margin-left: 2.625em; margin-top: 0px; padding: 1.875em 1.875em 0px; position: relative; background-color: rgba(255, 255, 255, 0.1); overflow-x: hidden; overflow-y: auto; scrollbar-color: rgb(188, 188, 188) rgba(255, 255, 255, 0.2); scrollbar-width: thin; }
-                        .kasp-toggle-row { display: flex; align-items: center; justify-content: flex-start; width: 100%; height: 2.25em; margin-bottom: 1.25em; }
-                        .kasp-toggle-switch { width: 2.75em; height: 1.5em; border: 0.063em solid rgba(255, 255, 255, 0.2); border-radius: 6.25rem; background-color: rgba(191, 213, 255, 0.25); display: flex; align-items: center; position: relative; transition: background-color 0.2s; flex-shrink: 0; cursor: pointer; }
-                        .kasp-toggle-row.kasp-active .kasp-toggle-switch { background-color: rgba(118, 255, 51, 0.25); }
-                        .kasp-toggle-switch::before { content: ""; position: absolute; width: 1em; height: 1em; left: 0.25em; background: url(https://s.eu.tankionline.com/static/images/incorrectCheck.1918884a.svg) 50% 50% / 100% 100% no-repeat; transition: left 0.2s ease, background 0.2s ease; }
-                        .kasp-toggle-row.kasp-active .kasp-toggle-switch::before { background: url(https://s.eu.tankionline.com/static/images/correct.afad1b22.svg) 50% 50% / 100% 100% no-repeat; left: 1.5em; }
-                        .kasp-toggle-label { color: rgba(255, 255, 255, 0.5); font-family: BaseFontRegular, FallbackFontRegular, sans-serif; font-size: 1em; margin-left: 1em; margin-right: 1em; z-index: 2; user-select: none; cursor: pointer; }
-                        .kasp-toggle-row.kasp-active .kasp-toggle-label { color: rgb(255, 255, 255); }
-                        .kasp-tooltip { position: fixed !important; background-color: #032930 !important; border-radius: .4em !important; box-shadow: 0 0 .2em rgba(0, 0, 0, .5) !important; color: #fff !important; padding: .3em .7em !important; text-transform: uppercase !important; transform: translate(-50%, -3.3em) !important; z-index: 99999 !important; pointer-events: none !important; font-family: BaseFontMedium, FallbackFontMedium, sans-serif !important; white-space: nowrap !important; font-size: 1.3vh !important; }
-                        .kasp-tooltip::before { border: .6em solid transparent !important; border-top-color: #032930 !important; content: "" !important; height: 0 !important; left: 50% !important; position: absolute !important; top: calc(100% - 1px) !important; transform: translateX(-50%) !important; width: 0 !important; }
-                    `, 'kasp-settings-styles');
                     stylesInjected = true;
                 }
                 const mainBlock = document.querySelector('.SettingsComponentStyle-blockContentOptions');
@@ -571,20 +549,6 @@
                     return;
                 if (!initialized) {
                     initialized = true;
-                    utils.injectStyle(`
-                        .PaintsCollectionComponentStyle-commonBlockFOrInfoAndCaptionCategory { position: relative !important; }
-                        .kasp-search-wrapper { position: absolute; left: 0em; top: 50%; transform: translateY(-50%); z-index: 10; }
-                        .kasp-SearchInputComponentStyle-search { margin: 0; width: 18em; }
-                        .kasp-SearchInputComponentStyle-searchInput { height: 3.125em; background-color: transparent; border-radius: 0.5rem; box-sizing: border-box; display: flex; align-items: center; position: relative; width: 100%; }
-                        .kasp-SearchInputComponentStyle-searchInput input { width: 100%; height: 100%; margin: 0; padding-left: 1.063em; padding-right: 3.375em; border: 0 transparent; outline: none; box-sizing: border-box; border-radius: 0.5rem; font-size: 1em; color: rgb(255, 255, 255); background: initial; box-shadow: rgb(255, 255, 255) 0 0 0 1px; transition: box-shadow 0.2s; }
-                        .kasp-SearchInputComponentStyle-searchInput input:hover, .kasp-SearchInputComponentStyle-searchInput input:focus { box-shadow: rgb(255, 255, 255) 0 0 0 2px !important; }
-                        .kasp-SearchInputComponentStyle-searchInput input::placeholder { color: rgba(255, 255, 255, 0.5); }
-                        .kasp-search-icon { position: absolute; right: 0.875em; width: 1.5em; height: 1.5em; background-image: url(https://s.eu.tankionline.com/static/images/search.8c2b7c7b.svg); background-size: contain; background-repeat: no-repeat; background-position: center center; pointer-events: none; }
-                        .kasp-paints-container { display: flex !important; flex-direction: column !important; flex-wrap: wrap !important; height: 11.875em !important; max-height: 11.875em !important; overflow-x: auto !important; overflow-y: hidden !important; gap: 0.625em !important; }
-                        .kasp-paints-container > div { display: contents !important; }
-                        .kasp-paints-container .garage-item { flex: 0 0 auto; }
-                        .kasp-paints-container .garage-item[style*="display: none"] { display: none !important; }
-                    `, 'kasp-paints-styles');
                 }
                 addSearchInput();
                 const input = document.querySelector('.kasp-search-wrapper input');
@@ -797,27 +761,6 @@
                     return;
                 if (!initialized) {
                     initialized = true;
-                    utils.injectStyle(`
-                        .custom-card-specs-btn { position: absolute; bottom: 0.5em; left: 0.5em; width: 2.5em; height: 2.5em; border-radius: 0.5em; background-color: rgb(255, 255, 255); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 10; box-shadow: rgba(255, 255, 255, 0.25) 0em 0em 0em 0.063em; overflow: hidden; transition: background-color 0.2s ease, box-shadow 0.2s ease; }
-                        .custom-card-specs-btn:hover, .custom-card-specs-btn.active { background-color: rgb(197, 197, 197); box-shadow: rgb(255, 255, 255) 0em 0em 0em 2px; }
-                        .custom-card-specs-btn::after { content: ""; position: absolute; top: 0; left: -150%; width: 50%; height: 100%; background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.5) 50%, rgba(255, 255, 255, 0) 100%); transform: skewX(-25deg); z-index: 3; pointer-events: none; }
-                        .custom-card-specs-btn:hover::after, .custom-card-specs-btn.active::after { animation: kasp-metal-shine 0.6s ease-in-out; }
-                        .custom-card-specs-icon { width: 1.3em; height: 1.3em; display: block; background-color: rgb(0, 0, 0); -webkit-mask-image: url(https://s.eu.tankionline.com/static/images/unavailable.5c3ecd75.svg); mask-image: url(https://s.eu.tankionline.com/static/images/unavailable.5c3ecd75.svg); -webkit-mask-position: center; mask-position: center; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-size: contain; mask-size: contain; position: relative; z-index: 4; transition: background-color 0.2s ease, transform 0.2s ease; }
-                        .custom-card-specs-btn:hover .custom-card-specs-icon, .custom-card-specs-btn.active .custom-card-specs-icon { background-color: rgb(0, 0, 0); transform: translateY(-0.2em); }
-                        #kasp-specs-tooltip { position: fixed; z-index: 999999; pointer-events: none; display: none; background-color: rgba(0, 0, 0, 0.75); backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(6px); border: 0.063rem solid rgba(255, 255, 255, 0.1); border-radius: 0.5rem; padding: 1.25rem 0; box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.5); color: white; font-family: BaseFontMedium, FallbackFontMedium, sans-serif; font-size: max(min(1.48148vh, 1vw), 3px); min-width: 30em; max-width: 48em; }
-                        #kasp-specs-tooltip .device-stats-wrapper { display: flex; width: 100%; box-sizing: border-box; }
-                        #kasp-specs-tooltip .device-stats { flex: 1; flex-basis: 50%; padding: 0 1.5rem; box-sizing: border-box; }
-                        #kasp-specs-tooltip .device-stats:first-child { border-right: 0.063rem solid rgba(255, 255, 255, 0.15); }
-                        #kasp-specs-tooltip .device-stats .heading { font-weight: 600; font-family: BaseFontBold, FallbackFontBold, sans-serif; text-transform: uppercase; color: #46df11; display: flex; align-items: center; margin-bottom: 0.8rem; font-size: 1.1em; }
-                        #kasp-specs-tooltip .device-stats.negative .heading { color: #f33; }
-                        #kasp-specs-tooltip .device-stats .heading::before { content: ""; min-width: 1.2rem; min-height: 1.2rem; width: 1.2rem; height: 1.2rem; margin-right: 0.625rem; background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" fill="%2346df11"/><path d="M12 7V17M7 12H17" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg>'); background-size: contain; background-position: center; background-repeat: no-repeat; }
-                        #kasp-specs-tooltip .device-stats.negative .heading::before { background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" fill="%23f33"/><path d="M7 12H17" stroke="white" stroke-width="2.5" stroke-linecap="round"/></svg>'); }
-                        #kasp-specs-tooltip .device-stats ul { list-style: none; padding: 0; margin: 0; }
-                        #kasp-specs-tooltip .device-stats ul li { position: relative; padding-left: 1.2rem; margin-bottom: 0.5rem; font-size: 1.05em; line-height: 1.4; color: white; }
-                        #kasp-specs-tooltip .device-stats ul li::before { content: "\\25b8"; color: #46df11; position: absolute; left: 0; top: 0; font-size: 1.2em; line-height: 1.1; }
-                        #kasp-specs-tooltip .device-stats.negative ul li::before { color: #f33; }
-                        #kasp-specs-tooltip .device-stats ul ul { margin-top: 0.4rem; margin-bottom: 0.2rem; margin-left: 0.5rem; }                    
-                        `, 'kasp-augment-specs-styles');
                     const forceHideTooltip = () => {
                         const hoverTooltip = document.getElementById('kasp-specs-tooltip');
                         if (hoverTooltip)
@@ -1470,34 +1413,6 @@
                     return;
                 if (!initialized) {
                     initialized = true;
-                    utils.injectStyle(`
-                        .custom-friends-sidebar { position: absolute; display: flex; flex-direction: column; align-items: center; z-index: 10; }
-                        .custom-friends-sidebar.sidebar-friends { top: 1.7em !important; left: -3.5em !important; gap: 0.25em; }
-                        .custom-friends-sidebar.sidebar-invites { top: 8.5em !important; left: -3.5em !important; gap: 0.25em; }
-                        .custom-filter-btn { display: flex; justify-content: center; align-items: center; width: 2.5em; height: 2.5em; cursor: pointer; border-radius: 6.25em; background-color: transparent; }
-                        .custom-filter-btn:hover { box-shadow: rgb(191, 213, 255) 0em 0em 0em 0.125em; }
-                        .custom-filter-btn:active, .custom-filter-btn.active { background-color: rgba(255, 255, 255, 0.15); }
-                        .custom-filter-btn img { width: 2.5em; height: 2.5em; pointer-events: none; }
-                        .custom-filter-btn:first-child img { width: 1.5em; height: 1.5em; }
-                        .custom-friends-sidebar.sidebar-invites .custom-filter-btn:nth-child(2),
-                        .custom-friends-sidebar.sidebar-invites .custom-filter-btn:nth-child(3) { display: none !important; }
-                        .FriendListComponentStyle-scrollCommunity { display: grid !important; grid-template-columns: repeat(2, 35em) !important; justify-content: space-between !important; row-gap: 0.5em !important; min-height: 50em !important; align-content: start !important; width: 72.375em !important; height: calc(100% - 661em) !important; }
-                        .FriendListComponentStyle-blockList { width: 35em !important; box-sizing: border-box; margin: 0 !important; position: relative !important; }
-                        .FriendListComponentStyle-stringCommunity { display: contents !important; }
-                        .InvitationWindowsComponentStyle-usersScroll { width: 100% !important; display: grid !important; grid-template-columns: repeat(2, 1fr) !important; column-gap: 0em !important; row-gap: 0.5em !important; align-content: start !important; box-sizing: border-box !important; }
-                        .InvitationWindowsComponentStyle-usersScroll > div { display: contents !important; }
-                        .InvitationWindowsComponentStyle-usersScroll > div > div { width: 35em !important; box-sizing: border-box; margin: 0 !important; position: relative !important; }
-                        .custom-rarity-badge { width: 0.75em !important; height: 0.75em !important; margin-left: 0px !important; position: absolute !important; top: 0px !important; left: 0px !important; z-index: 5; pointer-events: none; }
-                        .rarity-blue { filter: invert(34%) sepia(76%) saturate(2266%) hue-rotate(149deg) brightness(104%) contrast(103%); }
-                        .rarity-purple { filter: invert(34%) sepia(59%) saturate(1928%) hue-rotate(223deg) brightness(105%) contrast(102%); }
-                        .rarity-yellow { filter: invert(34%) sepia(48%) saturate(2983%) hue-rotate(359deg) brightness(104%) contrast(104%); }
-                        .rarity-red { filter: invert(71%) sepia(61%) saturate(2771%) hue-rotate(337deg) brightness(96%) contrast(111%); }
-                        .custom-category-row { display: flex; justify-content: center; align-items: center; gap: 0.75em; padding: 0.5em 0.5em; margin-top: 0.1em; }
-                        .custom-category-menu-btn { width: 2.5em; height: 2.5em; border-radius: 50%; cursor: pointer; display: flex; justify-content: center; align-items: center; transition: background-color, transform, box-shadow; }
-                        .custom-category-menu-btn:hover { box-shadow: rgb(191, 213, 255) 0em 0em 0em 0.125em; }
-                        .custom-category-menu-btn.active { background-color: rgba(255, 255, 255, 0.15); }
-                        .custom-category-menu-btn img { width: 2.5em; height: 2.5em; pointer-events: none; }
-                    `, 'kasp-friends-styles');
                 }
                 const scrollBlocks = document.querySelectorAll('.FriendListComponentStyle-scrollCommunity, .InvitationWindowsComponentStyle-usersScroll');
                 scrollBlocks.forEach(node => {
@@ -1677,89 +1592,55 @@
                     close: `CLOSE`
                 }
             };
-            function showWelcomeModal() {
+            async function showWelcomeModal() {
                 const lang = state.lang;
                 const dict = t[lang] || t['EN'];
-                const overlay = document.createElement('div');
-                overlay.id = 'kasp-welcome-overlay';
-                overlay.style.cssText = `
-                    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-                    background: rgba(0, 0, 0, 0.7); z-index: 99999;
-                    display: flex; align-items: center; justify-content: center;
-                    backdrop-filter: blur(3px);
-                `;
-                const dialog = document.createElement('div');
-                dialog.style.cssText = `
-                    display: flex; flex-direction: column; align-items: stretch;
-                    width: 45em; max-width: 90vw;
-                    z-index: 60; box-shadow: rgba(0, 0, 0, 0.5) 0px 0.5em 2em 0px;
-                    outline: rgba(255, 255, 255, 0.25) solid 0.063em;
-                    padding: 2.5em; border-radius: 0.75em;
-                    background: radial-gradient(100% 100% at 0% 0%, rgb(255 255 255 / 15%) 0%, rgb(0 0 0 / 95%) 100%), rgb(56 56 56);
-                    font-family: BaseFont, FallbackFont, sans-serif; color: white;
-                `;
-                dialog.innerHTML = `
-                    <div style="text-align: center; margin-bottom: 1.5em;">
-                        <h1 style="font-family: BaseFontBold, FallbackFontBold, sans-serif; font-size: 2.2em; color: rgb(211 211 211); margin: 0 0 0.2em 0; text-transform: uppercase; letter-spacing: 0.5px;">Kaspersky's Inventions</h1>
-                        <h2 style="font-family: BaseFontMedium, FallbackFontMedium, sans-serif; font-size: 1.1em; color: rgba(255, 255, 255, 0.6); margin: 0; text-transform: uppercase; letter-spacing: 1px;">${dict.version}</h2>
-                    </div>
-                    
-                    <div style="font-size: 1.05em; line-height: 1.4; color: rgb(220, 220, 220); margin-bottom: 2em; text-align: center;">
-                        <p style="margin-bottom: 1.5em;">${dict.intro}</p>
-                        
-                        <p style="margin: 0; color: rgba(255, 255, 255, 0.5); font-size: 0.9em; text-transform: uppercase;">${dict.role1}</p>
-                        <p style="margin: 0.2em 0 1em 0; font-family: BaseFontBold, FallbackFontBold, sans-serif; color: white; font-size: 1.2em;">Kaspersky</p>
-                        
-                        <p style="margin: 0; color: rgba(255, 255, 255, 0.5); font-size: 0.9em; text-transform: uppercase;">${dict.role2}</p>
-                        <p style="margin: 0.2em 0 1em 0; color: white; line-height: 1.3;">
-                            ChatGPT<br>
-                            DeepSeek<br>
-                            Claude Sonnet 5<br>
-                            Claude Haiku 4.5<br>
-                            Gemini 3.5 Flash-Lite<br>
-                            Gemini 3.8 Flash<br>
-                            Gemini 3.1 Pro<br>
-                            Grok 4.6
-                        </p>
-                        
-                        <p style="margin: 0; color: rgba(255, 255, 255, 0.5); font-size: 0.9em; text-transform: uppercase;">${dict.role3}</p>
-                        <p style="margin: 0.2em 0 1em 0; color: white; line-height: 1.3;">
-                            Claude Fable 5.1<br>
-                            Claude Opus 5
-                        </p>
-
-                        <p style="margin: 0; color: rgba(255, 255, 255, 0.5); font-size: 0.9em; text-transform: uppercase;">${dict.role4}</p>
-                        <p style="margin: 0.2em 0 1.5em 0; color: white; line-height: 1.3;">
-                            safwan
-                        </p>
-                        
-                        <p style="margin: 0; font-family: BaseFontMedium, FallbackFontMedium, sans-serif; color: rgb(211 211 211); font-size: 1.1em; text-transform: uppercase;">${dict.outro}</p>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: center; gap: 1em; flex-wrap: wrap;">
-                        <a href="https://discord.gg/yNeB7Ah752" target="_blank" style="text-decoration: none;">
-                            <div style="height: 3em; border-radius: 0.75em; background-color: #5865F2; display: flex; align-items: center; justify-content: center; color: white; font-family: BaseFontBold, FallbackFontBold, sans-serif; font-weight: 500; text-transform: uppercase; padding: 0 1.5em; cursor: pointer; border: 1px solid transparent;" onmouseover="this.style.borderColor='white'; this.style.boxShadow='0 0 0 1px white';" onmouseout="this.style.borderColor='transparent'; this.style.boxShadow='none';">
-                                DISCORD
-                            </div>
-                        </a>
-                        <a href="https://github.com/AlanKaspersky/Kaspersky-Inventions-for-Tanki-Online.git" target="_blank" style="text-decoration: none;">
-                            <div style="height: 3em; border-radius: 0.75em; background-color: rgba(255, 255, 255, 0.15); display: flex; align-items: center; justify-content: center; color: white; font-family: BaseFontBold, FallbackFontBold, sans-serif; font-weight: 500; text-transform: uppercase; padding: 0 1.5em; cursor: pointer; border: 1px solid transparent;" onmouseover="this.style.borderColor='white'; this.style.boxShadow='0 0 0 1px white';" onmouseout="this.style.borderColor='transparent'; this.style.boxShadow='none';">
-                                GITHUB
-                            </div>
-                        </a>
-                        <div id="kasp-welcome-close" style="height: 3em; border-radius: 0.75em; background-color: rgb(213 213 213); display: flex; align-items: center; justify-content: center; color: rgb(0, 25, 38); font-family: BaseFontBold, FallbackFontBold, sans-serif; font-weight: 500; text-transform: uppercase; padding: 0 1.5em; cursor: pointer; border: 1px solid transparent;" onmouseover="this.style.borderColor='white'; this.style.boxShadow='0 0 0 1px white';" onmouseout="this.style.borderColor='transparent'; this.style.boxShadow='none';">
-                            ${dict.close}
-                        </div>
-                    </div>
-                `;
-                overlay.appendChild(dialog);
-                document.body.appendChild(overlay);
-                const closeBtn = document.getElementById('kasp-welcome-close');
-                if (closeBtn) {
-                    closeBtn.addEventListener('click', () => {
-                        overlay.remove();
-                        localStorage.setItem(STORAGE_KEY, CURRENT_VERSION);
-                    });
+                const templateUrl = chrome.runtime.getURL('templates/welcome-modal.html');
+                try {
+                    const response = await fetch(templateUrl);
+                    if (!response.ok)
+                        throw new Error(`HTTP ${response.status}`);
+                    let html = await response.text();
+                    html = html
+                        .replace(/{{version}}/g, dict.version)
+                        .replace(/{{intro}}/g, dict.intro)
+                        .replace(/{{role1}}/g, dict.role1)
+                        .replace(/{{role2}}/g, dict.role2)
+                        .replace(/{{role3}}/g, dict.role3)
+                        .replace(/{{role4}}/g, dict.role4)
+                        .replace(/{{outro}}/g, dict.outro)
+                        .replace(/{{close}}/g, dict.close);
+                    const overlay = document.createElement('div');
+                    overlay.id = 'kasp-welcome-overlay';
+                    overlay.style.cssText = `
+                        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                        background: rgba(0, 0, 0, 0.7); z-index: 99999;
+                        display: flex; align-items: center; justify-content: center;
+                        backdrop-filter: blur(3px);
+                    `;
+                    const dialog = document.createElement('div');
+                    dialog.style.cssText = `
+                        display: flex; flex-direction: column; align-items: stretch;
+                        width: 45em; max-width: 90vw;
+                        z-index: 60; box-shadow: rgba(0, 0, 0, 0.5) 0px 0.5em 2em 0px;
+                        outline: rgba(255, 255, 255, 0.25) solid 0.063em;
+                        padding: 2.5em; border-radius: 0.75em;
+                        background: radial-gradient(100% 100% at 0% 0%, rgb(255 255 255 / 15%) 0%, rgb(0 0 0 / 95%) 100%), rgb(56 56 56);
+                        font-family: BaseFont, FallbackFont, sans-serif; color: white;
+                    `;
+                    dialog.innerHTML = html;
+                    overlay.appendChild(dialog);
+                    document.body.appendChild(overlay);
+                    const closeBtn = document.getElementById('kasp-welcome-close');
+                    if (closeBtn) {
+                        closeBtn.addEventListener('click', () => {
+                            overlay.remove();
+                            localStorage.setItem(STORAGE_KEY, CURRENT_VERSION);
+                        });
+                    }
+                }
+                catch (error) {
+                    console.error('[Kaspersky Inventions] Failed to load welcome modal template:', error);
                 }
             }
             return () => {
@@ -1879,17 +1760,6 @@
                     return;
                 if (!initialized) {
                     initialized = true;
-                    utils.injectStyle(`
-                        .hidden-text, .hidden-text-ru, .hidden-xp, .hidden-xp-ru { position: relative; cursor: pointer; font-weight: 500; text-shadow: rgba(0, 0, 0, 0.5) 0em 0em 0.25em; user-select: none; display: inline-block; }
-                        .hidden-text, .hidden-text-ru { color: #ffffff !important; }
-                        .hidden-text:hover, .hidden-text-ru:hover { color: rgb(255, 188, 9) !important; }
-                        .hidden-xp, .hidden-xp-ru { color: rgb(118, 255, 51) !important; font-family: BaseFontMedium, FallbackFontMedium, sans-serif; font-style: normal; text-transform: uppercase; font-size: 1em; }
-                        .hidden-text::after, .hidden-text-ru::after, .hidden-xp::after, .hidden-xp-ru::after { content: attr(data-tooltip); position: absolute; background: rgba(0, 0, 0, 0.9); padding: 5px 12px; border-radius: 4px; font-size: 13px; white-space: nowrap; pointer-events: none; opacity: 0; z-index: 99999; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 8px; border: 1px solid rgba(255,255,255,0.1); font-weight: 500; font-family: BaseFontMedium, FallbackFontMedium, sans-serif; text-transform: uppercase; transition: opacity 0.15s ease; }
-                        .hidden-text::after, .hidden-text-ru::after { color: #ffffff; }
-                        .hidden-xp::after, .hidden-xp-ru::after { color: rgb(118, 255, 51); }
-                        .hidden-text::before, .hidden-text-ru::before, .hidden-xp::before, .hidden-xp-ru::before { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 6px solid transparent; border-bottom-color: rgba(0, 0, 0, 0.9); opacity: 0; pointer-events: none; z-index: 99999; margin-top: -4px; transition: opacity 0.15s ease; }
-                        .hidden-text:hover::after, .hidden-text:hover::before, .hidden-text-ru:hover::after, .hidden-text-ru:hover::before, .hidden-xp:hover::after, .hidden-xp:hover::before, .hidden-xp-ru:hover::after, .hidden-xp-ru:hover::before { opacity: 1; }
-                    `, 'kasp-hidenickname-styles');
                     document.addEventListener('keydown', (e) => {
                         if (e.key === 'Tab') {
                             setTimeout(hideNicknameInTables, 40);
@@ -1935,64 +1805,6 @@
                     return;
                 if (!initialized) {
                     initialized = true;
-                    utils.injectStyle(`
-                        .currency-masked { 
-                            position: relative; 
-                            cursor: pointer !important; 
-                        }
-                        
-                        .currency-masked::after {
-                            content: attr(data-tooltip);
-                            position: absolute;
-                            background: rgba(15, 17, 21, 0.95);
-                            border: 0.08em solid rgba(255, 255, 255, 0.15);
-                            padding: 0.6em 1em;
-                            border-radius: 0.5em;
-                            font-family: BaseFontMedium, FallbackFontMedium, sans-serif;
-                            font-size: 1rem;
-                            pointer-events: none;
-                            white-space: nowrap;
-                            box-shadow: 0 0.3em 1em rgba(0, 0, 0, 0.6);
-                            opacity: 0;
-                            z-index: 99999;
-                            top: 100%;
-                            left: 50%;
-                            transform: translateX(-50%);
-                            margin-top: 8px;
-                            transition: opacity 0.15s ease;
-                            text-transform: uppercase;
-                        }
-
-                        .currency-masked::before {
-                            content: '';
-                            position: absolute;
-                            top: 100%;
-                            left: 50%;
-                            transform: translateX(-50%);
-                            border: 6px solid transparent;
-                            border-bottom-color: rgba(15, 17, 21, 0.95);
-                            opacity: 0;
-                            pointer-events: none;
-                            z-index: 99999;
-                            margin-top: -4px;
-                            transition: opacity 0.15s ease;
-                        }
-
-                        .currency-masked:hover::after,
-                        .currency-masked:hover::before {
-                            opacity: 1;
-                        }
-
-                        .HeaderCommonStyle-icons:has(img[src*="ruby"]).currency-masked::after,
-                        .ksc-22.currency-masked::after, 
-                        .ksc-62.currency-masked::after { color: rgb(255, 102, 102); }
-                        
-                        .HeaderCommonStyle-icons:has(img[src*="crystal"]).currency-masked::after,
-                        .ksc-24.currency-masked::after { color: rgb(0, 215, 255); }
-                        
-                        .UserScoreComponentStyle-coinBlock.currency-masked::after,
-                        .HeaderCommonStyle-icons:has(img[src*="coin"]).currency-masked::after { color: rgb(255, 188, 9); }
-                    `, 'kasp-currency-tooltip-styles');
                     window.setInterval(() => {
                         if (state.currentScreen === 'battle')
                             return;
@@ -2009,36 +1821,23 @@
             const STORAGE_KEY = 'kasp_trophies_favorites';
             const ICON_UNFAV = 'https://s.eu.tankionline.com/static/images/unfavoriteStar.0e39d67a.svg';
             const ICON_FAV = 'https://s.eu.tankionline.com/static/images/favoriteStar.1ce58570.svg';
-            const DICTIONARY = {
-                'огнемёт': { id: 'firebird', ru: 'Огнемёт', en: 'Firebird', type: 'turret' }, 'firebird': { id: 'firebird', ru: 'Огнемёт', en: 'Firebird', type: 'turret' },
-                'фриз': { id: 'freeze', ru: 'Фриз', en: 'Freeze', type: 'turret' }, 'freeze': { id: 'freeze', ru: 'Фриз', en: 'Freeze', type: 'turret' },
-                'изида': { id: 'isida', ru: 'Изида', en: 'Isida', type: 'turret' }, 'isida': { id: 'isida', ru: 'Изида', en: 'Isida', type: 'turret' },
-                'тесла': { id: 'tesla', ru: 'Тесла', en: 'Tesla', type: 'turret' }, 'tesla': { id: 'tesla', ru: 'Тесла', en: 'Tesla', type: 'turret' },
-                'молот': { id: 'hammer', ru: 'Молот', en: 'Hammer', type: 'turret' }, 'hammer': { id: 'hammer', ru: 'Молот', en: 'Hammer', type: 'turret' },
-                'твинс': { id: 'twins', ru: 'Твинс', en: 'Twins', type: 'turret' }, 'twins': { id: 'twins', ru: 'Твинс', en: 'Twins', type: 'turret' },
-                'рикошет': { id: 'ricochet', ru: 'Рикошет', en: 'Ricochet', type: 'turret' }, 'ricochet': { id: 'ricochet', ru: 'Рикошет', en: 'Ricochet', type: 'turret' },
-                'смоки': { id: 'smoky', ru: 'Смоки', en: 'Smoky', type: 'turret' }, 'smoky': { id: 'smoky', ru: 'Смоки', en: 'Smoky', type: 'turret' },
-                'вулкан': { id: 'vulcan', ru: 'Вулкан', en: 'Vulcan', type: 'turret' }, 'vulcan': { id: 'vulcan', ru: 'Вулкан', en: 'Vulcan', type: 'turret' },
-                'страйкер': { id: 'striker', ru: 'Страйкер', en: 'Striker', type: 'turret' }, 'striker': { id: 'striker', ru: 'Страйкер', en: 'Striker', type: 'turret' },
-                'гром': { id: 'thunder', ru: 'Гром', en: 'Thunder', type: 'turret' }, 'thunder': { id: 'thunder', ru: 'Гром', en: 'Thunder', type: 'turret' },
-                'цунами': { id: 'tsunami', ru: 'Цунами', en: 'Tsunami', type: 'turret' }, 'tsunami': { id: 'tsunami', ru: 'Цунами', en: 'Tsunami', type: 'turret' },
-                'скорпион': { id: 'scorpion', ru: 'Скорпион', en: 'Scorpion', type: 'turret' }, 'scorpion': { id: 'scorpion', ru: 'Скорпион', en: 'Scorpion', type: 'turret' },
-                'магнум': { id: 'magnum', ru: 'Магнум', en: 'Magnum', type: 'turret' }, 'magnum': { id: 'magnum', ru: 'Магнум', en: 'Magnum', type: 'turret' },
-                'рельса': { id: 'railgun', ru: 'Рельса', en: 'Railgun', type: 'turret' }, 'railgun': { id: 'railgun', ru: 'Рельса', en: 'Railgun', type: 'turret' },
-                'гаусс': { id: 'gauss', ru: 'Гаусс', en: 'Gauss', type: 'turret' }, 'gauss': { id: 'gauss', ru: 'Гаусс', en: 'Gauss', type: 'turret' },
-                'шафт': { id: 'shaft', ru: 'Шафт', en: 'Shaft', type: 'turret' }, 'shaft': { id: 'shaft', ru: 'Шафт', en: 'Shaft', type: 'turret' },
-                'васп': { id: 'wasp', ru: 'Васп', en: 'Wasp', type: 'hull' }, 'wasp': { id: 'wasp', ru: 'Васп', en: 'Wasp', type: 'hull' },
-                'хоппер': { id: 'hopper', ru: 'Хоппер', en: 'Hopper', type: 'hull' }, 'hopper': { id: 'hopper', ru: 'Хоппер', en: 'Hopper', type: 'hull' },
-                'хорнет': { id: 'hornet', ru: 'Хорнет', en: 'Hornet', type: 'hull' }, 'hornet': { id: 'hornet', ru: 'Хорнет', en: 'Hornet', type: 'hull' },
-                'викинг': { id: 'viking', ru: 'Викинг', en: 'Viking', type: 'hull' }, 'viking': { id: 'viking', ru: 'Викинг', en: 'Viking', type: 'hull' },
-                'крусейдер': { id: 'crusader', ru: 'Крусейдер', en: 'Crusader', type: 'hull' }, 'crusader': { id: 'crusader', ru: 'Крусейдер', en: 'Crusader', type: 'hull' },
-                'хантер': { id: 'hunter', ru: 'Хантер', en: 'Hunter', type: 'hull' }, 'hunter': { id: 'hunter', ru: 'Хантер', en: 'Hunter', type: 'hull' },
-                'паладин': { id: 'paladin', ru: 'Паладин', en: 'Paladin', type: 'hull' }, 'paladin': { id: 'paladin', ru: 'Паладин', en: 'Paladin', type: 'hull' },
-                'диктатор': { id: 'dictator', ru: 'Диктатор', en: 'Dictator', type: 'hull' }, 'dictator': { id: 'dictator', ru: 'Диктатор', en: 'Dictator', type: 'hull' },
-                'титан': { id: 'titan', ru: 'Титан', en: 'Titan', type: 'hull' }, 'titan': { id: 'titan', ru: 'Титан', en: 'Titan', type: 'hull' },
-                'арес': { id: 'ares', ru: 'Арес', en: 'Ares', type: 'hull' }, 'ares': { id: 'ares', ru: 'Арес', en: 'Ares', type: 'hull' },
-                'мамонт': { id: 'mammoth', ru: 'Мамонт', en: 'Mammoth', type: 'hull' }, 'mammoth': { id: 'mammoth', ru: 'Мамонт', en: 'Mammoth', type: 'hull' }
-            };
+            let trophyDictionary = {};
+            let trophyDictionaryLoaded = false;
+            async function loadTrophyDictionary() {
+                if (trophyDictionaryLoaded)
+                    return;
+                try {
+                    const response = await fetch(chrome.runtime.getURL('database/trophies.json'));
+                    if (!response.ok)
+                        throw new Error(`HTTP ${response.status}`);
+                    trophyDictionary = await response.json();
+                    trophyDictionaryLoaded = true;
+                }
+                catch (error) {
+                    console.error('[Kaspersky Inventions] Failed to load trophy dictionary:', error);
+                    trophyDictionary = {};
+                }
+            }
             let cachedFavs = null;
             function getFavs() {
                 if (cachedFavs)
@@ -2057,9 +1856,9 @@
             }
             function parseItem(rawText) {
                 const lower = rawText.toLowerCase();
-                for (const key in DICTIONARY) {
+                for (const key in trophyDictionary) {
                     if (lower.includes(key)) {
-                        const item = DICTIONARY[key];
+                        const item = trophyDictionary[key];
                         return {
                             id: item.id,
                             name: state.lang === 'RU' ? item.ru : item.en,
@@ -2213,7 +2012,7 @@
                 });
                 trophies.forEach(trophy => {
                     const percent = Math.min(100, Math.max(0, (trophy.current / trophy.max) * 100));
-                    const match = Object.values(DICTIONARY).find(d => d.id === trophy.id);
+                    const match = Object.values(trophyDictionary).find(d => d.id === trophy.id);
                     const displayName = match ? (state.lang === 'RU' ? match.ru : match.en) : trophy.id;
                     const itemHTML = `
                         <div class="custom-trophy-item">
@@ -2247,24 +2046,10 @@
                 if (cards.length > 0)
                     processGarageMissions(Array.from(cards));
             }
-            return () => {
+            return async () => {
                 if (!initialized) {
                     initialized = true;
-                    utils.injectStyle(`
-                        .custom-trophy-panel { position: absolute; top: 19em; right: 3em; display: flex; flex-direction: column; gap: 1.5em; font-family: BaseFontRegular, FallbackFontRegular, sans-serif; z-index: 1; pointer-events: none; width: 17em; opacity: 1 !important; transform: none !important; }
-                        .custom-trophy-item { display: flex; align-items: center; gap: 1em; justify-content: flex-start; }
-                        .custom-trophy-icon { width: 3.5em; height: 3.5em; object-fit: contain; filter: drop-shadow(rgba(0, 0, 0, 0.5) 0em 0em 0.25em); }
-                        .custom-trophy-info { display: flex; flex-direction: column; align-items: flex-start; width: 100%; }
-                        .custom-trophy-title { color: rgb(255, 255, 255); font-weight: 500; font-size: 1em; text-shadow: rgba(0, 0, 0, 0.5) 0em 0em 0.25em; white-space: nowrap; }
-                        .custom-trophy-bar-bg { background-color: rgba(118, 255, 51, 0.5); border-radius: 0.375em; position: relative; min-width: 12.5em; width: 100%; height: 0.25em; margin-top: 0.375em; }
-                        .custom-trophy-bar-fill { background-color: rgb(118, 255, 51); border-radius: 6.25em; height: 100%; transition: width 0.5s ease-out; box-shadow: 0 0 0.2em rgba(118, 255, 51, 0.8); }
-                        .custom-trophy-text { color: rgb(118, 255, 51); font-weight: 500; font-size: 0.9em; text-shadow: rgba(0, 0, 0, 0.5) 0em 0em 0.25em; margin-top: 0.3em; }
-                        .PaintsCollectionComponentStyle-favoriteIconContainer { position: absolute; width: 2.2em; height: 2.2em; z-index: 10; cursor: pointer; }
-                        .PaintsCollectionComponentStyle-favoriteIconContainer img { width: 100%; height: 100%; pointer-events: none; transition: filter 0.2s; }
-                        .card-type-list .PaintsCollectionComponentStyle-favoriteIconContainer { right: 1em; top: 50%; transform: translateY(-50%); }
-                        .card-type-grid .PaintsCollectionComponentStyle-favoriteIconContainer { right: 0.8em; top: 0.8em; }
-                        .star-limit-reached img { filter: brightness(0.7) sepia(1) hue-rotate(310deg) saturate(5); }
-                    `, 'kasp-trophies-styles');
+                    await loadTrophyDictionary();
                 }
                 if (state.currentScreen === 'lobby' || state.currentScreen === 'garage') {
                     updateInterface();
@@ -3359,6 +3144,8 @@
             };
             const TAB_SELECTOR = '.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults';
             const iconStyleCache = new WeakMap();
+            let isTabExpanded = localStorage.getItem('kasp_tab_expanded') === 'true';
+            let initialExpandedSet = false;
             function getIconStyle(iconDiv) {
                 const cached = iconStyleCache.get(iconDiv);
                 if (cached !== undefined)
@@ -3535,12 +3322,46 @@
                         const textSpan = document.createElement('span');
                         textSpan.className = '-regular';
                         textSpan.innerHTML = '&#215;0';
-                        textSpan.style.cssText = 'font-size: 0.875em !important; color: #5cfc47 !important; font-family: BaseFontRegular, FallbackFontRegular, sans-serif !important; font-style: normal !important; font-weight: normal !important; line-height: 1 !important;';
+                        textSpan.style.cssText = 'font-size: 0.875em !important; color: #5cfc47 !important; font-family: BaseFontRegular, FallbackFontRegular, sans-serif !important; font-style: normal !important; font-weight: normal !important;';
                         zeroLabel.appendChild(iconDiv);
                         zeroLabel.appendChild(textSpan);
                         summaryRow.appendChild(zeroLabel);
                     }
                 });
+            }
+            function injectToggleButton() {
+                if (isTabExpanded && !initialExpandedSet && document.body) {
+                    document.body.classList.add('kasp-tab-expanded');
+                    initialExpandedSet = true;
+                }
+                const tabContainer = document.querySelector(TAB_SELECTOR);
+                if (!tabContainer)
+                    return;
+                const summaryRow = Array.from(tabContainer.children).find(el => el.className.includes('-flexCenterAlignCenter') && !el.className.toLowerCase().includes('header'));
+                if (!summaryRow || document.getElementById('kasp-tab-toggle-btn'))
+                    return;
+                if (window.getComputedStyle(summaryRow).position === 'static') {
+                    summaryRow.style.position = 'relative';
+                }
+                const btn = document.createElement('div');
+                btn.id = 'kasp-tab-toggle-btn';
+                btn.className = isTabExpanded ? 'kasp-active-toggle' : '';
+                btn.title = state.lang === 'RU' ? 'Всегда показывать все модули' : 'Always show all modules';
+                btn.innerHTML = `<div class="kasp-toggle-icon" style="-webkit-mask-image: url('${SHIELD_ICON_URL}'); mask-image: url('${SHIELD_ICON_URL}');"></div>`;
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    isTabExpanded = !isTabExpanded;
+                    localStorage.setItem('kasp_tab_expanded', String(isTabExpanded));
+                    if (isTabExpanded) {
+                        document.body.classList.add('kasp-tab-expanded');
+                        btn.classList.add('kasp-active-toggle');
+                    }
+                    else {
+                        document.body.classList.remove('kasp-tab-expanded');
+                        btn.classList.remove('kasp-active-toggle');
+                    }
+                });
+                summaryRow.appendChild(btn);
             }
             function sync() {
                 if (!document.querySelector(TAB_SELECTOR))
@@ -3548,6 +3369,7 @@
                 injectHeaderShield();
                 injectCompactCells();
                 injectZeroSummary();
+                injectToggleButton();
             }
             function update() { sync(); }
             return { sync, update };
@@ -3783,7 +3605,7 @@
                 const translated = DataLoader.translateMap(cleanText, targetLang);
                 return translated || cleanText;
             };
-            function showClearConfirmModal(onConfirm) {
+            async function showClearConfirmModal(onConfirm) {
                 const existing = document.getElementById('clear-confirm-overlay');
                 if (existing)
                     existing.remove();
@@ -3793,55 +3615,57 @@
                     EN: { title: 'CLEAR HISTORY', text: 'Are you sure you want to delete all match history?', cancel: 'Cancel', confirm: 'DELETE' }
                 };
                 const dict = t[lang] || t['EN'];
-                const overlay = document.createElement('div');
-                overlay.id = 'clear-confirm-overlay';
-                overlay.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 9999; display: flex; align-items: center; justify-content: center;`;
-                const dialog = document.createElement('div');
-                dialog.style.cssText = `display: flex; flex-direction: column; align-items: stretch; justify-content: space-between; pointer-events: auto; min-width: 31.625em; max-width: 31.625em; width: auto; min-height: 14.125em; z-index: 60; box-shadow: rgba(0, 0, 0, 0.25) 0px 0.313em 1.25em 0px; outline: rgba(255, 255, 255, 0.25) solid 0.063em; padding: 2em; background: radial-gradient(100% 100% at 0% 0%, rgba(118, 255, 51, 0.75) 0%, rgba(119, 255, 51, 0) 100%), rgba(0, 25, 38, 0.75);`;
-                dialog.innerHTML = `
-                    <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; margin-bottom: 1.5em;">
-                        <h1 style="font-size: 1.5em; color: rgb(255, 255, 255); font-family: BaseFontBold, sans-serif; font-weight: 500; margin: 0;">${dict.title}</h1>
-                        <div id="clear-dlg-close" style="width: 1.5em; height: 1.5em; cursor: pointer; background-image: url(https://s.eu.tankionline.com/static/images/iconDelete.b879b0ab.svg); background-size: contain; background-repeat: no-repeat; background-position: center center;"></div>
-                    </div>
-                    <div style="display: flex; align-items: center; justify-content: center; width: 100%; flex: 1; margin-bottom: 1.5em; text-align: center;">
-                        <span style="font-size: 1em; color: rgb(255, 255, 255); font-family: BaseFont, sans-serif;">${dict.text}</span>
-                    </div>
-                    <div style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 1.25em;">
-                        <div id="clear-dlg-cancel" style="width: 12.375em; height: 3em; border-radius: 0.75em; cursor: pointer; background-color: rgba(255, 255, 255, 0.15); display: flex; align-items: center; justify-content: center; color: white; font-family: BaseFontBold, sans-serif; text-transform: uppercase;">${dict.cancel}</div>
-                        <div id="clear-dlg-confirm" style="width: 12.375em; height: 3em; border-radius: 0.75em; cursor: pointer; background-color: rgb(118, 255, 51); display: flex; align-items: center; justify-content: center; color: rgb(0, 25, 38); font-family: BaseFontBold, sans-serif; text-transform: uppercase;">${dict.confirm}</div>
-                    </div>
-                `;
-                overlay.appendChild(dialog);
-                let isClosing = false;
-                function closeDialog() {
-                    if (!overlay.parentNode)
-                        return;
-                    overlay.remove();
+                try {
+                    const response = await fetch(chrome.runtime.getURL('templates/clear-history-modal.html'));
+                    if (!response.ok)
+                        throw new Error(`HTTP ${response.status}`);
+                    let html = await response.text();
+                    html = html
+                        .replace(/{{title}}/g, dict.title)
+                        .replace(/{{text}}/g, dict.text)
+                        .replace(/{{cancel}}/g, dict.cancel)
+                        .replace(/{{confirm}}/g, dict.confirm);
+                    const overlay = document.createElement('div');
+                    overlay.id = 'clear-confirm-overlay';
+                    overlay.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 9999; display: flex; align-items: center; justify-content: center;`;
+                    const dialog = document.createElement('div');
+                    dialog.style.cssText = `display: flex; flex-direction: column; align-items: stretch; justify-content: space-between; pointer-events: auto; min-width: 31.625em; max-width: 31.625em; width: auto; min-height: 14.125em; z-index: 60; box-shadow: rgba(0, 0, 0, 0.25) 0px 0.313em 1.25em 0px; outline: rgba(255, 255, 255, 0.25) solid 0.063em; padding: 2em; background: radial-gradient(100% 100% at 0% 0%, rgba(118, 255, 51, 0.75) 0%, rgba(119, 255, 51, 0) 100%), rgba(0, 25, 38, 0.75);`;
+                    dialog.innerHTML = html;
+                    overlay.appendChild(dialog);
+                    let isClosing = false;
+                    function closeDialog() {
+                        if (!overlay.parentNode)
+                            return;
+                        overlay.remove();
+                    }
+                    overlay.closeDialogMethod = closeDialog;
+                    document.body.appendChild(overlay);
+                    dialog.querySelector('#clear-dlg-confirm')?.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        if (!isClosing) {
+                            isClosing = true;
+                            closeDialog();
+                            onConfirm();
+                        }
+                    });
+                    dialog.querySelector('#clear-dlg-cancel')?.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        if (!isClosing) {
+                            isClosing = true;
+                            closeDialog();
+                        }
+                    });
+                    dialog.querySelector('#clear-dlg-close')?.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        if (!isClosing) {
+                            isClosing = true;
+                            closeDialog();
+                        }
+                    });
                 }
-                overlay.closeDialogMethod = closeDialog;
-                document.body.appendChild(overlay);
-                dialog.querySelector('#clear-dlg-confirm')?.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    if (!isClosing) {
-                        isClosing = true;
-                        closeDialog();
-                        onConfirm();
-                    }
-                });
-                dialog.querySelector('#clear-dlg-cancel')?.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    if (!isClosing) {
-                        isClosing = true;
-                        closeDialog();
-                    }
-                });
-                dialog.querySelector('#clear-dlg-close')?.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    if (!isClosing) {
-                        isClosing = true;
-                        closeDialog();
-                    }
-                });
+                catch (error) {
+                    console.error('[Kaspersky Inventions] Failed to load clear history modal template:', error);
+                }
             }
             const t = {
                 RU: { title: 'История Битв', date: 'Дата', map: 'Карта', status: 'Статус', top: 'Место', mode: 'Режим', score: 'Очки', kills: 'Убийства', deaths: 'Смерти', kd: 'У/С', turret: 'Пушка', hull: 'Корпус', augment: 'Устройство', crystals: 'Кристаллы', stars: 'Звёзды', win: 'Победа', lose: 'Поражение', draw: 'Ничья', dm: 'DM', clear: 'Очистить', export: 'Экспорт', import: 'Импорт', last20: 'Статистика 20 битв', battles: 'Боёв', noBattles: 'Пока нет сохранённых боёв' },
@@ -3865,7 +3689,19 @@
                 return { map: cleanMapName || 'Unknown', mode: foundMode };
             };
             const MAP_ICON_URL = chrome.runtime.getURL('assets/map-icon.png');
-            const buildBattleCard = (b, dict, lang) => {
+            let battleCardTemplatePromise = null;
+            const loadBattleCardTemplate = () => {
+                if (!battleCardTemplatePromise) {
+                    battleCardTemplatePromise = fetch(chrome.runtime.getURL('templates/battle-history-card.html'))
+                        .then(response => {
+                        if (!response.ok)
+                            throw new Error(`Failed to load battle card template: ${response.status}`);
+                        return response.text();
+                    });
+                }
+                return battleCardTemplatePromise;
+            };
+            const buildBattleCard = async (b, dict, lang) => {
                 const dateObj = new Date(b.date);
                 const dateStr = dateObj.toLocaleDateString();
                 const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -3907,75 +3743,40 @@
                 const hullAugIcon = b.hullAugmentIcon
                     ? `<img class="bh-equip-img" src="${b.hullAugmentIcon}" alt="">`
                     : `<div class="bh-equip-placeholder">◇</div>`;
+                const replacements = {
+                    cardClass: `${statusClass} ${b.turretAugmentIcon || b.hullAugmentIcon ? '' : 'bh-card--no-aug'}`,
+                    mapStyle: mapImage ? `style="background-image: linear-gradient(90deg, rgba(10,10,10,0.15), rgba(10,10,10,0.75)), url('${mapImage}'); background-size: cover; background-position: center;"` : '',
+                    mapIconUrl: MAP_ICON_URL,
+                    mapUpper,
+                    mapLabel: dict.map,
+                    statusLocalized,
+                    scoreValue: String(b.reputation ?? 0),
+                    scoreLabel: dict.score,
+                    killsValue: String(b.kills ?? 0),
+                    deathsValue: String(b.deaths ?? 0),
+                    killsLabel: dict.kills,
+                    deathsLabel: dict.deaths,
+                    topDisplay,
+                    topLabel: dict.top,
+                    turretIcon,
+                    turretLabel: dict.turret,
+                    turretAugIcon,
+                    augmentLabel: dict.augment,
+                    hullIcon,
+                    hullLabel: dict.hull,
+                    hullAugIcon,
+                    modeIcon: isDM ? '☠' : isWin ? '★' : '♟',
+                    modeUpper,
+                    crystalsValue: (b.crystals ?? 0).toLocaleString(),
+                    starsValue: String(b.stars ?? 0),
+                    dateTime: `${dateStr} · ${timeStr}`
+                };
+                let html = await loadBattleCardTemplate();
+                for (const [key, value] of Object.entries(replacements)) {
+                    html = html.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
+                }
                 const card = document.createElement('article');
-                card.className = `bh-card ${statusClass} ${b.turretAugmentIcon || b.hullAugmentIcon ? '' : 'bh-card--no-aug'}`;
-                card.innerHTML = `
-                    <div class="bh-card-map" ${mapImage ? `style="background-image: linear-gradient(90deg, rgba(10,10,10,0.15), rgba(10,10,10,0.75)), url('${mapImage}'); background-size: cover; background-position: center;"` : ''}>
-                        <div class="bh-card-map-icon" style="
-                            -webkit-mask-image: url('${MAP_ICON_URL}');
-                            mask-image: url('${MAP_ICON_URL}');
-                        "></div>
-                        <div class="bh-card-map-content">
-                            <div class="bh-card-map-name">${mapUpper}</div>
-                            <div class="bh-card-map-label">${dict.map}</div>
-                        </div>
-                    </div>
-
-                    <div class="bh-card-result">
-                        <div class="bh-card-result-status">${statusLocalized}</div>
-                        <div class="bh-combat-stats">
-                            <div class="bh-stat">
-                                <span class="bh-stat-value">${b.reputation ?? 0}</span>
-                                <span class="bh-stat-label">${dict.score}</span>
-                            </div>
-                            <div class="bh-stat">
-                                <span class="bh-stat-value">${b.kills ?? 0}<span class="bh-stat-sep">/</span>${b.deaths ?? 0}</span>
-                                <span class="bh-stat-label">${dict.kills} / ${dict.deaths}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="bh-card-details">
-                        <div class="bh-rank">
-                            <div class="bh-rank-value">${topDisplay}</div>
-                            <div class="bh-rank-label">${dict.top}</div>
-                        </div>
-                        <div class="bh-loadout">
-                            <div class="bh-equip">
-                                <div class="bh-equip-icon">${turretIcon}</div>
-                                <div class="bh-equip-type">${dict.turret}</div>
-                            </div>
-                            <div class="bh-equip">
-                                <div class="bh-equip-icon">${turretAugIcon}</div>
-                                <div class="bh-equip-type">${dict.augment}</div>
-                            </div>
-                            <div class="bh-equip">
-                                <div class="bh-equip-icon">${hullIcon}</div>
-                                <div class="bh-equip-type">${dict.hull}</div>
-                            </div>
-                            <div class="bh-equip">
-                                <div class="bh-equip-icon">${hullAugIcon}</div>
-                                <div class="bh-equip-type">${dict.augment}</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="bh-card-mode">
-                        <div class="bh-mode-icon">${isDM ? '☠' : isWin ? '★' : '♟'}</div>
-                        <div class="bh-mode-name">${modeUpper}</div>
-                        <div class="bh-mode-rewards">
-                            <div class="bh-reward">
-                                <span class="bh-reward-icon bh-reward-icon--crystal"></span>
-                                <span class="bh-reward-value">${(b.crystals ?? 0).toLocaleString()}</span>
-                            </div>
-                            <div class="bh-reward">
-                                <span class="bh-reward-icon bh-reward-icon--star"></span>
-                                <span class="bh-reward-value">${b.stars ?? 0}</span>
-                            </div>
-                        </div>
-                        <div class="bh-mode-date">${dateStr} · ${timeStr}</div>
-                    </div>
-                `;
+                card.innerHTML = html;
                 return card;
             };
             const buildPageNumbers = (current, total) => {
@@ -4081,9 +3882,8 @@
                     listEl.innerHTML = `<div class="bh-empty">${dict.noBattles}</div>`;
                 }
                 else {
-                    pageBattles.forEach(b => {
-                        listEl.appendChild(buildBattleCard(b, dict, lang));
-                    });
+                    const cards = await Promise.all(pageBattles.map(b => buildBattleCard(b, dict, lang)));
+                    cards.forEach(card => listEl.appendChild(card));
                 }
                 renderPagination(currentPage, totalPages);
                 const totalEl = document.getElementById('bh-total-battles');
@@ -4148,71 +3948,54 @@
                 };
                 input.click();
             };
-            const createHistoryPage = () => {
+            let historyPagePromise = null;
+            const createHistoryPage = async () => {
+                if (document.querySelector('.custom-history-overlay'))
+                    return;
                 updateNickname();
                 const lang = state.lang;
                 const dict = t[lang] || t['EN'];
-                const overlay = document.createElement('div');
-                overlay.className = 'custom-history-overlay';
-                overlay.innerHTML = `
-                    <div class="custom-history-header">
-                        <div style="width: 6rem;"></div>
-                        <h1 class="custom-history-title">${dict.title}</h1>
-                        <button class="custom-history-close" title="Close">
-                            <div class="custom-history-logout-icon"></div>
-                        </button>
-                    </div>
-                    <div class="custom-history-content">
-                        <div class="bh-left-panel">
-                            <div class="bh-controls-container">
-                                <div class="bh-controls-left">
-                                    <button class="bh-control-btn bh-btn-clear" id="bh-clear-btn"><span>${dict.clear}</span></button>
-                                </div>
-                                <div class="bh-controls-right">
-                                    <button class="bh-control-btn bh-btn-export" id="bh-export-btn"><span>${dict.export}</span></button>
-                                    <button class="bh-control-btn bh-btn-import" id="bh-import-btn"><span>${dict.import}</span></button>
-                                </div>
-                            </div>
-                            <div class="bh-list"></div>
-                            <div class="bh-pagination">
-                                <div class="bh-page-list" id="bh-page-list"></div>
-                                <div class="bh-total">
-                                    ${dict.battles ?? 'Боёв'}: <span class="bh-total-value" id="bh-total-battles">0</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="bh-right-panel">
-                            <div class="bh-stats-box">
-                                <div class="bh-stats-title">${dict.last20}</div>
-                                <div class="bh-stats-grid">
-                                    <div class="bh-stat-item">
-                                        <div class="bh-stat-icon" style="-webkit-mask-image: url('https://s.eu.tankionline.com/static/images/ctf_mode.fba37902.svg');"></div>
-                                        <div class="bh-stat-label">${dict.top}</div>
-                                        <div class="bh-stat-value" id="bh-stat-top">-</div>
-                                    </div>
-                                    <div class="bh-stat-separator"></div>
-                                    <div class="bh-stat-item">
-                                        <div class="bh-stat-icon" style="-webkit-mask-image: url('https://s.eu.tankionline.com/static/images/kills.f9b82d9f.svg');"></div>
-                                        <div class="bh-stat-label">${dict.kd}</div>
-                                        <div class="bh-stat-value" id="bh-stat-kd">-</div>
-                                    </div>
-                                    <div class="bh-stat-separator"></div>
-                                    <div class="bh-stat-item">
-                                        <div class="bh-stat-icon" style="-webkit-mask-image: url('https://s.eu.tankionline.com/static/images/score.b3ca71b2.svg');"></div>
-                                        <div class="bh-stat-label">${dict.score}</div>
-                                        <div class="bh-stat-value" id="bh-stat-score">-</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                document.body.appendChild(overlay);
-                overlay.querySelector('.custom-history-close')?.addEventListener('click', () => { overlay.style.display = 'none'; });
-                document.getElementById('bh-clear-btn')?.addEventListener('click', clearHistoryDb);
-                document.getElementById('bh-export-btn')?.addEventListener('click', exportHistoryData);
-                document.getElementById('bh-import-btn')?.addEventListener('click', importHistoryData);
+                try {
+                    const templateUrl = chrome.runtime.getURL('templates/battle-history-overlay.html');
+                    const response = await fetch(templateUrl);
+                    if (!response.ok) {
+                        throw new Error(`Failed to load history template: ${response.status}`);
+                    }
+                    const template = await response.text();
+                    const replacements = {
+                        title: String(dict.title ?? ''),
+                        clear: String(dict.clear ?? ''),
+                        export: String(dict.export ?? ''),
+                        import: String(dict.import ?? ''),
+                        battles: String(dict.battles ?? 'Боёв'),
+                        last20: String(dict.last20 ?? ''),
+                        top: String(dict.top ?? ''),
+                        kd: String(dict.kd ?? ''),
+                        score: String(dict.score ?? '')
+                    };
+                    let html = template;
+                    for (const [key, value] of Object.entries(replacements)) {
+                        html = html.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
+                    }
+                    const overlay = document.createElement('div');
+                    overlay.className = 'custom-history-overlay';
+                    overlay.style.display = 'none';
+                    overlay.innerHTML = html;
+                    document.body.appendChild(overlay);
+                    overlay.querySelector('.custom-history-close')?.addEventListener('click', () => { overlay.style.display = 'none'; });
+                    document.getElementById('bh-clear-btn')?.addEventListener('click', clearHistoryDb);
+                    document.getElementById('bh-export-btn')?.addEventListener('click', exportHistoryData);
+                    document.getElementById('bh-import-btn')?.addEventListener('click', importHistoryData);
+                }
+                catch (error) {
+                    console.error('[Tanki Battle History] Error loading overlay template:', error);
+                }
+            };
+            const ensureHistoryPage = () => {
+                if (!historyPagePromise) {
+                    historyPagePromise = createHistoryPage();
+                }
+                return historyPagePromise;
             };
             const injectFooterButton = () => {
                 const footerList = document.querySelector('.FooterComponentStyle-footer ul');
@@ -4225,11 +4008,8 @@
                 btn.innerHTML = '<div></div>';
                 btn.title = dict.title;
                 btn.addEventListener('click', async () => {
-                    let overlay = document.querySelector('.custom-history-overlay');
-                    if (!overlay) {
-                        createHistoryPage();
-                        overlay = document.querySelector('.custom-history-overlay');
-                    }
+                    await ensureHistoryPage();
+                    const overlay = document.querySelector('.custom-history-overlay');
                     if (!overlay)
                         return;
                     await renderBattleList(1);
@@ -4363,6 +4143,7 @@
                     }, 5000);
                 }
                 injectFooterButton();
+                void ensureHistoryPage();
                 const selfRow = document.querySelector('#selfUserBg');
                 const inResults = document.querySelector('.BattleResultHeaderComponentStyle-resultText');
                 if (selfRow && inResults) {

@@ -1,0 +1,67 @@
+<article class="bh-card {{cardClass}}">
+    <div class="bh-card-map" {{mapStyle}}>
+        <div class="bh-card-map-icon" style="
+            -webkit-mask-image: url('{{mapIconUrl}}');
+            mask-image: url('{{mapIconUrl}}');
+        "></div>
+        <div class="bh-card-map-content">
+            <div class="bh-card-map-name">{{mapUpper}}</div>
+            <div class="bh-card-map-label">{{mapLabel}}</div>
+        </div>
+    </div>
+
+    <div class="bh-card-result">
+        <div class="bh-card-result-status">{{statusLocalized}}</div>
+        <div class="bh-combat-stats">
+            <div class="bh-stat">
+                <span class="bh-stat-value">{{scoreValue}}</span>
+                <span class="bh-stat-label">{{scoreLabel}}</span>
+            </div>
+            <div class="bh-stat">
+                <span class="bh-stat-value">{{killsValue}}<span class="bh-stat-sep">/</span>{{deathsValue}}</span>
+                <span class="bh-stat-label">{{killsLabel}} / {{deathsLabel}}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="bh-card-details">
+        <div class="bh-rank">
+            <div class="bh-rank-value">{{topDisplay}}</div>
+            <div class="bh-rank-label">{{topLabel}}</div>
+        </div>
+        <div class="bh-loadout">
+            <div class="bh-equip">
+                <div class="bh-equip-icon">{{turretIcon}}</div>
+                <div class="bh-equip-type">{{turretLabel}}</div>
+            </div>
+            <div class="bh-equip">
+                <div class="bh-equip-icon">{{turretAugIcon}}</div>
+                <div class="bh-equip-type">{{augmentLabel}}</div>
+            </div>
+            <div class="bh-equip">
+                <div class="bh-equip-icon">{{hullIcon}}</div>
+                <div class="bh-equip-type">{{hullLabel}}</div>
+            </div>
+            <div class="bh-equip">
+                <div class="bh-equip-icon">{{hullAugIcon}}</div>
+                <div class="bh-equip-type">{{augmentLabel}}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bh-card-mode">
+        <div class="bh-mode-icon">{{modeIcon}}</div>
+        <div class="bh-mode-name">{{modeUpper}}</div>
+        <div class="bh-mode-rewards">
+            <div class="bh-reward">
+                <span class="bh-reward-icon bh-reward-icon--crystal"></span>
+                <span class="bh-reward-value">{{crystalsValue}}</span>
+            </div>
+            <div class="bh-reward">
+                <span class="bh-reward-icon bh-reward-icon--star"></span>
+                <span class="bh-reward-value">{{starsValue}}</span>
+            </div>
+        </div>
+        <div class="bh-mode-date">{{dateTime}}</div>
+    </div>
+</article>
