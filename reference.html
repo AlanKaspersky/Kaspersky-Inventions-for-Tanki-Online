@@ -1,0 +1,1218 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Tanki Online — Battle Result</title>
+
+    <style>
+        :root {
+            --bg: #060708;
+            --panel: #0b0d0f;
+            --panel-2: #0e1012;
+            --panel-hover: #141719;
+
+            --text: #f1f3f4;
+            --muted: #7e858c;
+            --muted-2: #52575c;
+
+            --line: rgba(255, 255, 255, .08);
+            --line-bright: rgba(255, 255, 255, .14);
+
+            --cyan: #00d9ff;
+            --cyan-soft: rgba(0, 217, 255, .12);
+
+            --red: #ff5360;
+            --red-soft: rgba(255, 83, 96, .10);
+
+            --gold: #e8c94f;
+
+            --font: Arial, Helvetica, sans-serif;
+            --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            min-height: 100%;
+            background: var(--bg);
+        }
+
+        body {
+            min-height: 100vh;
+            margin: 0;
+
+            color: var(--text);
+            background:
+                radial-gradient(circle at 50% 0%,
+                    rgba(255, 255, 255, .035),
+                    transparent 34%),
+                radial-gradient(circle at 50% 100%,
+                    rgba(0, 217, 255, .018),
+                    transparent 42%),
+                var(--bg);
+
+            font-family: var(--font);
+        }
+
+        button {
+            font: inherit;
+        }
+
+
+        /* =========================================================
+           PAGE
+        ========================================================= */
+
+        .page {
+            width: min(1650px, calc(100% - 72px));
+            margin: 0 auto;
+            padding: 42px 0 80px;
+        }
+
+
+        /* =========================================================
+           TOP ACTIONS
+        ========================================================= */
+
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+
+            margin-bottom: 16px;
+        }
+
+        .toolbar-right {
+            display: flex;
+            gap: 8px;
+        }
+
+        .button {
+            height: 34px;
+            padding: 0 13px;
+
+            border: 1px solid var(--line-bright);
+            background: rgba(255, 255, 255, .015);
+
+            color: #dce0e3;
+
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+
+            cursor: pointer;
+
+            transition:
+                background .2s ease,
+                border-color .2s ease,
+                color .2s ease;
+        }
+
+        .button:hover {
+            background: rgba(255, 255, 255, .06);
+            border-color: rgba(255, 255, 255, .25);
+        }
+
+        .button-back {
+            color: #b7bec3;
+        }
+
+        .button-delete {
+            color: var(--red);
+        }
+
+        .button-delete:hover {
+            background: var(--red-soft);
+            border-color: rgba(255, 83, 96, .35);
+        }
+
+
+        /* =========================================================
+           HERO / RESULT HEADER
+        ========================================================= */
+
+        .result-hero {
+            position: relative;
+
+            display: grid;
+            grid-template-columns: 1fr 1.35fr 1fr;
+
+            min-height: 128px;
+
+            overflow: hidden;
+
+            border: 1px solid var(--line-bright);
+
+            background:
+                linear-gradient(90deg,
+                    rgba(0, 217, 255, .055),
+                    transparent 42%,
+                    transparent 58%,
+                    rgba(255, 83, 96, .055)),
+                linear-gradient(180deg,
+                    rgba(255, 255, 255, .02),
+                    transparent);
+        }
+
+        /*
+            Мягкий cyan слева.
+        */
+
+        .result-hero::before {
+            content: "";
+
+            position: absolute;
+            inset: 0;
+
+            background:
+                radial-gradient(circle at 8% 50%,
+                    rgba(0, 217, 255, .10),
+                    transparent 32%);
+
+            pointer-events: none;
+        }
+
+        /*
+            Мягкий red справа.
+        */
+
+        .result-hero::after {
+            content: "";
+
+            position: absolute;
+            inset: 0;
+
+            background:
+                radial-gradient(circle at 92% 50%,
+                    rgba(255, 83, 96, .08),
+                    transparent 32%);
+
+            pointer-events: none;
+        }
+
+
+        /* =========================================================
+           HERO SCORE
+        ========================================================= */
+
+        .hero-score {
+            position: relative;
+            z-index: 2;
+
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+
+            padding: 24px 30px;
+        }
+
+        .hero-score.right {
+            align-items: flex-end;
+            text-align: right;
+        }
+
+        .hero-label {
+            margin-bottom: 5px;
+
+            color: var(--muted);
+
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: .18em;
+            text-transform: uppercase;
+        }
+
+        .hero-value {
+            color: var(--cyan);
+
+            font-family: var(--mono);
+            font-size: 38px;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .hero-score.right .hero-value {
+            color: var(--red);
+        }
+
+
+        /* =========================================================
+           HERO CENTER
+        ========================================================= */
+
+        .hero-center {
+            position: relative;
+            z-index: 3;
+
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+
+            text-align: center;
+
+            padding: 18px;
+        }
+
+        .hero-meta {
+            margin-bottom: 7px;
+
+            color: var(--muted);
+
+            font-family: var(--mono);
+            font-size: 9px;
+            letter-spacing: .05em;
+            text-transform: uppercase;
+        }
+
+        .hero-map {
+            color: #f2f4f5;
+
+            font-size: 17px;
+            font-weight: 700;
+            letter-spacing: .04em;
+        }
+
+        .hero-result {
+            margin-top: 5px;
+
+            color: var(--cyan);
+
+            font-size: 31px;
+            font-weight: 800;
+            letter-spacing: .08em;
+            line-height: 1;
+
+            text-transform: uppercase;
+        }
+
+        .hero-result.draw {
+            color: #c7c9ca;
+        }
+
+        .hero-result.defeat {
+            color: var(--red);
+        }
+
+
+        /* =========================================================
+           STATS GRID
+        ========================================================= */
+
+        .stats-wrapper {
+            display: grid;
+
+            grid-template-columns: 1fr 1fr;
+
+            gap: 20px;
+
+            margin-top: 20px;
+        }
+
+
+        /* =========================================================
+           TEAM PANEL
+        ========================================================= */
+
+        .team-panel {
+            position: relative;
+
+            overflow: hidden;
+
+            border: 1px solid var(--line-bright);
+            background:
+                linear-gradient(180deg,
+                    rgba(255, 255, 255, .015),
+                    transparent 30%);
+        }
+
+        .team-panel.my-team {
+            box-shadow:
+                inset 3px 0 0 var(--cyan);
+        }
+
+        .team-panel.enemy-team {
+            box-shadow:
+                inset 3px 0 0 var(--red);
+        }
+
+
+        /* =========================================================
+           TEAM HEADER
+        ========================================================= */
+
+        .team-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+
+            min-height: 56px;
+            padding: 0 18px;
+
+            border-bottom: 1px solid var(--line);
+
+            background: rgba(255, 255, 255, .018);
+        }
+
+        .team-title {
+            font-size: 14px;
+            font-weight: 800;
+            letter-spacing: .07em;
+            text-transform: uppercase;
+        }
+
+        .enemy-team .team-title {
+            color: #efcfd1;
+        }
+
+        .team-count {
+            color: var(--muted);
+
+            font-family: var(--mono);
+            font-size: 9px;
+            letter-spacing: .05em;
+        }
+
+
+        /* =========================================================
+           TABLE
+        ========================================================= */
+
+        .players-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        .players-table thead th {
+            height: 39px;
+            padding: 0 12px;
+
+            border-bottom: 1px solid var(--line);
+
+            color: var(--muted);
+
+            font-size: 8px;
+            font-weight: 700;
+            letter-spacing: .14em;
+            text-align: right;
+            text-transform: uppercase;
+        }
+
+        .players-table thead th:first-child {
+            width: 38%;
+
+            text-align: left;
+            padding-left: 18px;
+        }
+
+        .players-table th:nth-child(2) {
+            width: 11%;
+        }
+
+        .players-table th:nth-child(3) {
+            width: 13%;
+        }
+
+        .players-table th:nth-child(4),
+        .players-table th:nth-child(5),
+        .players-table th:nth-child(6) {
+            width: 7%;
+        }
+
+        .players-table th:nth-child(7) {
+            width: 10%;
+        }
+
+        .players-table th:nth-child(8) {
+            width: 7%;
+        }
+
+        .players-table tbody tr {
+            height: 54px;
+
+            border-bottom: 1px solid var(--line);
+
+            transition:
+                background .2s ease;
+        }
+
+        .players-table tbody tr:last-child {
+            border-bottom: 0;
+        }
+
+        .players-table tbody tr:hover {
+            background: rgba(255, 255, 255, .035);
+        }
+
+        .players-table td {
+            padding: 0 12px;
+
+            color: #dde1e3;
+
+            font-family: var(--mono);
+            font-size: 11px;
+            font-weight: 600;
+
+            text-align: right;
+            white-space: nowrap;
+        }
+
+
+        /* =========================================================
+           PLAYER CELL
+        ========================================================= */
+
+        .player-cell {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+
+            min-width: 0;
+
+            padding-left: 18px !important;
+
+            text-align: left !important;
+        }
+
+        .player-icons {
+            display: flex;
+            gap: 4px;
+
+            flex: 0 0 auto;
+        }
+
+        .player-icon {
+            display: grid;
+            place-items: center;
+
+            width: 24px;
+            height: 24px;
+
+            border: 1px solid rgba(255, 255, 255, .1);
+
+            background:
+                linear-gradient(135deg,
+                    rgba(255, 255, 255, .06),
+                    rgba(255, 255, 255, .015));
+
+            color: #bfc4c7;
+
+            font-size: 11px;
+        }
+
+        .player-name {
+            min-width: 0;
+
+            overflow: hidden;
+            text-overflow: ellipsis;
+
+            color: #ebedef;
+
+            font-family: var(--font);
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+
+        /* =========================================================
+           GS
+        ========================================================= */
+
+        .gs {
+            color: var(--cyan) !important;
+        }
+
+        .enemy-team .gs {
+            color: var(--red) !important;
+        }
+
+
+        /* =========================================================
+           REWARDS
+        ========================================================= */
+
+        .reward {
+            color: var(--cyan) !important;
+        }
+
+        .stars {
+            color: var(--gold) !important;
+        }
+
+
+        /* =========================================================
+           CURRENT PLAYER
+        ========================================================= */
+
+        .players-table tbody tr.current-player {
+            background:
+                linear-gradient(90deg,
+                    rgba(255, 255, 255, .055),
+                    rgba(255, 255, 255, .02));
+        }
+
+        .my-team .current-player {
+            box-shadow: inset 2px 0 0 var(--cyan);
+        }
+
+        .enemy-team .current-player {
+            box-shadow: inset 2px 0 0 var(--red);
+        }
+
+
+        /* =========================================================
+           RESULT TAG
+        ========================================================= */
+
+        .status-tag {
+            display: inline-flex;
+            align-items: center;
+
+            min-height: 20px;
+            padding: 0 8px;
+
+            border: 1px solid rgba(255, 255, 255, .08);
+
+            font-size: 8px;
+            font-weight: 800;
+            letter-spacing: .1em;
+            text-transform: uppercase;
+        }
+
+        .status-tag.victory {
+            color: var(--cyan);
+            border-color: rgba(0, 217, 255, .2);
+            background: var(--cyan-soft);
+        }
+
+        .status-tag.defeat {
+            color: var(--red);
+            border-color: rgba(255, 83, 96, .2);
+            background: var(--red-soft);
+        }
+
+
+        /* =========================================================
+           FOOTNOTE
+        ========================================================= */
+
+        .page-footer {
+            display: flex;
+            justify-content: space-between;
+
+            margin-top: 16px;
+            padding-top: 12px;
+
+            border-top: 1px solid var(--line);
+
+            color: var(--muted-2);
+
+            font-family: var(--mono);
+            font-size: 8px;
+            letter-spacing: .05em;
+            text-transform: uppercase;
+        }
+
+
+        /* =========================================================
+           MOBILE
+        ========================================================= */
+
+        @media (max-width: 1100px) {
+
+            .page {
+                width: calc(100% - 30px);
+            }
+
+            .result-hero {
+                grid-template-columns: 1fr;
+            }
+
+            .hero-score,
+            .hero-score.right {
+                align-items: center;
+                text-align: center;
+            }
+
+            .stats-wrapper {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 760px) {
+
+            .page {
+                padding-top: 25px;
+            }
+
+            .toolbar {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+
+            .toolbar-right {
+                justify-content: flex-end;
+            }
+
+            .players-table {
+                min-width: 750px;
+            }
+
+            .team-panel {
+                overflow-x: auto;
+            }
+
+            .hero-value {
+                font-size: 31px;
+            }
+
+            .hero-result {
+                font-size: 25px;
+            }
+
+            .page-footer {
+                flex-direction: column;
+                gap: 8px;
+            }
+        }
+    </style>
+</head>
+
+
+<body>
+
+    <main class="page">
+
+
+        <!-- =========================================================
+         TOP BAR
+    ========================================================== -->
+
+        <div class="toolbar">
+
+            <button class="button button-back">
+                ‹ &nbsp; Все битвы
+            </button>
+
+            <div class="toolbar-right">
+
+                <button class="button">
+                    Экспорт
+                </button>
+
+                <button class="button">
+                    Импорт
+                </button>
+
+                <button class="button button-delete">
+                    Удалить
+                </button>
+
+            </div>
+
+        </div>
+
+
+        <!-- =========================================================
+         RESULT HERO
+    ========================================================== -->
+
+        <section class="result-hero">
+
+
+            <!-- YOUR SCORE -->
+
+            <div class="hero-score">
+
+                <div class="hero-label">
+                    Ваш счёт
+                </div>
+
+                <div class="hero-value">
+                    945
+                </div>
+
+            </div>
+
+
+            <!-- CENTER -->
+
+            <div class="hero-center">
+
+                <div class="hero-meta">
+                    TJR · 16.09.2026 · 19:24 · 12 игроков
+                </div>
+
+                <div class="hero-map">
+                    Sandbox Remaster
+                </div>
+
+                <div class="hero-result">
+                    Победа
+                </div>
+
+            </div>
+
+
+            <!-- YOUR K/D -->
+
+            <div class="hero-score right">
+
+                <div class="hero-label">
+                    Ваш K/D
+                </div>
+
+                <div class="hero-value">
+                    7.00
+                </div>
+
+            </div>
+
+        </section>
+
+
+
+        <!-- =========================================================
+         TEAM TABLES
+    ========================================================== -->
+
+        <section class="stats-wrapper">
+
+
+            <!-- =====================================================
+             MY TEAM
+        ====================================================== -->
+
+            <article class="team-panel my-team">
+
+                <header class="team-header">
+
+                    <div class="team-title">
+                        Моя команда
+                    </div>
+
+                    <div class="team-count">
+                        6 игроков
+                    </div>
+
+                </header>
+
+
+                <table class="players-table">
+
+                    <thead>
+                        <tr>
+
+                            <th>Игрок</th>
+                            <th>GS</th>
+                            <th>Счёт</th>
+                            <th>K</th>
+                            <th>D</th>
+                            <th>K/D</th>
+                            <th>DIAMOND</th>
+                            <th>★</th>
+
+                        </tr>
+                    </thead>
+
+
+                    <tbody>
+
+
+                        <tr class="current-player">
+
+                            <td class="player-cell">
+
+                                <div class="player-icons">
+                                    <div class="player-icon">☆</div>
+                                    <div class="player-icon">▰</div>
+                                </div>
+
+                                <span class="player-name">
+                                    phantom_tanker
+                                </span>
+
+                            </td>
+
+                            <td class="gs">9999</td>
+                            <td>3120</td>
+                            <td>28</td>
+                            <td>4</td>
+                            <td>7.00</td>
+                            <td class="reward">4215</td>
+                            <td class="stars">8</td>
+
+                        </tr>
+
+
+                        <tr>
+
+                            <td class="player-cell">
+
+                                <div class="player-icons">
+                                    <div class="player-icon">✦</div>
+                                    <div class="player-icon">▱</div>
+                                </div>
+
+                                <span class="player-name">
+                                    steel_hawk
+                                </span>
+
+                            </td>
+
+                            <td class="gs">7450</td>
+                            <td>2760</td>
+                            <td>19</td>
+                            <td>7</td>
+                            <td>2.71</td>
+                            <td class="reward">3840</td>
+                            <td class="stars">6</td>
+
+                        </tr>
+
+
+                        <tr>
+
+                            <td class="player-cell">
+
+                                <div class="player-icons">
+                                    <div class="player-icon">◇</div>
+                                    <div class="player-icon">▱</div>
+                                </div>
+
+                                <span class="player-name">
+                                    shadow_x
+                                </span>
+
+                            </td>
+
+                            <td class="gs">9999</td>
+                            <td>2415</td>
+                            <td>16</td>
+                            <td>5</td>
+                            <td>3.20</td>
+                            <td class="reward">3102</td>
+                            <td class="stars">5</td>
+
+                        </tr>
+
+
+                        <tr>
+
+                            <td class="player-cell">
+
+                                <div class="player-icons">
+                                    <div class="player-icon">✦</div>
+                                    <div class="player-icon">▰</div>
+                                </div>
+
+                                <span class="player-name">
+                                    vortex_77
+                                </span>
+
+                            </td>
+
+                            <td class="gs">8421</td>
+                            <td>1980</td>
+                            <td>12</td>
+                            <td>8</td>
+                            <td>1.50</td>
+                            <td class="reward">2650</td>
+                            <td class="stars">4</td>
+
+                        </tr>
+
+
+                        <tr>
+
+                            <td class="player-cell">
+
+                                <div class="player-icons">
+                                    <div class="player-icon">◇</div>
+                                    <div class="player-icon">▱</div>
+                                </div>
+
+                                <span class="player-name">
+                                    ghost_rider
+                                </span>
+
+                            </td>
+
+                            <td class="gs">6870</td>
+                            <td>1640</td>
+                            <td>10</td>
+                            <td>9</td>
+                            <td>1.11</td>
+                            <td class="reward">2178</td>
+                            <td class="stars">3</td>
+
+                        </tr>
+
+
+                        <tr>
+
+                            <td class="player-cell">
+
+                                <div class="player-icons">
+                                    <div class="player-icon">✦</div>
+                                    <div class="player-icon">▰</div>
+                                </div>
+
+                                <span class="player-name">
+                                    tornado
+                                </span>
+
+                            </td>
+
+                            <td class="gs">6320</td>
+                            <td>1250</td>
+                            <td>8</td>
+                            <td>11</td>
+                            <td>0.73</td>
+                            <td class="reward">1640</td>
+                            <td class="stars">2</td>
+
+                        </tr>
+
+                    </tbody>
+
+                </table>
+
+            </article>
+
+
+
+            <!-- =====================================================
+             ENEMY TEAM
+        ====================================================== -->
+
+            <article class="team-panel enemy-team">
+
+                <header class="team-header">
+
+                    <div class="team-title">
+                        Команда противника
+                    </div>
+
+                    <div class="team-count">
+                        6 игроков
+                    </div>
+
+                </header>
+
+
+                <table class="players-table">
+
+                    <thead>
+                        <tr>
+
+                            <th>Игрок</th>
+                            <th>GS</th>
+                            <th>Счёт</th>
+                            <th>K</th>
+                            <th>D</th>
+                            <th>K/D</th>
+                            <th>DIAMOND</th>
+                            <th>★</th>
+
+                        </tr>
+                    </thead>
+
+
+                    <tbody>
+
+
+                        <tr>
+
+                            <td class="player-cell">
+
+                                <div class="player-icons">
+                                    <div class="player-icon">☆</div>
+                                    <div class="player-icon">◈</div>
+                                </div>
+
+                                <span class="player-name">
+                                    red_blaze
+                                </span>
+
+                            </td>
+
+                            <td class="gs">9102</td>
+                            <td>2080</td>
+                            <td>14</td>
+                            <td>15</td>
+                            <td>0.93</td>
+                            <td class="reward">1980</td>
+                            <td class="stars">3</td>
+
+                        </tr>
+
+
+                        <tr>
+
+                            <td class="player-cell">
+
+                                <div class="player-icons">
+                                    <div class="player-icon">✦</div>
+                                    <div class="player-icon">▱</div>
+                                </div>
+
+                                <span class="player-name">
+                                    maximus
+                                </span>
+
+                            </td>
+
+                            <td class="gs">7780</td>
+                            <td>1895</td>
+                            <td>12</td>
+                            <td>14</td>
+                            <td>0.86</td>
+                            <td class="reward">1745</td>
+                            <td class="stars">3</td>
+
+                        </tr>
+
+
+                        <tr>
+
+                            <td class="player-cell">
+
+                                <div class="player-icons">
+                                    <div class="player-icon">◇</div>
+                                    <div class="player-icon">◈</div>
+                                </div>
+
+                                <span class="player-name">
+                                    killshot
+                                </span>
+
+                            </td>
+
+                            <td class="gs">6540</td>
+                            <td>1620</td>
+                            <td>9</td>
+                            <td>16</td>
+                            <td>0.56</td>
+                            <td class="reward">1308</td>
+                            <td class="stars">2</td>
+
+                        </tr>
+
+
+                        <tr>
+
+                            <td class="player-cell">
+
+                                <div class="player-icons">
+                                    <div class="player-icon">✦</div>
+                                    <div class="player-icon">▰</div>
+                                </div>
+
+                                <span class="player-name">
+                                    bomber
+                                </span>
+
+                            </td>
+
+                            <td class="gs">7210</td>
+                            <td>1480</td>
+                            <td>8</td>
+                            <td>13</td>
+                            <td>0.62</td>
+                            <td class="reward">1203</td>
+                            <td class="stars">2</td>
+
+                        </tr>
+
+
+                        <tr>
+
+                            <td class="player-cell">
+
+                                <div class="player-icons">
+                                    <div class="player-icon">◇</div>
+                                    <div class="player-icon">◈</div>
+                                </div>
+
+                                <span class="player-name">
+                                    rampage
+                                </span>
+
+                            </td>
+
+                            <td class="gs">5620</td>
+                            <td>1120</td>
+                            <td>6</td>
+                            <td>17</td>
+                            <td>0.35</td>
+                            <td class="reward">965</td>
+                            <td class="stars">1</td>
+
+                        </tr>
+
+
+                        <tr>
+
+                            <td class="player-cell">
+
+                                <div class="player-icons">
+                                    <div class="player-icon">✦</div>
+                                    <div class="player-icon">▱</div>
+                                </div>
+
+                                <span class="player-name">
+                                    fatal_error
+                                </span>
+
+                            </td>
+
+                            <td class="gs">4980</td>
+                            <td>980</td>
+                            <td>5</td>
+                            <td>18</td>
+                            <td>0.28</td>
+                            <td class="reward">812</td>
+                            <td class="stars">1</td>
+
+                        </tr>
+
+                    </tbody>
+
+                </table>
+
+            </article>
+
+        </section>
+
+
+
+        <!-- =========================================================
+         FOOTER
+    ========================================================== -->
+
+        <footer class="page-footer">
+
+            <span>
+                BATTLE ID: 8F2A-19C7-552E
+            </span>
+
+            <span>
+                SRV: EU 1 · 16.09.2026
+            </span>
+
+        </footer>
+
+    </main>
+
+</body>
+
+</html>

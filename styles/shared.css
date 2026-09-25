@@ -39,9 +39,12 @@ div#root.wrapper {
 
 .SquarePriceButtonComponentStyle-discountLabel,
 span.-discount.-medium.-flexCenterAlignCenter,
-.SuppliesComponentStyle-discountLabel,
-.PrimaryMenuItemComponentStyle-discountNotification {
+.SuppliesComponentStyle-discountLabel {
     background-color: rgb(255, 255, 255) !important;
+}
+
+.PrimaryMenuItemComponentStyle-discountNotification {
+    display: none !important;
 }
 
 .DisplayPriceComponentStyle-discountTimer span {
