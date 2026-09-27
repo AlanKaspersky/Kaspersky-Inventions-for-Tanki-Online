@@ -585,3 +585,32 @@ body.kasp-tab-expanded .BattleTabStatisticComponentStyle-resistanceModuleCell > 
 .BattleTabStatisticComponentStyle-container table tbody tr > :nth-child(2), .BattleTabStatisticComponentStyle-resistanceModuleCell {
     padding-left: 0.4em !important;
 }
+
+.-flexStartAlignStartColumn:has(.BattleKillBoardComponentStyle-col1WithOutStar) {
+    align-items: center !important;
+}
+
+.-flexStartAlignStartColumn:has(.BattleKillBoardComponentStyle-col1WithOutStar) > .-blockCenter {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-self: stretch !important;
+}
+
+.-flexStartAlignStartColumn:has(.BattleKillBoardComponentStyle-col1WithOutStar)
+    .BattleKillBoardComponentStyle-tableContainer {
+    width: 50em !important;
+    max-width: 95vw !important;
+    margin: 0 auto !important;
+    align-self: center !important;
+}
+
+.-flexStartAlignStartColumn:has(.BattleKillBoardComponentStyle-col1WithOutStar)
+    .BattleKillBoardComponentStyle-tableContainer > table > thead,
+.-flexStartAlignStartColumn:has(.BattleKillBoardComponentStyle-col1WithOutStar)
+    .BattleKillBoardComponentStyle-tableContainer > table > tbody {
+    width: 50em !important;
+    max-width: 50em !important;
+    box-sizing: border-box !important;
+}

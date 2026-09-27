@@ -117,7 +117,6 @@
     padding-top: 4em;
 }
 
-/* ============ Статистика (правая панель) ============ */
 .bh-stats-box {
     background: #111114;
     border: 1px solid #222226;
@@ -612,9 +611,29 @@
 
 .bh-mode-icon {
     position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.15em 0.45em;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 0.25em;
+    font-family: BaseFontBold, FallbackFontBold, sans-serif;
+    font-size: 0.7em;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    line-height: 1;
     color: #c0c0c0;
-    font-size: 1.5em;
-    opacity: 0.7;
+    text-transform: uppercase;
+}
+
+.bh-mode-icon--mm {
+    color: #b8b8b8;
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.bh-mode-icon--pro {
+    color: #d4a24a;
+    border-color: rgba(212, 162, 74, 0.45);
 }
 
 .bh-mode-name {
@@ -760,11 +779,6 @@
     letter-spacing: 0.08em;
 }
 
-
-/* =========================================================
-   ДЕТАЛЬНАЯ СТАТИСТИКА БОЯ (ИНТЕГРАЦИЯ ИЗ REFERENCE.HTML)
-========================================================= */
-
 .bh-detailed-view {
     --bg: #060708;
     --panel: #0b0d0f;
@@ -791,9 +805,17 @@
 
     width: 100%;
     margin: 0 auto;
-    padding-bottom: 2em;
+    padding: 0.4em 0 2em 0.4em;
     color: var(--text);
     font-family: var(--font);
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.bh-detailed-view::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
 }
 
 .bh-detailed-view .toolbar {
@@ -806,40 +828,6 @@
 .bh-detailed-view .toolbar-right {
     display: flex;
     gap: 0.5em;
-}
-
-.bh-detailed-view .button {
-    height: 2.5em;
-    padding: 0 1em;
-    border: 1px solid var(--line-bright);
-    background: rgba(255, 255, 255, .015);
-    color: #dce0e3;
-    font-family: var(--font);
-    font-size: 0.8em;
-    font-weight: 700;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: background .2s ease, border-color .2s ease, color .2s ease;
-    border-radius: 0.25em;
-}
-
-.bh-detailed-view .button:hover {
-    background: rgba(255, 255, 255, .06);
-    border-color: rgba(255, 255, 255, .25);
-}
-
-.bh-detailed-view .button-back {
-    color: #b7bec3;
-}
-
-.bh-detailed-view .button-delete {
-    color: var(--red);
-}
-
-.bh-detailed-view .button-delete:hover {
-    background: var(--red-soft);
-    border-color: rgba(255, 83, 96, .35);
 }
 
 .bh-detailed-view .result-hero {
@@ -955,9 +943,21 @@
 
 .bh-detailed-view .stats-wrapper {
     display: grid;
+    align-items: start;
     grid-template-columns: 1fr 1fr;
     gap: 1.25em;
     margin-top: 1.25em;
+}
+
+.bh-detailed-view .stats-wrapper.solo-mode {
+    grid-template-columns: 1fr;
+    max-width: 60em;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.bh-detailed-view .stats-wrapper.solo-mode .team-panel.my-team {
+    box-shadow: none;
 }
 
 .bh-detailed-view .team-panel {
@@ -1019,27 +1019,46 @@
     font-size: 0.6em;
     font-weight: 700;
     letter-spacing: .14em;
-    text-align: center !important; /* Центрируем все заголовки по умолчанию */
+    text-align: center !important;
     text-transform: uppercase;
 }
 
 .bh-detailed-view .players-table thead th:first-child {
     width: 52%;
-    text-align: left !important; /* Возвращаем первый заголовок налево */
+    text-align: left !important;
     padding-left: 1.1em;
 }
 
-.bh-detailed-view .players-table th:nth-child(2) { width: 7%; }
-.bh-detailed-view .players-table th:nth-child(3) { width: 10%; }
-.bh-detailed-view .players-table th:nth-child(4) { width: 5%; }
-.bh-detailed-view .players-table th:nth-child(5) { width: 5%; }
-.bh-detailed-view .players-table th:nth-child(6) { width: 7%; }
-.bh-detailed-view .players-table th:nth-child(7) { width: 10%; }
-.bh-detailed-view .players-table th:nth-child(8) { width: 4%; }
+.bh-detailed-view .players-table th:nth-child(2) {
+    width: 7%;
+}
+
+.bh-detailed-view .players-table th:nth-child(3) {
+    width: 10%;
+}
+
+.bh-detailed-view .players-table th:nth-child(4) {
+    width: 5%;
+}
+
+.bh-detailed-view .players-table th:nth-child(5) {
+    width: 5%;
+}
+
+.bh-detailed-view .players-table th:nth-child(6) {
+    width: 7%;
+}
+
+.bh-detailed-view .players-table th:nth-child(7) {
+    width: 10%;
+}
+
+.bh-detailed-view .players-table th:nth-child(8) {
+    width: 4%;
+}
 
 .bh-detailed-view .players-table tbody tr {
     height: 3.4em;
-    border-bottom: 1px solid var(--line);
     transition: background .2s ease;
 }
 
@@ -1055,48 +1074,45 @@
     padding: 0 0.75em;
     color: #dde1e3;
     font-family: var(--mono);
-    font-size: 1.1em !important; /* Увеличиваем размер текста данных */
+    font-size: 1.1em !important;
     font-weight: 600;
-    text-align: center !important; /* Центрируем данные во всех колонках */
+    text-align: center !important;
     white-space: nowrap;
-    vertical-align: middle; 
+    vertical-align: middle;
 }
 
-/* Усиливаем селектор, добавив td.player-cell, чтобы он 100% перебил центрирование */
 .bh-detailed-view .players-table td.player-cell {
-    display: table-cell !important; 
-    vertical-align: middle !important; 
+    display: table-cell !important;
+    vertical-align: middle !important;
     padding-left: 1.1em !important;
-    text-align: left !important; /* Теперь контент точно прижмется влево */
+    text-align: left !important;
 }
 
 .bh-detailed-view .player-icons {
     display: inline-flex;
     align-items: center;
     vertical-align: middle !important;
-    margin-right: 0.6em; 
+    margin-right: 0.2em;
 }
 
 .bh-detailed-view .player-icon {
-    width: 2.5em !important; 
-    height: 2.5em !important;
+    width: 2em !important;
+    height: 2em !important;
     object-fit: contain;
 }
 
 .bh-detailed-view .player-name {
     display: inline-block;
-    vertical-align: middle !important; 
+    vertical-align: middle !important;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     color: #ebedef;
     font-family: var(--font);
-    font-size: 1.2em !important; 
+    font-size: 1em !important;
     font-weight: 700;
 }
-/* =========================================================
-   ИКОНКИ В ШАПКЕ (Кристаллы и Звёзды)
-========================================================= */
+
 .bh-detailed-view .bh-th-icon {
     text-align: right;
     vertical-align: middle;
@@ -1104,8 +1120,8 @@
 
 .bh-detailed-view .bh-icon-crystal {
     display: inline-block;
-    width: 1.25em; /* Настраиваемый размер ширины */
-    height: 1.25em; /* Настраиваемый размер высоты */
+    width: 1.25em;
+    height: 1.25em;
     background-color: rgb(0, 215, 255);
     -webkit-mask-image: url('https://s.eu.tankionline.com/static/images/crystalSmall.242e6c15.svg');
     mask-image: url('https://s.eu.tankionline.com/static/images/crystalSmall.242e6c15.svg');
@@ -1119,8 +1135,8 @@
 
 .bh-detailed-view .bh-icon-star {
     display: inline-block;
-    width: 1.25em; /* Настраиваемый размер ширины */
-    height: 1.25em; /* Настраиваемый размер высоты */
+    width: 1.25em;
+    height: 1.25em;
     background-color: rgb(255, 221, 44);
     -webkit-mask-image: url('https://s.eu.tankionline.com/static/images/Star.5a891709.svg');
     mask-image: url('https://s.eu.tankionline.com/static/images/Star.5a891709.svg');
@@ -1132,9 +1148,6 @@
     mask-position: center right;
 }
 
-/* =========================================================
-   ЦВЕТА GEARSCORE (GS)
-========================================================= */
 .bh-detailed-view .gs-best {
     background-image: linear-gradient(to left, rgb(40, 255, 203) 0%, rgb(255, 235, 51) 100%) !important;
     -webkit-background-clip: text !important;
@@ -1143,16 +1156,56 @@
     color: transparent !important;
     text-shadow: none !important;
 }
-.bh-detailed-view .gs-9000 { color: rgb(255, 0, 0) !important; text-shadow: rgba(255, 76, 76, 0.5) 0px 0px 0.625em !important; }
-.bh-detailed-view .gs-8000 { color: rgb(255, 60, 107) !important; text-shadow: rgba(255, 76, 76, 0.5) 0px 0px 0.625em !important; }
-.bh-detailed-view .gs-7000 { color: rgb(255, 142, 60) !important; text-shadow: rgba(255, 142, 9, 0.5) 0px 0px 0.625em !important; }
-.bh-detailed-view .gs-6000 { color: rgb(243, 211, 45) !important; text-shadow: rgba(255, 142, 9, 0.5) 0px 0px 0.625em !important; }
-.bh-detailed-view .gs-5000 { color: rgb(190, 83, 255) !important; text-shadow: rgba(69, 38, 255, 0.5) 0px 0px 0.625em !important; }
-.bh-detailed-view .gs-4000 { color: rgb(80, 255, 245) !important; text-shadow: rgba(0, 215, 255, 0.5) 0px 0px 0.625em !important; }
-.bh-detailed-view .gs-3000 { color: rgb(80, 182, 255) !important; text-shadow: rgba(0, 215, 255, 0.5) 0px 0px 0.625em !important; }
-.bh-detailed-view .gs-2000 { color: rgb(96, 255, 0) !important; text-shadow: rgba(120, 247, 58, 0.5) 0px 0px 0.625em !important; }
-.bh-detailed-view .gs-1000 { color: rgb(134, 205, 100) !important; text-shadow: none !important; }
-.bh-detailed-view .gs-0 { color: rgb(200, 200, 181) !important; text-shadow: none !important; }
+
+.bh-detailed-view .gs-9000 {
+    color: rgb(255, 0, 0) !important;
+    text-shadow: rgba(255, 76, 76, 0.5) 0px 0px 0.625em !important;
+}
+
+.bh-detailed-view .gs-8000 {
+    color: rgb(255, 60, 107) !important;
+    text-shadow: rgba(255, 76, 76, 0.5) 0px 0px 0.625em !important;
+}
+
+.bh-detailed-view .gs-7000 {
+    color: rgb(255, 142, 60) !important;
+    text-shadow: rgba(255, 142, 9, 0.5) 0px 0px 0.625em !important;
+}
+
+.bh-detailed-view .gs-6000 {
+    color: rgb(243, 211, 45) !important;
+    text-shadow: rgba(255, 142, 9, 0.5) 0px 0px 0.625em !important;
+}
+
+.bh-detailed-view .gs-5000 {
+    color: rgb(190, 83, 255) !important;
+    text-shadow: rgba(69, 38, 255, 0.5) 0px 0px 0.625em !important;
+}
+
+.bh-detailed-view .gs-4000 {
+    color: rgb(80, 255, 245) !important;
+    text-shadow: rgba(0, 215, 255, 0.5) 0px 0px 0.625em !important;
+}
+
+.bh-detailed-view .gs-3000 {
+    color: rgb(80, 182, 255) !important;
+    text-shadow: rgba(0, 215, 255, 0.5) 0px 0px 0.625em !important;
+}
+
+.bh-detailed-view .gs-2000 {
+    color: rgb(96, 255, 0) !important;
+    text-shadow: rgba(120, 247, 58, 0.5) 0px 0px 0.625em !important;
+}
+
+.bh-detailed-view .gs-1000 {
+    color: rgb(134, 205, 100) !important;
+    text-shadow: none !important;
+}
+
+.bh-detailed-view .gs-0 {
+    color: rgb(200, 200, 181) !important;
+    text-shadow: none !important;
+}
 
 .bh-detailed-view .reward {
     color: var(--cyan) !important;
@@ -1172,4 +1225,122 @@
 
 .bh-detailed-view .enemy-team .current-player {
     box-shadow: inset 2px 0 0 var(--red);
+}
+
+.bh-detailed-view .my-team .players-table tbody tr:nth-child(odd) {
+    background: rgba(0, 217, 255, 0.10);
+}
+
+.bh-detailed-view .my-team .players-table tbody tr:nth-child(even) {
+    background: rgba(0, 217, 255, 0.05);
+}
+
+.bh-detailed-view .enemy-team .players-table tbody tr:nth-child(odd) {
+    background: rgba(255, 83, 96, 0.10);
+}
+
+.bh-detailed-view .enemy-team .players-table tbody tr:nth-child(even) {
+    background: rgba(255, 83, 96, 0.05);
+}
+
+.bh-detailed-view .toolbar .button {
+    position: relative;
+    height: 2.6em;
+    padding: 0 1.6em;
+    border-radius: 0.75em;
+    cursor: pointer;
+    border: 0.063em solid transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: BaseFontBold, FallbackFontBold, sans-serif;
+    font-weight: 500;
+    font-size: 0.95em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    box-sizing: border-box;
+    overflow: hidden;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: rgba(255, 255, 255, 0.25) 0em 0em 0em 0.063em;
+    background-color: rgb(255, 255, 255);
+    color: rgb(0, 10, 15);
+    isolation: isolate;
+}
+
+.bh-detailed-view .toolbar .button:hover {
+    background-color: rgb(197, 197, 197);
+    box-shadow: rgb(255, 255, 255) 0em 0em 0em 2px;
+    border-color: transparent;
+}
+
+.bh-detailed-view .toolbar .button::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -150%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(90deg,
+            rgba(255, 255, 255, 0) 0%,
+            rgba(255, 255, 255, 0.55) 50%,
+            rgba(255, 255, 255, 0) 100%);
+    transform: skewX(-25deg);
+    pointer-events: none;
+    z-index: -1;
+}
+
+.bh-detailed-view .toolbar .button:hover::after {
+    animation: kasp-metal-shine 0.6s ease-in-out;
+}
+
+.kasp-loader-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(rgb(39, 39, 39) 0%, rgb(3, 8, 13) 100%);
+    pointer-events: auto;
+    opacity: 1;
+}
+
+.kasp-loader-logo {
+    width: 8em;
+    height: 7.75em;
+    background-image: url('https://s.eu.tankionline.com/static/images/logo.e64f36db.svg');
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-position: center;
+    flex-shrink: 0;
+}
+
+.kasp-loader-bar {
+    position: absolute;
+    bottom: 2.5em;
+    height: 3.75em;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.kasp-loader-text {
+    text-transform: uppercase;
+    font-family: BaseFontRegular, FallbackFontRegular, sans-serif;
+    font-style: normal;
+    font-weight: normal;
+    font-size: 1em;
+    line-height: normal;
+    color: #ffffff;
+}
+
+.kasp-loader-progress {
+    width: 20em;
+    height: 2em;
+    background-image: url('https://s.eu.tankionline.com/static/images/progress.9d48f262.png');
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-position: center;
 }

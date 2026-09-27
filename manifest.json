@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Tanki Online: Kaspersky's Inventions",
-  "version": "2.5.6",
+  "version": "2.5.7",
   "default_locale": "en",
   "description": "__MSG_extensionDescription__",
   "icons": {
@@ -32,7 +32,8 @@
         "styles/customTrophies.css",
         "styles/hideCurrency.css",
         "styles/hideNickname.css",
-        "styles/settings.css"
+        "styles/settings.css",
+        "styles/welcomeModal.css"
       ],
       "js": [
         "dist/kasp_injector.js"

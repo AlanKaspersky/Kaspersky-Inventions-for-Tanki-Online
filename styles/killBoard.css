@@ -75,8 +75,8 @@
 
 :is(:is(.BattleKillBoardComponentStyle-tableContainer table) > thead) > tr {
     pointer-events: none !important;
-    width: 49.5em !important;
-    max-width: 49.5em !important;
+    width: 49.9em !important;
+    max-width: 49.9em !important;
     display: flex !important;
     align-items: center !important;
 }

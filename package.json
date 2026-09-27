@@ -1,20 +1,22 @@
 {
   "name": "Kaspersky's Inventions",
-  "version": "2.5.5",
+  "version": "2.5.7",
   "description": "Browser extension for Kaspersky's Inventions",
   "private": true,
   "scripts": {
-    "build:ts": "tsc",
+    "typecheck": "tsc --noEmit",
+    "build:js": "esbuild src/kasp_main.ts src/kasp_injector.ts --bundle --format=iife --target=chrome100 --outdir=dist",
     "build:zip": "node tools/build-release.js",
-    "build": "npm run build:ts && npm run build:zip",
+    "build": "npm run typecheck && npm run build:js && npm run build:zip",
     "release": "npm run build",
-    "watch": "tsc --watch"
+    "watch": "esbuild src/kasp_main.ts src/kasp_injector.ts --bundle --format=iife --target=chrome100 --outdir=dist --watch"
   },
   "author": "Alan Kaspersky",
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
-    "@types/chrome": "^0.2.7",
-    "typescript": "^7.0.2"
+    "@types/chrome": "^0.0.260",
+    "esbuild": "^0.21.0",
+    "typescript": "^5.4.0"
   }
 }

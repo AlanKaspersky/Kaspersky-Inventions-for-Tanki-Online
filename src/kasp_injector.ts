@@ -1,6 +1,11 @@
 (function (): void {
     'use strict';
 
+    const KNOWN_MODES = new Set<string>([
+        'DM', 'TDM', 'CTF', 'CP', 'SGE',
+        'RGB', 'JGR', 'TJR', 'ASL', 'AR'
+    ]);
+
     (window as any).__kaspSendAction = function (className: string, obj: any): void {
         try {
             let res: string[] = [className];
@@ -44,6 +49,65 @@
         } catch (e) { }
     };
 
+    (window as any).__kaspBattleStats = function (obj: any): void {
+        try {
+            if (!obj || typeof obj !== 'object') return;
+
+            let keys: string[];
+            try {
+                keys = Object.keys(obj);
+            } catch (e) {
+                return;
+            }
+
+            let mode: string | null = null;
+            let isPro: boolean | null = null;
+
+            for (let i = 0; i < keys.length; i++) {
+                let v: any;
+                try {
+                    v = obj[keys[i]];
+                } catch (e) {
+                    continue;
+                }
+                if (typeof v !== 'string') continue;
+
+                const trimmed = v.trim();
+                if (!trimmed) continue;
+                const upper = trimmed.toUpperCase();
+
+                if (!mode) {
+                    if (KNOWN_MODES.has(upper)) {
+                        mode = upper;
+                    } else {
+                        const m = /\s+([A-Z]{2,3})$/.exec(upper);
+                        if (m && KNOWN_MODES.has(m[1])) mode = m[1];
+                    }
+                }
+
+                if (isPro === null) {
+                    if (/(^|[\s\-])PRO([\s\-]|$)/.test(trimmed) ||
+                        /(^|[\s\-])ПРО([\s\-]|$)/.test(trimmed)) {
+                        isPro = true;
+                    }
+                }
+            }
+
+            if (isPro === null) isPro = false;
+
+            if (mode) {
+                window.postMessage(
+                    { type: 'kasp:battle-mode', detail: mode },
+                    '*'
+                );
+            }
+            window.postMessage(
+                { type: 'kasp:battle-kind', detail: isPro ? 'PRO' : 'MM' },
+                '*'
+            );
+        } catch (e) { }
+    };
+
     const observer = new MutationObserver((mutations: MutationRecord[]) => {
         for (const m of mutations) {
             for (const node of Array.from(m.addedNodes)) {
@@ -61,6 +125,19 @@
                                 const p = new RegExp(`(function [\\w$]+\\([^)]{1,150}\\)\\{[^{}]{0,800}?this\\.${propName}=[\\w$]+(?:,this\\.[\\w$]+=[\\w$]+){0,30})\\}`);
                                 if (p.test(code)) {
                                     code = code.replace(p, `$1, window.__kaspSendAction("TankUserActionLog", this)}`);
+                                }
+                            }
+
+                            const bsMatch = /return"BattleStatistics\(\w+="\+(?:\w+\()?this\.(\w+)/.exec(code);
+                            if (bsMatch) {
+                                const firstField = bsMatch[1];
+                                const ctor = new RegExp(
+                                    '(function [\\w$]+\\([^)]{5,400}\\)\\{' +
+                                    '[^{}]{0,1200}?this\\.' + firstField + '=[\\w$]+' +
+                                    '(?:,this\\.[\\w$]+=[\\w$]+){10,60})\\}'
+                                );
+                                if (ctor.test(code)) {
+                                    code = code.replace(ctor, '$1, window.__kaspBattleStats(this)}');
                                 }
                             }
 

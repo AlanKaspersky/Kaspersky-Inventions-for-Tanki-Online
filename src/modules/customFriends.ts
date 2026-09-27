@@ -1,0 +1,256 @@
+import { state } from '../core/state';
+import { utils } from '../core/utils';
+
+export const customFriends = (() => {
+    let initialized = false;
+
+    const filtersConfig = [
+        { url: "https://s.eu.tankionline.com/static/images/allPaints.741c65e1.svg", type: "all" },
+        { url: "https://s.eu.tankionline.com/static/images/uncommon.ca77d7da.svg", type: "online" },
+        { url: "https://s.eu.tankionline.com/static/images/iconCasualGray.3eea12e7.svg", type: "offline" },
+        { url: "https://s.eu.tankionline.com/static/images/iconRareBlue.4e3c7303.svg", type: "clan" },
+        { url: "https://s.eu.tankionline.com/static/images/iconEpicFiolet.d91b1151.svg", type: "purple" },
+        { url: "https://s.eu.tankionline.com/static/images/iconLegendaryGold.7c76cb29.svg", type: "yellow" },
+        { url: "https://s.eu.tankionline.com/static/images/iconCustomiseRed.2b5c8828.svg", type: "red" },
+    ];
+
+    const getCurrentNickname = () => {
+        const userEl = document.querySelector('.UserInfoContainerStyle-userNameRank') as HTMLElement;
+        if (!userEl) return "Unknown";
+        const text = userEl.innerText.trim();
+        const cleanName = text.replace(/^\[.*?\]\s*/, '').trim();
+        return cleanName || "Unknown";
+    };
+
+    const getCustomCategories = () => {
+        const myNick = getCurrentNickname();
+        try {
+            return JSON.parse(localStorage.getItem(`tankiCustomCategories_${myNick}`) || '{}');
+        } catch (e) {
+            return {};
+        }
+    };
+
+    const setCustomCategory = (friendNickname: string, colorType: string) => {
+        const myNick = getCurrentNickname();
+        if (myNick === "Unknown") return;
+        const cats = getCustomCategories();
+        if (cats[friendNickname] === colorType) {
+            delete cats[friendNickname];
+        } else {
+            cats[friendNickname] = colorType;
+        }
+        localStorage.setItem(`tankiCustomCategories_${myNick}`, JSON.stringify(cats));
+        document.querySelectorAll('.custom-friends-sidebar').forEach(node => {
+            const sidebar = node as HTMLElement;
+            const activeBtn = sidebar.querySelector('.custom-filter-btn.active') as HTMLElement;
+            if (activeBtn) activeBtn.click();
+        });
+    };
+
+    const getMyClanTag = () => {
+        const userEl = (document.querySelector('.UserInfoContainerStyle-userNameRank.UserInfoContainerStyle-textDecoration') || document.querySelector('.UserInfoContainerStyle-userNameRank')) as HTMLElement;
+        if (!userEl) return "";
+        const text = userEl.innerText.trim();
+        const match = text.match(/\[(.*?)\]/);
+        return match ? match[0] : "";
+    };
+
+    const updateCardBadge = (el: HTMLElement, isFriendsList: boolean) => {
+        const cardText = el.innerText || "";
+        const span = Array.from(el.querySelectorAll('span')).find(s => s.className.includes('whiteSpaceNoWrap')) as HTMLElement;
+        const nickText = span ? span.innerText.trim() : cardText.split('\n')[0].trim();
+        const clanTag = getMyClanTag();
+        const isClan = Boolean(clanTag && cardText.includes(clanTag));
+        const cats = getCustomCategories();
+        const customColor = cats[nickText];
+
+        let rarityType = null;
+        if (customColor) {
+            rarityType = customColor;
+        } else if (isClan) {
+            rarityType = 'blue';
+        }
+
+        let badge = el.querySelector('.custom-rarity-badge') as HTMLImageElement;
+        if (rarityType) {
+            if (!badge) {
+                badge = document.createElement('img');
+                badge.src = 'https://s.eu.tankionline.com/static/images/categoryRarities.04cb4010.svg';
+                badge.className = 'custom-rarity-badge';
+                el.appendChild(badge);
+            }
+            badge.className = `custom-rarity-badge rarity-${rarityType}`;
+            badge.style.display = '';
+        } else {
+            if (badge) {
+                badge.style.display = 'none';
+            }
+        }
+    };
+
+    const applyFilter = (scrollBlock: HTMLElement, filterType: string) => {
+        const clanTag = getMyClanTag();
+        const cats = getCustomCategories();
+        const isFriendsList = scrollBlock.classList.contains('FriendListComponentStyle-scrollCommunity');
+        const itemSelector = isFriendsList ? '.FriendListComponentStyle-blockList' : '.InvitationWindowsComponentStyle-usersScroll > div > div';
+        const items = scrollBlock.querySelectorAll(itemSelector);
+
+        items.forEach(node => {
+            const el = node as HTMLElement;
+            updateCardBadge(el, isFriendsList);
+            if (filterType === 'all') {
+                el.style.display = '';
+                return;
+            }
+            const cardText = el.innerText || "";
+            const textLower = cardText.toLowerCase();
+            const isOnline = isFriendsList ? !!el.querySelector('.FriendListComponentStyle-greenTextOnline') : (textLower.includes("в сети") || textLower.includes("online"));
+            const isOffline = isFriendsList ? !!el.querySelector('.FriendListComponentStyle-offline') : !isOnline;
+            const span = Array.from(el.querySelectorAll('span')).find(s => s.className.includes('whiteSpaceNoWrap')) as HTMLElement;
+            const nickText = span ? span.innerText.trim() : cardText.split('\n')[0].trim();
+
+            let match = true;
+            if (filterType === 'online') match = isOnline;
+            else if (filterType === 'offline') match = isOffline;
+            else if (filterType === 'clan') match = Boolean(clanTag && cardText.includes(clanTag));
+            else if (['purple', 'yellow', 'red'].includes(filterType)) {
+                match = (cats[nickText] === filterType);
+            }
+            el.style.display = match ? '' : 'none';
+        });
+    };
+
+    const injectCategoriesMenu = (menu: HTMLElement) => {
+        if (menu.dataset.customCategoriesInjected === 'true') return;
+        menu.dataset.customCategoriesInjected = 'true';
+        const rankItem = menu.querySelector('.ContextMenuStyle-menuItemRank') as HTMLElement;
+        if (!rankItem) return;
+        const span = Array.from(rankItem.querySelectorAll('span')).find(s => s.className.includes('whiteSpaceNoWrap')) as HTMLElement;
+        if (!span) return;
+
+        const nickname = span.innerText.trim();
+        const row = document.createElement('div');
+        row.className = 'custom-category-row';
+        const cats = getCustomCategories();
+        const currentColor = cats[nickname];
+
+        const customButtons = [
+            { type: 'purple', url: 'https://s.eu.tankionline.com/static/images/iconEpicFiolet.d91b1151.svg' },
+            { type: 'yellow', url: 'https://s.eu.tankionline.com/static/images/iconLegendaryGold.7c76cb29.svg' },
+            { type: 'red', url: 'https://s.eu.tankionline.com/static/images/iconCustomiseRed.2b5c8828.svg' }
+        ];
+
+        customButtons.forEach(c => {
+            const btn = document.createElement('div');
+            btn.className = `custom-category-menu-btn ${currentColor === c.type ? 'active' : ''}`;
+            btn.innerHTML = `<img src="${c.url}">`;
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                setCustomCategory(nickname, c.type);
+                row.querySelectorAll('.custom-category-menu-btn').forEach(b => b.classList.remove('active'));
+                const newCats = getCustomCategories();
+                if (newCats[nickname] === c.type) {
+                    btn.classList.add('active');
+                }
+            };
+            row.appendChild(btn);
+        });
+
+        menu.appendChild(row);
+        requestAnimationFrame(() => {
+            const rect = menu.getBoundingClientRect();
+            const overflow = rect.bottom - window.innerHeight;
+            if (overflow > 0) {
+                const currentTop = parseFloat(menu.style.top) || rect.top;
+                menu.style.top = `${currentTop - overflow - 8}px`;
+            }
+        });
+    };
+
+    const setupSidebar = (scrollBlock: HTMLElement) => {
+        if (scrollBlock.dataset.sidebarInjected === 'true') return;
+        scrollBlock.dataset.sidebarInjected = 'true';
+        const isFriends = scrollBlock.classList.contains('FriendListComponentStyle-scrollCommunity');
+
+        if (isFriends) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'custom-friends-wrapper';
+            wrapper.style.cssText = 'position: relative; width: 72.375em; margin: 0 auto; box-sizing: border-box;';
+            if (scrollBlock.parentNode) {
+                scrollBlock.parentNode.insertBefore(wrapper, scrollBlock);
+            }
+            wrapper.appendChild(scrollBlock);
+
+            const sidebar = document.createElement('div');
+            sidebar.className = 'custom-friends-sidebar sidebar-friends';
+            filtersConfig.forEach((config, index) => {
+                const btn = document.createElement('div');
+                btn.className = 'custom-filter-btn';
+                if (index === 0) btn.classList.add('active');
+                const img = document.createElement('img');
+                img.src = config.url;
+                btn.addEventListener('click', () => {
+                    sidebar.querySelectorAll('.custom-filter-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    applyFilter(scrollBlock, config.type);
+                });
+                btn.appendChild(img);
+                sidebar.appendChild(btn);
+            });
+            wrapper.appendChild(sidebar);
+        } else {
+            const parent = scrollBlock.parentNode as HTMLElement;
+            if (!parent) return;
+            if (window.getComputedStyle(parent).position === 'static') {
+                parent.style.position = 'relative';
+            }
+            const sidebar = document.createElement('div');
+            sidebar.className = 'custom-friends-sidebar sidebar-invites';
+            filtersConfig.forEach((config, index) => {
+                const btn = document.createElement('div');
+                btn.className = 'custom-filter-btn';
+                if (index === 0) btn.classList.add('active');
+                const img = document.createElement('img');
+                img.src = config.url;
+                btn.addEventListener('click', () => {
+                    sidebar.querySelectorAll('.custom-filter-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    applyFilter(scrollBlock, config.type);
+                });
+                btn.appendChild(img);
+                sidebar.appendChild(btn);
+            });
+            parent.insertBefore(sidebar, scrollBlock);
+        }
+    };
+
+    return () => {
+        if (!utils.getSetting('k_friends', false)) return;
+
+        if (state.currentScreen === 'battle') return;
+
+        if (!initialized) {
+            initialized = true;
+        }
+
+        const scrollBlocks = document.querySelectorAll('.FriendListComponentStyle-scrollCommunity, .InvitationWindowsComponentStyle-usersScroll');
+        scrollBlocks.forEach(node => {
+            const scrollBlock = node as HTMLElement;
+            if (scrollBlock.dataset.sidebarInjected !== 'true') setupSidebar(scrollBlock);
+
+            const isFriendsList = scrollBlock.classList.contains('FriendListComponentStyle-scrollCommunity');
+            const itemSelector = isFriendsList ? '.FriendListComponentStyle-blockList' : '.InvitationWindowsComponentStyle-usersScroll > div > div';
+
+            scrollBlock.querySelectorAll(itemSelector).forEach(el => {
+                updateCardBadge(el as HTMLElement, isFriendsList);
+            });
+        });
+
+        const contextMenus = document.querySelectorAll('.ContextMenuStyle-menu');
+        contextMenus.forEach(node => {
+            const menu = node as HTMLElement;
+            if (menu.dataset.customCategoriesInjected !== 'true') injectCategoriesMenu(menu);
+        });
+    };
+})();

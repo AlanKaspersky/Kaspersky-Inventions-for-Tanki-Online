@@ -7,46 +7,48 @@
     <p style="margin-bottom: 1.5em;">{{intro}}</p>
 
     <p style="margin: 0; color: rgba(255, 255, 255, 0.5); font-size: 0.9em; text-transform: uppercase;">{{role1}}</p>
-    <p style="margin: 0.2em 0 1em 0; font-family: BaseFontBold, FallbackFontBold, sans-serif; color: white; font-size: 1.2em;">Kaspersky</p>
+    <p style="margin: 0.2em 0 1.5em 0; font-family: BaseFontBold, FallbackFontBold, sans-serif; color: white; font-size: 1.2em;">Kaspersky</p>
 
-    <p style="margin: 0; color: rgba(255, 255, 255, 0.5); font-size: 0.9em; text-transform: uppercase;">{{role2}}</p>
-    <p style="margin: 0.2em 0 1em 0; color: white; line-height: 1.3;">
-        ChatGPT<br>
-        DeepSeek<br>
-        Claude Sonnet 5<br>
-        Claude Haiku 4.5<br>
-        Gemini 3.5 Flash-Lite<br>
-        Gemini 3.8 Flash<br>
-        Gemini 3.1 Pro<br>
-        Grok 4.6
-    </p>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; text-align: center; max-width: 34em; margin: 0 auto;">
 
-    <p style="margin: 0; color: rgba(255, 255, 255, 0.5); font-size: 0.9em; text-transform: uppercase;">{{role3}}</p>
-    <p style="margin: 0.2em 0 1em 0; color: white; line-height: 1.3;">
-        Claude Fable 5.1<br>
-        Claude Opus 5
-    </p>
+        <div>
+            <p style="margin: 0; color: rgba(255, 255, 255, 0.5); font-size: 0.9em; text-transform: uppercase;">{{role2}}</p>
+            <p style="margin: 0.2em 0 1.5em 0; color: white; line-height: 1.3;">
+                ChatGPT<br>
+                DeepSeek<br>
+                Claude Sonnet 5<br>
+                Claude Haiku 4.5<br>
+                Gemini 3.5 Flash-Lite<br>
+                Gemini 3.8 Flash<br>
+                Gemini 3.1 Pro<br>
+                Grok 4.6
+            </p>
 
-    <p style="margin: 0; color: rgba(255, 255, 255, 0.5); font-size: 0.9em; text-transform: uppercase;">{{role4}}</p>
-    <p style="margin: 0.2em 0 1.5em 0; color: white; line-height: 1.3;">
-        safwan
-    </p>
+            <p style="margin: 0; color: rgba(255, 255, 255, 0.5); font-size: 0.9em; text-transform: uppercase;">{{role3}}</p>
+            <p style="margin: 0.2em 0 0 0; color: white; line-height: 1.3;">
+                Claude Fable 5.1<br>
+                Claude Opus 5
+            </p>
+        </div>
 
-    <p style="margin: 0; font-family: BaseFontMedium, FallbackFontMedium, sans-serif; color: rgb(211 211 211); font-size: 1.1em; text-transform: uppercase;">{{outro}}</p>
+        <div>
+            <p style="margin: 0; color: rgba(255, 255, 255, 0.5); font-size: 0.9em; text-transform: uppercase;">{{role4}}</p>
+            <p style="margin: 0.2em 0 0 0; color: white; line-height: 1.3;">
+                safwan<br>
+                Lukas
+            </p>
+        </div>
+    </div>
+
+    <p style="margin: 2em 0 0 0; font-family: BaseFontMedium, FallbackFontMedium, sans-serif; color: rgb(211 211 211); font-size: 1.1em; text-transform: uppercase;">{{outro}}</p>
 </div>
 
 <div style="display: flex; justify-content: center; gap: 1em; flex-wrap: wrap;">
     <a href="https://discord.gg/yNeB7Ah752" target="_blank" rel="noreferrer noopener" style="text-decoration: none;">
-        <div style="height: 3em; border-radius: 0.75em; background-color: #5865F2; display: flex; align-items: center; justify-content: center; color: white; font-family: BaseFontBold, FallbackFontBold, sans-serif; font-weight: 500; text-transform: uppercase; padding: 0 1.5em; cursor: pointer; border: 1px solid transparent;" onmouseover="this.style.borderColor='white'; this.style.boxShadow='0 0 0 1px white';" onmouseout="this.style.borderColor='transparent'; this.style.boxShadow='none';">
-            DISCORD
-        </div>
+        <div class="kasp-welcome-btn kasp-welcome-btn--discord">DISCORD</div>
     </a>
     <a href="https://github.com/AlanKaspersky/Kaspersky-Inventions-for-Tanki-Online.git" target="_blank" rel="noreferrer noopener" style="text-decoration: none;">
-        <div style="height: 3em; border-radius: 0.75em; background-color: rgba(255, 255, 255, 0.15); display: flex; align-items: center; justify-content: center; color: white; font-family: BaseFontBold, FallbackFontBold, sans-serif; font-weight: 500; text-transform: uppercase; padding: 0 1.5em; cursor: pointer; border: 1px solid transparent;" onmouseover="this.style.borderColor='white'; this.style.boxShadow='0 0 0 1px white';" onmouseout="this.style.borderColor='transparent'; this.style.boxShadow='none';">
-            GITHUB
-        </div>
+        <div class="kasp-welcome-btn kasp-welcome-btn--github">GITHUB</div>
     </a>
-    <div id="kasp-welcome-close" style="height: 3em; border-radius: 0.75em; background-color: rgb(213 213 213); display: flex; align-items: center; justify-content: center; color: rgb(0, 25, 38); font-family: BaseFontBold, FallbackFontBold, sans-serif; font-weight: 500; text-transform: uppercase; padding: 0 1.5em; cursor: pointer; border: 1px solid transparent;" onmouseover="this.style.borderColor='white'; this.style.boxShadow='0 0 0 1px white';" onmouseout="this.style.borderColor='transparent'; this.style.boxShadow='none';">
-        {{close}}
-    </div>
+    <div id="kasp-welcome-close" class="kasp-welcome-btn kasp-welcome-btn--close">{{close}}</div>
 </div>
