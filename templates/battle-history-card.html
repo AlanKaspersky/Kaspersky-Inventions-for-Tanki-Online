@@ -12,7 +12,7 @@
 
     <div class="bh-card-result">
         <div class="bh-card-result-status">{{statusLocalized}}</div>
-        <div class="bh-combat-stats">
+        <div class="bh-combat-stats {{combatStatsClass}}">
             <div class="bh-stat">
                 <span class="bh-stat-value">{{scoreValue}}</span>
                 <span class="bh-stat-label">{{scoreLabel}}</span>
@@ -21,6 +21,7 @@
                 <span class="bh-stat-value">{{killsValue}}<span class="bh-stat-sep">/</span>{{deathsValue}}</span>
                 <span class="bh-stat-label">{{killsLabel}} / {{deathsLabel}}</span>
             </div>
+            {{teamScoreStat}}
         </div>
     </div>
 
@@ -55,11 +56,11 @@
         <div class="bh-mode-rewards">
             <div class="bh-reward">
                 <span class="bh-reward-icon bh-reward-icon--crystal"></span>
-                <span class="bh-reward-value">{{crystalsValue}}</span>
+                <span class="bh-reward-value bh-reward-value--crystal">{{crystalsValue}}</span>
             </div>
             <div class="bh-reward">
                 <span class="bh-reward-icon bh-reward-icon--star"></span>
-                <span class="bh-reward-value">{{starsValue}}</span>
+                <span class="bh-reward-value bh-reward-value--star">{{starsValue}}</span>
             </div>
         </div>
         <div class="bh-mode-date">{{dateTime}}</div>

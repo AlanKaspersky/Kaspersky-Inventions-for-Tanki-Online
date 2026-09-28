@@ -93,100 +93,25 @@
 .custom-history-content {
     flex-grow: 1;
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     justify-content: center;
-    gap: 1.5em;
     overflow: hidden;
     padding: 1.5em 2em 2em 2em;
 }
 
 .bh-left-panel {
-    width: 87em;
+    width: 100%;
+    max-width: 110em;
     display: flex;
     flex-direction: column;
-    flex-shrink: 0;
+    flex: 1 1 auto;
+    align-self: center;
+    min-width: 0;
     min-height: 0;
 }
 
-.bh-right-panel {
-    width: 22em;
-    display: flex;
-    flex-direction: column;
-    gap: 1em;
-    flex-shrink: 0;
-    padding-top: 4em;
-}
-
-.bh-stats-box {
-    background: #111114;
-    border: 1px solid #222226;
-    padding: 1.2em;
-    display: flex;
-    flex-direction: column;
-    gap: 1em;
-    height: 7em;
-}
-
-.bh-stats-title {
-    font-family: BaseFontBold, FallbackFontBold, sans-serif;
-    font-size: 0.9em;
-    color: rgb(120, 120, 120);
-    text-transform: uppercase;
-    text-align: center;
-    letter-spacing: 0.1em;
-}
-
-.bh-stats-grid {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.bh-stat-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.5em;
-    flex: 1;
-}
-
-.bh-stat-separator {
-    width: 1px;
-    height: 3.8em;
-    background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.12) 30%, rgba(255, 255, 255, 0.12) 70%, rgba(255, 255, 255, 0));
-}
-
-.bh-stat-icon {
-    width: 1.9em;
-    height: 1.9em;
-    background-color: rgb(255, 255, 255);
-    -webkit-mask-size: contain;
-    mask-size: contain;
-    -webkit-mask-repeat: no-repeat;
-    mask-repeat: no-repeat;
-    -webkit-mask-position: center;
-    mask-position: center;
-    opacity: 0.85;
-}
-
-.bh-stat-label {
-    font-family: BaseFontMedium, FallbackFontMedium, sans-serif;
-    font-size: 0.7em;
-    color: rgba(255, 255, 255, 0.4);
-    text-transform: uppercase;
-    white-space: nowrap;
-    letter-spacing: 0.08em;
-}
-
-.bh-stat-value {
-    font-family: BaseFontBold, FallbackFontBold, sans-serif;
-    font-size: 1.9em;
-    color: rgb(255, 221, 44);
-    line-height: 1;
-}
-
 .bh-controls-container {
-    width: 87em;
+    width: 100%;
     justify-content: space-between;
     z-index: 5;
     display: flex;
@@ -244,10 +169,6 @@
 
 .bh-control-btn:hover {
     box-shadow: rgb(255, 255, 255) 0em 0em 0em 2px;
-}
-
-.bh-control-btn:hover::after {
-    animation: kasp-metal-shine 0.6s ease-in-out;
 }
 
 .bh-btn-clear {
@@ -435,19 +356,19 @@
 }
 
 .bh-card-result--win .bh-card-result-status {
-    color: #f4f4f4;
+    color: rgb(0, 212, 255);
 }
 
 .bh-card-result--draw .bh-card-result-status {
-    color: #a0a0a0;
+    color: rgb(191, 213, 255);
 }
 
 .bh-card-result--loss .bh-card-result-status {
-    color: #787878;
+    color: rgb(254, 102, 102);
 }
 
 .bh-card-result--dm .bh-card-result-status {
-    color: #d4a24a;
+    color: rgb(255, 0, 0);
 }
 
 .bh-combat-stats {
@@ -456,6 +377,11 @@
     gap: 2em;
     align-items: end;
     min-width: 0;
+}
+
+.bh-combat-stats--with-team-score {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1em;
 }
 
 .bh-stat {
@@ -491,6 +417,10 @@
     letter-spacing: 0.13em;
     text-transform: uppercase;
     white-space: nowrap;
+}
+
+.bh-stat-label--team-score {
+    white-space: normal;
 }
 
 
@@ -690,6 +620,14 @@
     font-size: 0.9em;
 }
 
+.bh-reward-value--crystal {
+    color: rgb(0, 215, 255);
+}
+
+.bh-reward-value--star {
+    color: rgb(255, 221, 44);
+}
+
 .bh-mode-date {
     position: relative;
     margin-top: 0.6em;
@@ -863,13 +801,14 @@
     z-index: 2;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
     padding: 1.5em 2em;
 }
 
 .bh-detailed-view .hero-score.right {
     align-items: flex-end;
     text-align: right;
+    justify-content: flex-end;
 }
 
 .bh-detailed-view .hero-label {
@@ -965,6 +904,10 @@
     overflow: hidden;
     border: 1px solid var(--line-bright);
     background: linear-gradient(180deg, rgba(255, 255, 255, .015), transparent 30%);
+}
+
+.bh-detailed-view .team-panel.bh-hidden {
+    display: none;
 }
 
 .bh-detailed-view .team-panel.my-team {
@@ -1219,10 +1162,6 @@
     background: linear-gradient(90deg, rgba(255, 255, 255, .055), rgba(255, 255, 255, .02));
 }
 
-.bh-detailed-view .my-team .current-player {
-    box-shadow: inset 2px 0 0 var(--cyan);
-}
-
 .bh-detailed-view .enemy-team .current-player {
     box-shadow: inset 2px 0 0 var(--red);
 }
@@ -1289,14 +1228,10 @@
     z-index: -1;
 }
 
-.bh-detailed-view .toolbar .button:hover::after {
-    animation: kasp-metal-shine 0.6s ease-in-out;
-}
-
 .kasp-loader-overlay {
     position: fixed;
     inset: 0;
-    z-index: 10000;
+    z-index: 2147483647 !important;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1343,4 +1278,66 @@
     background-repeat: no-repeat;
     background-size: contain;
     background-position: center;
+}
+
+.bh-detailed-view .my-team .current-player {
+    box-shadow: inset 2px 0 0 var(--cyan);
+    background: rgb(0 217 255 / 27%) !important;
+}
+
+.bh-detailed-view .result-hero .hero-score {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.75em;
+}
+
+.bh-detailed-view .result-hero .hero-score-text {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0.15em;
+}
+
+.bh-detailed-view .result-hero .hero-score.right {
+    justify-content: flex-start;
+}
+.bh-detailed-view .result-hero .hero-mode-icon {
+    width: 3.25em;
+    height: 3.25em;
+    flex-shrink: 0;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+}
+
+.bh-detailed-view .result-hero .hero-score:not(.right):not(.dm) .hero-mode-icon {
+    background-color: #00d9ff;
+    transform: scaleX(-1);
+}
+
+.bh-detailed-view .result-hero .hero-score.right:not(.dm) .hero-mode-icon {
+    background-color: #fe6666;
+    transform: none;
+}
+
+.bh-detailed-view .result-hero .hero-score.dm:not(.right) .hero-mode-icon {
+    background-color: #00d9ff;
+    transform: none;
+}
+.bh-detailed-view .result-hero .hero-score.dm.right .hero-mode-icon {
+    background-color: #fe6666;
+    transform: none;
+}
+
+.bh-detailed-view .result-hero .hero-score.right {
+    flex-direction: row-reverse;
+}
+.bh-detailed-view .result-hero .hero-score.right .hero-score-text {
+    align-items: flex-end;
 }

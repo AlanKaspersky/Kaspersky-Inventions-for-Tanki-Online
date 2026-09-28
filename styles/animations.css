@@ -35,3 +35,110 @@
         left: 200%;
     }
 }
+
+@keyframes bh-card-rise-in {
+    from {
+        opacity: 0;
+        transform: translateY(30em);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes bh-card-new-in {
+    from {
+        opacity: 0;
+        transform: translateY(-100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes bh-card-push-down {
+    from {
+        transform: translateY(var(--bh-push-distance, -10em));
+    }
+    to {
+        transform: translateY(0);
+    }
+}
+
+.bh-card--rise-in {
+    animation: bh-card-rise-in 350ms cubic-bezier(0.22, 1, 0.36, 1) both paused;
+}
+
+.bh-card--new-in {
+    animation: bh-card-new-in 360ms cubic-bezier(0.2, 0.75, 0.25, 1) both paused;
+}
+
+.bh-card--push-down {
+    animation: bh-card-push-down 360ms cubic-bezier(0.2, 0.75, 0.25, 1) both paused;
+}
+
+.bh-list--animations-ready .bh-card--rise-in,
+.bh-list--animations-ready .bh-card--new-in,
+.bh-list--animations-ready .bh-card--push-down {
+    animation-play-state: running;
+}
+
+@keyframes bh-panel-leave {
+    from { opacity: 1; transform: translateX(0); }
+    to { opacity: 0; transform: translateX(-1.5em); }
+}
+
+@keyframes bh-panel-enter {
+    from { opacity: 0; transform: translateX(-1.5em); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes bh-detail-enter {
+    from { opacity: 0; transform: translateX(1.5em); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes bh-detail-leave {
+    from { opacity: 1; transform: translateX(0); }
+    to { opacity: 0; transform: translateX(1.5em); }
+}
+
+.bh-panel-leave {
+    animation: bh-panel-leave 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.bh-panel-enter {
+    animation: bh-panel-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.bh-detail-enter {
+    animation: bh-detail-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.bh-detail-leave {
+    animation: bh-detail-leave 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.bh-control-btn:hover::after,
+.bh-detailed-view .toolbar .button:hover::after {
+    animation: kasp-metal-shine 0.6s ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bh-card--rise-in,
+    .bh-card--new-in,
+    .bh-card--push-down {
+        animation: none;
+        opacity: 1;
+        transform: none;
+    }
+
+    .bh-panel-leave,
+    .bh-panel-enter,
+    .bh-detail-enter,
+    .bh-detail-leave {
+        animation-duration: 1ms;
+    }
+}

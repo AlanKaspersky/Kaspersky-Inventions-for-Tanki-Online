@@ -31,8 +31,10 @@ export function setupElectronZKey() {
                 ae.isContentEditable))
             return;
         e.preventDefault();
-        dispatchZKey('keydown');
-        dispatchZKey('keyup');
+        if (e.button === 3) {
+            dispatchZKey('keydown');
+            dispatchZKey('keyup');
+        }
     }, true);
     document.addEventListener('mouseup', (e) => {
         if (e.button === 3 || e.button === 4)

@@ -243,8 +243,13 @@ export const autoUpgrade = (() => {
                 return;
             }
             if (e.button === 3 || e.button === 4) {
-                e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
-                if (!isClosing) { isClosing = true; closeDialog(); }
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                if (e.button === 3 && !isClosing) {
+                    isClosing = true;
+                    closeDialog();
+                }
             }
         }
 

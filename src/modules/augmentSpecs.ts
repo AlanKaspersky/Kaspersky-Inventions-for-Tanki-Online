@@ -232,7 +232,7 @@ export const augmentSpecs = (() => {
             }, true);
 
             window.addEventListener('mousedown', (e) => {
-                if (e.button === 3 || e.button === 4) {
+                if (e.button === 3) {
                     forceHideTooltip();
                 }
             }, true);

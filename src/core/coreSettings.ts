@@ -88,9 +88,12 @@ export const coreSettings = (() => {
 
             function handleMouse(e: MouseEvent) {
                 if (e.button === 3 || e.button === 4) {
-                    e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
-                    if (e.type === 'mousedown' && !dialogClosed) {
-                        dialogClosed = true; closeDialog();
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    if (e.button === 3 && e.type === 'mousedown' && !dialogClosed) {
+                        dialogClosed = true;
+                        closeDialog();
                     }
                 }
             }

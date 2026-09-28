@@ -1,0 +1,64 @@
+<div class="toolbar">
+    <button class="button button-back" id="bh-detailed-back">{{backLabel}}</button>
+    <div class="toolbar-right">
+        <button class="button button-delete" id="bh-detailed-delete">{{deleteLabel}}</button>
+    </div>
+</div>
+
+<section class="result-hero">
+    <div class="hero-score {{leftScoreClass}}">
+        <div class="hero-mode-icon" style="-webkit-mask-image: url('{{leftIconUrl}}'); mask-image: url('{{leftIconUrl}}');"></div>
+        <div class="hero-score-text">
+            <div class="hero-label">{{leftLabel}}</div>
+            <div class="hero-value">{{leftValue}}</div>
+        </div>
+    </div>
+    <div class="hero-center">
+        <div class="hero-meta">{{mode}} · {{date}} · {{time}} · {{playerCount}} {{playersLabel}}</div>
+        <div class="hero-map">{{map}}</div>
+        <div class="hero-result {{resultClass}}">{{resultText}}</div>
+    </div>
+    <div class="hero-score right {{rightScoreClass}}">
+        <div class="hero-mode-icon" style="-webkit-mask-image: url('{{rightIconUrl}}'); mask-image: url('{{rightIconUrl}}');"></div>
+        <div class="hero-score-text">
+            <div class="hero-label">{{rightLabel}}</div>
+            <div class="hero-value">{{rightValue}}</div>
+        </div>
+    </div>
+</section>
+
+<section class="stats-wrapper {{statsClass}}">
+    <article class="team-panel my-team {{myTeamClass}}">
+        <header class="team-header">
+            <div class="team-title">{{myTeamTitle}}</div>
+            <div class="team-count">{{myTeamCount}}</div>
+        </header>
+        <table class="players-table">
+            <thead>
+                <tr>
+                    <th>{{playerLabel}}</th><th>{{gsLabel}}</th><th>{{scoreLabel}}</th><th>K</th><th>D</th><th>K/D</th>
+                    <th class="bh-th-icon"><div class="bh-icon-crystal"></div></th>
+                    <th class="bh-th-icon"><div class="bh-icon-star"></div></th>
+                </tr>
+            </thead>
+            <tbody>{{myTeamRows}}</tbody>
+        </table>
+    </article>
+
+    <article class="team-panel enemy-team {{enemyTeamClass}}">
+        <header class="team-header">
+            <div class="team-title">{{enemyTeamTitle}}</div>
+            <div class="team-count">{{enemyTeamCount}}</div>
+        </header>
+        <table class="players-table">
+            <thead>
+                <tr>
+                    <th>{{playerLabel}}</th><th>{{gsLabel}}</th><th>{{scoreLabel}}</th><th>K</th><th>D</th><th>K/D</th>
+                    <th class="bh-th-icon"><div class="bh-icon-crystal"></div></th>
+                    <th class="bh-th-icon"><div class="bh-icon-star"></div></th>
+                </tr>
+            </thead>
+            <tbody>{{enemyTeamRows}}</tbody>
+        </table>
+    </article>
+</section>

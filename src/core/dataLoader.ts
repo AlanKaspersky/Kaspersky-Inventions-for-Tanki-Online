@@ -85,4 +85,4 @@ export const DataLoader = (() => {
             },
             getSkinsData: () => state.skins,
         };
-    })();;
+    })();

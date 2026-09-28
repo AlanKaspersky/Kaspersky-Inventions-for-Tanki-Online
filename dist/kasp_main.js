@@ -47,8 +47,10 @@
       if (ae instanceof HTMLElement && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.tagName === "SELECT" || ae.isContentEditable))
         return;
       e.preventDefault();
-      dispatchZKey("keydown");
-      dispatchZKey("keyup");
+      if (e.button === 3) {
+        dispatchZKey("keydown");
+        dispatchZKey("keyup");
+      }
     }, true);
     document.addEventListener("mouseup", (e) => {
       if (e.button === 3 || e.button === 4)
@@ -266,7 +268,7 @@
               e.preventDefault();
               e.stopPropagation();
               e.stopImmediatePropagation();
-              if (e.type === "mousedown" && !dialogClosed) {
+              if (e.button === 3 && e.type === "mousedown" && !dialogClosed) {
                 dialogClosed = true;
                 closeDialog();
               }
@@ -812,7 +814,7 @@
               }
             }, true);
             window.addEventListener("mousedown", (e) => {
-              if (e.button === 3 || e.button === 4) {
+              if (e.button === 3) {
                 forceHideTooltip();
               }
             }, true);
@@ -2321,7 +2323,7 @@
               e.preventDefault();
               e.stopPropagation();
               e.stopImmediatePropagation();
-              if (!isClosing) {
+              if (e.button === 3 && !isClosing) {
                 isClosing = true;
                 closeDialog();
               }
@@ -3471,6 +3473,10 @@
       battleHistory = (() => {
         let initialized = false;
         let battleProcessed = false;
+        let historyBackSuppressedUntil = 0;
+        let hasRenderedBattleList = false;
+        let lastRenderedNewestBattleKey = null;
+        let pendingBattleListAnimation = false;
         const NICK_KEY = "kasp_last_nickname";
         let currentPage = 1;
         const ROWS_PER_PAGE = 15;
@@ -3567,7 +3573,7 @@
             const titleEl = document.querySelector(
               ".BreadcrumbsComponentStyle-rootTitle > span"
             );
-            const text = titleEl?.textContent?.trim();
+            const text = (titleEl?.textContent?.trim() ?? "").toUpperCase();
             if (text === "SETTINGS" || text === "\u041D\u0410\u0421\u0422\u0420\u041E\u0419\u041A\u0418") {
               bhExitAfterReturn = false;
               bhReturnObserver?.disconnect();
@@ -3719,9 +3725,35 @@
             const transaction = db.transaction("battles", "readwrite");
             const store = transaction.objectStore("battles");
             const request = store.add(battleData);
-            request.onsuccess = (e) => resolve(e.target.result);
-            request.onerror = () => reject(request.error);
+            let id;
+            request.onsuccess = () => {
+              id = request.result;
+            };
+            transaction.oncomplete = () => {
+              db.close();
+              resolve(id);
+            };
+            transaction.onerror = () => {
+              db.close();
+              reject(transaction.error || request.error);
+            };
+            transaction.onabort = () => {
+              db.close();
+              reject(transaction.error || request.error || new Error("Battle save was aborted"));
+            };
           });
+        };
+        const addBattles = async (battles) => {
+          if (battles.length === 0) return;
+          const db = await openDB();
+          await new Promise((resolve, reject) => {
+            const transaction = db.transaction("battles", "readwrite");
+            const store = transaction.objectStore("battles");
+            for (const battle of battles) store.add(battle);
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = () => reject(transaction.error || new Error("Battle import failed"));
+            transaction.onabort = () => reject(transaction.error || new Error("Battle import was aborted"));
+          }).finally(() => db.close());
         };
         const getAllBattles = async (nickname) => {
           try {
@@ -3743,27 +3775,6 @@
             return [];
           }
         };
-        const removeDuplicateBattles = async (nickname) => {
-          try {
-            const battles = await getAllBattles(nickname);
-            if (battles.length === 0) return;
-            const uniqueMap = /* @__PURE__ */ new Map();
-            const idsToDelete = [];
-            battles.forEach((b) => {
-              const signature = `${Math.floor(b.date / 6e4)}_${b.map}_${b.kills}_${b.deaths}_${b.crystals}`;
-              if (uniqueMap.has(signature)) idsToDelete.push(b.id);
-              else uniqueMap.set(signature, b.id);
-            });
-            if (idsToDelete.length > 0) {
-              const db = await openDB();
-              const transaction = db.transaction("battles", "readwrite");
-              const store = transaction.objectStore("battles");
-              idsToDelete.forEach((id) => store.delete(id));
-            }
-          } catch (e) {
-            console.error("[Tanki Battle History] Error cleaning duplicates:", e);
-          }
-        };
         const translateMapName = (rawMapWithMode, targetLang) => {
           const cleanText = (rawMapWithMode || "").trim();
           if (!cleanText) return "Unknown";
@@ -3782,6 +3793,7 @@
           try {
             let closeDialog = function() {
               if (!overlay.parentNode) return;
+              cleanup();
               overlay.remove();
             };
             const response = await fetch(chrome.runtime.getURL("templates/clear-history-modal.html"));
@@ -3796,8 +3808,62 @@
             dialog.innerHTML = html;
             overlay.appendChild(dialog);
             let isClosing = false;
+            let onKeyHandler = null;
+            let onMouseHandler = null;
+            const cleanup = () => {
+              if (onKeyHandler) {
+                document.removeEventListener("keydown", onKeyHandler, true);
+                onKeyHandler = null;
+              }
+              if (onMouseHandler) {
+                window.removeEventListener("mousedown", onMouseHandler, true);
+                onMouseHandler = null;
+              }
+            };
             overlay.closeDialogMethod = closeDialog;
             document.body.appendChild(overlay);
+            onKeyHandler = (e) => {
+              if (isClosing) return;
+              const isEsc = e.key === "Escape" || e.key === "Esc";
+              const isZ = e.code === "KeyZ" || e.key && e.key.toLowerCase() === "z";
+              if (!isEsc && !isZ) return;
+              isClosing = true;
+              historyBackSuppressedUntil = Date.now() + 500;
+              if (isZ) blockRemainingBackEvents();
+              e.preventDefault();
+              e.stopPropagation();
+              e.stopImmediatePropagation();
+              closeDialog();
+            };
+            document.addEventListener("keydown", onKeyHandler, true);
+            const blockRemainingBackEvents = () => {
+              const block = (e) => {
+                if (e.button !== 3 && e.button !== 4) return;
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+              };
+              window.addEventListener("mouseup", block, true);
+              window.addEventListener("click", block, true);
+              window.addEventListener("auxclick", block, true);
+              window.setTimeout(() => {
+                window.removeEventListener("mouseup", block, true);
+                window.removeEventListener("click", block, true);
+                window.removeEventListener("auxclick", block, true);
+              }, 700);
+            };
+            onMouseHandler = (e) => {
+              if (isClosing) return;
+              if (e.button !== 3) return;
+              isClosing = true;
+              historyBackSuppressedUntil = Date.now() + 500;
+              blockRemainingBackEvents();
+              e.preventDefault();
+              e.stopPropagation();
+              e.stopImmediatePropagation();
+              closeDialog();
+            };
+            window.addEventListener("mousedown", onMouseHandler, true);
             dialog.querySelector("#clear-dlg-confirm")?.addEventListener("click", (e) => {
               e.stopPropagation();
               if (!isClosing) {
@@ -3825,8 +3891,8 @@
           }
         }
         const t = {
-          RU: { title: "\u0418\u0441\u0442\u043E\u0440\u0438\u044F \u0411\u0438\u0442\u0432", date: "\u0414\u0430\u0442\u0430", map: "\u041A\u0430\u0440\u0442\u0430", status: "\u0421\u0442\u0430\u0442\u0443\u0441", top: "\u041C\u0435\u0441\u0442\u043E", mode: "\u0420\u0435\u0436\u0438\u043C", score: "\u041E\u0447\u043A\u0438", kills: "\u0423\u0431\u0438\u0439\u0441\u0442\u0432\u0430", deaths: "\u0421\u043C\u0435\u0440\u0442\u0438", kd: "\u0423/\u0421", turret: "\u041F\u0443\u0448\u043A\u0430", hull: "\u041A\u043E\u0440\u043F\u0443\u0441", augment: "\u0423\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u043E", crystals: "\u041A\u0440\u0438\u0441\u0442\u0430\u043B\u043B\u044B", stars: "\u0417\u0432\u0451\u0437\u0434\u044B", win: "\u041F\u043E\u0431\u0435\u0434\u0430", lose: "\u041F\u043E\u0440\u0430\u0436\u0435\u043D\u0438\u0435", draw: "\u041D\u0438\u0447\u044C\u044F", dm: "DM", clear: "\u041E\u0447\u0438\u0441\u0442\u0438\u0442\u044C", export: "\u042D\u043A\u0441\u043F\u043E\u0440\u0442", import: "\u0418\u043C\u043F\u043E\u0440\u0442", last20: "\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043A\u0430 20 \u0431\u0438\u0442\u0432", battles: "\u0411\u043E\u0451\u0432", noBattles: "\u041F\u043E\u043A\u0430 \u043D\u0435\u0442 \u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u0445 \u0431\u043E\u0451\u0432", player: "\u0418\u0433\u0440\u043E\u043A", gs: "GS", diamond: "DIAMOND", myTeam: "\u041C\u043E\u044F \u043A\u043E\u043C\u0430\u043D\u0434\u0430", enemyTeam: "\u041A\u043E\u043C\u0430\u043D\u0434\u0430 \u043F\u0440\u043E\u0442\u0438\u0432\u043D\u0438\u043A\u0430", playersCount: "\u0438\u0433\u0440\u043E\u043A\u043E\u0432", allBattles: "\u2039 &nbsp; \u0412\u0441\u0435 \u0431\u0438\u0442\u0432\u044B", deleteBtn: "\u0423\u0434\u0430\u043B\u0438\u0442\u044C", yourScore: "\u0412\u0430\u0448 \u0441\u0447\u0451\u0442", yourKd: "\u0412\u0430\u0448 K/D" },
-          EN: { title: "Battle History", date: "Date", map: "Map", status: "Status", top: "Top", mode: "Mode", score: "Score", kills: "Kills", deaths: "Deaths", kd: "K/D", turret: "Turret", hull: "Hull", augment: "Augment", crystals: "Crystals", stars: "Stars", win: "Victory", lose: "Defeat", draw: "Draw", dm: "DM", clear: "Clear", export: "Export", import: "Import", last20: "Last 20 Match Stats", battles: "Battles", noBattles: "No saved battles yet", player: "Player", gs: "GS", diamond: "DIAMOND", myTeam: "My Team", enemyTeam: "Enemy Team", playersCount: "players", allBattles: "\u2039 &nbsp; All battles", deleteBtn: "Delete", yourScore: "Your Score", yourKd: "Your K/D" }
+          RU: { title: "\u0418\u0441\u0442\u043E\u0440\u0438\u044F \u0411\u0438\u0442\u0432", date: "\u0414\u0430\u0442\u0430", map: "\u041A\u0430\u0440\u0442\u0430", status: "\u0421\u0442\u0430\u0442\u0443\u0441", top: "\u041C\u0435\u0441\u0442\u043E", mode: "\u0420\u0435\u0436\u0438\u043C", score: "\u041E\u0447\u043A\u0438", kills: "\u041A", deaths: "\u0414", kd: "\u0423/\u0421", turret: "\u041F\u0443\u0448\u043A\u0430", hull: "\u041A\u043E\u0440\u043F\u0443\u0441", augment: "\u0423\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u043E", crystals: "\u041A\u0440\u0438\u0441\u0442\u0430\u043B\u043B\u044B", stars: "\u0417\u0432\u0451\u0437\u0434\u044B", win: "\u041F\u043E\u0431\u0435\u0434\u0430", lose: "\u041F\u043E\u0440\u0430\u0436\u0435\u043D\u0438\u0435", draw: "\u041D\u0438\u0447\u044C\u044F", dm: "\u041A\u0430\u0436\u0434\u044B\u0439 \u0441\u0430\u043C \u0437\u0430 \u0441\u0435\u0431\u044F", teamScore: "\u0421\u0447\u0451\u0442", clear: "\u041E\u0447\u0438\u0441\u0442\u0438\u0442\u044C", export: "\u042D\u043A\u0441\u043F\u043E\u0440\u0442", import: "\u0418\u043C\u043F\u043E\u0440\u0442", battles: "\u0411\u043E\u0451\u0432", noBattles: "\u041F\u043E\u043A\u0430 \u043D\u0435\u0442 \u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u0445 \u0431\u043E\u0451\u0432", player: "\u0418\u0433\u0440\u043E\u043A", gs: "GS", diamond: "DIAMOND", myTeam: "\u041C\u043E\u044F \u043A\u043E\u043C\u0430\u043D\u0434\u0430", enemyTeam: "\u041A\u043E\u043C\u0430\u043D\u0434\u0430 \u043F\u0440\u043E\u0442\u0438\u0432\u043D\u0438\u043A\u0430", playersCount: "\u0438\u0433\u0440\u043E\u043A\u043E\u0432", allBattles: "\u2039 &nbsp; \u0412\u0441\u0435 \u0431\u0438\u0442\u0432\u044B", deleteBtn: "\u0423\u0434\u0430\u043B\u0438\u0442\u044C", yourScore: "\u0412\u0430\u0448 \u0441\u0447\u0451\u0442", yourKd: "\u0412\u0430\u0448 \u041A/\u0414" },
+          EN: { title: "Battle History", date: "Date", map: "Map", status: "Status", top: "Top", mode: "Mode", score: "Score", kills: "Kills", deaths: "Deaths", kd: "K/D", turret: "Turret", hull: "Hull", augment: "Augment", crystals: "Crystals", stars: "Stars", win: "Victory", lose: "Defeat", draw: "Draw", dm: "Deathmatch", teamScore: "Score", clear: "Clear", export: "Export", import: "Import", battles: "Battles", noBattles: "No saved battles yet", player: "Player", gs: "GS", diamond: "DIAMOND", myTeam: "My Team", enemyTeam: "Enemy Team", playersCount: "players", allBattles: "\u2039 &nbsp; All battles", deleteBtn: "Delete", yourScore: "Your Score", yourKd: "Your K/D" }
         };
         const waitForSelector = (selector, timeoutMs = 3e3) => {
           const existing = document.querySelector(selector);
@@ -3883,7 +3949,8 @@
             const settingsBtn = [...document.querySelectorAll(
               ".PrimaryMenuItemComponentStyle-itemCommonLi.PrimaryMenuItemComponentStyle-menuItemContainer"
             )].find((el) => {
-              const name = el.querySelector(".PrimaryMenuItemComponentStyle-itemName")?.textContent?.trim();
+              if (el.querySelector(".PrimaryMenuItemComponentStyle-itemLiOption")) return true;
+              const name = (el.querySelector(".PrimaryMenuItemComponentStyle-itemName")?.textContent?.trim() ?? "").toUpperCase();
               return name === "SETTINGS" || name === "\u041D\u0410\u0421\u0422\u0420\u041E\u0419\u041A\u0418";
             });
             if (!settingsBtn) {
@@ -3932,6 +3999,19 @@
           const cleanMapName = text.replace(/\s+/g, " ").trim();
           return { map: cleanMapName || "Unknown", mode: foundMode };
         };
+        const MODE_ICONS = {
+          TDM: "https://s.eu.tankionline.com/static/images/tdm_mode.ef239dba.svg",
+          CP: "https://s.eu.tankionline.com/static/images/cp_mode.9d327fbc.svg",
+          CTF: "https://s.eu.tankionline.com/static/images/ctf_mode.fba37902.svg",
+          SGE: "https://s.eu.tankionline.com/static/images/sge_mode.4a6035e8.svg",
+          JGR: "https://s.eu.tankionline.com/static/images/jg_mode.025a9047.svg",
+          TJR: "https://s.eu.tankionline.com/static/images/jg_mode.025a9047.svg",
+          RGB: "https://s.eu.tankionline.com/static/images/rgb_mode.66312ba3.svg",
+          ASL: "https://s.eu.tankionline.com/static/images/asl_mode.42f836ca.svg",
+          AR: "https://ru.tankiwiki.com/images/ru/thumb/6/6c/AR_Icon.png/25px-AR_Icon.png"
+        };
+        const DM_SCORE_ICON = "https://s.eu.tankionline.com/static/images/score.b3ca71b2.svg";
+        const DM_KD_ICON = "https://s.eu.tankionline.com/static/images/qb_mode.71a6ec19.svg";
         const MAP_ICON_URL = chrome.runtime.getURL("assets/map-icon.png");
         let battleCardTemplatePromise = null;
         const loadBattleCardTemplate = () => {
@@ -3943,13 +4023,50 @@
           }
           return battleCardTemplatePromise;
         };
-        const renderDetailedMatch = (b, dict, lang) => {
+        let detailedViewTemplatePromise = null;
+        const loadDetailedViewTemplate = () => {
+          if (!detailedViewTemplatePromise) {
+            detailedViewTemplatePromise = fetch(chrome.runtime.getURL("templates/battle-history-detail.html")).then((response) => {
+              if (!response.ok) throw new Error(`Failed to load battle detail template: ${response.status}`);
+              return response.text();
+            });
+          }
+          return detailedViewTemplatePromise;
+        };
+        const animateHistoryTransition = (element, className, duration) => new Promise((resolve) => {
+          let finished = false;
+          const finish = () => {
+            if (finished) return;
+            finished = true;
+            element.removeEventListener("animationend", onAnimationEnd);
+            element.classList.remove(className);
+            resolve();
+          };
+          const onAnimationEnd = (event) => {
+            if (event.target === element) finish();
+          };
+          element.classList.remove(className);
+          void element.offsetWidth;
+          element.addEventListener("animationend", onAnimationEnd);
+          element.classList.add(className);
+          window.setTimeout(finish, duration + 50);
+        });
+        const renderDetailedMatch = async (b, dict, lang) => {
           const contentBlock = document.querySelector(".custom-history-content");
           if (!contentBlock) return;
-          const leftPanel = contentBlock.querySelector(".bh-left-panel");
-          const rightPanel = contentBlock.querySelector(".bh-right-panel");
-          if (leftPanel) leftPanel.style.display = "none";
-          if (rightPanel) rightPanel.style.display = "none";
+          let template;
+          try {
+            template = await loadDetailedViewTemplate();
+          } catch (error) {
+            console.error("[Tanki Battle History] Failed to load detail template:", error);
+            return;
+          }
+          const listPanel = contentBlock.querySelector(".bh-left-panel");
+          if (listPanel) {
+            await animateHistoryTransition(listPanel, "bh-panel-leave", 200);
+            clearBattleListAnimations(listPanel);
+            listPanel.style.display = "none";
+          }
           const oldView = contentBlock.querySelector(".bh-detailed-view");
           if (oldView) oldView.remove();
           const detailedView = document.createElement("div");
@@ -4006,12 +4123,32 @@
           const statusLower = (b.status || "").toLowerCase();
           const isWin = statusLower.includes("victory") || statusLower.includes("\u043F\u043E\u0431\u0435\u0434\u0430");
           const isDraw = statusLower.includes("draw") || statusLower.includes("\u043D\u0438\u0447\u044C\u044F");
-          const isDM = statusLower === "dm" || statusLower.includes("\u043A\u0430\u0436\u0434\u044B\u0439 \u0441\u0430\u043C \u0437\u0430 \u0441\u0435\u0431\u044F");
+          const isDM = statusLower === "dm" || statusLower.includes("\u043A\u0430\u0436\u0434\u044B\u0439 \u0441\u0430\u043C \u0437\u0430 \u0441\u0435\u0431\u044F") || String(b.mode).toUpperCase() === "DM";
           let resultClass = isWin ? "victory" : isDraw ? "draw" : "defeat";
           let resultText = isWin ? dict.win : isDraw ? dict.draw : dict.lose;
           if (isDM) {
             resultClass = "draw";
-            resultText = dict.dm;
+            const place = b.top && b.top !== "-" ? b.top : null;
+            resultText = place ? lang === "RU" ? `#${place} \u041C\u0415\u0421\u0422\u041E` : `#${place} PLACE` : dict.dm;
+          }
+          const hasTeamScores = !isDM && typeof b.teamScoreMy === "number" && typeof b.teamScoreEnemy === "number";
+          const leftLabel = hasTeamScores ? dict.myTeam : dict.yourScore;
+          const leftValue = hasTeamScores ? b.teamScoreMy.toString().replace(/\B(?=(\d{3})+(?!\d))/g, "\xA0") : (b.reputation || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, "\xA0");
+          const rightLabel = hasTeamScores ? dict.enemyTeam : dict.yourKd;
+          const rightValue = hasTeamScores ? b.teamScoreEnemy.toString().replace(/\B(?=(\d{3})+(?!\d))/g, "\xA0") : (b.kd || 0).toFixed(2);
+          const modeUpperKey = String(b.mode || "MM").toUpperCase();
+          let leftIconUrl;
+          let rightIconUrl;
+          if (isDM) {
+            leftIconUrl = DM_SCORE_ICON;
+            rightIconUrl = DM_KD_ICON;
+          } else if (hasTeamScores) {
+            const teamIcon = MODE_ICONS[modeUpperKey] || MODE_ICONS["TDM"];
+            leftIconUrl = teamIcon;
+            rightIconUrl = teamIcon;
+          } else {
+            leftIconUrl = DM_SCORE_ICON;
+            rightIconUrl = DM_KD_ICON;
           }
           const mapInfo = DataLoader.getMapInfo(b.map);
           const localizedMap = (mapInfo ? lang === "RU" ? mapInfo.ru : mapInfo.en : translateMapName(b.map, lang)) || "Unknown";
@@ -4027,75 +4164,58 @@
             }
             return n === 1 ? "player" : "players";
           }
-          detailedView.innerHTML = `
-                    <div class="toolbar">
-                        <button class="button button-back" id="bh-detailed-back">${dict.allBattles}</button>
-                        <div class="toolbar-right">
-                            <button class="button button-delete" id="bh-detailed-delete">${dict.deleteBtn}</button>
-                        </div>
-                    </div>
-
-                    <section class="result-hero">
-                        <div class="hero-score">
-                            <div class="hero-label">${dict.yourScore}</div>
-                            <div class="hero-value">${(b.reputation || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, "\xA0")}</div>
-                        </div>
-                        <div class="hero-center">
-                            <div class="hero-meta">${b.mode || "MM"} \xB7 ${dateStr} \xB7 ${timeStr} \xB7 ${(b.players || []).length} ${dict.playersCount}</div>
-                            <div class="hero-map">${localizedMap}</div>
-                            <div class="hero-result ${resultClass}">${resultText}</div>
-                        </div>
-                        <div class="hero-score right">
-                            <div class="hero-label">${dict.yourKd}</div>
-                            <div class="hero-value">${(b.kd || 0).toFixed(2)}</div>
-                        </div>
-                    </section>
-
-                    <section class="stats-wrapper ${enemyTeamCount === 0 ? "solo-mode" : ""}">
-                        ${myTeamCount > 0 ? `
-                        <article class="team-panel my-team">
-                            <header class="team-header">
-                                <div class="team-title">${isDM ? dict.player : dict.myTeam}</div>
-                                <div class="team-count">${myTeamCount}&nbsp;${playersWord(myTeamCount, lang)}</div>
-                            </header>
-                            <table class="players-table">
-                                <thead>
-                                    <tr>
-                                        <th>${dict.player}</th><th>${dict.gs}</th><th>${dict.score}</th><th>K</th><th>D</th><th>K/D</th>
-                                        <th class="bh-th-icon"><div class="bh-icon-crystal"></div></th>
-                                        <th class="bh-th-icon"><div class="bh-icon-star"></div></th>
-                                    </tr>
-                                </thead>
-                                <tbody>${myTeamHtml}</tbody>
-                            </table>
-                        </article>
-                        ` : ""}
-
-                        ${enemyTeamCount > 0 ? `
-                        <article class="team-panel enemy-team">
-                            <header class="team-header">
-                                <div class="team-title">${dict.enemyTeam}</div>
-                                <div class="team-count">${enemyTeamCount}&nbsp;${playersWord(enemyTeamCount, lang)}</div>
-                            </header>
-                            <table class="players-table">
-                                <thead>
-                                    <tr>
-                                        <th>${dict.player}</th><th>${dict.gs}</th><th>${dict.score}</th><th>K</th><th>D</th><th>K/D</th>
-                                        <th class="bh-th-icon"><div class="bh-icon-crystal"></div></th>
-                                        <th class="bh-th-icon"><div class="bh-icon-star"></div></th>
-                                    </tr>
-                                </thead>
-                                <tbody>${enemyTeamHtml}</tbody>
-                            </table>
-                        </article>
-                        ` : ""}
-                    </section>
-                `;
+          const replacements = {
+            backLabel: dict.allBattles,
+            deleteLabel: dict.deleteBtn,
+            leftScoreClass: isDM ? "dm" : "",
+            leftIconUrl,
+            leftLabel,
+            leftValue,
+            mode: b.mode || "MM",
+            date: dateStr,
+            time: timeStr,
+            playerCount: String((b.players || []).length),
+            playersLabel: dict.playersCount,
+            map: localizedMap,
+            resultClass,
+            resultText,
+            rightScoreClass: isDM ? "dm" : "",
+            rightIconUrl,
+            rightLabel,
+            rightValue,
+            statsClass: enemyTeamCount === 0 ? "solo-mode" : "",
+            playerLabel: dict.player,
+            gsLabel: dict.gs,
+            scoreLabel: dict.score,
+            myTeamClass: myTeamCount > 0 ? "" : "bh-hidden",
+            myTeamTitle: isDM ? dict.player : dict.myTeam,
+            myTeamCount: `${myTeamCount}&nbsp;${playersWord(myTeamCount, lang)}`,
+            myTeamRows: myTeamHtml,
+            enemyTeamClass: enemyTeamCount > 0 ? "" : "bh-hidden",
+            enemyTeamTitle: dict.enemyTeam,
+            enemyTeamCount: `${enemyTeamCount}&nbsp;${playersWord(enemyTeamCount, lang)}`,
+            enemyTeamRows: enemyTeamHtml
+          };
+          let html = template;
+          for (const [key, value] of Object.entries(replacements)) {
+            html = html.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), () => value);
+          }
+          detailedView.innerHTML = html;
           contentBlock.appendChild(detailedView);
-          detailedView.querySelector("#bh-detailed-back")?.addEventListener("click", () => {
+          void animateHistoryTransition(detailedView, "bh-detail-enter", 240);
+          let isReturningToList = false;
+          const returnToList = async () => {
+            if (isReturningToList) return;
+            isReturningToList = true;
+            await animateHistoryTransition(detailedView, "bh-detail-leave", 200);
             detailedView.remove();
-            if (leftPanel) leftPanel.style.display = "flex";
-            if (rightPanel) rightPanel.style.display = "flex";
+            if (listPanel) {
+              listPanel.style.display = "flex";
+              void animateHistoryTransition(listPanel, "bh-panel-enter", 240);
+            }
+          };
+          detailedView.querySelector("#bh-detailed-back")?.addEventListener("click", () => {
+            void returnToList();
           });
           detailedView.querySelector("#bh-detailed-delete")?.addEventListener("click", async () => {
             try {
@@ -4105,9 +4225,7 @@
               if (b.id !== void 0) {
                 store.delete(b.id);
               }
-              detailedView.remove();
-              if (leftPanel) leftPanel.style.display = "flex";
-              if (rightPanel) rightPanel.style.display = "flex";
+              await returnToList();
               renderBattleList(currentPage);
             } catch (e) {
               console.error("[Tanki Battle History] Error deleting battle:", e);
@@ -4121,7 +4239,7 @@
           const statusLower = (b.status || "").toLowerCase();
           const isWin = statusLower.includes("victory") || statusLower.includes("\u043F\u043E\u0431\u0435\u0434\u0430");
           const isDraw = statusLower.includes("draw") || statusLower.includes("\u043D\u0438\u0447\u044C\u044F");
-          const isDM = statusLower === "dm" || statusLower.includes("\u043A\u0430\u0436\u0434\u044B\u0439 \u0441\u0430\u043C \u0437\u0430 \u0441\u0435\u0431\u044F");
+          const isDM = statusLower === "dm" || statusLower.includes("\u043A\u0430\u0436\u0434\u044B\u0439 \u0441\u0430\u043C \u0437\u0430 \u0441\u0435\u0431\u044F") || String(b.mode).toUpperCase() === "DM";
           let statusClass = "bh-card-result--loss";
           let statusLocalized = dict.lose;
           if (isDM) {
@@ -4140,12 +4258,15 @@
           const mapImage = mapInfo && mapInfo.image ? mapInfo.image : "";
           const modeUpper = String(b.mode || "MM").toUpperCase();
           const topDisplay = b.top && b.top !== "-" ? `#${b.top}` : "\u2014";
+          const hasTeamScore = !isDM && typeof b.teamScoreMy === "number" && typeof b.teamScoreEnemy === "number";
+          const teamScoreStat = hasTeamScore ? `<div class="bh-stat"><span class="bh-stat-value">${b.teamScoreMy}<span class="bh-stat-sep">/</span>${b.teamScoreEnemy}</span><span class="bh-stat-label bh-stat-label--team-score">${dict.teamScore}</span></div>` : "";
           const turretIcon = b.turretIcon ? `<img class="bh-equip-img" src="${b.turretIcon}" alt="">` : `<div class="bh-equip-placeholder">\u25B0</div>`;
           const turretAugIcon = b.turretAugmentIcon ? `<img class="bh-equip-img" src="${b.turretAugmentIcon}" alt="">` : `<div class="bh-equip-placeholder">\u25C7</div>`;
           const hullIcon = b.hullIcon ? `<img class="bh-equip-img" src="${b.hullIcon}" alt="">` : `<div class="bh-equip-placeholder">\u25B1</div>`;
           const hullAugIcon = b.hullAugmentIcon ? `<img class="bh-equip-img" src="${b.hullAugmentIcon}" alt="">` : `<div class="bh-equip-placeholder">\u25C7</div>`;
           const replacements = {
             cardClass: `${statusClass} ${b.turretAugmentIcon || b.hullAugmentIcon ? "" : "bh-card--no-aug"}`,
+            combatStatsClass: hasTeamScore ? "bh-combat-stats--with-team-score" : "",
             mapStyle: mapImage ? `style="background-image: linear-gradient(90deg, rgba(10,10,10,0.15), rgba(10,10,10,0.75)), url('${mapImage}'); background-size: cover; background-position: center;"` : "",
             mapIconUrl: MAP_ICON_URL,
             mapUpper,
@@ -4157,6 +4278,7 @@
             deathsValue: String(b.deaths ?? 0),
             killsLabel: dict.kills,
             deathsLabel: dict.deaths,
+            teamScoreStat,
             topDisplay,
             topLabel: dict.top,
             turretIcon,
@@ -4234,36 +4356,59 @@
           next.addEventListener("click", () => renderBattleList(current + 1));
           list.appendChild(next);
         };
-        const renderBattleList = async (page = 1) => {
+        const getBattleKey = (battle) => battle.id !== void 0 ? `id:${battle.id}` : `date:${battle.date}|${battle.map}|${battle.mode}`;
+        const playPendingBattleListAnimation = () => {
+          if (!pendingBattleListAnimation) return;
+          const listEl = document.querySelector(".bh-list");
+          if (listEl) {
+            listEl.classList.add("bh-list--animations-ready");
+            listEl.querySelectorAll(".bh-card--rise-in").forEach((card) => {
+              const delay = parseFloat(card.style.animationDelay) || 0;
+              window.setTimeout(() => {
+                card.classList.remove("bh-card--rise-in");
+                card.style.removeProperty("animation-delay");
+                card.style.removeProperty("z-index");
+                if (!listEl.querySelector(".bh-card--rise-in")) {
+                  listEl.classList.remove("bh-list--animations-ready");
+                }
+              }, delay + 400);
+            });
+          }
+          pendingBattleListAnimation = false;
+        };
+        const clearBattleListAnimations = (panel) => {
+          panel.querySelectorAll(".bh-card--rise-in, .bh-card--new-in, .bh-card--push-down").forEach((card) => {
+            card.classList.remove("bh-card--rise-in", "bh-card--new-in", "bh-card--push-down");
+            card.style.removeProperty("animation-delay");
+            card.style.removeProperty("z-index");
+            card.style.removeProperty("--bh-push-distance");
+          });
+          panel.querySelector(".bh-list")?.classList.remove("bh-list--animations-ready");
+          pendingBattleListAnimation = false;
+        };
+        const renderBattleList = async (page = 1, animateNewMatches = false) => {
           updateNickname();
           const listEl = document.querySelector(".bh-list");
           if (!listEl) return;
-          await removeDuplicateBattles(currentNickname);
           const lang = state.lang;
           const dict = t[lang] || t["EN"];
           const battles = await getAllBattles(currentNickname);
           battles.sort((a, b) => b.date - a.date);
-          const recent20 = battles.slice(0, 20);
-          let validTops = 0, sumTop = 0, totalKills = 0, totalDeaths = 0, totalScore = 0;
-          recent20.forEach((b) => {
-            const topNum = parseInt(b.top);
-            if (!isNaN(topNum)) {
-              sumTop += topNum;
-              validTops++;
+          const newestBattleKey = battles.length > 0 ? getBattleKey(battles[0]) : null;
+          let animationMode = null;
+          if (animateNewMatches && page === 1) {
+            if (!hasRenderedBattleList && battles.length > 0) {
+              animationMode = "initial";
+            } else if (newestBattleKey && newestBattleKey !== lastRenderedNewestBattleKey) {
+              animationMode = "new-match";
             }
-            totalKills += b.kills || 0;
-            totalDeaths += b.deaths || 0;
-            totalScore += b.reputation || 0;
-          });
-          const avgTop = validTops > 0 ? Math.round(sumTop / validTops) : "-";
-          const avgKd = totalDeaths > 0 ? (totalKills / totalDeaths).toFixed(2) : totalKills > 0 ? totalKills.toFixed(2) : "0.00";
-          const avgScore = recent20.length > 0 ? Math.round(totalScore / recent20.length) : "-";
-          const topEl = document.getElementById("bh-stat-top");
-          const kdEl = document.getElementById("bh-stat-kd");
-          const scoreEl = document.getElementById("bh-stat-score");
-          if (topEl) topEl.textContent = avgTop !== "-" ? `#${avgTop}` : "-";
-          if (kdEl) kdEl.textContent = avgKd.toString();
-          if (scoreEl) scoreEl.textContent = avgScore !== "-" ? avgScore.toLocaleString() : "-";
+          }
+          if (page === 1) {
+            hasRenderedBattleList = true;
+            lastRenderedNewestBattleKey = newestBattleKey;
+          }
+          listEl.classList.remove("bh-list--animations-ready");
+          pendingBattleListAnimation = false;
           const totalPages = Math.max(1, Math.ceil(battles.length / ROWS_PER_PAGE));
           if (page > totalPages) page = totalPages;
           if (page < 1) page = 1;
@@ -4275,7 +4420,31 @@
             listEl.innerHTML = `<div class="bh-empty">${dict.noBattles}</div>`;
           } else {
             const cards = await Promise.all(pageBattles.map((b) => buildBattleCard(b, dict, lang)));
-            cards.forEach((card) => listEl.appendChild(card));
+            cards.forEach((card, index) => {
+              const visualCard = card.querySelector(".bh-card");
+              if (visualCard && animationMode === "initial") {
+                visualCard.classList.add("bh-card--rise-in");
+                const delay = index * 60;
+                visualCard.style.animationDelay = `${delay}ms`;
+                visualCard.style.zIndex = String(cards.length - index);
+              } else if (visualCard && animationMode === "new-match") {
+                if (index === 0) {
+                  visualCard.classList.add("bh-card--new-in");
+                } else {
+                  visualCard.classList.add("bh-card--push-down");
+                }
+              }
+              listEl.appendChild(card);
+            });
+            if (animationMode === "new-match" && cards.length > 1) {
+              const newCard = cards[0].querySelector(".bh-card");
+              const gap = parseFloat(getComputedStyle(listEl).rowGap) || 0;
+              const pushDistance = (newCard?.getBoundingClientRect().height || 0) + gap;
+              cards.slice(1).forEach((card) => {
+                card.querySelector(".bh-card")?.style.setProperty("--bh-push-distance", `-${pushDistance}px`);
+              });
+            }
+            pendingBattleListAnimation = animationMode !== null;
           }
           renderPagination(currentPage, totalPages);
           const totalEl = document.getElementById("bh-total-battles");
@@ -4308,6 +4477,67 @@
           a.click();
           URL.revokeObjectURL(url);
         };
+        const validateImportedBattle = (value) => {
+          if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+          const battle = value;
+          const requiredStrings = ["nickname", "status", "map", "mode", "top"];
+          const requiredNumbers = ["date", "reputation", "kills", "deaths", "kd", "crystals", "stars"];
+          if (requiredStrings.some((key) => typeof battle[key] !== "string")) return null;
+          if (requiredNumbers.some((key) => typeof battle[key] !== "number" || !Number.isFinite(battle[key]))) return null;
+          if (typeof battle.date !== "number" || battle.date <= 0) return null;
+          if (battle.kind !== void 0 && battle.kind !== "MM" && battle.kind !== "PRO") return null;
+          const iconFields = ["turretIcon", "turretAugmentIcon", "hullIcon", "hullAugmentIcon"];
+          if (iconFields.some((key) => battle[key] !== void 0 && typeof battle[key] !== "string")) return null;
+          const teamFields = ["teamScoreMy", "teamScoreEnemy"];
+          if (teamFields.some((key) => battle[key] !== void 0 && (typeof battle[key] !== "number" || !Number.isFinite(battle[key])))) return null;
+          let players = [];
+          if (battle.players !== void 0) {
+            if (!Array.isArray(battle.players)) return null;
+            for (const value2 of battle.players) {
+              if (!value2 || typeof value2 !== "object" || Array.isArray(value2)) return null;
+              const player = value2;
+              if (typeof player.name !== "string" || typeof player.rank !== "string") return null;
+              const numericFields = ["gs", "score", "kills", "deaths", "kd", "crystals", "stars"];
+              if (numericFields.some((key) => typeof player[key] !== "number" || !Number.isFinite(player[key]))) return null;
+              if (typeof player.isEnemy !== "boolean" || typeof player.isMe !== "boolean") return null;
+              players.push({
+                name: player.name,
+                rank: player.rank,
+                gs: player.gs,
+                score: player.score,
+                kills: player.kills,
+                deaths: player.deaths,
+                kd: player.kd,
+                crystals: player.crystals,
+                stars: player.stars,
+                isEnemy: player.isEnemy,
+                isMe: player.isMe
+              });
+            }
+          }
+          return {
+            nickname: battle.nickname,
+            date: battle.date,
+            status: battle.status,
+            map: battle.map,
+            mode: battle.mode,
+            kind: battle.kind,
+            top: battle.top,
+            reputation: battle.reputation,
+            kills: battle.kills,
+            deaths: battle.deaths,
+            kd: battle.kd,
+            crystals: battle.crystals,
+            stars: battle.stars,
+            turretIcon: battle.turretIcon || "",
+            turretAugmentIcon: battle.turretAugmentIcon || "",
+            hullIcon: battle.hullIcon || "",
+            hullAugmentIcon: battle.hullAugmentIcon || "",
+            teamScoreMy: battle.teamScoreMy,
+            teamScoreEnemy: battle.teamScoreEnemy,
+            players
+          };
+        };
         const importHistoryData = () => {
           const input = document.createElement("input");
           input.type = "file";
@@ -4319,17 +4549,16 @@
             const reader = new FileReader();
             reader.onload = async (ev) => {
               try {
-                const data = JSON.parse(ev.target.result);
-                if (Array.isArray(data)) {
-                  for (const battle of data) {
-                    delete battle.id;
-                    await addBattle(battle);
-                  }
-                  await removeDuplicateBattles(currentNickname);
-                  renderBattleList(1);
-                }
+                const data = JSON.parse(String(ev.target?.result ?? ""));
+                if (!Array.isArray(data) || data.length === 0) throw new Error("empty-or-invalid-list");
+                const battles = data.map(validateImportedBattle);
+                if (battles.some((battle) => battle === null)) throw new Error("invalid-battle-record");
+                await addBattles(battles);
+                await renderBattleList(1);
+                window.alert(state.lang === "RU" ? `\u0418\u043C\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u043D\u043E \u0431\u043E\u0451\u0432: ${battles.length}.` : `Imported battles: ${battles.length}.`);
               } catch (err) {
                 console.error("[Tanki Battle History] Import error:", err);
+                window.alert(state.lang === "RU" ? "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0438\u043C\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0444\u0430\u0439\u043B. \u041F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435, \u0447\u0442\u043E \u044D\u0442\u043E JSON-\u0444\u0430\u0439\u043B \u0438\u0441\u0442\u043E\u0440\u0438\u0438 \u0431\u0438\u0442\u0432." : "Could not import this file. Check that it is a valid battle history JSON file.");
               }
             };
             reader.readAsText(file);
@@ -4353,11 +4582,7 @@
               clear: String(dict.clear ?? ""),
               export: String(dict.export ?? ""),
               import: String(dict.import ?? ""),
-              battles: String(dict.battles ?? "\u0411\u043E\u0451\u0432"),
-              last20: String(dict.last20 ?? ""),
-              top: String(dict.top ?? ""),
-              kd: String(dict.kd ?? ""),
-              score: String(dict.score ?? "")
+              battles: String(dict.battles ?? "\u0411\u043E\u0451\u0432")
             };
             let html = template;
             for (const [key, value] of Object.entries(replacements)) {
@@ -4394,13 +4619,36 @@
           btn.innerHTML = "<div></div>";
           btn.title = dict.title;
           btn.addEventListener("click", async () => {
-            showFakeLoader();
-            const duration = 500 + Math.random() * 2500;
+            const hidden = [];
+            const hideGameUI = () => {
+              const children = Array.from(document.body.children);
+              for (const el of children) {
+                if (el.classList.contains("kasp-loader-overlay")) continue;
+                if (el.classList.contains("custom-history-overlay")) continue;
+                if (el.id === "quick-upgrade-overlay") continue;
+                if (el.id === "kasp-welcome-overlay") continue;
+                if (el.id === "kasp-specs-tooltip") continue;
+                hidden.push({ el, prev: el.style.visibility });
+                el.style.visibility = "hidden";
+              }
+              document.documentElement.style.visibility = "hidden";
+              document.body.style.visibility = "visible";
+            };
+            const showGameUI = () => {
+              for (const { el, prev } of hidden) {
+                el.style.visibility = prev;
+              }
+              hidden.length = 0;
+              document.documentElement.style.visibility = "";
+            };
             try {
+              showFakeLoader();
+              hideGameUI();
               await ensureHistoryPage();
               const overlay = document.querySelector(".custom-history-overlay");
               if (!overlay) return;
-              await renderBattleList(1);
+              await renderBattleList(1, true);
+              const duration = 500 + Math.random() * 2500;
               await new Promise((r) => window.setTimeout(r, duration));
               const ok = await openAsNativePage(overlay);
               if (!ok) {
@@ -4408,10 +4656,19 @@
                 overlay.style.height = "100vh";
                 overlay.style.display = "flex";
               }
-              await new Promise(
-                (resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
-              );
+              playPendingBattleListAnimation();
+              showGameUI();
+              await new Promise((resolve) => {
+                let frames = 0;
+                const tick = () => {
+                  frames++;
+                  if (frames >= 3) resolve();
+                  else requestAnimationFrame(tick);
+                };
+                requestAnimationFrame(tick);
+              });
             } finally {
+              showGameUI();
               hideFakeLoader();
             }
           });
@@ -4510,6 +4767,31 @@
               const rank = actualPlayers.indexOf(selfRow) + 1;
               if (rank > 0) topVal = rank.toString();
             }
+            let teamScoreMy;
+            let teamScoreEnemy;
+            if (!isDM) {
+              const firstScoreEl = document.querySelector(
+                ".BattleResultHeaderComponentStyle-firstTeamAccount .BattleResultHeaderComponentStyle-teamAccount"
+              );
+              const secondScoreEl = document.querySelector(
+                ".BattleResultHeaderComponentStyle-twoTeamAccount .BattleResultHeaderComponentStyle-teamAccount"
+              );
+              const firstScore = firstScoreEl ? parseInt((firstScoreEl.textContent || "").replace(/\s/g, ""), 10) : NaN;
+              const secondScore = secondScoreEl ? parseInt((secondScoreEl.textContent || "").replace(/\s/g, ""), 10) : NaN;
+              let amIFirstTeam = true;
+              if (selfRow.parentElement) {
+                const allRows = Array.from(selfRow.parentElement.children);
+                const selfIndex = allRows.indexOf(selfRow);
+                const teamDividerIndex = allRows.findIndex((r) => r.id === "teamRowSpace");
+                if (teamDividerIndex !== -1 && selfIndex > teamDividerIndex) {
+                  amIFirstTeam = false;
+                }
+              }
+              if (!isNaN(firstScore) && !isNaN(secondScore)) {
+                teamScoreMy = amIFirstTeam ? firstScore : secondScore;
+                teamScoreEnemy = amIFirstTeam ? secondScore : firstScore;
+              }
+            }
             const score = parseInt(scoreText.replace(/\s/g, "")) || 0;
             const kills = parseInt(killsText.replace(/\s/g, "")) || 0;
             const deaths = parseInt(deathsText.replace(/\s/g, "")) || 0;
@@ -4536,6 +4818,8 @@
               turretAugmentIcon: eq?.turretAugment ?? "",
               hullIcon: eq?.hull ?? "",
               hullAugmentIcon: eq?.hullAugment ?? "",
+              teamScoreMy,
+              teamScoreEnemy,
               players
             };
             await addBattle(battleData);
@@ -4560,6 +4844,12 @@
               }
             }, true);
             window.addEventListener("keydown", (e) => {
+              if (Date.now() < historyBackSuppressedUntil) {
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+              }
+              if (document.getElementById("clear-confirm-overlay")) return;
               const overlay = document.querySelector(".custom-history-overlay");
               if (overlay && overlay.style.display === "flex") {
                 if (e.code === "Escape" || e.code === "KeyZ" || e.key.toLowerCase() === "z") {
@@ -4569,17 +4859,19 @@
                 }
               }
             });
-            window.addEventListener("mousedown", (e) => {
+            document.addEventListener("mousedown", (e) => {
+              if (Date.now() < historyBackSuppressedUntil) {
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+              }
               const overlay = document.querySelector(".custom-history-overlay");
-              if (overlay && overlay.style.display === "flex" && (e.button === 3 || e.button === 4)) {
+              if (overlay && overlay.style.display === "flex" && e.button === 3) {
                 closeHistoryOverlay(overlay);
                 e.preventDefault();
               }
-            });
-            setTimeout(() => {
-              updateNickname();
-              if (currentNickname !== "Unknown") removeDuplicateBattles(currentNickname);
-            }, 5e3);
+            }, true);
+            setTimeout(() => updateNickname(), 5e3);
           }
           injectFooterButton();
           void ensureHistoryPage();
