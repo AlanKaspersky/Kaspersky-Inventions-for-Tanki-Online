@@ -1,5 +1,6 @@
 import { state } from '../core/state';
 import { utils } from '../core/utils';
+import { getAccountIdentity } from '../core/accountIdentity';
 
 export const customFriends = (() => {
     let initialized = false;
@@ -15,11 +16,7 @@ export const customFriends = (() => {
     ];
 
     const getCurrentNickname = () => {
-        const userEl = document.querySelector('.UserInfoContainerStyle-userNameRank') as HTMLElement;
-        if (!userEl) return "Unknown";
-        const text = userEl.innerText.trim();
-        const cleanName = text.replace(/^\[.*?\]\s*/, '').trim();
-        return cleanName || "Unknown";
+        return getAccountIdentity()?.nickname || 'Unknown';
     };
 
     const getCustomCategories = () => {
@@ -49,11 +46,7 @@ export const customFriends = (() => {
     };
 
     const getMyClanTag = () => {
-        const userEl = (document.querySelector('.UserInfoContainerStyle-userNameRank.UserInfoContainerStyle-textDecoration') || document.querySelector('.UserInfoContainerStyle-userNameRank')) as HTMLElement;
-        if (!userEl) return "";
-        const text = userEl.innerText.trim();
-        const match = text.match(/\[(.*?)\]/);
-        return match ? match[0] : "";
+        return getAccountIdentity()?.clanTag || '';
     };
 
     const updateCardBadge = (el: HTMLElement, isFriendsList: boolean) => {

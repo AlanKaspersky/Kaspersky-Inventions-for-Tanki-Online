@@ -2,9 +2,7 @@ interface SkinsDatabase {
     names: Record<string, string>;
     defaults: Record<string, string>;
 }
-// Isolated-world content script. Ported from modules.customGarageSkins in
-// src/kasp_main.ts:2954-3168, but the equipped skin is no longer detected from previews and
-// looked up in a database: its art URL is learned from the game's own Skins tab.
+
 export const customGarageSkins = (() => {
     type SavedSkins = Record<string, string>;
     type DefaultImagesMap = Record<string, string[]>;
@@ -101,12 +99,6 @@ export const customGarageSkins = (() => {
         }
     }
 
-    // Neither garage screen renders the equipped skin itself: the tiles and the
-    // mounted previews both carry the item's stock art and the skin is painted
-    // over it by CSS. So an element cannot tell on its own that an unknown skin
-    // is on. What it can read is what learning stored: the stock URL is stored only
-    // when the equipped skin's art could not be read, a learned skin stores its own
-    // art URL, and Standard stores nothing at all.
     function hasUnknownSkin(
         itemNameEN: string,
         savedSkins: SavedSkins,
@@ -132,8 +124,6 @@ export const customGarageSkins = (() => {
         }
     }
 
-    // The main screen's blocks only show the category ("Turrets"), never the item
-    // name, so the item is found by matching the preview's stock image instead.
     function markMountedUnknownSkins(
         savedSkins: SavedSkins,
         defaultImages: DefaultImagesMap,
@@ -182,8 +172,6 @@ export const customGarageSkins = (() => {
         return cards;
     }
 
-    // The panel prints the selected skin's title, but the same text also sits in
-    // the cards row, so that row is skipped or the first card would always win.
     function readSelectedTitle(menu: Element, row: Element, cardTitles: ReadonlySet<string>): string | null {
         for (const el of menu.querySelectorAll('*')) {
             if (el.children.length > 0 || row.contains(el)) continue;
@@ -193,7 +181,6 @@ export const customGarageSkins = (() => {
         return null;
     }
 
-    // The art is a CSS background on a div, not an img, so it only shows in computed style.
     function readPreviewArt(menu: Element, row: Element): string | null {
         for (const el of menu.querySelectorAll('[class*="backgroundImageContain"]')) {
             if (row.contains(el)) continue;
@@ -210,7 +197,6 @@ export const customGarageSkins = (() => {
 
         const cards = readSkinCards(row);
         const equippedCard = cards.find(card => card.isEquipped);
-        // Standard's title carries no item name, so any other card supplies it.
         const namedCard = equippedCard && !equippedCard.isStandard
             ? equippedCard
             : cards.find(card => !card.isStandard);
@@ -254,7 +240,6 @@ export const customGarageSkins = (() => {
         | { readonly kind: 'set'; readonly item: string; readonly url: string; readonly source: 'art' | 'stock' }
         | { readonly kind: 'clear'; readonly item: string };
 
-    // Learned URLs end up inside a CSS url("..."), so anything but a plain game image URL is refused.
     const SAFE_ART_URL = /^https:\/\/[a-z0-9.-]+\.tankionline\.com\/[A-Za-z0-9/_.-]+\.webp$/;
 
     function decideLearnAction(state: SkinsScreenState, stockUrl: string | undefined): LearnAction {
@@ -273,7 +258,6 @@ export const customGarageSkins = (() => {
         if (state.artUrl && SAFE_ART_URL.test(state.artUrl)) {
             return { kind: 'set', item: state.item, url: state.artUrl, source: 'art' };
         }
-        // Art that cannot be read stores the stock image, which is what raises the "unknown skin" label.
         return stockUrl
             ? { kind: 'set', item: state.item, url: stockUrl, source: 'stock' }
             : { kind: 'none', reason: `art of ${JSON.stringify(state.equipped.title)} is unreadable and no stock image is known` };
@@ -281,7 +265,6 @@ export const customGarageSkins = (() => {
 
     let lastLearnNote: string | null = null;
 
-    // A run that saves nothing has to say why, since the storage value alone cannot tell the causes apart.
     function noteLearn(note: string | null): void {
         if (note === lastLearnNote) return;
         lastLearnNote = note;
@@ -316,7 +299,6 @@ export const customGarageSkins = (() => {
         }
         noteLearn(describeLearnAction(action));
 
-        // One tick can catch the marker and the preview out of step mid-render, so a change must hold for two.
         const key = action.kind === 'set' ? `set|${action.item}|${action.url}` : `clear|${action.item}`;
         pendingLearn = { key, ticks: pendingLearn?.key === key ? pendingLearn.ticks + 1 : 1 };
         if (pendingLearn.ticks < 2) return;
@@ -341,7 +323,7 @@ export const customGarageSkins = (() => {
     }
 
     function tick(): void {
-        if (!NAME_TRANSLATE || !PREFILLED_DEFAULTS) return; // data still loading
+        if (!NAME_TRANSLATE || !PREFILLED_DEFAULTS) return;
         if (!isGarageScreen()) return;
 
         const nameTranslate = NAME_TRANSLATE;
@@ -365,7 +347,6 @@ export const customGarageSkins = (() => {
                 const itemNameEN = nameTranslate[rawTitle.split(/\s+/)[0]] || rawTitle.split(/\s+/)[0];
                 const originalSrc = imgMain.getAttribute('src') || '';
 
-                // A tile already showing the saved skin's URL is not stock art, so it must not be learned as stock.
                 if (originalSrc && originalSrc.includes('tankionline.com') && originalSrc !== savedSkinsForList[itemNameEN]) {
                     if (!defaultImages[itemNameEN]) defaultImages[itemNameEN] = [];
                     if (!defaultImages[itemNameEN].includes(originalSrc)) {

@@ -148,21 +148,21 @@ export const augmentSpecs = (() => {
         });
     };
 
+    const liveStats = new Map<HTMLElement, {
+        replacement: HTMLSpanElement;
+        value: HTMLSpanElement;
+        originalDisplay: string;
+    }>();
+
     function updateLiveStats() {
         if (!utils.getSetting('k_augments', false)) return;
-        document.querySelectorAll('.custom-live-stat').forEach(el => el.remove());
-        document.querySelectorAll('.hidden-by-script').forEach(el => {
-            const htmlEl = el as HTMLElement;
-            htmlEl.classList.remove('hidden-by-script');
-            htmlEl.style.display = '';
-        });
-
+        const activeValues = new Set<HTMLElement>();
         const deviceImg = document.querySelector<HTMLImageElement>('.DeviceButtonComponentStyle-deviceIcon');
-        if (!deviceImg) return;
-        const deviceData = DataLoader.getDevice(deviceImg.src);
-        if (!deviceData || !deviceData.modifiers) return;
+        const deviceData = deviceImg ? DataLoader.getDevice(deviceImg.src) : undefined;
 
-        const allSpans = Array.from(document.querySelectorAll('span')).filter(s => !s.classList.contains('custom-live-stat'));
+        const allSpans = deviceData?.modifiers
+            ? Array.from(document.querySelectorAll('span')).filter(s => !s.closest('.custom-live-stat'))
+            : [];
         allSpans.forEach(nameSpan => {
             const text = nameSpan.textContent?.trim().toLowerCase() || '';
             let matchedTag = null;
@@ -173,8 +173,9 @@ export const augmentSpecs = (() => {
             if (matchedTag && deviceData.modifiers && (matchedTag in deviceData.modifiers)) {
                 const multiplier = deviceData.modifiers[matchedTag];
                 const valueSpan = nameSpan.parentElement?.nextElementSibling;
-                if (valueSpan && valueSpan.tagName === 'SPAN' && !valueSpan.classList.contains('hidden-by-script')) {
-                    const cleanStr = (valueSpan as HTMLElement).innerText.replace(/\s/g, '').replace(/\u00A0/g, '').replace(',', '.');
+                if (valueSpan && valueSpan.tagName === 'SPAN' && !valueSpan.classList.contains('custom-live-stat')) {
+                    const original = valueSpan as HTMLElement;
+                    const cleanStr = (original.textContent || '').replace(/\s/g, '').replace(',', '.');
                     const origNumber = parseFloat(cleanStr);
                     if (!isNaN(origNumber)) {
                         let newVal = (matchedTag === 'WEIGHT' && multiplier >= 10) ? multiplier : origNumber * multiplier;
@@ -185,16 +186,39 @@ export const augmentSpecs = (() => {
                         if (matchedTag === 'WEIGHT' && multiplier < origNumber) isBuff = false;
 
                         const color = isBuff ? '#00ff38' : '#fe6666';
-                        valueSpan.classList.add('hidden-by-script');
-                        (valueSpan as HTMLElement).style.display = 'none';
-                        const customSpan = document.createElement('span');
-                        customSpan.className = valueSpan.className + ' custom-live-stat';
-                        customSpan.innerHTML = `<span style="color: ${color}; text-shadow: 0 0 5px ${color}40;">${formattedVal}</span>`;
-                        valueSpan.parentNode?.insertBefore(customSpan, valueSpan.nextSibling);
+                        activeValues.add(original);
+                        let entry = liveStats.get(original);
+                        if (!entry) {
+                            const replacement = document.createElement('span');
+                            const value = document.createElement('span');
+                            replacement.appendChild(value);
+                            entry = { replacement, value, originalDisplay: original.style.display };
+                            liveStats.set(original, entry);
+                        }
+                        const className = original.className.split(/\s+/)
+                            .filter(name => name && name !== 'hidden-by-script').concat('custom-live-stat').join(' ');
+                        if (entry.replacement.className !== className) entry.replacement.className = className;
+                        const textValue = String(formattedVal);
+                        if (entry.value.textContent !== textValue) entry.value.textContent = textValue;
+                        const valueStyle = `color: ${color}; text-shadow: 0 0 5px ${color}40;`;
+                        if (entry.value.getAttribute('style') !== valueStyle) entry.value.setAttribute('style', valueStyle);
+                        if (!original.classList.contains('hidden-by-script')) original.classList.add('hidden-by-script');
+                        if (original.style.display !== 'none') original.style.display = 'none';
+                        if (original.nextSibling !== entry.replacement) {
+                            original.parentNode?.insertBefore(entry.replacement, original.nextSibling);
+                        }
                     }
                 }
             }
         });
+
+        for (const [original, entry] of liveStats) {
+            if (activeValues.has(original)) continue;
+            entry.replacement.remove();
+            original.classList.remove('hidden-by-script');
+            original.style.display = entry.originalDisplay;
+            liveStats.delete(original);
+        }
     }
 
     const scheduleUpdate = () => {

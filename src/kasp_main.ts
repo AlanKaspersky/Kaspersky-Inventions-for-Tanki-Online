@@ -2,6 +2,7 @@ import { setupElectronZKey } from './core/electron';
 import { state } from './core/state';
 import { utils } from './core/utils';
 import { startBoot } from './boot';
+import { setupNicknamePrivacy } from './modules/hideNickname';
 
 if (window === window.top) {
   setupElectronZKey();
@@ -10,6 +11,7 @@ if (window === window.top) {
   document.documentElement.style.setProperty('--kasp-loader-bg', `url("${loaderBg}")`);
 
   state.lang = utils.getLang();
+  setupNicknamePrivacy();
 
   startBoot();
 }

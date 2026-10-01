@@ -1,39 +1,69 @@
-.hidden-text,
-.hidden-text-ru,
-.hidden-xp,
-.hidden-xp-ru {
+/* Applied at document_start, before the game creates its UI. Text remains in
+   the DOM for account identification; only its painted representation changes. */
+html.kasp-hide-nickname .UserInfoContainerStyle-userNameRank,
+html.kasp-hide-nickname .UserInfoContainerStyle-progressValue,
+html.kasp-hide-nickname .ClientInfoComponentStyle-parameterText:first-child:not([data-kasp-public-parameter]),
+html.kasp-hide-nickname [data-kasp-private-uid],
+html.kasp-hide-nickname [data-kasp-private-nickname],
+html.kasp-hide-nickname .BattleTabStatisticComponentStyle-selectedRowBackGround .BattleTabStatisticComponentStyle-nicknameCell span,
+html.kasp-hide-nickname #selfUserBg [class*="BattleKillBoardComponentStyle-col1"] span.-whiteSpaceNoWrap,
+html.kasp-hide-nickname .players-table tr.current-player .player-name,
+html.kasp-hide-nickname .bh-link-target {
     position: relative;
-    cursor: pointer;
-    font-weight: 500;
-    text-shadow: rgba(0, 0, 0, 0.5) 0em 0em 0.25em;
-    user-select: none;
-    display: inline-block;
+    color: transparent !important;
+    -webkit-text-fill-color: transparent !important;
+    text-shadow: none !important;
+    background-image: none !important;
+    user-select: none !important;
+    transition: none !important;
 }
 
-.hidden-text,
-.hidden-text-ru {
+html.kasp-hide-nickname .UserInfoContainerStyle-userNameRank *,
+html.kasp-hide-nickname .UserInfoContainerStyle-progressValue *,
+html.kasp-hide-nickname [data-kasp-private-nickname] *,
+html.kasp-hide-nickname [data-kasp-private-uid] *,
+html.kasp-hide-nickname #selfUserBg [class*="BattleKillBoardComponentStyle-col1"] span.-whiteSpaceNoWrap *,
+html.kasp-hide-nickname .players-table tr.current-player .player-name * {
+    color: transparent !important;
+    -webkit-text-fill-color: transparent !important;
+    text-shadow: none !important;
+    background-image: none !important;
+}
+
+html.kasp-hide-nickname .UserInfoContainerStyle-userNameRank::before,
+html.kasp-hide-nickname .UserInfoContainerStyle-progressValue::before,
+html.kasp-hide-nickname .ClientInfoComponentStyle-parameterText:first-child:not([data-kasp-public-parameter])::before,
+html.kasp-hide-nickname [data-kasp-private-uid]::before,
+html.kasp-hide-nickname [data-kasp-private-nickname]::before,
+html.kasp-hide-nickname .BattleTabStatisticComponentStyle-selectedRowBackGround .BattleTabStatisticComponentStyle-nicknameCell span::before,
+html.kasp-hide-nickname #selfUserBg [class*="BattleKillBoardComponentStyle-col1"] span.-whiteSpaceNoWrap::before,
+html.kasp-hide-nickname .players-table tr.current-player .player-name::before,
+html.kasp-hide-nickname .bh-link-target::before {
+    content: var(--kasp-hidden-label, "Hidden");
+    position: absolute;
+    top: 0;
+    left: 0;
     color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+    text-shadow: rgba(0, 0, 0, 0.5) 0 0 0.25em;
+    white-space: nowrap;
+    font-weight: 500;
+    pointer-events: none;
 }
 
-.hidden-text:hover,
-.hidden-text-ru:hover {
-    color: rgb(255, 188, 9) !important;
+html.kasp-hide-nickname .ClientInfoComponentStyle-parameterText:first-child:not([data-kasp-public-parameter])::before,
+html.kasp-hide-nickname [data-kasp-private-uid]::before {
+    content: "UID: " var(--kasp-hidden-label, "Hidden");
 }
 
-.hidden-xp,
-.hidden-xp-ru {
+html.kasp-hide-nickname .UserInfoContainerStyle-progressValue::before {
     color: rgb(118, 255, 51) !important;
-    font-family: BaseFontMedium, FallbackFontMedium, sans-serif;
-    font-style: normal;
-    text-transform: uppercase;
-    font-size: 1em;
+    -webkit-text-fill-color: rgb(118, 255, 51) !important;
 }
 
-.hidden-text::after,
-.hidden-text-ru::after,
-.hidden-xp::after,
-.hidden-xp-ru::after {
-    content: attr(data-tooltip);
+/* Retain the deliberate hover-to-reveal behavior of the existing module. */
+html.kasp-hide-nickname [data-kasp-private-tooltip]::after {
+    content: attr(data-kasp-private-tooltip);
     position: absolute;
     background: rgba(0, 0, 0, 0.9);
     padding: 5px 12px;
@@ -50,45 +80,10 @@
     border: 1px solid rgba(255, 255, 255, 0.1);
     font-weight: 500;
     font-family: BaseFontMedium, FallbackFontMedium, sans-serif;
-    text-transform: uppercase;
-    transition: opacity 0.15s ease;
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
 }
 
-.hidden-text::after,
-.hidden-text-ru::after {
-    color: #ffffff;
-}
-
-.hidden-xp::after,
-.hidden-xp-ru::after {
-    color: rgb(118, 255, 51);
-}
-
-.hidden-text::before,
-.hidden-text-ru::before,
-.hidden-xp::before,
-.hidden-xp-ru::before {
-    content: '';
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    border: 6px solid transparent;
-    border-bottom-color: rgba(0, 0, 0, 0.9);
-    opacity: 0;
-    pointer-events: none;
-    z-index: 99999;
-    margin-top: -4px;
-    transition: opacity 0.15s ease;
-}
-
-.hidden-text:hover::after,
-.hidden-text:hover::before,
-.hidden-text-ru:hover::after,
-.hidden-text-ru:hover::before,
-.hidden-xp:hover::after,
-.hidden-xp:hover::before,
-.hidden-xp-ru:hover::after,
-.hidden-xp-ru:hover::before {
+html.kasp-hide-nickname [data-kasp-private-tooltip]:hover::after {
     opacity: 1;
 }

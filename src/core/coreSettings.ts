@@ -1,6 +1,6 @@
 import { state } from './state';
 import { utils } from './utils';
-import { createKaspModal } from './modal';
+import { setupNicknamePrivacy } from '../modules/hideNickname';
 
 export const coreSettings = (() => {
     let needsReload = false;
@@ -9,12 +9,10 @@ export const coreSettings = (() => {
 
         const t: any = {
             RU: {
-                title: 'НАСТРОЙКИ KASPERSKY\'S INVENTIONS', tooltip: 'ТРЕБУЕТСЯ ПЕРЕЗАГРУЗКА',
-                warnTitle: 'ПРЕДУПРЕЖДЕНИЕ', warnText: 'Включение этой функции сломает Историю битв и раздел Кланы в друзьях, а также возможны просадки ФПС. Вы уверены, что хотите продолжить?', warnCancel: 'ОТМЕНА', warnConfirm: 'ВКЛЮЧИТЬ'
+                title: 'НАСТРОЙКИ KASPERSKY\'S INVENTIONS', tooltip: 'ТРЕБУЕТСЯ ПЕРЕЗАГРУЗКА'
             },
             EN: {
-                title: 'KASPERSKY\'S INVENTIONS SETTINGS', tooltip: 'REQUIRES RELOAD',
-                warnTitle: 'WARNING', warnText: 'Enabling this feature will break Battle History and the Clans section in Friends, and may also result in FPS drops. Are you sure you want to continue?', warnCancel: 'CANCEL', warnConfirm: 'ENABLE'
+                title: 'KASPERSKY\'S INVENTIONS SETTINGS', tooltip: 'REQUIRES RELOAD'
             }
         };
 
@@ -28,72 +26,6 @@ export const coreSettings = (() => {
             { id: 'k_hideNicknameXP', label: { RU: 'Скрыть никнейм и опыт', EN: 'Hide nickname and score' }, default: false },
             { id: 'k_history', label: { RU: 'Вести историю битв', EN: 'Keep a history of battles' }, default: false }
         ];
-
-        async function showWarningDialog(callback: () => void) {
-            const lang = state.lang;
-            const dict = t[lang] || t['EN'];
-            const modal = await createKaspModal({ id: 'kasp-warning-overlay', title: dict.warnTitle, closeLabel: dict.warnCancel });
-            if (!modal) return;
-            modal.body.classList.add('kasp-modal-body--center');
-            modal.actions.classList.add('kasp-modal-actions--center');
-
-            const message = document.createElement('p');
-            message.className = 'kasp-modal-copy kasp-modal-copy--center';
-            message.textContent = dict.warnText;
-            modal.body.appendChild(message);
-
-            const cancelBtn = document.createElement('button');
-            cancelBtn.type = 'button';
-            cancelBtn.className = 'kasp-modal-button kasp-modal-button--secondary';
-            const cancelLabel = document.createElement('span');
-            cancelLabel.textContent = dict.warnCancel;
-            cancelBtn.appendChild(cancelLabel);
-            const confirmBtn = document.createElement('button');
-            confirmBtn.type = 'button';
-            confirmBtn.className = 'kasp-modal-button';
-            const confirmLabel = document.createElement('span');
-            confirmLabel.textContent = dict.warnConfirm;
-            confirmBtn.appendChild(confirmLabel);
-            modal.actions.append(cancelBtn, confirmBtn);
-
-            const loaderObserver = new MutationObserver(() => {
-                if (document.querySelector('.ApplicationLoaderComponentStyle-container.-background')) modal.close();
-            });
-            loaderObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
-
-            let confirmed = false;
-            let isClosed = false;
-            const closeDialog = () => {
-                isClosed = true;
-                loaderObserver.disconnect();
-                document.removeEventListener('keydown', onKeyDown, true);
-                modal.close();
-            };
-            modal.onClose(() => {
-                isClosed = true;
-                loaderObserver.disconnect();
-                document.removeEventListener('keydown', onKeyDown, true);
-            });
-            const onKeyDown = (event: KeyboardEvent) => {
-                if (event.key !== 'Enter' || isClosed) return;
-                event.preventDefault();
-                event.stopPropagation();
-                event.stopImmediatePropagation();
-                if (!confirmed) {
-                    confirmed = true;
-                    closeDialog();
-                    callback();
-                }
-            };
-            cancelBtn.addEventListener('click', closeDialog);
-            confirmBtn.addEventListener('click', () => {
-                if (confirmed || isClosed) return;
-                confirmed = true;
-                closeDialog();
-                callback();
-            });
-            document.addEventListener('keydown', onKeyDown, true);
-        }
 
         return {
             inject: () => {
@@ -192,10 +124,10 @@ export const coreSettings = (() => {
                             });
                         };
 
-                        if (id === 'k_hideNicknameXP' && !isCurrentlyChecked) {
-                            void showWarningDialog(performToggle);
-                        } else {
-                            performToggle();
+                        performToggle();
+                        if (id === 'k_hideNicknameXP') {
+                            if (!isCurrentlyChecked) setupNicknamePrivacy();
+                            else document.documentElement.classList.remove('kasp-hide-nickname');
                         }
                     });
                 });

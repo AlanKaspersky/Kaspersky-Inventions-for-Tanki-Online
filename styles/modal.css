@@ -322,7 +322,7 @@
     box-shadow: 0 0 0 1px rgb(255, 255, 255);
 }
 
-.ModalStyle-shaded .DialogContainerComponentStyle-footerContainer > div::after {
+.ModalStyle-shaded > .DialogContainerComponentStyle-footerContainer > div::after {
     content: "";
     position: absolute;
     top: 0;
@@ -335,7 +335,7 @@
     pointer-events: none;
 }
 
-.ModalStyle-shaded .DialogContainerComponentStyle-footerContainer > div > span {
+.ModalStyle-shaded > .DialogContainerComponentStyle-footerContainer > div > span {
     position: relative;
     z-index: 2;
 }

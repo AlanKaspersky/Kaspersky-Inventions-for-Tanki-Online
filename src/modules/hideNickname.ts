@@ -1,126 +1,67 @@
 import { state } from '../core/state';
 import { utils } from '../core/utils';
+import { getAccountIdentity, parseAccountIdentity } from '../core/accountIdentity';
 
-export const hideNickname = (() => {
-    let initialized = false;
-    let cachedOriginalNick: string | null = null;
+let privacyObserver: MutationObserver | null = null;
 
-    function getHiddenText() {
-        return state.lang === 'RU' ? 'Скрыто' : 'Hidden';
+function setTooltip(element: Element, text: string) {
+    if (element.getAttribute('data-kasp-private-tooltip') !== text) {
+        element.setAttribute('data-kasp-private-tooltip', text);
+    }
+}
+
+export function hideNickname() {
+    if (!utils.getSetting('k_hideNicknameXP', false)) return;
+    const root = document.documentElement;
+    if (!root) return;
+    if (!root.classList.contains('kasp-hide-nickname')) root.classList.add('kasp-hide-nickname');
+    const label = state.lang === 'RU' ? '"Скрыто"' : '"Hidden"';
+    if (root.style.getPropertyValue('--kasp-hidden-label') !== label) {
+        root.style.setProperty('--kasp-hidden-label', label);
     }
 
-    function processNickElement(userNameElement: HTMLElement) {
-        const hiddenText = getHiddenText();
-        const expectedClass = state.lang === 'RU' ? 'hidden-text-ru' : 'hidden-text';
-        const hiddenSpan = userNameElement.querySelector('.hidden-text, .hidden-text-ru');
+    // CSS masks known locations before painting. Preserve the game's text and
+    // children so identity, history and friend categories remain accurate.
+    document.querySelectorAll('.UserInfoContainerStyle-userNameRank, .UserInfoContainerStyle-progressValue').forEach(element => {
+        setTooltip(element, element.textContent?.trim() || '');
+    });
 
-        if (!hiddenSpan) {
-            const originalName = cachedOriginalNick || userNameElement.textContent?.trim() || '';
-            if (originalName && originalName !== 'Скрыто' && originalName !== 'Hidden') {
-                cachedOriginalNick = originalName;
-            }
-            userNameElement.innerHTML = '';
-            const newSpan = document.createElement('span');
-            newSpan.className = expectedClass;
-            newSpan.textContent = hiddenText;
-            newSpan.setAttribute('data-tooltip', cachedOriginalNick || 'Player');
-            userNameElement.appendChild(newSpan);
+    document.querySelectorAll('.ClientInfoComponentStyle-parameterText').forEach(element => {
+        const uid = /^UID:\s*(.*)$/i.exec(element.textContent?.trim() || '');
+        if (uid) {
+            if (element.hasAttribute('data-kasp-public-parameter')) element.removeAttribute('data-kasp-public-parameter');
+            if (!element.hasAttribute('data-kasp-private-uid')) element.setAttribute('data-kasp-private-uid', '');
+            setTooltip(element, uid[1]);
         } else {
-            if (hiddenSpan.className !== expectedClass) hiddenSpan.className = expectedClass;
-            if (hiddenSpan.textContent !== hiddenText) hiddenSpan.textContent = hiddenText;
-            if (cachedOriginalNick && hiddenSpan.getAttribute('data-tooltip') !== cachedOriginalNick) {
-                hiddenSpan.setAttribute('data-tooltip', cachedOriginalNick);
+            if (!element.hasAttribute('data-kasp-public-parameter')) element.setAttribute('data-kasp-public-parameter', '');
+            if (element.hasAttribute('data-kasp-private-uid')) {
+                element.removeAttribute('data-kasp-private-uid');
+                element.removeAttribute('data-kasp-private-tooltip');
             }
         }
-    }
+    });
 
-    function processXpElement(xpContainer: HTMLElement) {
-        const hiddenText = getHiddenText();
-        const expectedClass = state.lang === 'RU' ? 'hidden-xp-ru' : 'hidden-xp';
-        const hiddenXpSpan = xpContainer.querySelector('.hidden-xp, .hidden-xp-ru');
-
-        if (!hiddenXpSpan) {
-            const originalXp = xpContainer.textContent?.trim() || '';
-            xpContainer.innerHTML = '';
-            const newXpSpan = document.createElement('span');
-            newXpSpan.className = expectedClass;
-            newXpSpan.textContent = hiddenText;
-            newXpSpan.setAttribute('data-tooltip', originalXp || '0');
-            xpContainer.appendChild(newXpSpan);
-        } else {
-            if (hiddenXpSpan.className !== expectedClass) hiddenXpSpan.className = expectedClass;
-            const currentXpText = xpContainer.textContent?.trim() || '';
-            if (currentXpText && currentXpText !== hiddenText && currentXpText !== 'Скрыто' && currentXpText !== 'Hidden') {
-                hiddenXpSpan.setAttribute('data-tooltip', currentXpText);
-            }
-            if (hiddenXpSpan.textContent !== hiddenText) hiddenXpSpan.textContent = hiddenText;
+    const own = getAccountIdentity()?.nickname;
+    document.querySelectorAll('.BattleTabStatisticComponentStyle-nicknameCell span').forEach(element => {
+        const isSelf = !!own && parseAccountIdentity(element.textContent || '')?.nickname === own;
+        if (isSelf && !element.hasAttribute('data-kasp-private-nickname')) {
+            element.setAttribute('data-kasp-private-nickname', '');
+        } else if (!isSelf && element.hasAttribute('data-kasp-private-nickname')) {
+            element.removeAttribute('data-kasp-private-nickname');
         }
-    }
+    });
+}
 
-    function hideNicknameInTables() {
-        if (!cachedOriginalNick) {
-            const userNameElement = document.querySelector('.UserInfoContainerStyle-userNameRank.UserInfoContainerStyle-textDecoration');
-            if (userNameElement) {
-                const hiddenSpan = userNameElement.querySelector('.hidden-text, .hidden-text-ru');
-                cachedOriginalNick = hiddenSpan ? hiddenSpan.getAttribute('data-tooltip') : userNameElement.textContent?.trim() || null;
-            }
-        }
-        if (!cachedOriginalNick) return;
-
-        const hiddenText = getHiddenText();
-
-        const tabContainer = document.querySelector('.BattleTabStatisticComponentStyle-containerInsideTeams');
-        if (tabContainer) {
-            const tabSpans = tabContainer.querySelectorAll('.BattleTabStatisticComponentStyle-nicknameCell span');
-            for (let i = 0; i < tabSpans.length; i++) {
-                const span = tabSpans[i] as HTMLElement;
-                if (span.textContent?.trim() === cachedOriginalNick && !span.hasAttribute('data-hidden-applied')) {
-                    span.setAttribute('data-hidden-applied', 'true');
-                    span.textContent = hiddenText;
-                    span.style.color = '#ffffff';
-                    span.style.fontWeight = '500';
-                }
-            }
-        }
-
-        const selfRow = document.getElementById('selfUserBg');
-        if (selfRow) {
-            const resultSpans = selfRow.querySelectorAll('td[class*="col1"] span');
-            for (let i = 0; i < resultSpans.length; i++) {
-                const span = resultSpans[i] as HTMLElement;
-                const text = span.textContent?.trim() || '';
-                if (!span.hasAttribute('data-hidden-applied') && text !== '') {
-                    if (text !== hiddenText && text !== 'Hidden' && text !== 'Скрыто') {
-                        cachedOriginalNick = text;
-                    }
-                    span.setAttribute('data-hidden-applied', 'true');
-                    span.textContent = hiddenText;
-                    span.style.color = '#ffffff';
-                    span.style.fontWeight = '500';
-                }
-            }
-        }
-    }
-
-    return () => {
-        if (!utils.getSetting('k_hideNicknameXP', false)) return;
-
-        if (!initialized) {
-            initialized = true;
-
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'Tab') {
-                    setTimeout(hideNicknameInTables, 40);
-                }
-            });
-        }
-
-        const userName = document.querySelector('.UserInfoContainerStyle-userNameRank.UserInfoContainerStyle-textDecoration') as HTMLElement;
-        if (userName) processNickElement(userName);
-
-        const xp = document.querySelector('.UserInfoContainerStyle-progressValue') as HTMLElement;
-        if (xp) processXpElement(xp);
-
-        hideNicknameInTables();
-    };
-})();
+export function setupNicknamePrivacy() {
+    if (!utils.getSetting('k_hideNicknameXP', false)) return;
+    hideNickname();
+    if (privacyObserver) return;
+    privacyObserver = new MutationObserver(hideNickname);
+    privacyObserver.observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+        attributes: true,
+        attributeFilter: ['class', 'id'],
+    });
+}

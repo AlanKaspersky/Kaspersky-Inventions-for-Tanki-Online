@@ -1,3 +1,5 @@
+import { getAccountIdentity } from '../core/accountIdentity';
+
 export const equipmentTracker = (() => {
     const STORAGE_KEY = 'kasp_my_equipment';
     let lastSignature = '';
@@ -30,9 +32,7 @@ export const equipmentTracker = (() => {
     };
 
     const getOwnNickname = (): string => {
-        const el = document.querySelector('.UserInfoContainerStyle-userNameRank');
-        if (!el) return '';
-        return (el.textContent || '').trim().replace(/^\[.*?\]\s*/, '').trim();
+        return getAccountIdentity()?.nickname || '';
     };
 
     const findSelfRow = (): Element | null => {

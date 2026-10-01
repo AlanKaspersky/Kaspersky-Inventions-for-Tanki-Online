@@ -158,131 +158,91 @@
     }
   });
 
-  // src/core/modal.ts
-  var pendingModalIds, createKaspModal;
-  var init_modal = __esm({
-    "src/core/modal.ts"() {
-      pendingModalIds = /* @__PURE__ */ new Set();
-      createKaspModal = async (options) => {
-        if (document.getElementById(options.id) || pendingModalIds.has(options.id)) return null;
-        pendingModalIds.add(options.id);
-        try {
-          const response = await fetch(chrome.runtime.getURL("templates/modal.html"));
-          if (!response.ok) throw new Error(`Modal template request failed: ${response.status}`);
-          const template = document.createElement("template");
-          template.innerHTML = await response.text();
-          const overlay = template.content.firstElementChild;
-          if (!overlay) throw new Error("Modal template is empty");
-          overlay.id = options.id;
-          const dialog = overlay.querySelector("[data-kasp-modal-dialog]");
-          const title = overlay.querySelector("[data-kasp-modal-title]");
-          const closeButton = overlay.querySelector("[data-kasp-modal-close]");
-          const body = overlay.querySelector("[data-kasp-modal-body]");
-          const actions = overlay.querySelector("[data-kasp-modal-actions]");
-          if (!dialog || !title || !closeButton || !body || !actions) {
-            throw new Error("Modal template is missing required elements");
-          }
-          title.id = `${options.id}-title`;
-          dialog.setAttribute("aria-labelledby", title.id);
-          title.textContent = options.title;
-          closeButton.setAttribute("aria-label", options.closeLabel);
-          let isClosing = false;
-          let isRemoved = false;
-          let removeTimer = 0;
-          const closeListeners = /* @__PURE__ */ new Set();
-          const cleanup = () => {
-            document.removeEventListener("keydown", onKeyDown, true);
-            window.removeEventListener("mousedown", onMouseDown, true);
-          };
-          const removeOverlay = () => {
-            if (isRemoved) return;
-            isRemoved = true;
-            window.clearTimeout(removeTimer);
-            dialog.removeEventListener("animationend", onDialogAnimationEnd);
-            overlay.remove();
-          };
-          const onDialogAnimationEnd = (event) => {
-            if (event.target === dialog) removeOverlay();
-          };
-          const close = () => {
-            if (isClosing) return;
-            isClosing = true;
-            cleanup();
-            overlay.classList.remove("kasp-modal-opening");
-            overlay.classList.add("kasp-modal-closing");
-            for (const listener of closeListeners) listener();
-            closeListeners.clear();
-            dialog.addEventListener("animationend", onDialogAnimationEnd);
-            removeTimer = window.setTimeout(removeOverlay, 260);
-          };
-          const onKeyDown = (event) => {
-            const isEscape = event.key === "Escape" || event.key === "Esc";
-            const isZ = event.code === "KeyZ" || event.key?.toLowerCase() === "z";
-            const activeTag = document.activeElement?.tagName;
-            if (isZ && ["INPUT", "TEXTAREA", "SELECT"].includes(activeTag || "")) return;
-            const isBackKey = isEscape || isZ;
-            if (!isBackKey) return;
-            event.preventDefault();
-            event.stopPropagation();
-            event.stopImmediatePropagation();
-            close();
-          };
-          const blockRemainingBackEvents = () => {
-            const block = (event) => {
-              if (event.button !== 3 && event.button !== 4) return;
-              event.preventDefault();
-              event.stopPropagation();
-              event.stopImmediatePropagation();
-            };
-            window.addEventListener("mouseup", block, true);
-            window.addEventListener("click", block, true);
-            window.addEventListener("auxclick", block, true);
-            window.setTimeout(() => {
-              window.removeEventListener("mouseup", block, true);
-              window.removeEventListener("click", block, true);
-              window.removeEventListener("auxclick", block, true);
-            }, 700);
-          };
-          const onMouseDown = (event) => {
-            if (event.button !== 3 && event.button !== 4) return;
-            event.preventDefault();
-            event.stopPropagation();
-            event.stopImmediatePropagation();
-            if (event.button === 3) close();
-            blockRemainingBackEvents();
-          };
-          closeButton.addEventListener("click", (event) => {
-            event.stopPropagation();
-            close();
-          });
-          dialog.addEventListener("mousedown", (event) => event.stopPropagation());
-          dialog.addEventListener("click", (event) => event.stopPropagation());
-          overlay.addEventListener("mousedown", (event) => {
-            if (event.target !== overlay) return;
-            event.preventDefault();
-            event.stopPropagation();
-            close();
-          });
-          document.addEventListener("keydown", onKeyDown, true);
-          window.addEventListener("mousedown", onMouseDown, true);
-          overlay.closeDialogMethod = close;
-          document.body.appendChild(overlay);
-          return {
-            overlay,
-            dialog,
-            body,
-            actions,
-            closeButton,
-            close,
-            onClose: (listener) => {
-              if (isClosing) listener();
-              else closeListeners.add(listener);
-            }
-          };
-        } finally {
-          pendingModalIds.delete(options.id);
+  // src/core/accountIdentity.ts
+  function parseAccountIdentity(text) {
+    const displayName = text.trim();
+    const clanTag = /^\[.*?\]/.exec(displayName)?.[0] || "";
+    const nickname = displayName.replace(/^\[.*?\]\s*/, "").trim();
+    return nickname ? { nickname, clanTag, displayName } : null;
+  }
+  function getAccountIdentity() {
+    const header = document.querySelector(".UserInfoContainerStyle-userNameRank");
+    const identity = parseAccountIdentity(header?.textContent || "");
+    if (identity) return identity;
+    for (const parameter of document.querySelectorAll(".ClientInfoComponentStyle-parameterText")) {
+      const uid = /^UID:\s*(.+)$/i.exec(parameter.textContent?.trim() || "");
+      if (uid) return parseAccountIdentity(uid[1]);
+    }
+    const selfName = document.querySelector('#selfUserBg [class*="BattleKillBoardComponentStyle-col1"] span.-whiteSpaceNoWrap');
+    return parseAccountIdentity(selfName?.textContent || "");
+  }
+  var init_accountIdentity = __esm({
+    "src/core/accountIdentity.ts"() {
+    }
+  });
+
+  // src/modules/hideNickname.ts
+  function setTooltip(element, text) {
+    if (element.getAttribute("data-kasp-private-tooltip") !== text) {
+      element.setAttribute("data-kasp-private-tooltip", text);
+    }
+  }
+  function hideNickname() {
+    if (!utils.getSetting("k_hideNicknameXP", false)) return;
+    const root = document.documentElement;
+    if (!root) return;
+    if (!root.classList.contains("kasp-hide-nickname")) root.classList.add("kasp-hide-nickname");
+    const label = state.lang === "RU" ? '"\u0421\u043A\u0440\u044B\u0442\u043E"' : '"Hidden"';
+    if (root.style.getPropertyValue("--kasp-hidden-label") !== label) {
+      root.style.setProperty("--kasp-hidden-label", label);
+    }
+    document.querySelectorAll(".UserInfoContainerStyle-userNameRank, .UserInfoContainerStyle-progressValue").forEach((element) => {
+      setTooltip(element, element.textContent?.trim() || "");
+    });
+    document.querySelectorAll(".ClientInfoComponentStyle-parameterText").forEach((element) => {
+      const uid = /^UID:\s*(.*)$/i.exec(element.textContent?.trim() || "");
+      if (uid) {
+        if (element.hasAttribute("data-kasp-public-parameter")) element.removeAttribute("data-kasp-public-parameter");
+        if (!element.hasAttribute("data-kasp-private-uid")) element.setAttribute("data-kasp-private-uid", "");
+        setTooltip(element, uid[1]);
+      } else {
+        if (!element.hasAttribute("data-kasp-public-parameter")) element.setAttribute("data-kasp-public-parameter", "");
+        if (element.hasAttribute("data-kasp-private-uid")) {
+          element.removeAttribute("data-kasp-private-uid");
+          element.removeAttribute("data-kasp-private-tooltip");
         }
-      };
+      }
+    });
+    const own = getAccountIdentity()?.nickname;
+    document.querySelectorAll(".BattleTabStatisticComponentStyle-nicknameCell span").forEach((element) => {
+      const isSelf = !!own && parseAccountIdentity(element.textContent || "")?.nickname === own;
+      if (isSelf && !element.hasAttribute("data-kasp-private-nickname")) {
+        element.setAttribute("data-kasp-private-nickname", "");
+      } else if (!isSelf && element.hasAttribute("data-kasp-private-nickname")) {
+        element.removeAttribute("data-kasp-private-nickname");
+      }
+    });
+  }
+  function setupNicknamePrivacy() {
+    if (!utils.getSetting("k_hideNicknameXP", false)) return;
+    hideNickname();
+    if (privacyObserver) return;
+    privacyObserver = new MutationObserver(hideNickname);
+    privacyObserver.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ["class", "id"]
+    });
+  }
+  var privacyObserver;
+  var init_hideNickname = __esm({
+    "src/modules/hideNickname.ts"() {
+      init_state();
+      init_utils();
+      init_accountIdentity();
+      privacyObserver = null;
     }
   });
 
@@ -292,7 +252,7 @@
     "src/core/coreSettings.ts"() {
       init_state();
       init_utils();
-      init_modal();
+      init_hideNickname();
       coreSettings = /* @__PURE__ */ (() => {
         let needsReload = false;
         let initialSettingsState = {};
@@ -300,19 +260,11 @@
         const t = {
           RU: {
             title: "\u041D\u0410\u0421\u0422\u0420\u041E\u0419\u041A\u0418 KASPERSKY'S INVENTIONS",
-            tooltip: "\u0422\u0420\u0415\u0411\u0423\u0415\u0422\u0421\u042F \u041F\u0415\u0420\u0415\u0417\u0410\u0413\u0420\u0423\u0417\u041A\u0410",
-            warnTitle: "\u041F\u0420\u0415\u0414\u0423\u041F\u0420\u0415\u0416\u0414\u0415\u041D\u0418\u0415",
-            warnText: "\u0412\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0435 \u044D\u0442\u043E\u0439 \u0444\u0443\u043D\u043A\u0446\u0438\u0438 \u0441\u043B\u043E\u043C\u0430\u0435\u0442 \u0418\u0441\u0442\u043E\u0440\u0438\u044E \u0431\u0438\u0442\u0432 \u0438 \u0440\u0430\u0437\u0434\u0435\u043B \u041A\u043B\u0430\u043D\u044B \u0432 \u0434\u0440\u0443\u0437\u044C\u044F\u0445, \u0430 \u0442\u0430\u043A\u0436\u0435 \u0432\u043E\u0437\u043C\u043E\u0436\u043D\u044B \u043F\u0440\u043E\u0441\u0430\u0434\u043A\u0438 \u0424\u041F\u0421. \u0412\u044B \u0443\u0432\u0435\u0440\u0435\u043D\u044B, \u0447\u0442\u043E \u0445\u043E\u0442\u0438\u0442\u0435 \u043F\u0440\u043E\u0434\u043E\u043B\u0436\u0438\u0442\u044C?",
-            warnCancel: "\u041E\u0422\u041C\u0415\u041D\u0410",
-            warnConfirm: "\u0412\u041A\u041B\u042E\u0427\u0418\u0422\u042C"
+            tooltip: "\u0422\u0420\u0415\u0411\u0423\u0415\u0422\u0421\u042F \u041F\u0415\u0420\u0415\u0417\u0410\u0413\u0420\u0423\u0417\u041A\u0410"
           },
           EN: {
             title: "KASPERSKY'S INVENTIONS SETTINGS",
-            tooltip: "REQUIRES RELOAD",
-            warnTitle: "WARNING",
-            warnText: "Enabling this feature will break Battle History and the Clans section in Friends, and may also result in FPS drops. Are you sure you want to continue?",
-            warnCancel: "CANCEL",
-            warnConfirm: "ENABLE"
+            tooltip: "REQUIRES RELOAD"
           }
         };
         const MY_SETTINGS = [
@@ -325,67 +277,6 @@
           { id: "k_hideNicknameXP", label: { RU: "\u0421\u043A\u0440\u044B\u0442\u044C \u043D\u0438\u043A\u043D\u0435\u0439\u043C \u0438 \u043E\u043F\u044B\u0442", EN: "Hide nickname and score" }, default: false },
           { id: "k_history", label: { RU: "\u0412\u0435\u0441\u0442\u0438 \u0438\u0441\u0442\u043E\u0440\u0438\u044E \u0431\u0438\u0442\u0432", EN: "Keep a history of battles" }, default: false }
         ];
-        async function showWarningDialog(callback) {
-          const lang = state.lang;
-          const dict = t[lang] || t["EN"];
-          const modal = await createKaspModal({ id: "kasp-warning-overlay", title: dict.warnTitle, closeLabel: dict.warnCancel });
-          if (!modal) return;
-          modal.body.classList.add("kasp-modal-body--center");
-          modal.actions.classList.add("kasp-modal-actions--center");
-          const message = document.createElement("p");
-          message.className = "kasp-modal-copy kasp-modal-copy--center";
-          message.textContent = dict.warnText;
-          modal.body.appendChild(message);
-          const cancelBtn = document.createElement("button");
-          cancelBtn.type = "button";
-          cancelBtn.className = "kasp-modal-button kasp-modal-button--secondary";
-          const cancelLabel = document.createElement("span");
-          cancelLabel.textContent = dict.warnCancel;
-          cancelBtn.appendChild(cancelLabel);
-          const confirmBtn = document.createElement("button");
-          confirmBtn.type = "button";
-          confirmBtn.className = "kasp-modal-button";
-          const confirmLabel = document.createElement("span");
-          confirmLabel.textContent = dict.warnConfirm;
-          confirmBtn.appendChild(confirmLabel);
-          modal.actions.append(cancelBtn, confirmBtn);
-          const loaderObserver = new MutationObserver(() => {
-            if (document.querySelector(".ApplicationLoaderComponentStyle-container.-background")) modal.close();
-          });
-          loaderObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
-          let confirmed = false;
-          let isClosed = false;
-          const closeDialog = () => {
-            isClosed = true;
-            loaderObserver.disconnect();
-            document.removeEventListener("keydown", onKeyDown, true);
-            modal.close();
-          };
-          modal.onClose(() => {
-            isClosed = true;
-            loaderObserver.disconnect();
-            document.removeEventListener("keydown", onKeyDown, true);
-          });
-          const onKeyDown = (event) => {
-            if (event.key !== "Enter" || isClosed) return;
-            event.preventDefault();
-            event.stopPropagation();
-            event.stopImmediatePropagation();
-            if (!confirmed) {
-              confirmed = true;
-              closeDialog();
-              callback();
-            }
-          };
-          cancelBtn.addEventListener("click", closeDialog);
-          confirmBtn.addEventListener("click", () => {
-            if (confirmed || isClosed) return;
-            confirmed = true;
-            closeDialog();
-            callback();
-          });
-          document.addEventListener("keydown", onKeyDown, true);
-        }
         return {
           inject: () => {
             if (!stylesInjected) {
@@ -466,10 +357,10 @@
                     return currentVal !== initialSettingsState[s.id];
                   });
                 };
-                if (id === "k_hideNicknameXP" && !isCurrentlyChecked) {
-                  void showWarningDialog(performToggle);
-                } else {
-                  performToggle();
+                performToggle();
+                if (id === "k_hideNicknameXP") {
+                  if (!isCurrentlyChecked) setupNicknamePrivacy();
+                  else document.documentElement.classList.remove("kasp-hide-nickname");
                 }
               });
             });
@@ -808,19 +699,13 @@
             }
           });
         };
+        const liveStats = /* @__PURE__ */ new Map();
         function updateLiveStats() {
           if (!utils.getSetting("k_augments", false)) return;
-          document.querySelectorAll(".custom-live-stat").forEach((el) => el.remove());
-          document.querySelectorAll(".hidden-by-script").forEach((el) => {
-            const htmlEl = el;
-            htmlEl.classList.remove("hidden-by-script");
-            htmlEl.style.display = "";
-          });
+          const activeValues = /* @__PURE__ */ new Set();
           const deviceImg = document.querySelector(".DeviceButtonComponentStyle-deviceIcon");
-          if (!deviceImg) return;
-          const deviceData = DataLoader.getDevice(deviceImg.src);
-          if (!deviceData || !deviceData.modifiers) return;
-          const allSpans = Array.from(document.querySelectorAll("span")).filter((s) => !s.classList.contains("custom-live-stat"));
+          const deviceData = deviceImg ? DataLoader.getDevice(deviceImg.src) : void 0;
+          const allSpans = deviceData?.modifiers ? Array.from(document.querySelectorAll("span")).filter((s) => !s.closest(".custom-live-stat")) : [];
           allSpans.forEach((nameSpan) => {
             const text = nameSpan.textContent?.trim().toLowerCase() || "";
             let matchedTag = null;
@@ -834,8 +719,9 @@
             if (matchedTag && deviceData.modifiers && matchedTag in deviceData.modifiers) {
               const multiplier = deviceData.modifiers[matchedTag];
               const valueSpan = nameSpan.parentElement?.nextElementSibling;
-              if (valueSpan && valueSpan.tagName === "SPAN" && !valueSpan.classList.contains("hidden-by-script")) {
-                const cleanStr = valueSpan.innerText.replace(/\s/g, "").replace(/\u00A0/g, "").replace(",", ".");
+              if (valueSpan && valueSpan.tagName === "SPAN" && !valueSpan.classList.contains("custom-live-stat")) {
+                const original = valueSpan;
+                const cleanStr = (original.textContent || "").replace(/\s/g, "").replace(",", ".");
                 const origNumber = parseFloat(cleanStr);
                 if (!isNaN(origNumber)) {
                   let newVal = matchedTag === "WEIGHT" && multiplier >= 10 ? multiplier : origNumber * multiplier;
@@ -845,16 +731,37 @@
                   if (["RELOAD"].includes(matchedTag)) isBuff = multiplier < 1;
                   if (matchedTag === "WEIGHT" && multiplier < origNumber) isBuff = false;
                   const color = isBuff ? "#00ff38" : "#fe6666";
-                  valueSpan.classList.add("hidden-by-script");
-                  valueSpan.style.display = "none";
-                  const customSpan = document.createElement("span");
-                  customSpan.className = valueSpan.className + " custom-live-stat";
-                  customSpan.innerHTML = `<span style="color: ${color}; text-shadow: 0 0 5px ${color}40;">${formattedVal}</span>`;
-                  valueSpan.parentNode?.insertBefore(customSpan, valueSpan.nextSibling);
+                  activeValues.add(original);
+                  let entry = liveStats.get(original);
+                  if (!entry) {
+                    const replacement = document.createElement("span");
+                    const value = document.createElement("span");
+                    replacement.appendChild(value);
+                    entry = { replacement, value, originalDisplay: original.style.display };
+                    liveStats.set(original, entry);
+                  }
+                  const className = original.className.split(/\s+/).filter((name) => name && name !== "hidden-by-script").concat("custom-live-stat").join(" ");
+                  if (entry.replacement.className !== className) entry.replacement.className = className;
+                  const textValue = String(formattedVal);
+                  if (entry.value.textContent !== textValue) entry.value.textContent = textValue;
+                  const valueStyle = `color: ${color}; text-shadow: 0 0 5px ${color}40;`;
+                  if (entry.value.getAttribute("style") !== valueStyle) entry.value.setAttribute("style", valueStyle);
+                  if (!original.classList.contains("hidden-by-script")) original.classList.add("hidden-by-script");
+                  if (original.style.display !== "none") original.style.display = "none";
+                  if (original.nextSibling !== entry.replacement) {
+                    original.parentNode?.insertBefore(entry.replacement, original.nextSibling);
+                  }
                 }
               }
             }
           });
+          for (const [original, entry] of liveStats) {
+            if (activeValues.has(original)) continue;
+            entry.replacement.remove();
+            original.classList.remove("hidden-by-script");
+            original.style.display = entry.originalDisplay;
+            liveStats.delete(original);
+          }
         }
         const scheduleUpdate = () => {
           if (updateQueued) return;
@@ -1278,6 +1185,7 @@
     "src/modules/customFriends.ts"() {
       init_state();
       init_utils();
+      init_accountIdentity();
       customFriends = /* @__PURE__ */ (() => {
         let initialized = false;
         const filtersConfig = [
@@ -1290,11 +1198,7 @@
           { url: "https://s.eu.tankionline.com/static/images/iconCustomiseRed.2b5c8828.svg", type: "red" }
         ];
         const getCurrentNickname = () => {
-          const userEl = document.querySelector(".UserInfoContainerStyle-userNameRank");
-          if (!userEl) return "Unknown";
-          const text = userEl.innerText.trim();
-          const cleanName = text.replace(/^\[.*?\]\s*/, "").trim();
-          return cleanName || "Unknown";
+          return getAccountIdentity()?.nickname || "Unknown";
         };
         const getCustomCategories = () => {
           const myNick = getCurrentNickname();
@@ -1321,11 +1225,7 @@
           });
         };
         const getMyClanTag = () => {
-          const userEl = document.querySelector(".UserInfoContainerStyle-userNameRank.UserInfoContainerStyle-textDecoration") || document.querySelector(".UserInfoContainerStyle-userNameRank");
-          if (!userEl) return "";
-          const text = userEl.innerText.trim();
-          const match = text.match(/\[(.*?)\]/);
-          return match ? match[0] : "";
+          return getAccountIdentity()?.clanTag || "";
         };
         const updateCardBadge = (el, isFriendsList) => {
           const cardText = el.innerText || "";
@@ -1726,123 +1626,6 @@
     }
   });
 
-  // src/modules/hideNickname.ts
-  var hideNickname;
-  var init_hideNickname = __esm({
-    "src/modules/hideNickname.ts"() {
-      init_state();
-      init_utils();
-      hideNickname = /* @__PURE__ */ (() => {
-        let initialized = false;
-        let cachedOriginalNick = null;
-        function getHiddenText() {
-          return state.lang === "RU" ? "\u0421\u043A\u0440\u044B\u0442\u043E" : "Hidden";
-        }
-        function processNickElement(userNameElement) {
-          const hiddenText = getHiddenText();
-          const expectedClass = state.lang === "RU" ? "hidden-text-ru" : "hidden-text";
-          const hiddenSpan = userNameElement.querySelector(".hidden-text, .hidden-text-ru");
-          if (!hiddenSpan) {
-            const originalName = cachedOriginalNick || userNameElement.textContent?.trim() || "";
-            if (originalName && originalName !== "\u0421\u043A\u0440\u044B\u0442\u043E" && originalName !== "Hidden") {
-              cachedOriginalNick = originalName;
-            }
-            userNameElement.innerHTML = "";
-            const newSpan = document.createElement("span");
-            newSpan.className = expectedClass;
-            newSpan.textContent = hiddenText;
-            newSpan.setAttribute("data-tooltip", cachedOriginalNick || "Player");
-            userNameElement.appendChild(newSpan);
-          } else {
-            if (hiddenSpan.className !== expectedClass) hiddenSpan.className = expectedClass;
-            if (hiddenSpan.textContent !== hiddenText) hiddenSpan.textContent = hiddenText;
-            if (cachedOriginalNick && hiddenSpan.getAttribute("data-tooltip") !== cachedOriginalNick) {
-              hiddenSpan.setAttribute("data-tooltip", cachedOriginalNick);
-            }
-          }
-        }
-        function processXpElement(xpContainer) {
-          const hiddenText = getHiddenText();
-          const expectedClass = state.lang === "RU" ? "hidden-xp-ru" : "hidden-xp";
-          const hiddenXpSpan = xpContainer.querySelector(".hidden-xp, .hidden-xp-ru");
-          if (!hiddenXpSpan) {
-            const originalXp = xpContainer.textContent?.trim() || "";
-            xpContainer.innerHTML = "";
-            const newXpSpan = document.createElement("span");
-            newXpSpan.className = expectedClass;
-            newXpSpan.textContent = hiddenText;
-            newXpSpan.setAttribute("data-tooltip", originalXp || "0");
-            xpContainer.appendChild(newXpSpan);
-          } else {
-            if (hiddenXpSpan.className !== expectedClass) hiddenXpSpan.className = expectedClass;
-            const currentXpText = xpContainer.textContent?.trim() || "";
-            if (currentXpText && currentXpText !== hiddenText && currentXpText !== "\u0421\u043A\u0440\u044B\u0442\u043E" && currentXpText !== "Hidden") {
-              hiddenXpSpan.setAttribute("data-tooltip", currentXpText);
-            }
-            if (hiddenXpSpan.textContent !== hiddenText) hiddenXpSpan.textContent = hiddenText;
-          }
-        }
-        function hideNicknameInTables() {
-          if (!cachedOriginalNick) {
-            const userNameElement = document.querySelector(".UserInfoContainerStyle-userNameRank.UserInfoContainerStyle-textDecoration");
-            if (userNameElement) {
-              const hiddenSpan = userNameElement.querySelector(".hidden-text, .hidden-text-ru");
-              cachedOriginalNick = hiddenSpan ? hiddenSpan.getAttribute("data-tooltip") : userNameElement.textContent?.trim() || null;
-            }
-          }
-          if (!cachedOriginalNick) return;
-          const hiddenText = getHiddenText();
-          const tabContainer = document.querySelector(".BattleTabStatisticComponentStyle-containerInsideTeams");
-          if (tabContainer) {
-            const tabSpans = tabContainer.querySelectorAll(".BattleTabStatisticComponentStyle-nicknameCell span");
-            for (let i = 0; i < tabSpans.length; i++) {
-              const span = tabSpans[i];
-              if (span.textContent?.trim() === cachedOriginalNick && !span.hasAttribute("data-hidden-applied")) {
-                span.setAttribute("data-hidden-applied", "true");
-                span.textContent = hiddenText;
-                span.style.color = "#ffffff";
-                span.style.fontWeight = "500";
-              }
-            }
-          }
-          const selfRow = document.getElementById("selfUserBg");
-          if (selfRow) {
-            const resultSpans = selfRow.querySelectorAll('td[class*="col1"] span');
-            for (let i = 0; i < resultSpans.length; i++) {
-              const span = resultSpans[i];
-              const text = span.textContent?.trim() || "";
-              if (!span.hasAttribute("data-hidden-applied") && text !== "") {
-                if (text !== hiddenText && text !== "Hidden" && text !== "\u0421\u043A\u0440\u044B\u0442\u043E") {
-                  cachedOriginalNick = text;
-                }
-                span.setAttribute("data-hidden-applied", "true");
-                span.textContent = hiddenText;
-                span.style.color = "#ffffff";
-                span.style.fontWeight = "500";
-              }
-            }
-          }
-        }
-        return () => {
-          if (!utils.getSetting("k_hideNicknameXP", false)) return;
-          if (!initialized) {
-            initialized = true;
-            document.addEventListener("keydown", (e) => {
-              if (e.key === "Tab") {
-                setTimeout(hideNicknameInTables, 40);
-              }
-            });
-          }
-          const userName = document.querySelector(".UserInfoContainerStyle-userNameRank.UserInfoContainerStyle-textDecoration");
-          if (userName) processNickElement(userName);
-          const xp = document.querySelector(".UserInfoContainerStyle-progressValue");
-          if (xp) processXpElement(xp);
-          hideNicknameInTables();
-        };
-      })();
-    }
-  });
-
   // src/modules/hideCurrency.ts
   var hideCurrency;
   var init_hideCurrency = __esm({
@@ -1941,7 +1724,7 @@
           }
           return null;
         }
-        function formatNumber(num) {
+        function formatNumber2(num) {
           return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
         }
         function extractIcon(card) {
@@ -2075,7 +1858,7 @@
                                 <div class="custom-trophy-bar-bg">
                                     <div class="custom-trophy-bar-fill" style="width: ${percent}%;"></div>
                                 </div>
-                                <div class="custom-trophy-text">${formatNumber(trophy.current)} / ${formatNumber(trophy.max)}</div>
+                                <div class="custom-trophy-text">${formatNumber2(trophy.current)} / ${formatNumber2(trophy.max)}</div>
                             </div>
                         </div>
                     `;
@@ -2109,6 +1892,134 @@
           }
         };
       })();
+    }
+  });
+
+  // src/core/modal.ts
+  var pendingModalIds, createKaspModal;
+  var init_modal = __esm({
+    "src/core/modal.ts"() {
+      pendingModalIds = /* @__PURE__ */ new Set();
+      createKaspModal = async (options) => {
+        if (document.getElementById(options.id) || pendingModalIds.has(options.id)) return null;
+        pendingModalIds.add(options.id);
+        try {
+          const response = await fetch(chrome.runtime.getURL("templates/modal.html"));
+          if (!response.ok) throw new Error(`Modal template request failed: ${response.status}`);
+          const template = document.createElement("template");
+          template.innerHTML = await response.text();
+          const overlay = template.content.firstElementChild;
+          if (!overlay) throw new Error("Modal template is empty");
+          overlay.id = options.id;
+          const dialog = overlay.querySelector("[data-kasp-modal-dialog]");
+          const title = overlay.querySelector("[data-kasp-modal-title]");
+          const closeButton = overlay.querySelector("[data-kasp-modal-close]");
+          const body = overlay.querySelector("[data-kasp-modal-body]");
+          const actions = overlay.querySelector("[data-kasp-modal-actions]");
+          if (!dialog || !title || !closeButton || !body || !actions) {
+            throw new Error("Modal template is missing required elements");
+          }
+          title.id = `${options.id}-title`;
+          dialog.setAttribute("aria-labelledby", title.id);
+          title.textContent = options.title;
+          closeButton.setAttribute("aria-label", options.closeLabel);
+          let isClosing = false;
+          let isRemoved = false;
+          let removeTimer = 0;
+          const closeListeners = /* @__PURE__ */ new Set();
+          const cleanup = () => {
+            document.removeEventListener("keydown", onKeyDown, true);
+            window.removeEventListener("mousedown", onMouseDown, true);
+          };
+          const removeOverlay = () => {
+            if (isRemoved) return;
+            isRemoved = true;
+            window.clearTimeout(removeTimer);
+            dialog.removeEventListener("animationend", onDialogAnimationEnd);
+            overlay.remove();
+          };
+          const onDialogAnimationEnd = (event) => {
+            if (event.target === dialog) removeOverlay();
+          };
+          const close = () => {
+            if (isClosing) return;
+            isClosing = true;
+            cleanup();
+            overlay.classList.remove("kasp-modal-opening");
+            overlay.classList.add("kasp-modal-closing");
+            for (const listener of closeListeners) listener();
+            closeListeners.clear();
+            dialog.addEventListener("animationend", onDialogAnimationEnd);
+            removeTimer = window.setTimeout(removeOverlay, 260);
+          };
+          const onKeyDown = (event) => {
+            const isEscape = event.key === "Escape" || event.key === "Esc";
+            const isZ = event.code === "KeyZ" || event.key?.toLowerCase() === "z";
+            const activeTag = document.activeElement?.tagName;
+            if (isZ && ["INPUT", "TEXTAREA", "SELECT"].includes(activeTag || "")) return;
+            const isBackKey = isEscape || isZ;
+            if (!isBackKey) return;
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            close();
+          };
+          const blockRemainingBackEvents = () => {
+            const block = (event) => {
+              if (event.button !== 3 && event.button !== 4) return;
+              event.preventDefault();
+              event.stopPropagation();
+              event.stopImmediatePropagation();
+            };
+            window.addEventListener("mouseup", block, true);
+            window.addEventListener("click", block, true);
+            window.addEventListener("auxclick", block, true);
+            window.setTimeout(() => {
+              window.removeEventListener("mouseup", block, true);
+              window.removeEventListener("click", block, true);
+              window.removeEventListener("auxclick", block, true);
+            }, 700);
+          };
+          const onMouseDown = (event) => {
+            if (event.button !== 3 && event.button !== 4) return;
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            if (event.button === 3) close();
+            blockRemainingBackEvents();
+          };
+          closeButton.addEventListener("click", (event) => {
+            event.stopPropagation();
+            close();
+          });
+          dialog.addEventListener("mousedown", (event) => event.stopPropagation());
+          dialog.addEventListener("click", (event) => event.stopPropagation());
+          overlay.addEventListener("mousedown", (event) => {
+            if (event.target !== overlay) return;
+            event.preventDefault();
+            event.stopPropagation();
+            close();
+          });
+          document.addEventListener("keydown", onKeyDown, true);
+          window.addEventListener("mousedown", onMouseDown, true);
+          overlay.closeDialogMethod = close;
+          document.body.appendChild(overlay);
+          return {
+            overlay,
+            dialog,
+            body,
+            actions,
+            closeButton,
+            close,
+            onClose: (listener) => {
+              if (isClosing) listener();
+              else closeListeners.add(listener);
+            }
+          };
+        } finally {
+          pendingModalIds.delete(options.id);
+        }
+      };
     }
   });
 
@@ -2370,16 +2281,16 @@
                   return;
                 }
                 if (hasNormalButton()) {
-                  clickConfirmButton();
+                  if (!clickConfirmButton()) {
+                    finish();
+                    return;
+                  }
                   upgraded++;
                   isWaitingForDialogClose = true;
                   timer = window.setTimeout(doStep, DELAY);
                   return;
                 }
-                pressEnter();
-                upgraded++;
-                isWaitingForDialogClose = true;
-                timer = window.setTimeout(doStep, DELAY);
+                finish();
                 return;
               }
               pressEnter();
@@ -3440,6 +3351,7 @@
   var equipmentTracker;
   var init_equipmentTracker = __esm({
     "src/modules/equipmentTracker.ts"() {
+      init_accountIdentity();
       equipmentTracker = /* @__PURE__ */ (() => {
         const STORAGE_KEY = "kasp_my_equipment";
         let lastSignature = "";
@@ -3468,9 +3380,7 @@
           return Array.from(block.children);
         };
         const getOwnNickname = () => {
-          const el = document.querySelector(".UserInfoContainerStyle-userNameRank");
-          if (!el) return "";
-          return (el.textContent || "").trim().replace(/^\[.*?\]\s*/, "").trim();
+          return getAccountIdentity()?.nickname || "";
         };
         const findSelfRow = () => {
           const byId = document.getElementById("selfUserBg");
@@ -3528,75 +3438,1131 @@
     }
   });
 
-  // src/modules/battleHistory.ts
-  var battleHistory;
-  var init_battleHistory = __esm({
-    "src/modules/battleHistory.ts"() {
-      init_state();
-      init_utils();
+  // src/core/historyMarkup.ts
+  function escapeHistoryHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    })[char]);
+  }
+  function getHistoryImageUrl(value) {
+    if (typeof value !== "string" || !value || /[\s"'<>\\]/.test(value)) return "";
+    try {
+      const url = new URL(value);
+      if (url.protocol !== "https:" || url.username || url.password || url.port) return "";
+      if (url.hostname !== "tankionline.com" && !url.hostname.endsWith(".tankionline.com")) return "";
+      if (!/\.(svg|webp|png|jpe?g|gif|avif|ico)$/i.test(url.pathname)) return "";
+      return url.href;
+    } catch {
+      return "";
+    }
+  }
+  function renderHistoryTemplate(template, values, markupKeys = []) {
+    const markup = new Set(markupKeys);
+    return template.replace(/\{\{(\w+)\}\}/g, (placeholder, key) => {
+      if (!Object.prototype.hasOwnProperty.call(values, key)) return placeholder;
+      return markup.has(key) ? String(values[key] ?? "") : escapeHistoryHtml(values[key]);
+    });
+  }
+  var init_historyMarkup = __esm({
+    "src/core/historyMarkup.ts"() {
+    }
+  });
+
+  // src/modules/battleHistory/localization.ts
+  function getHistoryDictionary(language) {
+    return language === "RU" ? historyTranslations.RU : historyTranslations.EN;
+  }
+  function getClearHistoryDictionary(language) {
+    return language === "RU" ? clearHistoryTranslations.RU : clearHistoryTranslations.EN;
+  }
+  function getLinkHistoryDictionary(language) {
+    return language === "RU" ? linkHistoryTranslations.RU : linkHistoryTranslations.EN;
+  }
+  function getHistoryMessages(language) {
+    return language === "RU" ? historyMessages.RU : historyMessages.EN;
+  }
+  var historyTranslations, clearHistoryTranslations, linkHistoryTranslations, historyMessages;
+  var init_localization = __esm({
+    "src/modules/battleHistory/localization.ts"() {
+      historyTranslations = {
+        RU: {
+          title: "\u0418\u0441\u0442\u043E\u0440\u0438\u044F \u0411\u0438\u0442\u0432",
+          date: "\u0414\u0430\u0442\u0430",
+          map: "\u041A\u0430\u0440\u0442\u0430",
+          status: "\u0421\u0442\u0430\u0442\u0443\u0441",
+          top: "\u041C\u0435\u0441\u0442\u043E",
+          mode: "\u0420\u0435\u0436\u0438\u043C",
+          score: "\u041E\u0447\u043A\u0438",
+          kills: "\u041A",
+          deaths: "\u0414",
+          kd: "\u0423/\u0421",
+          turret: "\u041F\u0443\u0448\u043A\u0430",
+          hull: "\u041A\u043E\u0440\u043F\u0443\u0441",
+          augment: "\u0423\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u043E",
+          crystals: "\u041A\u0440\u0438\u0441\u0442\u0430\u043B\u043B\u044B",
+          stars: "\u0417\u0432\u0451\u0437\u0434\u044B",
+          win: "\u041F\u043E\u0431\u0435\u0434\u0430",
+          lose: "\u041F\u043E\u0440\u0430\u0436\u0435\u043D\u0438\u0435",
+          draw: "\u041D\u0438\u0447\u044C\u044F",
+          dm: "\u041A\u0430\u0436\u0434\u044B\u0439 \u0441\u0430\u043C \u0437\u0430 \u0441\u0435\u0431\u044F",
+          teamScore: "\u0421\u0447\u0451\u0442",
+          clear: "\u041E\u0447\u0438\u0441\u0442\u0438\u0442\u044C",
+          link: "\u0421\u0432\u044F\u0437\u0430\u0442\u044C",
+          export: "\u042D\u043A\u0441\u043F\u043E\u0440\u0442",
+          import: "\u0418\u043C\u043F\u043E\u0440\u0442",
+          battles: "\u0411\u043E\u0451\u0432",
+          noBattles: "\u041F\u043E\u043A\u0430 \u043D\u0435\u0442 \u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u0445 \u0431\u043E\u0451\u0432",
+          player: "\u0418\u0433\u0440\u043E\u043A",
+          gs: "GS",
+          diamond: "DIAMOND",
+          myTeam: "\u041C\u043E\u044F \u043A\u043E\u043C\u0430\u043D\u0434\u0430",
+          enemyTeam: "\u041A\u043E\u043C\u0430\u043D\u0434\u0430 \u043F\u0440\u043E\u0442\u0438\u0432\u043D\u0438\u043A\u0430",
+          playersCount: "\u0438\u0433\u0440\u043E\u043A\u043E\u0432",
+          allBattles: "\u2039 \xA0 \u0412\u0441\u0435 \u0431\u0438\u0442\u0432\u044B",
+          yourScore: "\u0412\u0430\u0448 \u0441\u0447\u0451\u0442",
+          yourKd: "\u0412\u0430\u0448 \u041A/\u0414"
+        },
+        EN: {
+          title: "Battle History",
+          date: "Date",
+          map: "Map",
+          status: "Status",
+          top: "Top",
+          mode: "Mode",
+          score: "Score",
+          kills: "Kills",
+          deaths: "Deaths",
+          kd: "K/D",
+          turret: "Turret",
+          hull: "Hull",
+          augment: "Augment",
+          crystals: "Crystals",
+          stars: "Stars",
+          win: "Victory",
+          lose: "Defeat",
+          draw: "Draw",
+          dm: "Deathmatch",
+          teamScore: "Score",
+          clear: "Clear",
+          link: "Link",
+          export: "Export",
+          import: "Import",
+          battles: "Battles",
+          noBattles: "No saved battles yet",
+          player: "Player",
+          gs: "GS",
+          diamond: "DIAMOND",
+          myTeam: "My Team",
+          enemyTeam: "Enemy Team",
+          playersCount: "players",
+          allBattles: "\u2039 \xA0 All battles",
+          yourScore: "Your Score",
+          yourKd: "Your K/D"
+        }
+      };
+      clearHistoryTranslations = {
+        RU: { title: "\u041E\u0427\u0418\u0421\u0422\u041A\u0410 \u0418\u0421\u0422\u041E\u0420\u0418\u0418", text: "\u0412\u044B \u0443\u0432\u0435\u0440\u0435\u043D\u044B, \u0447\u0442\u043E \u0445\u043E\u0442\u0438\u0442\u0435 \u0443\u0434\u0430\u043B\u0438\u0442\u044C \u0432\u0441\u044E \u0438\u0441\u0442\u043E\u0440\u0438\u044E \u043C\u0430\u0442\u0447\u0435\u0439?", cancel: "\u041E\u0442\u043C\u0435\u043D\u0430", confirm: "\u0423\u0414\u0410\u041B\u0418\u0422\u042C" },
+        EN: { title: "CLEAR HISTORY", text: "Are you sure you want to delete all match history?", cancel: "Cancel", confirm: "DELETE" }
+      };
+      linkHistoryTranslations = {
+        RU: {
+          title: "\u0421\u0412\u042F\u0417\u0410\u0422\u042C \u0418\u0421\u0422\u041E\u0420\u0418\u0418",
+          description: "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043D\u0438\u043A, \u0438\u0441\u0442\u043E\u0440\u0438\u044E \u043A\u043E\u0442\u043E\u0440\u043E\u0433\u043E \u043D\u0443\u0436\u043D\u043E \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043A \u0442\u0435\u043A\u0443\u0449\u0435\u0439 \u0438\u0441\u0442\u043E\u0440\u0438\u0438.",
+          target: "\u0422\u0435\u043A\u0443\u0449\u0430\u044F \u0438\u0441\u0442\u043E\u0440\u0438\u044F:",
+          select: "\u0418\u0441\u0442\u043E\u0440\u0438\u044F \u0434\u043B\u044F \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u0438\u044F",
+          placeholder: "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043D\u0438\u043A\u043D\u0435\u0439\u043C",
+          empty: "\u0414\u0440\u0443\u0433\u0438\u0445 \u043D\u0438\u043A\u043D\u0435\u0439\u043C\u043E\u0432 \u0441 \u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u043C\u0438 \u0431\u043E\u044F\u043C\u0438 \u043D\u0435\u0442.",
+          cancel: "\u041E\u0442\u043C\u0435\u043D\u0430",
+          confirm: "\u0421\u0432\u044F\u0437\u0430\u0442\u044C",
+          success: (count) => `\u0418\u0441\u0442\u043E\u0440\u0438\u0438 \u0441\u0432\u044F\u0437\u0430\u043D\u044B. \u0414\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043E \u0431\u043E\u0451\u0432: ${count}.`,
+          failed: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u0432\u044F\u0437\u0430\u0442\u044C \u0438\u0441\u0442\u043E\u0440\u0438\u0438."
+        },
+        EN: {
+          title: "LINK HISTORIES",
+          description: "Choose the nickname whose history should be added to the current history.",
+          target: "Current history:",
+          select: "History to add",
+          placeholder: "Select a nickname",
+          empty: "No other nicknames have saved battles.",
+          cancel: "Cancel",
+          confirm: "Link",
+          success: (count) => `Histories linked. Battles added: ${count}.`,
+          failed: "Could not link the histories."
+        }
+      };
+      historyMessages = {
+        RU: {
+          unknownNickname: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u043F\u0440\u0435\u0434\u0435\u043B\u0438\u0442\u044C \u0442\u0435\u043A\u0443\u0449\u0438\u0439 \u043D\u0438\u043A.",
+          listFailed: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0441\u043F\u0438\u0441\u043E\u043A \u0438\u0441\u0442\u043E\u0440\u0438\u0439.",
+          imported: (count) => `\u0418\u043C\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u043D\u043E \u0431\u043E\u0451\u0432: ${count}.`,
+          importFailed: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0438\u043C\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0444\u0430\u0439\u043B. \u041F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435, \u0447\u0442\u043E \u044D\u0442\u043E JSON-\u0444\u0430\u0439\u043B \u0438\u0441\u0442\u043E\u0440\u0438\u0438 \u0431\u0438\u0442\u0432."
+        },
+        EN: {
+          unknownNickname: "Could not detect the current nickname.",
+          listFailed: "Could not load the history list.",
+          imported: (count) => `Imported battles: ${count}.`,
+          importFailed: "Could not import this file. Check that it is a valid battle history JSON file."
+        }
+      };
+    }
+  });
+
+  // src/modules/battleHistory/presentation.ts
+  function playersWord(n, lang) {
+    if (lang === "RU") {
+      const mod10 = n % 10, mod100 = n % 100;
+      if (mod10 === 1 && mod100 !== 11) return "\u0438\u0433\u0440\u043E\u043A";
+      if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return "\u0438\u0433\u0440\u043E\u043A\u0430";
+      return "\u0438\u0433\u0440\u043E\u043A\u043E\u0432";
+    }
+    return n === 1 ? "player" : "players";
+  }
+  function classifyResult(battle) {
+    const status = (battle.status || "").toLowerCase();
+    return {
+      isWin: status.includes("victory") || status.includes("\u043F\u043E\u0431\u0435\u0434\u0430"),
+      isDraw: status.includes("draw") || status.includes("\u043D\u0438\u0447\u044C\u044F"),
+      isDM: status === "dm" || status.includes("\u043A\u0430\u0436\u0434\u044B\u0439 \u0441\u0430\u043C \u0437\u0430 \u0441\u0435\u0431\u044F") || String(battle.mode).toUpperCase() === "DM"
+    };
+  }
+  function formatNumber(value) {
+    return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, "\xA0");
+  }
+  function formatBattleDate(timestamp) {
+    const date = new Date(timestamp);
+    return {
+      date: date.toLocaleDateString(),
+      time: date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    };
+  }
+  function buildDetailedMarkup(b, dict, lang, template) {
+    let myTeamHtml = "";
+    let enemyTeamHtml = "";
+    let myTeamCount = 0;
+    let enemyTeamCount = 0;
+    (b.players || []).forEach((p) => {
+      const isMeClass = p.isMe ? "current-player" : "";
+      const gsClass = getGsClass(p.gs);
+      const gsFormatted = formatNumber(p.gs);
+      const scoreFormatted = formatNumber(p.score);
+      const crystalsFormatted = formatNumber(p.crystals);
+      const rankUrl = getHistoryImageUrl(p.rank);
+      const rowHtml = `
+                    <tr class="${isMeClass}">
+                        <td class="player-cell">
+                            <div class="player-icons">
+                                ${rankUrl ? `<img class="player-icon" src="${escapeHistoryHtml(rankUrl)}" style="width: 24px; height: 24px; border: none; background: transparent; padding: 0;">` : ""}
+                            </div>
+                            <span class="player-name">${escapeHistoryHtml(p.name)}</span>
+                        </td>
+                        <td class="gs ${gsClass}">${escapeHistoryHtml(gsFormatted)}</td>
+                        <td>${escapeHistoryHtml(scoreFormatted)}</td>
+                        <td>${escapeHistoryHtml(p.kills)}</td>
+                        <td>${escapeHistoryHtml(p.deaths)}</td>
+                        <td>${escapeHistoryHtml(p.kd.toFixed(2))}</td>
+                        <td class="reward">${escapeHistoryHtml(crystalsFormatted)}</td>
+                        <td class="stars">${escapeHistoryHtml(p.stars)}</td>
+                    </tr>
+                `;
+      if (p.isEnemy) {
+        enemyTeamHtml += rowHtml;
+        enemyTeamCount++;
+      } else {
+        myTeamHtml += rowHtml;
+        myTeamCount++;
+      }
+    });
+    const { isWin, isDraw, isDM } = classifyResult(b);
+    let resultClass = isWin ? "victory" : isDraw ? "draw" : "defeat";
+    let resultText = isWin ? dict.win : isDraw ? dict.draw : dict.lose;
+    if (isDM) {
+      resultClass = "draw";
+      const place = b.top && b.top !== "-" ? b.top : null;
+      resultText = place ? lang === "RU" ? `#${place} \u041C\u0415\u0421\u0422\u041E` : `#${place} PLACE` : dict.dm;
+    }
+    const hasTeamScores = !isDM && typeof b.teamScoreMy === "number" && typeof b.teamScoreEnemy === "number";
+    const leftLabel = hasTeamScores ? dict.myTeam : dict.yourScore;
+    const leftValue = hasTeamScores ? formatNumber(b.teamScoreMy) : formatNumber(b.reputation || 0);
+    const rightLabel = hasTeamScores ? dict.enemyTeam : dict.yourKd;
+    const rightValue = hasTeamScores ? formatNumber(b.teamScoreEnemy) : (b.kd || 0).toFixed(2);
+    const modeUpperKey = String(b.mode || "MM").toUpperCase();
+    const teamIcon = hasTeamScores ? MODE_ICONS[modeUpperKey] || MODE_ICONS.TDM : null;
+    const leftIconUrl = teamIcon || DM_SCORE_ICON;
+    const rightIconUrl = teamIcon || DM_KD_ICON;
+    const mapInfo = DataLoader.getMapInfo(b.map);
+    const localizedMap = (mapInfo ? lang === "RU" ? mapInfo.ru : mapInfo.en : translateMapName(b.map, lang)) || "Unknown";
+    const { date: dateStr, time: timeStr } = formatBattleDate(b.date);
+    const replacements = {
+      backLabel: dict.allBattles,
+      leftScoreClass: isDM ? "dm" : "",
+      leftIconUrl,
+      leftLabel,
+      leftValue,
+      mode: b.mode || "MM",
+      date: dateStr,
+      time: timeStr,
+      playerCount: String((b.players || []).length),
+      playersLabel: dict.playersCount,
+      map: localizedMap,
+      resultClass,
+      resultText,
+      rightScoreClass: isDM ? "dm" : "",
+      rightIconUrl,
+      rightLabel,
+      rightValue,
+      statsClass: enemyTeamCount === 0 ? "solo-mode" : "",
+      playerLabel: dict.player,
+      gsLabel: dict.gs,
+      scoreLabel: dict.score,
+      myTeamClass: myTeamCount > 0 ? "" : "bh-hidden",
+      myTeamTitle: isDM ? dict.player : dict.myTeam,
+      myTeamCount: `${myTeamCount}\xA0${playersWord(myTeamCount, lang)}`,
+      myTeamRows: myTeamHtml,
+      enemyTeamClass: enemyTeamCount > 0 ? "" : "bh-hidden",
+      enemyTeamTitle: dict.enemyTeam,
+      enemyTeamCount: `${enemyTeamCount}\xA0${playersWord(enemyTeamCount, lang)}`,
+      enemyTeamRows: enemyTeamHtml
+    };
+    return renderHistoryTemplate(template, replacements, ["myTeamRows", "enemyTeamRows"]);
+  }
+  function buildCardMarkup(b, dict, lang, template) {
+    const { date: dateStr, time: timeStr } = formatBattleDate(b.date);
+    const { isWin, isDraw, isDM } = classifyResult(b);
+    let statusClass = "bh-card-result--loss";
+    let statusLocalized = dict.lose;
+    if (isDM) {
+      statusClass = "bh-card-result--dm";
+      statusLocalized = dict.dm;
+    } else if (isWin) {
+      statusClass = "bh-card-result--win";
+      statusLocalized = dict.win;
+    } else if (isDraw) {
+      statusClass = "bh-card-result--draw";
+      statusLocalized = dict.draw;
+    }
+    const mapInfo = DataLoader.getMapInfo(b.map);
+    const localizedMap = (mapInfo ? lang === "RU" ? mapInfo.ru : mapInfo.en : translateMapName(b.map, lang)) || "Unknown";
+    const mapUpper = String(localizedMap).toUpperCase();
+    const mapImage = getHistoryImageUrl(mapInfo?.image);
+    const modeUpper = String(b.mode || "MM").toUpperCase();
+    const topDisplay = b.top && b.top !== "-" ? `#${b.top}` : "\u2014";
+    const hasTeamScore = !isDM && typeof b.teamScoreMy === "number" && typeof b.teamScoreEnemy === "number";
+    const teamScoreStat = hasTeamScore ? `<div class="bh-stat"><span class="bh-stat-value">${escapeHistoryHtml(b.teamScoreMy)}<span class="bh-stat-sep">/</span>${escapeHistoryHtml(b.teamScoreEnemy)}</span><span class="bh-stat-label bh-stat-label--team-score">${escapeHistoryHtml(dict.teamScore)}</span></div>` : "";
+    const turretUrl = getHistoryImageUrl(b.turretIcon);
+    const turretAugUrl = getHistoryImageUrl(b.turretAugmentIcon);
+    const hullUrl = getHistoryImageUrl(b.hullIcon);
+    const hullAugUrl = getHistoryImageUrl(b.hullAugmentIcon);
+    const turretIcon = turretUrl ? `<img class="bh-equip-img" src="${escapeHistoryHtml(turretUrl)}" alt="">` : `<div class="bh-equip-placeholder">\u25B0</div>`;
+    const turretAugIcon = turretAugUrl ? `<img class="bh-equip-img" src="${escapeHistoryHtml(turretAugUrl)}" alt="">` : `<div class="bh-equip-placeholder">\u25C7</div>`;
+    const hullIcon = hullUrl ? `<img class="bh-equip-img" src="${escapeHistoryHtml(hullUrl)}" alt="">` : `<div class="bh-equip-placeholder">\u25B1</div>`;
+    const hullAugIcon = hullAugUrl ? `<img class="bh-equip-img" src="${escapeHistoryHtml(hullAugUrl)}" alt="">` : `<div class="bh-equip-placeholder">\u25C7</div>`;
+    const replacements = {
+      cardClass: `${statusClass} ${turretAugUrl || hullAugUrl ? "" : "bh-card--no-aug"}`,
+      combatStatsClass: hasTeamScore ? "bh-combat-stats--with-team-score" : "",
+      mapStyle: mapImage ? `style="background-image: linear-gradient(90deg, rgba(10,10,10,0.15), rgba(10,10,10,0.75)), url('${escapeHistoryHtml(mapImage)}'); background-size: cover; background-position: center;"` : "",
+      mapIconUrl: MAP_ICON_URL,
+      mapUpper,
+      mapLabel: dict.map,
+      statusLocalized,
+      scoreValue: String(b.reputation ?? 0),
+      scoreLabel: dict.score,
+      killsValue: String(b.kills ?? 0),
+      deathsValue: String(b.deaths ?? 0),
+      killsLabel: dict.kills,
+      deathsLabel: dict.deaths,
+      teamScoreStat,
+      topDisplay,
+      topLabel: dict.top,
+      turretIcon,
+      turretLabel: dict.turret,
+      turretAugIcon,
+      augmentLabel: dict.augment,
+      hullIcon,
+      hullLabel: dict.hull,
+      hullAugIcon,
+      modeIcon: b.kind === "PRO" ? "PRO" : "MM",
+      modeIconClass: b.kind === "PRO" ? "bh-mode-icon--pro" : "bh-mode-icon--mm",
+      modeUpper,
+      crystalsValue: (b.crystals ?? 0).toLocaleString(),
+      starsValue: String(b.stars ?? 0),
+      dateTime: `${dateStr} \xB7 ${timeStr}`
+    };
+    return renderHistoryTemplate(
+      template,
+      replacements,
+      ["mapStyle", "teamScoreStat", "turretIcon", "turretAugIcon", "hullIcon", "hullAugIcon"]
+    );
+  }
+  var MODE_ICONS, DM_SCORE_ICON, DM_KD_ICON, MAP_ICON_URL, translateMapName, getGsClass;
+  var init_presentation = __esm({
+    "src/modules/battleHistory/presentation.ts"() {
       init_dataLoader();
-      init_modal();
-      init_equipmentTracker();
-      battleHistory = (() => {
-        let initialized = false;
-        let battleProcessed = false;
-        let historyBackSuppressedUntil = 0;
-        let hasRenderedBattleList = false;
-        let lastRenderedNewestBattleKey = null;
-        let pendingBattleListAnimation = false;
-        const NICK_KEY = "kasp_last_nickname";
-        let currentPage = 1;
-        const ROWS_PER_PAGE = 15;
-        const HISTORY_BG = "radial-gradient(rgb(15, 17, 22) 0%, rgb(3, 5, 8) 100%)";
-        let bhContainerEl = null;
-        let bhPreviousInlineBg = null;
-        const applyHistoryBackground = () => {
-          bhContainerEl = document.querySelector("#app-root > .-container") ?? document.querySelector(".-container");
-          if (!bhContainerEl) return;
-          bhPreviousInlineBg = bhContainerEl.style.background || null;
-          bhContainerEl.style.setProperty("background", HISTORY_BG, "important");
+      init_historyMarkup();
+      MODE_ICONS = {
+        TDM: "https://s.eu.tankionline.com/static/images/tdm_mode.ef239dba.svg",
+        CP: "https://s.eu.tankionline.com/static/images/cp_mode.9d327fbc.svg",
+        CTF: "https://s.eu.tankionline.com/static/images/ctf_mode.fba37902.svg",
+        SGE: "https://s.eu.tankionline.com/static/images/sge_mode.4a6035e8.svg",
+        JGR: "https://s.eu.tankionline.com/static/images/jg_mode.025a9047.svg",
+        TJR: "https://s.eu.tankionline.com/static/images/jg_mode.025a9047.svg",
+        RGB: "https://s.eu.tankionline.com/static/images/rgb_mode.66312ba3.svg",
+        ASL: "https://s.eu.tankionline.com/static/images/asl_mode.42f836ca.svg",
+        AR: "https://ru.tankiwiki.com/images/ru/thumb/6/6c/AR_Icon.png/25px-AR_Icon.png"
+      };
+      DM_SCORE_ICON = "https://s.eu.tankionline.com/static/images/score.b3ca71b2.svg";
+      DM_KD_ICON = "https://s.eu.tankionline.com/static/images/qb_mode.71a6ec19.svg";
+      MAP_ICON_URL = chrome.runtime.getURL("assets/map-icon.png");
+      translateMapName = (rawMapWithMode, targetLang) => {
+        const cleanText = (rawMapWithMode || "").trim();
+        if (!cleanText) return "Unknown";
+        const translated = DataLoader.translateMap(cleanText, targetLang);
+        return translated || cleanText;
+      };
+      getGsClass = (gs) => {
+        if (gs >= 9999) return "gs-best";
+        if (gs >= 9001) return "gs-9000";
+        if (gs >= 8001) return "gs-8000";
+        if (gs >= 7001) return "gs-7000";
+        if (gs >= 6001) return "gs-6000";
+        if (gs >= 5001) return "gs-5000";
+        if (gs >= 4001) return "gs-4000";
+        if (gs >= 3001) return "gs-3000";
+        if (gs >= 2001) return "gs-2000";
+        if (gs >= 1001) return "gs-1000";
+        return "gs-0";
+      };
+    }
+  });
+
+  // src/modules/battleHistory/repository.ts
+  function openDatabase() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        const store = db.objectStoreNames.contains(STORE_NAME) ? request.transaction.objectStore(STORE_NAME) : db.createObjectStore(STORE_NAME, { keyPath: "id", autoIncrement: true });
+        for (const index of INDEXES) {
+          if (!store.indexNames.contains(index)) store.createIndex(index, index, { unique: false });
+        }
+      };
+      request.onsuccess = () => {
+        const db = request.result;
+        db.onversionchange = () => db.close();
+        resolve(db);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  }
+  async function transaction(mode, enqueue) {
+    const db = await openDatabase();
+    try {
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, mode);
+        let result;
+        let failure;
+        tx.oncomplete = () => failure ? reject(failure) : resolve(result);
+        tx.onerror = () => {
+          failure = tx.error || new Error("Battle history transaction failed");
         };
-        const restoreContainerBackground = () => {
-          if (!bhContainerEl) return;
-          if (bhPreviousInlineBg) {
-            bhContainerEl.style.background = bhPreviousInlineBg;
-          } else {
-            bhContainerEl.style.removeProperty("background");
+        tx.onabort = () => reject(failure || tx.error || new Error("Battle history transaction aborted"));
+        try {
+          enqueue(tx.objectStore(STORE_NAME), (value) => {
+            result = value;
+          });
+        } catch (error) {
+          failure = error;
+          try {
+            tx.abort();
+          } catch {
+            reject(error);
           }
-          bhContainerEl = null;
-          bhPreviousInlineBg = null;
+        }
+      });
+    } finally {
+      db.close();
+    }
+  }
+  function addBattle(battle) {
+    return transaction("readwrite", (store, setResult) => {
+      const request = store.add(battle);
+      request.onsuccess = () => setResult(request.result);
+    });
+  }
+  async function addBattles(battles) {
+    if (!battles.length) return;
+    await transaction("readwrite", (store) => {
+      for (const battle of battles) store.add(battle);
+    });
+  }
+  function getAllBattles(nickname) {
+    return transaction("readonly", (store, setResult) => {
+      const request = nickname && store.indexNames.contains("nickname") ? store.index("nickname").getAll(nickname) : store.getAll();
+      request.onsuccess = () => setResult(request.result || []);
+    });
+  }
+  function getNicknameHistory() {
+    return transaction("readonly", (store, setResult) => {
+      const request = store.getAll();
+      request.onsuccess = () => {
+        const counts = /* @__PURE__ */ new Map();
+        for (const battle of request.result) {
+          if (battle.nickname) counts.set(battle.nickname, (counts.get(battle.nickname) || 0) + 1);
+        }
+        setResult(Array.from(counts, ([nickname, count]) => ({ nickname, count })).sort((a, b) => a.nickname.localeCompare(b.nickname)));
+      };
+    });
+  }
+  function mergeNicknameHistory(source, target) {
+    return transaction("readwrite", (store, setResult) => {
+      let count = 0;
+      setResult(count);
+      const request = store.index("nickname").openCursor(IDBKeyRange.only(source));
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor) return;
+        const battle = cursor.value;
+        battle.nickname = target;
+        cursor.update(battle);
+        setResult(++count);
+        cursor.continue();
+      };
+    });
+  }
+  function clearNicknameHistory(nickname) {
+    return transaction("readwrite", (store) => {
+      const request = store.index("nickname").getAllKeys(nickname);
+      request.onsuccess = () => {
+        for (const key of request.result) store.delete(key);
+      };
+    });
+  }
+  var DATABASE_NAME, DATABASE_VERSION, STORE_NAME, INDEXES;
+  var init_repository = __esm({
+    "src/modules/battleHistory/repository.ts"() {
+      DATABASE_NAME = "TankiBattlesDB";
+      DATABASE_VERSION = 4;
+      STORE_NAME = "battles";
+      INDEXES = ["date", "map", "mode", "top", "nickname"];
+    }
+  });
+
+  // src/modules/battleHistory/views.ts
+  function createHistoryViews(account) {
+    const ROWS_PER_PAGE = 15;
+    let hasRenderedBattleList = false;
+    let lastRenderedNewestBattleKey = null;
+    let pendingBattleListAnimation = false;
+    let listRevision = 0;
+    let detailRevision = 0;
+    const templates = /* @__PURE__ */ new Map();
+    const loadTemplate = (name) => {
+      let pending = templates.get(name);
+      if (!pending) {
+        pending = fetch(chrome.runtime.getURL("templates/battle-history-" + name + ".html")).then((response) => {
+          if (!response.ok) throw new Error("Failed to load history template: " + response.status);
+          return response.text();
+        }).catch((error) => {
+          templates.delete(name);
+          throw error;
+        });
+        templates.set(name, pending);
+      }
+      return pending;
+    };
+    const animateHistoryTransition = (element, className, duration) => new Promise((resolve) => {
+      let finished = false;
+      let timer = 0;
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        window.clearTimeout(timer);
+        element.removeEventListener("animationend", onAnimationEnd);
+        element.classList.remove(className);
+        resolve();
+      };
+      const onAnimationEnd = (event) => {
+        if (event.target === element) finish();
+      };
+      element.classList.remove(className);
+      void element.offsetWidth;
+      element.addEventListener("animationend", onAnimationEnd);
+      element.classList.add(className);
+      timer = window.setTimeout(finish, duration + 50);
+    });
+    const renderDetailedMatch = async (b, dict, lang) => {
+      const contentBlock = document.querySelector(".custom-history-content");
+      if (!contentBlock) return;
+      const revision = ++detailRevision;
+      const isCurrent = () => revision === detailRevision && document.querySelector(".custom-history-content") === contentBlock;
+      let template;
+      try {
+        template = await loadTemplate("detail");
+      } catch (error) {
+        console.error("[Tanki Battle History] Failed to load detail template:", error);
+        return;
+      }
+      if (!isCurrent()) return;
+      const listPanel = contentBlock.querySelector(".bh-left-panel");
+      if (listPanel) {
+        await animateHistoryTransition(listPanel, "bh-panel-leave", 200);
+        if (!isCurrent()) return;
+        clearBattleListAnimations(listPanel);
+        listPanel.style.display = "none";
+      }
+      const oldView = contentBlock.querySelector(".bh-detailed-view");
+      if (oldView) oldView.remove();
+      const detailedView = document.createElement("div");
+      detailedView.className = "bh-detailed-view page";
+      detailedView.style.cssText = "flex-grow: 1; overflow-y: auto; padding-right: 1em; width: 100%; box-sizing: border-box;";
+      detailedView.innerHTML = buildDetailedMarkup(b, dict, lang, template);
+      contentBlock.appendChild(detailedView);
+      void animateHistoryTransition(detailedView, "bh-detail-enter", 240);
+      let isReturningToList = false;
+      const returnToList = async () => {
+        if (isReturningToList) return;
+        isReturningToList = true;
+        await animateHistoryTransition(detailedView, "bh-detail-leave", 200);
+        detailedView.remove();
+        if (listPanel && isCurrent()) {
+          listPanel.style.display = "flex";
+          void animateHistoryTransition(listPanel, "bh-panel-enter", 240);
+        }
+      };
+      detailedView.querySelector("#bh-detailed-back")?.addEventListener("click", () => {
+        void returnToList();
+      });
+    };
+    const buildBattleCard = async (b, dict, lang) => {
+      const card = document.createElement("article");
+      card.innerHTML = buildCardMarkup(b, dict, lang, await loadTemplate("card"));
+      card.style.cursor = "pointer";
+      card.addEventListener("click", () => renderDetailedMatch(b, dict, lang));
+      return card;
+    };
+    const buildPageNumbers = (current, total) => {
+      if (total <= 7) {
+        const arr = [];
+        for (let i = 1; i <= total; i++) arr.push(i);
+        return arr;
+      }
+      const result = [];
+      result.push(1);
+      if (current > 4) result.push("\u2026");
+      const start = Math.max(2, current - 1);
+      const end = Math.min(total - 1, current + 1);
+      for (let i = start; i <= end; i++) result.push(i);
+      if (current < total - 3) result.push("\u2026");
+      result.push(total);
+      return result;
+    };
+    const renderPagination = (current, total) => {
+      const list = document.getElementById("bh-page-list");
+      if (!list) return;
+      list.textContent = "";
+      const prev = document.createElement("button");
+      prev.type = "button";
+      prev.className = "bh-page bh-page-arrow";
+      prev.textContent = "\u2039";
+      prev.disabled = current <= 1;
+      prev.addEventListener("click", () => renderBattleList(current - 1));
+      list.appendChild(prev);
+      const pages = buildPageNumbers(current, total);
+      for (const p of pages) {
+        if (p === "\u2026") {
+          const dots = document.createElement("span");
+          dots.className = "bh-page bh-page-dots";
+          dots.textContent = "\u2026";
+          list.appendChild(dots);
+          continue;
+        }
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "bh-page" + (p === current ? " bh-page-active" : "");
+        btn.textContent = String(p);
+        btn.addEventListener("click", () => renderBattleList(p));
+        list.appendChild(btn);
+      }
+      const next = document.createElement("button");
+      next.type = "button";
+      next.className = "bh-page bh-page-arrow";
+      next.textContent = "\u203A";
+      next.disabled = current >= total;
+      next.addEventListener("click", () => renderBattleList(current + 1));
+      list.appendChild(next);
+    };
+    const getBattleKey = (battle) => battle.id !== void 0 ? `id:${battle.id}` : `date:${battle.date}|${battle.map}|${battle.mode}`;
+    const playPendingBattleListAnimation = () => {
+      if (!pendingBattleListAnimation) return;
+      const listEl = document.querySelector(".bh-list");
+      if (listEl) {
+        listEl.classList.add("bh-list--animations-ready");
+        listEl.querySelectorAll(".bh-card--rise-in").forEach((card) => {
+          const delay = parseFloat(card.style.animationDelay) || 0;
+          window.setTimeout(() => {
+            card.classList.remove("bh-card--rise-in");
+            card.style.removeProperty("animation-delay");
+            card.style.removeProperty("z-index");
+            if (!listEl.querySelector(".bh-card--rise-in")) {
+              listEl.classList.remove("bh-list--animations-ready");
+            }
+          }, delay + 400);
+        });
+      }
+      pendingBattleListAnimation = false;
+    };
+    const clearBattleListAnimations = (panel) => {
+      panel.querySelectorAll(".bh-card--rise-in, .bh-card--new-in, .bh-card--push-down").forEach((card) => {
+        card.classList.remove("bh-card--rise-in", "bh-card--new-in", "bh-card--push-down");
+        card.style.removeProperty("animation-delay");
+        card.style.removeProperty("z-index");
+        card.style.removeProperty("--bh-push-distance");
+      });
+      panel.querySelector(".bh-list")?.classList.remove("bh-list--animations-ready");
+      pendingBattleListAnimation = false;
+    };
+    const renderBattleList = async (page = 1, animateNewMatches = false) => {
+      account.updateNickname();
+      const listEl = document.querySelector(".bh-list");
+      if (!listEl) return;
+      const revision = ++listRevision;
+      const nickname = account.getNickname();
+      const isCurrent = () => revision === listRevision && nickname === account.getNickname() && document.querySelector(".bh-list") === listEl;
+      const lang = state.lang;
+      const dict = getHistoryDictionary(lang);
+      let battles;
+      try {
+        battles = await getAllBattles(nickname);
+      } catch (error) {
+        console.error("[BattleHistory] Failed to load battles:", error);
+        return;
+      }
+      if (!isCurrent()) return;
+      battles.sort((a, b) => b.date - a.date);
+      const newestBattleKey = battles.length > 0 ? getBattleKey(battles[0]) : null;
+      let animationMode = null;
+      if (animateNewMatches && page === 1) {
+        if (!hasRenderedBattleList && battles.length > 0) {
+          animationMode = "initial";
+        } else if (newestBattleKey && newestBattleKey !== lastRenderedNewestBattleKey) {
+          animationMode = "new-match";
+        }
+      }
+      const totalPages = Math.max(1, Math.ceil(battles.length / ROWS_PER_PAGE));
+      if (page > totalPages) page = totalPages;
+      if (page < 1) page = 1;
+      const startIndex = (page - 1) * ROWS_PER_PAGE;
+      const pageBattles = battles.slice(startIndex, startIndex + ROWS_PER_PAGE);
+      let cards;
+      try {
+        cards = await Promise.all(pageBattles.map((b) => buildBattleCard(b, dict, lang)));
+      } catch (error) {
+        console.error("[BattleHistory] Failed to render battles:", error);
+        return;
+      }
+      if (!isCurrent()) return;
+      if (page === 1) {
+        hasRenderedBattleList = true;
+        lastRenderedNewestBattleKey = newestBattleKey;
+      }
+      listEl.classList.remove("bh-list--animations-ready");
+      pendingBattleListAnimation = false;
+      listEl.innerHTML = "";
+      if (pageBattles.length === 0) {
+        listEl.innerHTML = `<div class="bh-empty">${dict.noBattles}</div>`;
+      } else {
+        cards.forEach((card, index) => {
+          const visualCard = card.querySelector(".bh-card");
+          if (visualCard && animationMode === "initial") {
+            visualCard.classList.add("bh-card--rise-in");
+            const delay = index * 60;
+            visualCard.style.animationDelay = `${delay}ms`;
+            visualCard.style.zIndex = String(cards.length - index);
+          } else if (visualCard && animationMode === "new-match") {
+            if (index === 0) {
+              visualCard.classList.add("bh-card--new-in");
+            } else {
+              visualCard.classList.add("bh-card--push-down");
+            }
+          }
+          listEl.appendChild(card);
+        });
+        if (animationMode === "new-match" && cards.length > 1) {
+          const newCard = cards[0].querySelector(".bh-card");
+          const gap = parseFloat(getComputedStyle(listEl).rowGap) || 0;
+          const pushDistance = (newCard?.getBoundingClientRect().height || 0) + gap;
+          cards.slice(1).forEach((card) => {
+            card.querySelector(".bh-card")?.style.setProperty("--bh-push-distance", `-${pushDistance}px`);
+          });
+        }
+        pendingBattleListAnimation = animationMode !== null;
+      }
+      renderPagination(page, totalPages);
+      const totalEl = document.getElementById("bh-total-battles");
+      if (totalEl) totalEl.textContent = String(battles.length);
+    };
+    return {
+      renderBattleList,
+      buildBattleCard,
+      renderDetailedMatch,
+      playPendingBattleListAnimation,
+      reset() {
+        listRevision++;
+        detailRevision++;
+        hasRenderedBattleList = false;
+        lastRenderedNewestBattleKey = null;
+        pendingBattleListAnimation = false;
+      }
+    };
+  }
+  var init_views = __esm({
+    "src/modules/battleHistory/views.ts"() {
+      init_state();
+      init_presentation();
+      init_repository();
+      init_localization();
+    }
+  });
+
+  // src/modules/battleHistory/validation.ts
+  function parseHistoryImport(text) {
+    const data = JSON.parse(text);
+    if (!Array.isArray(data) || data.length === 0) throw new Error("empty-or-invalid-list");
+    return data.map((value) => {
+      const battle = validateImportedBattle(value);
+      if (!battle) throw new Error("invalid-battle-record");
+      return battle;
+    });
+  }
+  var validateImportedBattle;
+  var init_validation = __esm({
+    "src/modules/battleHistory/validation.ts"() {
+      init_historyMarkup();
+      validateImportedBattle = (value) => {
+        if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+        const battle = value;
+        const requiredStrings = ["nickname", "status", "map", "mode", "top"];
+        const requiredNumbers = ["date", "reputation", "kills", "deaths", "kd", "crystals", "stars"];
+        if (requiredStrings.some((key) => typeof battle[key] !== "string")) return null;
+        if (requiredNumbers.some((key) => typeof battle[key] !== "number" || !Number.isFinite(battle[key]))) return null;
+        if (typeof battle.date !== "number" || battle.date <= 0) return null;
+        if (battle.kind !== void 0 && battle.kind !== "MM" && battle.kind !== "PRO") return null;
+        const iconFields = ["turretIcon", "turretAugmentIcon", "hullIcon", "hullAugmentIcon"];
+        if (iconFields.some((key) => battle[key] !== void 0 && typeof battle[key] !== "string")) return null;
+        const teamFields = ["teamScoreMy", "teamScoreEnemy"];
+        if (teamFields.some((key) => battle[key] !== void 0 && (typeof battle[key] !== "number" || !Number.isFinite(battle[key])))) return null;
+        let players = [];
+        if (battle.players !== void 0) {
+          if (!Array.isArray(battle.players)) return null;
+          for (const value2 of battle.players) {
+            if (!value2 || typeof value2 !== "object" || Array.isArray(value2)) return null;
+            const player = value2;
+            if (typeof player.name !== "string" || typeof player.rank !== "string") return null;
+            const numericFields = ["gs", "score", "kills", "deaths", "kd", "crystals", "stars"];
+            if (numericFields.some((key) => typeof player[key] !== "number" || !Number.isFinite(player[key]))) return null;
+            if (typeof player.isEnemy !== "boolean" || typeof player.isMe !== "boolean") return null;
+            players.push({
+              name: player.name,
+              rank: getHistoryImageUrl(player.rank),
+              gs: player.gs,
+              score: player.score,
+              kills: player.kills,
+              deaths: player.deaths,
+              kd: player.kd,
+              crystals: player.crystals,
+              stars: player.stars,
+              isEnemy: player.isEnemy,
+              isMe: player.isMe
+            });
+          }
+        }
+        return {
+          nickname: battle.nickname,
+          date: battle.date,
+          status: battle.status,
+          map: battle.map,
+          mode: battle.mode,
+          kind: battle.kind,
+          top: battle.top,
+          reputation: battle.reputation,
+          kills: battle.kills,
+          deaths: battle.deaths,
+          kd: battle.kd,
+          crystals: battle.crystals,
+          stars: battle.stars,
+          turretIcon: getHistoryImageUrl(battle.turretIcon),
+          turretAugmentIcon: getHistoryImageUrl(battle.turretAugmentIcon),
+          hullIcon: getHistoryImageUrl(battle.hullIcon),
+          hullAugmentIcon: getHistoryImageUrl(battle.hullAugmentIcon),
+          teamScoreMy: battle.teamScoreMy,
+          teamScoreEnemy: battle.teamScoreEnemy,
+          players
         };
-        let bhExitAfterReturn = false;
-        let bhReturnObserver = null;
-        const showFakeLoader = () => {
-          document.querySelector(".kasp-loader-overlay")?.remove();
-          const host = document.querySelector("#app-root > .-container") ?? document.querySelector(".-container") ?? document.body;
-          const baseFont = getComputedStyle(host).fontSize;
-          const overlay = document.createElement("div");
-          overlay.className = "kasp-loader-overlay";
-          overlay.innerHTML = `
+      };
+    }
+  });
+
+  // src/modules/battleHistory/actions.ts
+  function createActionButton(label, secondary = false) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "kasp-modal-button" + (secondary ? " kasp-modal-button--secondary" : "");
+    const text = document.createElement("span");
+    text.textContent = label;
+    button.appendChild(text);
+    return button;
+  }
+  function createHistoryActions(account, renderBattleList) {
+    async function showClearConfirmModal(onConfirm) {
+      if (document.getElementById("clear-confirm-overlay")) return;
+      const dict = getClearHistoryDictionary(state.lang);
+      try {
+        const modal = await createKaspModal({ id: "clear-confirm-overlay", title: dict.title, closeLabel: dict.cancel });
+        if (!modal) return;
+        modal.actions.classList.add("kasp-modal-actions--center");
+        const message = document.createElement("p");
+        message.className = "kasp-modal-copy kasp-modal-copy--center";
+        message.textContent = dict.text;
+        modal.body.appendChild(message);
+        const cancelButton = createActionButton(dict.cancel, true);
+        const confirmButton = createActionButton(dict.confirm);
+        modal.actions.append(cancelButton, confirmButton);
+        let confirmed = false;
+        cancelButton.addEventListener("click", modal.close);
+        confirmButton.addEventListener("click", () => {
+          if (confirmed) return;
+          confirmed = true;
+          modal.close();
+          onConfirm();
+        });
+      } catch (error) {
+        console.error("[Kaspersky Inventions] Failed to load clear history modal template:", error);
+      }
+    }
+    const openLinkHistoryDialog = async () => {
+      account.updateNickname();
+      const nickname = account.getNickname();
+      if (nickname === "Unknown") {
+        window.alert(getHistoryMessages(state.lang).unknownNickname);
+        return;
+      }
+      const existing = document.getElementById("link-history-overlay");
+      if (existing) return;
+      try {
+        const dict = getLinkHistoryDictionary(state.lang);
+        const nicknames = (await getNicknameHistory()).filter((item) => item.nickname !== nickname && item.nickname !== "Unknown");
+        if (nickname !== account.getNickname()) return;
+        const modal = await createKaspModal({ id: "link-history-overlay", title: dict.title, closeLabel: dict.cancel });
+        if (!modal) return;
+        if (nickname !== account.getNickname()) {
+          modal.close();
+          return;
+        }
+        const { body, actions, close } = modal;
+        const description = document.createElement("p");
+        description.className = "kasp-modal-copy";
+        description.textContent = dict.description;
+        const target = document.createElement("p");
+        target.className = "kasp-modal-copy";
+        const targetLabel = document.createElement("span");
+        targetLabel.textContent = `${dict.target} `;
+        const targetNickname = document.createElement("strong");
+        targetNickname.className = "bh-link-target";
+        targetNickname.textContent = nickname;
+        target.append(targetLabel, targetNickname);
+        const selectLabel = document.createElement("label");
+        selectLabel.className = "bh-link-select-label";
+        const selectLabelText = document.createElement("span");
+        selectLabelText.textContent = dict.select;
+        const select = document.createElement("select");
+        select.className = "bh-link-select";
+        select.setAttribute("aria-label", dict.select);
+        const placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent = dict.placeholder;
+        select.appendChild(placeholder);
+        for (const item of nicknames) {
+          const option = document.createElement("option");
+          option.value = item.nickname;
+          option.textContent = `${item.nickname} (${item.count})`;
+          select.appendChild(option);
+        }
+        selectLabel.append(selectLabelText, select);
+        const empty = document.createElement("p");
+        empty.className = "bh-link-empty";
+        empty.textContent = dict.empty;
+        empty.hidden = nicknames.length > 0;
+        selectLabel.hidden = nicknames.length === 0;
+        const cancelButton = createActionButton(dict.cancel, true);
+        const confirmButton = createActionButton(dict.confirm);
+        confirmButton.disabled = true;
+        confirmButton.hidden = nicknames.length === 0;
+        actions.append(cancelButton, confirmButton);
+        body.append(description, target, selectLabel, empty);
+        let isLinking = false;
+        cancelButton.addEventListener("click", close);
+        select.addEventListener("change", () => {
+          confirmButton.disabled = select.value === "";
+        });
+        confirmButton.addEventListener("click", async () => {
+          const sourceNickname = select.value;
+          if (!sourceNickname || isLinking || nickname !== account.getNickname()) return;
+          isLinking = true;
+          confirmButton.disabled = true;
+          cancelButton.disabled = true;
+          try {
+            const moved = await mergeNicknameHistory(sourceNickname, nickname);
+            close();
+            await renderBattleList(1);
+            window.setTimeout(() => window.alert(dict.success(moved)), 220);
+          } catch (error) {
+            console.error("[Tanki Battle History] Error linking histories:", error);
+            isLinking = false;
+            confirmButton.disabled = false;
+            cancelButton.disabled = false;
+            window.alert(dict.failed);
+          }
+        });
+        modal.closeButton.focus();
+      } catch (error) {
+        console.error("[Tanki Battle History] Failed to open link history dialog:", error);
+        window.alert(getHistoryMessages(state.lang).listFailed);
+      }
+    };
+    const clearHistoryDb = () => {
+      void showClearConfirmModal(async () => {
+        try {
+          await clearNicknameHistory(account.getNickname());
+          await renderBattleList(1);
+        } catch (error) {
+          console.error("[Tanki Battle History] Error clearing DB:", error);
+        }
+      });
+    };
+    const exportHistoryData = async () => {
+      account.updateNickname();
+      const nickname = account.getNickname();
+      try {
+        const battles = await getAllBattles(nickname);
+        if (battles.length === 0) return;
+        const blob = new Blob([JSON.stringify(battles, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        try {
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `Tanki_BattleHistory_${nickname}_${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.json`;
+          link.click();
+        } finally {
+          URL.revokeObjectURL(url);
+        }
+      } catch (error) {
+        console.error("[Tanki Battle History] Export error:", error);
+      }
+    };
+    const showImportError = (error) => {
+      console.error("[Tanki Battle History] Import error:", error);
+      window.alert(getHistoryMessages(state.lang).importFailed);
+    };
+    const importHistoryData = () => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = ".json";
+      input.onchange = (e) => {
+        const target = e.target;
+        const file = target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (ev) => {
+          try {
+            const battles = parseHistoryImport(String(ev.target?.result ?? ""));
+            await addBattles(battles);
+            await renderBattleList(1);
+            window.alert(getHistoryMessages(state.lang).imported(battles.length));
+          } catch (err) {
+            showImportError(err);
+          }
+        };
+        reader.onerror = () => showImportError(reader.error);
+        reader.readAsText(file);
+      };
+      input.click();
+    };
+    return { clearHistoryDb, openLinkHistoryDialog, exportHistoryData, importHistoryData };
+  }
+  var init_actions = __esm({
+    "src/modules/battleHistory/actions.ts"() {
+      init_state();
+      init_modal();
+      init_repository();
+      init_validation();
+      init_localization();
+    }
+  });
+
+  // src/modules/battleHistory/navigation.ts
+  function createHistoryNavigation(options) {
+    const { ensureHistoryPage, renderBattleList, playPendingBattleListAnimation } = options;
+    let shortcutsBound = false;
+    let opening = false;
+    const HISTORY_BG = "radial-gradient(rgb(15, 17, 22) 0%, rgb(3, 5, 8) 100%)";
+    let backgroundContainer = null;
+    let previousBackground = null;
+    let previousBackgroundPriority = "";
+    const applyHistoryBackground = () => {
+      backgroundContainer = document.querySelector("#app-root > .-container") ?? document.querySelector(".-container");
+      if (!backgroundContainer) return;
+      previousBackground = backgroundContainer.style.background || null;
+      previousBackgroundPriority = backgroundContainer.style.getPropertyPriority("background");
+      backgroundContainer.style.setProperty("background", HISTORY_BG, "important");
+    };
+    const restoreContainerBackground = () => {
+      if (!backgroundContainer) return;
+      if (previousBackground) {
+        backgroundContainer.style.setProperty("background", previousBackground, previousBackgroundPriority);
+      } else {
+        backgroundContainer.style.removeProperty("background");
+      }
+      backgroundContainer = null;
+      previousBackground = null;
+    };
+    let exitAfterReturn = false;
+    let returnObserver = null;
+    let returnTimer = 0;
+    let returnBackTimer = 0;
+    let returnLoaderTimer = 0;
+    let returnLoaderObserver = null;
+    const showFakeLoader = () => {
+      document.querySelector(".kasp-loader-overlay")?.remove();
+      const host = document.querySelector("#app-root > .-container") ?? document.querySelector(".-container") ?? document.body;
+      const baseFont = getComputedStyle(host).fontSize;
+      const overlay = document.createElement("div");
+      overlay.className = "kasp-loader-overlay";
+      overlay.innerHTML = `
         <div class="kasp-loader-logo"></div>
         <div class="kasp-loader-bar">
             <span class="kasp-loader-text">Loading</span>
             <div class="kasp-loader-progress"></div>
         </div>
     `;
-          overlay.style.setProperty("font-size", baseFont, "important");
-          document.body.appendChild(overlay);
-        };
-        const hideFakeLoader = () => {
-          const overlay = document.querySelector(".kasp-loader-overlay");
-          if (!overlay) return;
-          overlay.style.setProperty("transition", "opacity 0.1s ease", "important");
-          void overlay.offsetHeight;
-          overlay.style.setProperty("opacity", "0", "important");
-          window.setTimeout(() => overlay.remove(), 120);
-        };
-        const flashHideSettings = () => {
-          if (document.getElementById("bh-flash-cover")) return;
-          const cover = document.createElement("div");
-          cover.id = "bh-flash-cover";
-          cover.style.cssText = `
+      overlay.style.setProperty("font-size", baseFont, "important");
+      document.body.appendChild(overlay);
+    };
+    const hideFakeLoader = () => {
+      const overlay = document.querySelector(".kasp-loader-overlay");
+      if (!overlay) return;
+      overlay.style.setProperty("transition", "opacity 0.1s ease", "important");
+      void overlay.offsetHeight;
+      overlay.style.setProperty("opacity", "0", "important");
+      window.setTimeout(() => overlay.remove(), 120);
+    };
+    const flashHideSettings = () => {
+      if (document.getElementById("bh-flash-cover")) return;
+      const cover = document.createElement("div");
+      cover.id = "bh-flash-cover";
+      cover.style.cssText = `
             position: fixed;
             inset: 0;
             background: radial-gradient(rgb(15, 17, 22) 0%, rgb(3, 5, 8) 100%);
@@ -3605,143 +4571,535 @@
             opacity: 1;
             transition: opacity 0.15s ease;
         `;
-          document.body.appendChild(cover);
-          const watch = new MutationObserver(() => {
-            if (!document.querySelector(".BreadcrumbsComponentStyle-headerContainer")) {
-              cover.style.opacity = "0";
-              window.setTimeout(() => {
-                watch.disconnect();
-                cover.remove();
-              }, 200);
-            }
-          });
-          watch.observe(document.body, { childList: true, subtree: true });
+      document.body.appendChild(cover);
+      const watch = new MutationObserver(() => {
+        if (!document.querySelector(".BreadcrumbsComponentStyle-headerContainer")) {
+          cover.style.opacity = "0";
           window.setTimeout(() => {
             watch.disconnect();
             cover.remove();
-          }, 2e3);
-        };
-        const disarmReturnWatcher = () => {
-          bhExitAfterReturn = false;
-          bhReturnObserver?.disconnect();
-          bhReturnObserver = null;
-        };
-        const armExitAfterReturn = () => {
-          bhExitAfterReturn = true;
-          bhReturnObserver?.disconnect();
-          bhReturnObserver = new MutationObserver(() => {
-            if (!bhExitAfterReturn) return;
+          }, 200);
+        }
+      });
+      watch.observe(document.body, { childList: true, subtree: true });
+      window.setTimeout(() => {
+        watch.disconnect();
+        cover.remove();
+      }, 2e3);
+    };
+    const disarmReturnWatcher = () => {
+      exitAfterReturn = false;
+      window.clearTimeout(returnTimer);
+      window.clearTimeout(returnBackTimer);
+      window.clearTimeout(returnLoaderTimer);
+      returnLoaderObserver?.disconnect();
+      returnLoaderObserver = null;
+      returnObserver?.disconnect();
+      returnObserver = null;
+    };
+    const armExitAfterReturn = () => {
+      disarmReturnWatcher();
+      exitAfterReturn = true;
+      returnObserver = new MutationObserver(() => {
+        if (!exitAfterReturn) return;
+        if (!document.querySelector(".BreadcrumbsComponentStyle-headerContainer")) {
+          disarmReturnWatcher();
+          return;
+        }
+        const titleEl = document.querySelector(
+          ".BreadcrumbsComponentStyle-rootTitle > span"
+        );
+        const text = (titleEl?.textContent?.trim() ?? "").toUpperCase();
+        if (text === "SETTINGS" || text === "\u041D\u0410\u0421\u0422\u0420\u041E\u0419\u041A\u0418") {
+          disarmReturnWatcher();
+          showFakeLoader();
+          const finishLoading = () => {
+            returnLoaderObserver?.disconnect();
+            returnLoaderObserver = null;
+            window.clearTimeout(returnLoaderTimer);
+            hideFakeLoader();
+          };
+          returnLoaderObserver = new MutationObserver(() => {
             if (!document.querySelector(".BreadcrumbsComponentStyle-headerContainer")) {
-              bhExitAfterReturn = false;
-              bhReturnObserver?.disconnect();
-              bhReturnObserver = null;
-              return;
-            }
-            const titleEl = document.querySelector(
-              ".BreadcrumbsComponentStyle-rootTitle > span"
-            );
-            const text = (titleEl?.textContent?.trim() ?? "").toUpperCase();
-            if (text === "SETTINGS" || text === "\u041D\u0410\u0421\u0422\u0420\u041E\u0419\u041A\u0418") {
-              bhExitAfterReturn = false;
-              bhReturnObserver?.disconnect();
-              bhReturnObserver = null;
-              showFakeLoader();
-              const watch = new MutationObserver(() => {
-                if (!document.querySelector(".BreadcrumbsComponentStyle-headerContainer")) {
-                  watch.disconnect();
-                  hideFakeLoader();
-                }
-              });
-              watch.observe(document.body, { childList: true, subtree: true });
-              window.setTimeout(() => {
-                watch.disconnect();
-                hideFakeLoader();
-              }, 2e3);
-              setTimeout(() => {
-                const backBtn = document.querySelector(
-                  ".BreadcrumbsComponentStyle-backButton"
-                );
-                if (backBtn) backBtn.click();
-              }, 150);
+              finishLoading();
             }
           });
-          bhReturnObserver.observe(document.body, {
-            childList: true,
-            subtree: true,
-            characterData: true
-          });
-          window.setTimeout(() => {
-            if (bhExitAfterReturn) {
-              disarmReturnWatcher();
-            }
-          }, 2e4);
-        };
-        let bhTitleObserver = null;
-        const watchTitleChange = (overlay, ourTitle) => {
-          bhTitleObserver?.disconnect();
-          bhTitleObserver = new MutationObserver(() => {
-            if (!document.querySelector(".BreadcrumbsComponentStyle-headerContainer")) return;
-            const titleEl = document.querySelector(
-              ".BreadcrumbsComponentStyle-rootTitle > span"
-            );
-            if (!titleEl) return;
-            if (titleEl.textContent?.trim() !== ourTitle) {
-              closeHistoryOverlay(overlay, true);
-            }
-          });
-          bhTitleObserver.observe(document.body, {
-            childList: true,
-            subtree: true,
-            characterData: true
-          });
-        };
-        let bhAutoCloseObserver = null;
-        const closeHistoryOverlay = (overlay, auto = false) => {
-          for (const id of ["link-history-overlay", "clear-confirm-overlay"]) {
-            const modal = document.getElementById(id);
-            modal?.closeDialogMethod?.();
-          }
-          overlay.style.display = "none";
-          restoreContainerBackground();
-          const nativeContent = document.querySelector(".SettingsComponentStyle-container");
-          if (nativeContent) nativeContent.style.display = "";
-          bhAutoCloseObserver?.disconnect();
-          bhAutoCloseObserver = null;
-          bhTitleObserver?.disconnect();
-          bhTitleObserver = null;
-          bhHeaderObserver?.disconnect();
-          bhHeaderObserver = null;
-          if (bhResizeHandler) {
-            window.removeEventListener("resize", bhResizeHandler);
-            bhResizeHandler = null;
-          }
-          const titleEl = document.querySelector(
-            ".BreadcrumbsComponentStyle-rootTitle > span"
-          );
-          const ourTitle = (t[state.lang] || t["EN"]).title.toUpperCase();
-          if (titleEl?.textContent?.trim() === ourTitle) {
-            flashHideSettings();
+          returnLoaderObserver.observe(document.body, { childList: true, subtree: true });
+          returnLoaderTimer = window.setTimeout(finishLoading, 2e3);
+          returnBackTimer = window.setTimeout(() => {
             const backBtn = document.querySelector(
               ".BreadcrumbsComponentStyle-backButton"
             );
             if (backBtn) backBtn.click();
-          } else if (auto) {
-            armExitAfterReturn();
+          }, 150);
+        }
+      });
+      returnObserver.observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true
+      });
+      returnTimer = window.setTimeout(() => {
+        if (exitAfterReturn) {
+          disarmReturnWatcher();
+        }
+      }, 2e4);
+    };
+    let pageObserver = null;
+    let resizeHandler = null;
+    let nativeContent = null;
+    let previousNativeDisplay = "";
+    const releasePage = (overlay) => {
+      for (const id of ["link-history-overlay", "clear-confirm-overlay"]) {
+        const modal = document.getElementById(id);
+        modal?.closeDialogMethod?.();
+      }
+      overlay.style.display = "none";
+      restoreContainerBackground();
+      if (nativeContent) nativeContent.style.display = previousNativeDisplay;
+      nativeContent = null;
+      pageObserver?.disconnect();
+      pageObserver = null;
+      if (resizeHandler) window.removeEventListener("resize", resizeHandler);
+      resizeHandler = null;
+    };
+    const closeHistoryOverlay = (overlay, auto = false) => {
+      releasePage(overlay);
+      if (auto) armExitAfterReturn();
+      const title = document.querySelector(".BreadcrumbsComponentStyle-rootTitle > span");
+      if (title?.textContent?.trim() === getHistoryDictionary(state.lang).title.toUpperCase()) {
+        flashHideSettings();
+        document.querySelector(".BreadcrumbsComponentStyle-backButton")?.click();
+      }
+    };
+    const watchNativePage = (overlay, ourTitle) => {
+      pageObserver?.disconnect();
+      pageObserver = new MutationObserver(() => {
+        if (!document.querySelector(".BreadcrumbsComponentStyle-headerContainer")) {
+          releasePage(overlay);
+          return;
+        }
+        const title = document.querySelector(".BreadcrumbsComponentStyle-rootTitle > span");
+        const anotherPage = document.querySelector([
+          ".NewShopCommonComponentStyle-commonContainer",
+          ".InvitationWindowsComponentStyle-centerBlock",
+          ".UserProgressComponentStyle-progressContainer"
+        ].join(", "));
+        if (anotherPage || title && title.textContent?.trim() !== ourTitle) {
+          closeHistoryOverlay(overlay, true);
+        }
+      });
+      pageObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+    };
+    const waitForSelector = (selector, timeoutMs = 3e3) => {
+      const existing = document.querySelector(selector);
+      if (existing) return Promise.resolve(existing);
+      return new Promise((resolve) => {
+        let timer = 0;
+        const finish = (element) => {
+          obs.disconnect();
+          window.clearTimeout(timer);
+          resolve(element);
+        };
+        const obs = new MutationObserver(() => {
+          const el = document.querySelector(selector);
+          if (el) finish(el);
+        });
+        obs.observe(document.body, { childList: true, subtree: true });
+        timer = window.setTimeout(() => finish(null), timeoutMs);
+      });
+    };
+    const bindOverlayToHeader = (overlay, header) => {
+      const update = () => {
+        const r = header.getBoundingClientRect();
+        overlay.style.top = `${r.bottom}px`;
+        overlay.style.height = `calc(100vh - ${r.bottom}px)`;
+      };
+      update();
+      if (resizeHandler) window.removeEventListener("resize", resizeHandler);
+      resizeHandler = update;
+      window.addEventListener("resize", update);
+    };
+    const openAsNativePage = async (overlay) => {
+      const dict = getHistoryDictionary(state.lang);
+      disarmReturnWatcher();
+      if (pageObserver) releasePage(overlay);
+      let header = document.querySelector(".BreadcrumbsComponentStyle-headerContainer");
+      if (!header) {
+        const settingsBtn = [...document.querySelectorAll(
+          ".PrimaryMenuItemComponentStyle-itemCommonLi.PrimaryMenuItemComponentStyle-menuItemContainer"
+        )].find((el) => {
+          if (el.querySelector(".PrimaryMenuItemComponentStyle-itemLiOption")) return true;
+          const name = (el.querySelector(".PrimaryMenuItemComponentStyle-itemName")?.textContent?.trim() ?? "").toUpperCase();
+          return name === "SETTINGS" || name === "\u041D\u0410\u0421\u0422\u0420\u041E\u0419\u041A\u0418";
+        });
+        if (!settingsBtn) {
+          console.warn("[BattleHistory] settings trigger not found");
+          return false;
+        }
+        settingsBtn.click();
+        header = await waitForSelector(
+          ".BreadcrumbsComponentStyle-headerContainer",
+          3e3
+        );
+      }
+      if (!header) return false;
+      const title = header.querySelector(".BreadcrumbsComponentStyle-rootTitle > span");
+      if (title) title.textContent = dict.title.toUpperCase();
+      nativeContent = document.querySelector(".SettingsComponentStyle-container");
+      if (nativeContent) {
+        previousNativeDisplay = nativeContent.style.display;
+        nativeContent.style.display = "none";
+      }
+      const ownHeader = overlay.querySelector(".custom-history-header");
+      if (ownHeader) ownHeader.style.display = "none";
+      overlay.style.position = "fixed";
+      overlay.style.left = "0";
+      overlay.style.right = "0";
+      overlay.style.bottom = "0";
+      overlay.style.zIndex = "50";
+      bindOverlayToHeader(overlay, header);
+      applyHistoryBackground();
+      watchNativePage(overlay, dict.title.toUpperCase());
+      overlay.style.display = "flex";
+      return true;
+    };
+    const injectFooterButton = () => {
+      const footerList = document.querySelector(".FooterComponentStyle-footer ul");
+      if (!footerList || footerList.querySelector(".custom-history-button")) return;
+      const lang = state.lang;
+      const dict = getHistoryDictionary(lang);
+      const btn = document.createElement("li");
+      btn.className = "FooterComponentStyle-containerMenu custom-history-button";
+      btn.innerHTML = "<div></div>";
+      btn.title = dict.title;
+      btn.addEventListener("click", async () => {
+        if (opening) return;
+        opening = true;
+        const hidden = [];
+        const rootVisibility = document.documentElement.style.visibility;
+        const bodyVisibility = document.body.style.visibility;
+        const hideGameUI = () => {
+          const children = Array.from(document.body.children);
+          for (const el of children) {
+            if (el.classList.contains("kasp-loader-overlay")) continue;
+            if (el.classList.contains("custom-history-overlay")) continue;
+            if (el.id === "quick-upgrade-overlay") continue;
+            if (el.id === "kasp-welcome-overlay") continue;
+            if (el.id === "kasp-specs-tooltip") continue;
+            hidden.push({ el, prev: el.style.visibility });
+            el.style.visibility = "hidden";
           }
+          document.documentElement.style.visibility = "hidden";
+          document.body.style.visibility = "visible";
         };
-        const watchForAutoClose = (overlay) => {
-          bhAutoCloseObserver?.disconnect();
-          bhAutoCloseObserver = new MutationObserver(() => {
-            const shop = document.querySelector(".NewShopCommonComponentStyle-commonContainer");
-            const invites = document.querySelector(".InvitationWindowsComponentStyle-centerBlock");
-            const progress = document.querySelector(".UserProgressComponentStyle-progressContainer");
-            if (shop || invites || progress) {
-              armExitAfterReturn();
-              closeHistoryOverlay(overlay, true);
-            }
+        const showGameUI = () => {
+          for (const { el, prev } of hidden) {
+            el.style.visibility = prev;
+          }
+          hidden.length = 0;
+          document.documentElement.style.visibility = rootVisibility;
+          document.body.style.visibility = bodyVisibility;
+        };
+        try {
+          showFakeLoader();
+          hideGameUI();
+          await ensureHistoryPage();
+          const overlay = document.querySelector(".custom-history-overlay");
+          if (!overlay) return;
+          await renderBattleList(1, true);
+          const duration = 500 + Math.random() * 2500;
+          await new Promise((r) => window.setTimeout(r, duration));
+          if (document.querySelector(".custom-history-overlay") !== overlay) return;
+          const ok = await openAsNativePage(overlay);
+          if (document.querySelector(".custom-history-overlay") !== overlay) return;
+          if (!ok) {
+            const ownHeader = overlay.querySelector(".custom-history-header");
+            if (ownHeader) ownHeader.style.display = "";
+            overlay.style.top = "0";
+            overlay.style.height = "100vh";
+            overlay.style.display = "flex";
+          }
+          playPendingBattleListAnimation();
+          showGameUI();
+          await new Promise((resolve) => {
+            let frames = 0;
+            const tick = () => {
+              frames++;
+              if (frames >= 3) resolve();
+              else requestAnimationFrame(tick);
+            };
+            requestAnimationFrame(tick);
           });
-          bhAutoCloseObserver.observe(document.body, { childList: true, subtree: true });
-        };
+        } catch (error) {
+          console.error("[BattleHistory] Failed to open history:", error);
+        } finally {
+          opening = false;
+          showGameUI();
+          hideFakeLoader();
+        }
+      });
+      footerList.appendChild(btn);
+    };
+    const bindShortcuts = () => {
+      if (shortcutsBound) return;
+      shortcutsBound = true;
+      document.addEventListener("keydown", (e) => {
+        const overlay = document.querySelector(".custom-history-overlay");
+        const isHistoryOpen = overlay && window.getComputedStyle(overlay).display !== "none";
+        if (!isHistoryOpen) return;
+        if (e.code === "Space" || /^(Digit|Numpad)[1-7]$/.test(e.code)) {
+          if (document.activeElement && ["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+        }
+      }, true);
+      window.addEventListener("keydown", (e) => {
+        if (document.getElementById("clear-confirm-overlay") || document.getElementById("link-history-overlay")) return;
+        const overlay = document.querySelector(".custom-history-overlay");
+        if (overlay && overlay.style.display === "flex") {
+          if (e.code === "Escape" || e.code === "KeyZ" || e.key.toLowerCase() === "z") {
+            if (document.activeElement && ["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
+            closeHistoryOverlay(overlay);
+            e.preventDefault();
+          }
+        }
+      });
+      document.addEventListener("mousedown", (e) => {
+        const overlay = document.querySelector(".custom-history-overlay");
+        if (overlay && overlay.style.display === "flex" && e.button === 3) {
+          closeHistoryOverlay(overlay);
+          e.preventDefault();
+        }
+      }, true);
+    };
+    return {
+      injectFooterButton,
+      bindShortcuts,
+      closeHistoryOverlay,
+      release(overlay) {
+        releasePage(overlay);
+        disarmReturnWatcher();
+      }
+    };
+  }
+  var init_navigation = __esm({
+    "src/modules/battleHistory/navigation.ts"() {
+      init_state();
+      init_localization();
+    }
+  });
+
+  // src/modules/battleHistory/capture.ts
+  function readInteger(row, column) {
+    return parseInt((row.querySelector(".BattleKillBoardComponentStyle-col" + column)?.textContent || "0").replace(/\s/g, "")) || 0;
+  }
+  function readPlayers(tbody) {
+    const players = [];
+    if (tbody) {
+      const allRows = Array.from(tbody.children);
+      let isEnemyTeam = false;
+      for (const row of allRows) {
+        if (row.id === "rowSpace") continue;
+        if (row.id === "teamRowSpace") {
+          isEnemyTeam = true;
+          continue;
+        }
+        const nickEl = row.querySelector('[class*="BattleKillBoardComponentStyle-col1"] span.-whiteSpaceNoWrap');
+        if (!nickEl) continue;
+        const rawNick = nickEl.textContent || "";
+        const rankImg = row.querySelector(".BattleKillBoardComponentStyle-rankIcon");
+        const rankSrc = rankImg ? rankImg.src : "";
+        const gsEl = row.querySelector(".BattleKillBoardComponentStyle-col2 span");
+        const gs = gsEl ? gsEl.textContent?.trim().replace(/\s/g, "") : "0";
+        const pScore = readInteger(row, 3);
+        const pKills = readInteger(row, 4);
+        const pDeaths = readInteger(row, 5);
+        const pKd = parseFloat(row.querySelector(".BattleKillBoardComponentStyle-col6")?.textContent || "0") || 0;
+        const pCrystals = readInteger(row, 7);
+        const pStars = readInteger(row, 8);
+        const isMe = row.id === "selfUserBg";
+        players.push({
+          name: rawNick,
+          rank: rankSrc,
+          gs: parseInt(gs || "0") || 0,
+          score: pScore,
+          kills: pKills,
+          deaths: pDeaths,
+          kd: pKd,
+          crystals: pCrystals,
+          stars: pStars,
+          isEnemy: isEnemyTeam,
+          isMe
+        });
+      }
+    }
+    return players;
+  }
+  function readPlacement(selfRow) {
+    let firstTeam = true;
+    let topVal = "-";
+    if (selfRow.parentElement) {
+      const allRows = Array.from(selfRow.parentElement.children);
+      const selfIndex = allRows.indexOf(selfRow);
+      const teamDividerIndex = allRows.findIndex((r) => r.id === "teamRowSpace");
+      firstTeam = teamDividerIndex === -1 || selfIndex <= teamDividerIndex;
+      let teamRows = [];
+      if (teamDividerIndex === -1) teamRows = allRows;
+      else if (selfIndex < teamDividerIndex) teamRows = allRows.slice(0, teamDividerIndex);
+      else teamRows = allRows.slice(teamDividerIndex + 1);
+      const actualPlayers = teamRows.filter((r) => r.id && r.id !== "rowSpace" && r.id !== "teamRowSpace");
+      const rank = actualPlayers.indexOf(selfRow) + 1;
+      if (rank > 0) topVal = rank.toString();
+    }
+    return { top: topVal, firstTeam };
+  }
+  function readBattleResult(selfRow, nickname) {
+    const scoreEl = selfRow.querySelector(".BattleKillBoardComponentStyle-col3");
+    const killsEl = selfRow.querySelector(".BattleKillBoardComponentStyle-col4");
+    const deathsEl = selfRow.querySelector(".BattleKillBoardComponentStyle-col5");
+    if (!scoreEl || !killsEl || !deathsEl) return null;
+    const scoreText = (scoreEl.textContent || "").trim();
+    const killsText = (killsEl.textContent || "").trim();
+    const deathsText = (deathsEl.textContent || "").trim();
+    if (!scoreText || !killsText || !deathsText) return null;
+    const players = readPlayers(document.querySelector(".TableComponentStyle-tBody"));
+    const mapEl = document.querySelector(".BattleResultHeaderComponentStyle-mapName");
+    const rawMapText = mapEl ? mapEl.textContent?.trim() || "" : "Unknown Map";
+    const parsedMapData = parseMapAndMode(rawMapText);
+    const statusEl = document.querySelector(".BattleResultHeaderComponentStyle-resultText") || document.querySelector('[class*="descriptionVictory"], [class*="descriptionDefeat"], [class*="descriptionDraw"]');
+    const isDM = parsedMapData.mode.toUpperCase() === "DM" || statusEl && statusEl.textContent?.trim() === "";
+    if (isDM) {
+      for (const p of players) {
+        p.isEnemy = !p.isMe;
+      }
+    }
+    const statusText = isDM ? "DM" : statusEl ? statusEl.textContent?.trim() || "Victory" : "Victory";
+    const { top: topVal, firstTeam } = readPlacement(selfRow);
+    let teamScoreMy;
+    let teamScoreEnemy;
+    if (!isDM) {
+      const firstScoreEl = document.querySelector(
+        ".BattleResultHeaderComponentStyle-firstTeamAccount .BattleResultHeaderComponentStyle-teamAccount"
+      );
+      const secondScoreEl = document.querySelector(
+        ".BattleResultHeaderComponentStyle-twoTeamAccount .BattleResultHeaderComponentStyle-teamAccount"
+      );
+      const firstScore = firstScoreEl ? parseInt((firstScoreEl.textContent || "").replace(/\s/g, ""), 10) : NaN;
+      const secondScore = secondScoreEl ? parseInt((secondScoreEl.textContent || "").replace(/\s/g, ""), 10) : NaN;
+      if (!isNaN(firstScore) && !isNaN(secondScore)) {
+        teamScoreMy = firstTeam ? firstScore : secondScore;
+        teamScoreEnemy = firstTeam ? secondScore : firstScore;
+      }
+    }
+    const score = parseInt(scoreText.replace(/\s/g, "")) || 0;
+    const kills = parseInt(killsText.replace(/\s/g, "")) || 0;
+    const deaths = parseInt(deathsText.replace(/\s/g, "")) || 0;
+    const kd = deaths > 0 ? parseFloat((kills / deaths).toFixed(2)) : kills;
+    const crystals = readInteger(selfRow, 7);
+    const stars = parseInt(selfRow.querySelector(".BattleKillBoardComponentStyle-col8")?.textContent || "0") || 0;
+    const eq = equipmentTracker.get();
+    return {
+      nickname,
+      date: Date.now(),
+      status: statusText,
+      map: parsedMapData.map,
+      mode: parsedMapData.mode,
+      kind: window.__kaspBattleKind ?? "MM",
+      top: topVal,
+      reputation: score,
+      kills,
+      deaths,
+      kd,
+      crystals,
+      stars,
+      turretIcon: eq?.turret ?? "",
+      turretAugmentIcon: eq?.turretAugment ?? "",
+      hullIcon: eq?.hull ?? "",
+      hullAugmentIcon: eq?.hullAugment ?? "",
+      teamScoreMy,
+      teamScoreEnemy,
+      players
+    };
+  }
+  function createResultCapture(account) {
+    let battleProcessed = false;
+    let resultGeneration = 0;
+    const capture = async () => {
+      account.updateNickname();
+      const selfRow = document.querySelector("#selfUserBg");
+      if (!selfRow || battleProcessed) return;
+      if (account.getNickname() === "Unknown") {
+        const nickCell = selfRow.querySelector('.BattleKillBoardComponentStyle-col1, [class*="BattleKillBoardComponentStyle-col1"]');
+        if (nickCell) {
+          const raw = (nickCell.textContent || "").trim();
+          const clean = raw.replace(/^\[.*?\]\s*/, "").trim();
+          if (clean && clean !== "Unknown") {
+            account.setNickname(clean);
+          }
+        }
+      }
+      if (account.getNickname() === "Unknown") return;
+      const generation = resultGeneration;
+      try {
+        const battle = readBattleResult(selfRow, account.getNickname());
+        if (!battle) return;
+        battleProcessed = true;
+        await addBattle(battle);
+      } catch (error) {
+        console.error("[Tanki Battle History] Error saving battle result:", error);
+        if (generation === resultGeneration) battleProcessed = false;
+      }
+    };
+    return {
+      capture,
+      reset() {
+        resultGeneration++;
+        battleProcessed = false;
+      }
+    };
+  }
+  var parseMapAndMode;
+  var init_capture = __esm({
+    "src/modules/battleHistory/capture.ts"() {
+      init_equipmentTracker();
+      init_repository();
+      parseMapAndMode = (rawMapText) => {
+        if (!rawMapText) return { map: "Unknown Map", mode: "MM" };
+        let text = rawMapText.trim();
+        const modesList = ["CTF", "TDM", "DM", "CP", "SGE", "RGB", "JGR", "TJR", "ASL", "AR"];
+        let foundMode = "MM";
+        const parts = text.split(/\s+/);
+        if (parts.length > 0) {
+          const lastWord = parts[parts.length - 1].toUpperCase();
+          if (modesList.includes(lastWord)) {
+            foundMode = parts.pop() || "MM";
+            text = parts.join(" ");
+          }
+        }
+        const cleanMapName = text.replace(/\s+/g, " ").trim();
+        return { map: cleanMapName || "Unknown", mode: foundMode };
+      };
+    }
+  });
+
+  // src/modules/battleHistory.ts
+  var battleHistory;
+  var init_battleHistory = __esm({
+    "src/modules/battleHistory.ts"() {
+      init_utils();
+      init_state();
+      init_accountIdentity();
+      init_historyMarkup();
+      init_localization();
+      init_views();
+      init_actions();
+      init_navigation();
+      init_capture();
+      battleHistory = (() => {
+        const NICK_KEY = "kasp_last_nickname";
+        let initialized = false;
         let currentNickname = (() => {
           try {
             return localStorage.getItem(NICK_KEY) || "Unknown";
@@ -3749,1290 +5107,100 @@
             return "Unknown";
           }
         })();
-        ;
         let historyPagePromise = null;
+        const setNickname = (nickname) => {
+          if (nickname === currentNickname) return;
+          const overlay = document.querySelector(".custom-history-overlay");
+          if (overlay) {
+            navigation.release(overlay);
+            overlay.remove();
+          }
+          views.reset();
+          historyPagePromise = null;
+          currentNickname = nickname;
+          try {
+            localStorage.setItem(NICK_KEY, nickname);
+          } catch {
+          }
+        };
         const updateNickname = () => {
-          const nameEl = document.querySelector(".UserInfoContainerStyle-userNameRank.UserInfoContainerStyle-textDecoration, .UserInfoContainerStyle-userNameRank");
-          if (!nameEl) return false;
-          const text = nameEl.textContent?.trim() || "";
-          const cleanName = text.replace(/^\[.*?\]\s*/, "").trim();
-          if (!cleanName || cleanName === "Unknown") return false;
-          if (cleanName !== currentNickname) {
-            const overlay = document.querySelector(".custom-history-overlay");
-            if (overlay) overlay.remove();
-            historyPagePromise = null;
-            currentNickname = cleanName;
-            try {
-              localStorage.setItem(NICK_KEY, cleanName);
-            } catch {
-            }
-          }
+          const nickname = getAccountIdentity()?.nickname;
+          if (!nickname || nickname === "Unknown") return false;
+          setNickname(nickname);
           return true;
         };
-        const openDB = () => {
-          return new Promise((resolve, reject) => {
-            const request = indexedDB.open("TankiBattlesDB", 4);
-            request.onupgradeneeded = (event) => {
-              const db = event.target.result;
-              let store;
-              if (!db.objectStoreNames.contains("battles")) {
-                store = db.createObjectStore("battles", { keyPath: "id", autoIncrement: true });
-              } else {
-                store = event.target.transaction.objectStore("battles");
-              }
-              if (!store.indexNames.contains("date")) store.createIndex("date", "date", { unique: false });
-              if (!store.indexNames.contains("map")) store.createIndex("map", "map", { unique: false });
-              if (!store.indexNames.contains("mode")) store.createIndex("mode", "mode", { unique: false });
-              if (!store.indexNames.contains("top")) store.createIndex("top", "top", { unique: false });
-              if (!store.indexNames.contains("nickname")) store.createIndex("nickname", "nickname", { unique: false });
-            };
-            request.onsuccess = () => resolve(request.result);
-            request.onerror = () => reject(request.error);
-          });
+        const account = {
+          getNickname: () => currentNickname,
+          updateNickname,
+          setNickname
         };
-        const addBattle = async (battleData) => {
-          const db = await openDB();
-          return new Promise((resolve, reject) => {
-            const transaction = db.transaction("battles", "readwrite");
-            const store = transaction.objectStore("battles");
-            const request = store.add(battleData);
-            let id;
-            request.onsuccess = () => {
-              id = request.result;
-            };
-            transaction.oncomplete = () => {
-              db.close();
-              resolve(id);
-            };
-            transaction.onerror = () => {
-              db.close();
-              reject(transaction.error || request.error);
-            };
-            transaction.onabort = () => {
-              db.close();
-              reject(transaction.error || request.error || new Error("Battle save was aborted"));
-            };
-          });
-        };
-        const addBattles = async (battles) => {
-          if (battles.length === 0) return;
-          const db = await openDB();
-          await new Promise((resolve, reject) => {
-            const transaction = db.transaction("battles", "readwrite");
-            const store = transaction.objectStore("battles");
-            for (const battle of battles) store.add(battle);
-            transaction.oncomplete = () => resolve();
-            transaction.onerror = () => reject(transaction.error || new Error("Battle import failed"));
-            transaction.onabort = () => reject(transaction.error || new Error("Battle import was aborted"));
-          }).finally(() => db.close());
-        };
-        const getAllBattles = async (nickname) => {
-          try {
-            const db = await openDB();
-            return new Promise((resolve, reject) => {
-              const transaction = db.transaction("battles", "readonly");
-              const store = transaction.objectStore("battles");
-              let request;
-              if (nickname && store.indexNames.contains("nickname")) {
-                request = store.index("nickname").getAll(nickname);
-              } else {
-                request = store.getAll();
-              }
-              request.onsuccess = (e) => resolve(e.target.result || []);
-              request.onerror = () => reject(request.error);
-            });
-          } catch (e) {
-            console.error("[Tanki Battle History] Error reading DB:", e);
-            return [];
-          }
-        };
-        const translateMapName = (rawMapWithMode, targetLang) => {
-          const cleanText = (rawMapWithMode || "").trim();
-          if (!cleanText) return "Unknown";
-          const translated = DataLoader.translateMap(cleanText, targetLang);
-          return translated || cleanText;
-        };
-        async function showClearConfirmModal(onConfirm) {
-          if (document.getElementById("clear-confirm-overlay")) return;
-          const lang = state.lang;
-          const translations = {
-            RU: { title: "\u041E\u0427\u0418\u0421\u0422\u041A\u0410 \u0418\u0421\u0422\u041E\u0420\u0418\u0418", text: "\u0412\u044B \u0443\u0432\u0435\u0440\u0435\u043D\u044B, \u0447\u0442\u043E \u0445\u043E\u0442\u0438\u0442\u0435 \u0443\u0434\u0430\u043B\u0438\u0442\u044C \u0432\u0441\u044E \u0438\u0441\u0442\u043E\u0440\u0438\u044E \u043C\u0430\u0442\u0447\u0435\u0439?", cancel: "\u041E\u0442\u043C\u0435\u043D\u0430", confirm: "\u0423\u0414\u0410\u041B\u0418\u0422\u042C" },
-            EN: { title: "CLEAR HISTORY", text: "Are you sure you want to delete all match history?", cancel: "Cancel", confirm: "DELETE" }
-          };
-          const dict = translations[lang] || translations["EN"];
-          try {
-            const modal = await createKaspModal({ id: "clear-confirm-overlay", title: dict.title, closeLabel: dict.cancel });
-            if (!modal) return;
-            modal.actions.classList.add("kasp-modal-actions--center");
-            const message = document.createElement("p");
-            message.className = "kasp-modal-copy kasp-modal-copy--center";
-            message.textContent = dict.text;
-            modal.body.appendChild(message);
-            const cancelButton = document.createElement("button");
-            cancelButton.type = "button";
-            cancelButton.className = "kasp-modal-button kasp-modal-button--secondary";
-            const cancelLabel = document.createElement("span");
-            cancelLabel.textContent = dict.cancel;
-            cancelButton.appendChild(cancelLabel);
-            const confirmButton = document.createElement("button");
-            confirmButton.type = "button";
-            confirmButton.className = "kasp-modal-button";
-            const confirmLabel = document.createElement("span");
-            confirmLabel.textContent = dict.confirm;
-            confirmButton.appendChild(confirmLabel);
-            modal.actions.append(cancelButton, confirmButton);
-            let confirmed = false;
-            cancelButton.addEventListener("click", modal.close);
-            confirmButton.addEventListener("click", () => {
-              if (confirmed) return;
-              confirmed = true;
-              modal.close();
-              onConfirm();
-            });
-          } catch (error) {
-            console.error("[Kaspersky Inventions] Failed to load clear history modal template:", error);
-          }
-        }
-        const t = {
-          RU: { title: "\u0418\u0441\u0442\u043E\u0440\u0438\u044F \u0411\u0438\u0442\u0432", date: "\u0414\u0430\u0442\u0430", map: "\u041A\u0430\u0440\u0442\u0430", status: "\u0421\u0442\u0430\u0442\u0443\u0441", top: "\u041C\u0435\u0441\u0442\u043E", mode: "\u0420\u0435\u0436\u0438\u043C", score: "\u041E\u0447\u043A\u0438", kills: "\u041A", deaths: "\u0414", kd: "\u0423/\u0421", turret: "\u041F\u0443\u0448\u043A\u0430", hull: "\u041A\u043E\u0440\u043F\u0443\u0441", augment: "\u0423\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u043E", crystals: "\u041A\u0440\u0438\u0441\u0442\u0430\u043B\u043B\u044B", stars: "\u0417\u0432\u0451\u0437\u0434\u044B", win: "\u041F\u043E\u0431\u0435\u0434\u0430", lose: "\u041F\u043E\u0440\u0430\u0436\u0435\u043D\u0438\u0435", draw: "\u041D\u0438\u0447\u044C\u044F", dm: "\u041A\u0430\u0436\u0434\u044B\u0439 \u0441\u0430\u043C \u0437\u0430 \u0441\u0435\u0431\u044F", teamScore: "\u0421\u0447\u0451\u0442", clear: "\u041E\u0447\u0438\u0441\u0442\u0438\u0442\u044C", link: "\u0421\u0432\u044F\u0437\u0430\u0442\u044C", export: "\u042D\u043A\u0441\u043F\u043E\u0440\u0442", import: "\u0418\u043C\u043F\u043E\u0440\u0442", battles: "\u0411\u043E\u0451\u0432", noBattles: "\u041F\u043E\u043A\u0430 \u043D\u0435\u0442 \u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u0445 \u0431\u043E\u0451\u0432", player: "\u0418\u0433\u0440\u043E\u043A", gs: "GS", diamond: "DIAMOND", myTeam: "\u041C\u043E\u044F \u043A\u043E\u043C\u0430\u043D\u0434\u0430", enemyTeam: "\u041A\u043E\u043C\u0430\u043D\u0434\u0430 \u043F\u0440\u043E\u0442\u0438\u0432\u043D\u0438\u043A\u0430", playersCount: "\u0438\u0433\u0440\u043E\u043A\u043E\u0432", allBattles: "\u2039 &nbsp; \u0412\u0441\u0435 \u0431\u0438\u0442\u0432\u044B", yourScore: "\u0412\u0430\u0448 \u0441\u0447\u0451\u0442", yourKd: "\u0412\u0430\u0448 \u041A/\u0414" },
-          EN: { title: "Battle History", date: "Date", map: "Map", status: "Status", top: "Top", mode: "Mode", score: "Score", kills: "Kills", deaths: "Deaths", kd: "K/D", turret: "Turret", hull: "Hull", augment: "Augment", crystals: "Crystals", stars: "Stars", win: "Victory", lose: "Defeat", draw: "Draw", dm: "Deathmatch", teamScore: "Score", clear: "Clear", link: "Link", export: "Export", import: "Import", battles: "Battles", noBattles: "No saved battles yet", player: "Player", gs: "GS", diamond: "DIAMOND", myTeam: "My Team", enemyTeam: "Enemy Team", playersCount: "players", allBattles: "\u2039 &nbsp; All battles", yourScore: "Your Score", yourKd: "Your K/D" }
-        };
-        const waitForSelector = (selector, timeoutMs = 3e3) => {
-          const existing = document.querySelector(selector);
-          if (existing) return Promise.resolve(existing);
-          return new Promise((resolve) => {
-            const obs = new MutationObserver(() => {
-              const el = document.querySelector(selector);
-              if (el) {
-                obs.disconnect();
-                resolve(el);
-              }
-            });
-            obs.observe(document.body, { childList: true, subtree: true });
-            window.setTimeout(() => {
-              obs.disconnect();
-              resolve(null);
-            }, timeoutMs);
-          });
-        };
-        let bhHeaderObserver = null;
-        let bhResizeHandler = null;
-        const bindOverlayToHeader = (overlay, header) => {
-          const update = () => {
-            const r = header.getBoundingClientRect();
-            overlay.style.top = `${r.bottom}px`;
-            overlay.style.height = `calc(100vh - ${r.bottom}px)`;
-          };
-          update();
-          if (bhResizeHandler) window.removeEventListener("resize", bhResizeHandler);
-          bhResizeHandler = update;
-          window.addEventListener("resize", update);
-        };
-        const watchHeaderGone = (overlay) => {
-          bhHeaderObserver?.disconnect();
-          bhHeaderObserver = new MutationObserver(() => {
-            if (!document.querySelector(".BreadcrumbsComponentStyle-headerContainer")) {
-              overlay.style.display = "none";
-              restoreContainerBackground();
-              bhHeaderObserver?.disconnect();
-              bhHeaderObserver = null;
-              if (bhResizeHandler) {
-                window.removeEventListener("resize", bhResizeHandler);
-                bhResizeHandler = null;
-              }
-            }
-          });
-          bhHeaderObserver.observe(document.body, { childList: true, subtree: true });
-        };
-        const openAsNativePage = async (overlay) => {
-          const dict = t[state.lang] || t["EN"];
-          disarmReturnWatcher();
-          let header = document.querySelector(".BreadcrumbsComponentStyle-headerContainer");
-          if (!header) {
-            const settingsBtn = [...document.querySelectorAll(
-              ".PrimaryMenuItemComponentStyle-itemCommonLi.PrimaryMenuItemComponentStyle-menuItemContainer"
-            )].find((el) => {
-              if (el.querySelector(".PrimaryMenuItemComponentStyle-itemLiOption")) return true;
-              const name = (el.querySelector(".PrimaryMenuItemComponentStyle-itemName")?.textContent?.trim() ?? "").toUpperCase();
-              return name === "SETTINGS" || name === "\u041D\u0410\u0421\u0422\u0420\u041E\u0419\u041A\u0418";
-            });
-            if (!settingsBtn) {
-              console.warn("[BattleHistory] settings trigger not found");
-              return false;
-            }
-            settingsBtn.click();
-            header = await waitForSelector(
-              ".BreadcrumbsComponentStyle-headerContainer",
-              3e3
-            );
-          }
-          if (!header) return false;
-          const title = header.querySelector(".BreadcrumbsComponentStyle-rootTitle > span");
-          if (title) title.textContent = dict.title.toUpperCase();
-          const nativeContent = document.querySelector(".SettingsComponentStyle-container");
-          if (nativeContent) nativeContent.style.display = "none";
-          const ownHeader = overlay.querySelector(".custom-history-header");
-          if (ownHeader) ownHeader.style.display = "none";
-          overlay.style.position = "fixed";
-          overlay.style.left = "0";
-          overlay.style.right = "0";
-          overlay.style.bottom = "0";
-          overlay.style.zIndex = "50";
-          bindOverlayToHeader(overlay, header);
-          watchHeaderGone(overlay);
-          applyHistoryBackground();
-          watchForAutoClose(overlay);
-          watchTitleChange(overlay, dict.title.toUpperCase());
-          overlay.style.display = "flex";
-          return true;
-        };
-        const parseMapAndMode = (rawMapText) => {
-          if (!rawMapText) return { map: "Unknown Map", mode: "MM" };
-          let text = rawMapText.trim();
-          const modesList = ["CTF", "TDM", "DM", "CP", "SGE", "RGB", "JGR", "TJR", "ASL", "AR"];
-          let foundMode = "MM";
-          const parts = text.split(/\s+/);
-          if (parts.length > 0) {
-            const lastWord = parts[parts.length - 1].toUpperCase();
-            if (modesList.includes(lastWord)) {
-              foundMode = parts.pop() || "MM";
-              text = parts.join(" ");
-            }
-          }
-          const cleanMapName = text.replace(/\s+/g, " ").trim();
-          return { map: cleanMapName || "Unknown", mode: foundMode };
-        };
-        const MODE_ICONS = {
-          TDM: "https://s.eu.tankionline.com/static/images/tdm_mode.ef239dba.svg",
-          CP: "https://s.eu.tankionline.com/static/images/cp_mode.9d327fbc.svg",
-          CTF: "https://s.eu.tankionline.com/static/images/ctf_mode.fba37902.svg",
-          SGE: "https://s.eu.tankionline.com/static/images/sge_mode.4a6035e8.svg",
-          JGR: "https://s.eu.tankionline.com/static/images/jg_mode.025a9047.svg",
-          TJR: "https://s.eu.tankionline.com/static/images/jg_mode.025a9047.svg",
-          RGB: "https://s.eu.tankionline.com/static/images/rgb_mode.66312ba3.svg",
-          ASL: "https://s.eu.tankionline.com/static/images/asl_mode.42f836ca.svg",
-          AR: "https://ru.tankiwiki.com/images/ru/thumb/6/6c/AR_Icon.png/25px-AR_Icon.png"
-        };
-        const DM_SCORE_ICON = "https://s.eu.tankionline.com/static/images/score.b3ca71b2.svg";
-        const DM_KD_ICON = "https://s.eu.tankionline.com/static/images/qb_mode.71a6ec19.svg";
-        const MAP_ICON_URL = chrome.runtime.getURL("assets/map-icon.png");
-        let battleCardTemplatePromise = null;
-        const loadBattleCardTemplate = () => {
-          if (!battleCardTemplatePromise) {
-            battleCardTemplatePromise = fetch(chrome.runtime.getURL("templates/battle-history-card.html")).then((response) => {
-              if (!response.ok) throw new Error(`Failed to load battle card template: ${response.status}`);
-              return response.text();
-            });
-          }
-          return battleCardTemplatePromise;
-        };
-        let detailedViewTemplatePromise = null;
-        const loadDetailedViewTemplate = () => {
-          if (!detailedViewTemplatePromise) {
-            detailedViewTemplatePromise = fetch(chrome.runtime.getURL("templates/battle-history-detail.html")).then((response) => {
-              if (!response.ok) throw new Error(`Failed to load battle detail template: ${response.status}`);
-              return response.text();
-            });
-          }
-          return detailedViewTemplatePromise;
-        };
-        const animateHistoryTransition = (element, className, duration) => new Promise((resolve) => {
-          let finished = false;
-          const finish = () => {
-            if (finished) return;
-            finished = true;
-            element.removeEventListener("animationend", onAnimationEnd);
-            element.classList.remove(className);
-            resolve();
-          };
-          const onAnimationEnd = (event) => {
-            if (event.target === element) finish();
-          };
-          element.classList.remove(className);
-          void element.offsetWidth;
-          element.addEventListener("animationend", onAnimationEnd);
-          element.classList.add(className);
-          window.setTimeout(finish, duration + 50);
+        const views = createHistoryViews(account);
+        const actions = createHistoryActions(account, views.renderBattleList);
+        const navigation = createHistoryNavigation({
+          ensureHistoryPage: () => ensureHistoryPage(),
+          renderBattleList: views.renderBattleList,
+          playPendingBattleListAnimation: views.playPendingBattleListAnimation
         });
-        const renderDetailedMatch = async (b, dict, lang) => {
-          const contentBlock = document.querySelector(".custom-history-content");
-          if (!contentBlock) return;
-          let template;
-          try {
-            template = await loadDetailedViewTemplate();
-          } catch (error) {
-            console.error("[Tanki Battle History] Failed to load detail template:", error);
-            return;
-          }
-          const listPanel = contentBlock.querySelector(".bh-left-panel");
-          if (listPanel) {
-            await animateHistoryTransition(listPanel, "bh-panel-leave", 200);
-            clearBattleListAnimations(listPanel);
-            listPanel.style.display = "none";
-          }
-          const oldView = contentBlock.querySelector(".bh-detailed-view");
-          if (oldView) oldView.remove();
-          const detailedView = document.createElement("div");
-          detailedView.className = "bh-detailed-view page";
-          detailedView.style.cssText = "flex-grow: 1; overflow-y: auto; padding-right: 1em; width: 100%; box-sizing: border-box;";
-          let myTeamHtml = "";
-          let enemyTeamHtml = "";
-          let myTeamCount = 0;
-          let enemyTeamCount = 0;
-          const getGsClass = (gs) => {
-            if (gs >= 9999) return "gs-best";
-            if (gs >= 9001) return "gs-9000";
-            if (gs >= 8001) return "gs-8000";
-            if (gs >= 7001) return "gs-7000";
-            if (gs >= 6001) return "gs-6000";
-            if (gs >= 5001) return "gs-5000";
-            if (gs >= 4001) return "gs-4000";
-            if (gs >= 3001) return "gs-3000";
-            if (gs >= 2001) return "gs-2000";
-            if (gs >= 1001) return "gs-1000";
-            return "gs-0";
-          };
-          (b.players || []).forEach((p) => {
-            const isMeClass = p.isMe ? "current-player" : "";
-            const gsClass = getGsClass(p.gs);
-            const gsFormatted = p.gs.toString().replace(/\B(?=(\d{3})+(?!\d))/g, "\xA0");
-            const scoreFormatted = p.score.toString().replace(/\B(?=(\d{3})+(?!\d))/g, "\xA0");
-            const crystalsFormatted = p.crystals.toString().replace(/\B(?=(\d{3})+(?!\d))/g, "\xA0");
-            const rowHtml = `
-                        <tr class="${isMeClass}">
-                            <td class="player-cell">
-                                <div class="player-icons">
-                                    <img class="player-icon" src="${p.rank}" style="width: 24px; height: 24px; border: none; background: transparent; padding: 0;">
-                                </div>
-                                <span class="player-name">${p.name}</span>
-                            </td>
-                            <td class="gs ${gsClass}">${gsFormatted}</td>
-                            <td>${scoreFormatted}</td>
-                            <td>${p.kills}</td>
-                            <td>${p.deaths}</td>
-                            <td>${p.kd.toFixed(2)}</td>
-                            <td class="reward">${crystalsFormatted}</td>
-                            <td class="stars">${p.stars}</td>
-                        </tr>
-                    `;
-            if (p.isEnemy) {
-              enemyTeamHtml += rowHtml;
-              enemyTeamCount++;
-            } else {
-              myTeamHtml += rowHtml;
-              myTeamCount++;
-            }
-          });
-          const statusLower = (b.status || "").toLowerCase();
-          const isWin = statusLower.includes("victory") || statusLower.includes("\u043F\u043E\u0431\u0435\u0434\u0430");
-          const isDraw = statusLower.includes("draw") || statusLower.includes("\u043D\u0438\u0447\u044C\u044F");
-          const isDM = statusLower === "dm" || statusLower.includes("\u043A\u0430\u0436\u0434\u044B\u0439 \u0441\u0430\u043C \u0437\u0430 \u0441\u0435\u0431\u044F") || String(b.mode).toUpperCase() === "DM";
-          let resultClass = isWin ? "victory" : isDraw ? "draw" : "defeat";
-          let resultText = isWin ? dict.win : isDraw ? dict.draw : dict.lose;
-          if (isDM) {
-            resultClass = "draw";
-            const place = b.top && b.top !== "-" ? b.top : null;
-            resultText = place ? lang === "RU" ? `#${place} \u041C\u0415\u0421\u0422\u041E` : `#${place} PLACE` : dict.dm;
-          }
-          const hasTeamScores = !isDM && typeof b.teamScoreMy === "number" && typeof b.teamScoreEnemy === "number";
-          const leftLabel = hasTeamScores ? dict.myTeam : dict.yourScore;
-          const leftValue = hasTeamScores ? b.teamScoreMy.toString().replace(/\B(?=(\d{3})+(?!\d))/g, "\xA0") : (b.reputation || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, "\xA0");
-          const rightLabel = hasTeamScores ? dict.enemyTeam : dict.yourKd;
-          const rightValue = hasTeamScores ? b.teamScoreEnemy.toString().replace(/\B(?=(\d{3})+(?!\d))/g, "\xA0") : (b.kd || 0).toFixed(2);
-          const modeUpperKey = String(b.mode || "MM").toUpperCase();
-          let leftIconUrl;
-          let rightIconUrl;
-          if (isDM) {
-            leftIconUrl = DM_SCORE_ICON;
-            rightIconUrl = DM_KD_ICON;
-          } else if (hasTeamScores) {
-            const teamIcon = MODE_ICONS[modeUpperKey] || MODE_ICONS["TDM"];
-            leftIconUrl = teamIcon;
-            rightIconUrl = teamIcon;
-          } else {
-            leftIconUrl = DM_SCORE_ICON;
-            rightIconUrl = DM_KD_ICON;
-          }
-          const mapInfo = DataLoader.getMapInfo(b.map);
-          const localizedMap = (mapInfo ? lang === "RU" ? mapInfo.ru : mapInfo.en : translateMapName(b.map, lang)) || "Unknown";
-          const dateObj = new Date(b.date);
-          const dateStr = dateObj.toLocaleDateString();
-          const timeStr = dateObj.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-          function playersWord(n, lang2) {
-            if (lang2 === "RU") {
-              const mod10 = n % 10, mod100 = n % 100;
-              if (mod10 === 1 && mod100 !== 11) return "\u0438\u0433\u0440\u043E\u043A";
-              if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return "\u0438\u0433\u0440\u043E\u043A\u0430";
-              return "\u0438\u0433\u0440\u043E\u043A\u043E\u0432";
-            }
-            return n === 1 ? "player" : "players";
-          }
-          const replacements = {
-            backLabel: dict.allBattles,
-            leftScoreClass: isDM ? "dm" : "",
-            leftIconUrl,
-            leftLabel,
-            leftValue,
-            mode: b.mode || "MM",
-            date: dateStr,
-            time: timeStr,
-            playerCount: String((b.players || []).length),
-            playersLabel: dict.playersCount,
-            map: localizedMap,
-            resultClass,
-            resultText,
-            rightScoreClass: isDM ? "dm" : "",
-            rightIconUrl,
-            rightLabel,
-            rightValue,
-            statsClass: enemyTeamCount === 0 ? "solo-mode" : "",
-            playerLabel: dict.player,
-            gsLabel: dict.gs,
-            scoreLabel: dict.score,
-            myTeamClass: myTeamCount > 0 ? "" : "bh-hidden",
-            myTeamTitle: isDM ? dict.player : dict.myTeam,
-            myTeamCount: `${myTeamCount}&nbsp;${playersWord(myTeamCount, lang)}`,
-            myTeamRows: myTeamHtml,
-            enemyTeamClass: enemyTeamCount > 0 ? "" : "bh-hidden",
-            enemyTeamTitle: dict.enemyTeam,
-            enemyTeamCount: `${enemyTeamCount}&nbsp;${playersWord(enemyTeamCount, lang)}`,
-            enemyTeamRows: enemyTeamHtml
-          };
-          let html = template;
-          for (const [key, value] of Object.entries(replacements)) {
-            html = html.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), () => value);
-          }
-          detailedView.innerHTML = html;
-          contentBlock.appendChild(detailedView);
-          void animateHistoryTransition(detailedView, "bh-detail-enter", 240);
-          let isReturningToList = false;
-          const returnToList = async () => {
-            if (isReturningToList) return;
-            isReturningToList = true;
-            await animateHistoryTransition(detailedView, "bh-detail-leave", 200);
-            detailedView.remove();
-            if (listPanel) {
-              listPanel.style.display = "flex";
-              void animateHistoryTransition(listPanel, "bh-panel-enter", 240);
-            }
-          };
-          detailedView.querySelector("#bh-detailed-back")?.addEventListener("click", () => {
-            void returnToList();
-          });
-        };
-        const buildBattleCard = async (b, dict, lang) => {
-          const dateObj = new Date(b.date);
-          const dateStr = dateObj.toLocaleDateString();
-          const timeStr = dateObj.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-          const statusLower = (b.status || "").toLowerCase();
-          const isWin = statusLower.includes("victory") || statusLower.includes("\u043F\u043E\u0431\u0435\u0434\u0430");
-          const isDraw = statusLower.includes("draw") || statusLower.includes("\u043D\u0438\u0447\u044C\u044F");
-          const isDM = statusLower === "dm" || statusLower.includes("\u043A\u0430\u0436\u0434\u044B\u0439 \u0441\u0430\u043C \u0437\u0430 \u0441\u0435\u0431\u044F") || String(b.mode).toUpperCase() === "DM";
-          let statusClass = "bh-card-result--loss";
-          let statusLocalized = dict.lose;
-          if (isDM) {
-            statusClass = "bh-card-result--dm";
-            statusLocalized = dict.dm;
-          } else if (isWin) {
-            statusClass = "bh-card-result--win";
-            statusLocalized = dict.win;
-          } else if (isDraw) {
-            statusClass = "bh-card-result--draw";
-            statusLocalized = dict.draw;
-          }
-          const mapInfo = DataLoader.getMapInfo(b.map);
-          const localizedMap = (mapInfo ? lang === "RU" ? mapInfo.ru : mapInfo.en : translateMapName(b.map, lang)) || "Unknown";
-          const mapUpper = String(localizedMap).toUpperCase();
-          const mapImage = mapInfo && mapInfo.image ? mapInfo.image : "";
-          const modeUpper = String(b.mode || "MM").toUpperCase();
-          const topDisplay = b.top && b.top !== "-" ? `#${b.top}` : "\u2014";
-          const hasTeamScore = !isDM && typeof b.teamScoreMy === "number" && typeof b.teamScoreEnemy === "number";
-          const teamScoreStat = hasTeamScore ? `<div class="bh-stat"><span class="bh-stat-value">${b.teamScoreMy}<span class="bh-stat-sep">/</span>${b.teamScoreEnemy}</span><span class="bh-stat-label bh-stat-label--team-score">${dict.teamScore}</span></div>` : "";
-          const turretIcon = b.turretIcon ? `<img class="bh-equip-img" src="${b.turretIcon}" alt="">` : `<div class="bh-equip-placeholder">\u25B0</div>`;
-          const turretAugIcon = b.turretAugmentIcon ? `<img class="bh-equip-img" src="${b.turretAugmentIcon}" alt="">` : `<div class="bh-equip-placeholder">\u25C7</div>`;
-          const hullIcon = b.hullIcon ? `<img class="bh-equip-img" src="${b.hullIcon}" alt="">` : `<div class="bh-equip-placeholder">\u25B1</div>`;
-          const hullAugIcon = b.hullAugmentIcon ? `<img class="bh-equip-img" src="${b.hullAugmentIcon}" alt="">` : `<div class="bh-equip-placeholder">\u25C7</div>`;
-          const replacements = {
-            cardClass: `${statusClass} ${b.turretAugmentIcon || b.hullAugmentIcon ? "" : "bh-card--no-aug"}`,
-            combatStatsClass: hasTeamScore ? "bh-combat-stats--with-team-score" : "",
-            mapStyle: mapImage ? `style="background-image: linear-gradient(90deg, rgba(10,10,10,0.15), rgba(10,10,10,0.75)), url('${mapImage}'); background-size: cover; background-position: center;"` : "",
-            mapIconUrl: MAP_ICON_URL,
-            mapUpper,
-            mapLabel: dict.map,
-            statusLocalized,
-            scoreValue: String(b.reputation ?? 0),
-            scoreLabel: dict.score,
-            killsValue: String(b.kills ?? 0),
-            deathsValue: String(b.deaths ?? 0),
-            killsLabel: dict.kills,
-            deathsLabel: dict.deaths,
-            teamScoreStat,
-            topDisplay,
-            topLabel: dict.top,
-            turretIcon,
-            turretLabel: dict.turret,
-            turretAugIcon,
-            augmentLabel: dict.augment,
-            hullIcon,
-            hullLabel: dict.hull,
-            hullAugIcon,
-            modeIcon: b.kind === "PRO" ? "PRO" : "MM",
-            modeIconClass: b.kind === "PRO" ? "bh-mode-icon--pro" : "bh-mode-icon--mm",
-            modeUpper,
-            crystalsValue: (b.crystals ?? 0).toLocaleString(),
-            starsValue: String(b.stars ?? 0),
-            dateTime: `${dateStr} \xB7 ${timeStr}`
-          };
-          let html = await loadBattleCardTemplate();
-          for (const [key, value] of Object.entries(replacements)) {
-            html = html.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), value);
-          }
-          const card = document.createElement("article");
-          card.innerHTML = html;
-          card.style.cursor = "pointer";
-          card.addEventListener("click", () => renderDetailedMatch(b, dict, lang));
-          return card;
-        };
-        const buildPageNumbers = (current, total) => {
-          if (total <= 7) {
-            const arr = [];
-            for (let i = 1; i <= total; i++) arr.push(i);
-            return arr;
-          }
-          const result = [];
-          result.push(1);
-          if (current > 4) result.push("\u2026");
-          const start = Math.max(2, current - 1);
-          const end = Math.min(total - 1, current + 1);
-          for (let i = start; i <= end; i++) result.push(i);
-          if (current < total - 3) result.push("\u2026");
-          result.push(total);
-          return result;
-        };
-        const renderPagination = (current, total) => {
-          const list = document.getElementById("bh-page-list");
-          if (!list) return;
-          list.textContent = "";
-          const prev = document.createElement("button");
-          prev.type = "button";
-          prev.className = "bh-page bh-page-arrow";
-          prev.textContent = "\u2039";
-          prev.disabled = current <= 1;
-          prev.addEventListener("click", () => renderBattleList(current - 1));
-          list.appendChild(prev);
-          const pages = buildPageNumbers(current, total);
-          for (const p of pages) {
-            if (p === "\u2026") {
-              const dots = document.createElement("span");
-              dots.className = "bh-page bh-page-dots";
-              dots.textContent = "\u2026";
-              list.appendChild(dots);
-              continue;
-            }
-            const btn = document.createElement("button");
-            btn.type = "button";
-            btn.className = "bh-page" + (p === current ? " bh-page-active" : "");
-            btn.textContent = String(p);
-            btn.addEventListener("click", () => renderBattleList(p));
-            list.appendChild(btn);
-          }
-          const next = document.createElement("button");
-          next.type = "button";
-          next.className = "bh-page bh-page-arrow";
-          next.textContent = "\u203A";
-          next.disabled = current >= total;
-          next.addEventListener("click", () => renderBattleList(current + 1));
-          list.appendChild(next);
-        };
-        const getBattleKey = (battle) => battle.id !== void 0 ? `id:${battle.id}` : `date:${battle.date}|${battle.map}|${battle.mode}`;
-        const playPendingBattleListAnimation = () => {
-          if (!pendingBattleListAnimation) return;
-          const listEl = document.querySelector(".bh-list");
-          if (listEl) {
-            listEl.classList.add("bh-list--animations-ready");
-            listEl.querySelectorAll(".bh-card--rise-in").forEach((card) => {
-              const delay = parseFloat(card.style.animationDelay) || 0;
-              window.setTimeout(() => {
-                card.classList.remove("bh-card--rise-in");
-                card.style.removeProperty("animation-delay");
-                card.style.removeProperty("z-index");
-                if (!listEl.querySelector(".bh-card--rise-in")) {
-                  listEl.classList.remove("bh-list--animations-ready");
-                }
-              }, delay + 400);
-            });
-          }
-          pendingBattleListAnimation = false;
-        };
-        const clearBattleListAnimations = (panel) => {
-          panel.querySelectorAll(".bh-card--rise-in, .bh-card--new-in, .bh-card--push-down").forEach((card) => {
-            card.classList.remove("bh-card--rise-in", "bh-card--new-in", "bh-card--push-down");
-            card.style.removeProperty("animation-delay");
-            card.style.removeProperty("z-index");
-            card.style.removeProperty("--bh-push-distance");
-          });
-          panel.querySelector(".bh-list")?.classList.remove("bh-list--animations-ready");
-          pendingBattleListAnimation = false;
-        };
-        const renderBattleList = async (page = 1, animateNewMatches = false) => {
-          updateNickname();
-          const listEl = document.querySelector(".bh-list");
-          if (!listEl) return;
-          const lang = state.lang;
-          const dict = t[lang] || t["EN"];
-          const battles = await getAllBattles(currentNickname);
-          battles.sort((a, b) => b.date - a.date);
-          const newestBattleKey = battles.length > 0 ? getBattleKey(battles[0]) : null;
-          let animationMode = null;
-          if (animateNewMatches && page === 1) {
-            if (!hasRenderedBattleList && battles.length > 0) {
-              animationMode = "initial";
-            } else if (newestBattleKey && newestBattleKey !== lastRenderedNewestBattleKey) {
-              animationMode = "new-match";
-            }
-          }
-          if (page === 1) {
-            hasRenderedBattleList = true;
-            lastRenderedNewestBattleKey = newestBattleKey;
-          }
-          listEl.classList.remove("bh-list--animations-ready");
-          pendingBattleListAnimation = false;
-          const totalPages = Math.max(1, Math.ceil(battles.length / ROWS_PER_PAGE));
-          if (page > totalPages) page = totalPages;
-          if (page < 1) page = 1;
-          currentPage = page;
-          const startIndex = (currentPage - 1) * ROWS_PER_PAGE;
-          const pageBattles = battles.slice(startIndex, startIndex + ROWS_PER_PAGE);
-          listEl.innerHTML = "";
-          if (pageBattles.length === 0) {
-            listEl.innerHTML = `<div class="bh-empty">${dict.noBattles}</div>`;
-          } else {
-            const cards = await Promise.all(pageBattles.map((b) => buildBattleCard(b, dict, lang)));
-            cards.forEach((card, index) => {
-              const visualCard = card.querySelector(".bh-card");
-              if (visualCard && animationMode === "initial") {
-                visualCard.classList.add("bh-card--rise-in");
-                const delay = index * 60;
-                visualCard.style.animationDelay = `${delay}ms`;
-                visualCard.style.zIndex = String(cards.length - index);
-              } else if (visualCard && animationMode === "new-match") {
-                if (index === 0) {
-                  visualCard.classList.add("bh-card--new-in");
-                } else {
-                  visualCard.classList.add("bh-card--push-down");
-                }
-              }
-              listEl.appendChild(card);
-            });
-            if (animationMode === "new-match" && cards.length > 1) {
-              const newCard = cards[0].querySelector(".bh-card");
-              const gap = parseFloat(getComputedStyle(listEl).rowGap) || 0;
-              const pushDistance = (newCard?.getBoundingClientRect().height || 0) + gap;
-              cards.slice(1).forEach((card) => {
-                card.querySelector(".bh-card")?.style.setProperty("--bh-push-distance", `-${pushDistance}px`);
-              });
-            }
-            pendingBattleListAnimation = animationMode !== null;
-          }
-          renderPagination(currentPage, totalPages);
-          const totalEl = document.getElementById("bh-total-battles");
-          if (totalEl) totalEl.textContent = String(battles.length);
-        };
-        const getNicknameHistory = async () => {
-          const db = await openDB();
-          try {
-            return await new Promise((resolve, reject) => {
-              const transaction = db.transaction("battles", "readonly");
-              const request = transaction.objectStore("battles").getAll();
-              request.onsuccess = () => {
-                const counts = /* @__PURE__ */ new Map();
-                for (const battle of request.result) {
-                  if (battle.nickname) counts.set(battle.nickname, (counts.get(battle.nickname) || 0) + 1);
-                }
-                resolve(Array.from(counts, ([nickname, count]) => ({ nickname, count })).sort((a, b) => a.nickname.localeCompare(b.nickname)));
-              };
-              request.onerror = () => reject(request.error);
-              transaction.onerror = () => reject(transaction.error);
-            });
-          } finally {
-            db.close();
-          }
-        };
-        const mergeNicknameHistory = async (sourceNickname, targetNickname) => {
-          const db = await openDB();
-          try {
-            return await new Promise((resolve, reject) => {
-              const transaction = db.transaction("battles", "readwrite");
-              const store = transaction.objectStore("battles");
-              const request = store.index("nickname").openCursor(IDBKeyRange.only(sourceNickname));
-              let moved = 0;
-              request.onsuccess = () => {
-                const cursor = request.result;
-                if (!cursor) return;
-                const battle = cursor.value;
-                battle.nickname = targetNickname;
-                cursor.update(battle);
-                moved++;
-                cursor.continue();
-              };
-              request.onerror = () => reject(request.error);
-              transaction.oncomplete = () => resolve(moved);
-              transaction.onerror = () => reject(transaction.error);
-              transaction.onabort = () => reject(transaction.error || new Error("History linking was aborted"));
-            });
-          } finally {
-            db.close();
-          }
-        };
-        const openLinkHistoryDialog = async () => {
-          if (currentNickname === "Unknown") {
-            window.alert(state.lang === "RU" ? "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u043F\u0440\u0435\u0434\u0435\u043B\u0438\u0442\u044C \u0442\u0435\u043A\u0443\u0449\u0438\u0439 \u043D\u0438\u043A." : "Could not detect the current nickname.");
-            return;
-          }
-          const existing = document.getElementById("link-history-overlay");
-          if (existing) return;
-          try {
-            const lang = state.lang;
-            const dict = lang === "RU" ? {
-              title: "\u0421\u0412\u042F\u0417\u0410\u0422\u042C \u0418\u0421\u0422\u041E\u0420\u0418\u0418",
-              description: "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043D\u0438\u043A, \u0438\u0441\u0442\u043E\u0440\u0438\u044E \u043A\u043E\u0442\u043E\u0440\u043E\u0433\u043E \u043D\u0443\u0436\u043D\u043E \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043A \u0442\u0435\u043A\u0443\u0449\u0435\u0439 \u0438\u0441\u0442\u043E\u0440\u0438\u0438.",
-              target: "\u0422\u0435\u043A\u0443\u0449\u0430\u044F \u0438\u0441\u0442\u043E\u0440\u0438\u044F:",
-              select: "\u0418\u0441\u0442\u043E\u0440\u0438\u044F \u0434\u043B\u044F \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u0438\u044F",
-              placeholder: "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043D\u0438\u043A\u043D\u0435\u0439\u043C",
-              empty: "\u0414\u0440\u0443\u0433\u0438\u0445 \u043D\u0438\u043A\u043D\u0435\u0439\u043C\u043E\u0432 \u0441 \u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u043C\u0438 \u0431\u043E\u044F\u043C\u0438 \u043D\u0435\u0442.",
-              cancel: "\u041E\u0442\u043C\u0435\u043D\u0430",
-              confirm: "\u0421\u0432\u044F\u0437\u0430\u0442\u044C",
-              success: (count) => `\u0418\u0441\u0442\u043E\u0440\u0438\u0438 \u0441\u0432\u044F\u0437\u0430\u043D\u044B. \u0414\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043E \u0431\u043E\u0451\u0432: ${count}.`,
-              failed: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u0432\u044F\u0437\u0430\u0442\u044C \u0438\u0441\u0442\u043E\u0440\u0438\u0438."
-            } : {
-              title: "LINK HISTORIES",
-              description: "Choose the nickname whose history should be added to the current history.",
-              target: "Current history:",
-              select: "History to add",
-              placeholder: "Select a nickname",
-              empty: "No other nicknames have saved battles.",
-              cancel: "Cancel",
-              confirm: "Link",
-              success: (count) => `Histories linked. Battles added: ${count}.`,
-              failed: "Could not link the histories."
-            };
-            const nicknames = (await getNicknameHistory()).filter((item) => item.nickname !== currentNickname && item.nickname !== "Unknown");
-            const modal = await createKaspModal({ id: "link-history-overlay", title: dict.title, closeLabel: dict.cancel });
-            if (!modal) return;
-            const { body, actions, close } = modal;
-            const description = document.createElement("p");
-            description.className = "kasp-modal-copy";
-            description.textContent = dict.description;
-            const target = document.createElement("p");
-            target.className = "kasp-modal-copy";
-            const targetLabel = document.createElement("span");
-            targetLabel.textContent = `${dict.target} `;
-            const targetNickname = document.createElement("strong");
-            targetNickname.className = "bh-link-target";
-            targetNickname.textContent = currentNickname;
-            target.append(targetLabel, targetNickname);
-            const selectLabel = document.createElement("label");
-            selectLabel.className = "bh-link-select-label";
-            const selectLabelText = document.createElement("span");
-            selectLabelText.textContent = dict.select;
-            const select = document.createElement("select");
-            select.className = "bh-link-select";
-            select.setAttribute("aria-label", dict.select);
-            const placeholder = document.createElement("option");
-            placeholder.value = "";
-            placeholder.textContent = dict.placeholder;
-            select.appendChild(placeholder);
-            for (const item of nicknames) {
-              const option = document.createElement("option");
-              option.value = item.nickname;
-              option.textContent = `${item.nickname} (${item.count})`;
-              select.appendChild(option);
-            }
-            selectLabel.append(selectLabelText, select);
-            const empty = document.createElement("p");
-            empty.className = "bh-link-empty";
-            empty.textContent = dict.empty;
-            empty.hidden = nicknames.length > 0;
-            selectLabel.hidden = nicknames.length === 0;
-            const cancelButton = document.createElement("button");
-            cancelButton.type = "button";
-            cancelButton.className = "kasp-modal-button kasp-modal-button--secondary";
-            const cancelLabel = document.createElement("span");
-            cancelLabel.textContent = dict.cancel;
-            cancelButton.appendChild(cancelLabel);
-            const confirmButton = document.createElement("button");
-            confirmButton.type = "button";
-            confirmButton.className = "kasp-modal-button";
-            const confirmLabel = document.createElement("span");
-            confirmLabel.textContent = dict.confirm;
-            confirmButton.appendChild(confirmLabel);
-            confirmButton.disabled = true;
-            confirmButton.hidden = nicknames.length === 0;
-            actions.append(cancelButton, confirmButton);
-            body.append(description, target, selectLabel, empty);
-            let isLinking = false;
-            cancelButton.addEventListener("click", close);
-            select.addEventListener("change", () => {
-              confirmButton.disabled = select.value === "";
-            });
-            confirmButton.addEventListener("click", async () => {
-              const sourceNickname = select.value;
-              if (!sourceNickname || isLinking) return;
-              isLinking = true;
-              confirmButton.disabled = true;
-              cancelButton.disabled = true;
-              try {
-                const moved = await mergeNicknameHistory(sourceNickname, currentNickname);
-                close();
-                await renderBattleList(1);
-                window.setTimeout(() => window.alert(dict.success(moved)), 220);
-              } catch (error) {
-                console.error("[Tanki Battle History] Error linking histories:", error);
-                isLinking = false;
-                confirmButton.disabled = false;
-                cancelButton.disabled = false;
-                window.alert(dict.failed);
-              }
-            });
-            modal.closeButton.focus();
-          } catch (error) {
-            console.error("[Tanki Battle History] Failed to open link history dialog:", error);
-            window.alert(state.lang === "RU" ? "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0441\u043F\u0438\u0441\u043E\u043A \u0438\u0441\u0442\u043E\u0440\u0438\u0439." : "Could not load the history list.");
-          }
-        };
-        const clearHistoryDb = () => {
-          showClearConfirmModal(async () => {
-            try {
-              const db = await openDB();
-              const transaction = db.transaction("battles", "readwrite");
-              const store = transaction.objectStore("battles");
-              const request = store.index("nickname").getAllKeys(currentNickname);
-              request.onsuccess = () => {
-                request.result.forEach((key) => store.delete(key));
-                renderBattleList(1);
-              };
-            } catch (e) {
-              console.error("[Tanki Battle History] Error clearing DB:", e);
-            }
-          });
-        };
-        const exportHistoryData = async () => {
-          const battles = await getAllBattles(currentNickname);
-          if (battles.length === 0) return;
-          const blob = new Blob([JSON.stringify(battles, null, 2)], { type: "application/json" });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = `Tanki_BattleHistory_${currentNickname}_${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.json`;
-          a.click();
-          URL.revokeObjectURL(url);
-        };
-        const validateImportedBattle = (value) => {
-          if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-          const battle = value;
-          const requiredStrings = ["nickname", "status", "map", "mode", "top"];
-          const requiredNumbers = ["date", "reputation", "kills", "deaths", "kd", "crystals", "stars"];
-          if (requiredStrings.some((key) => typeof battle[key] !== "string")) return null;
-          if (requiredNumbers.some((key) => typeof battle[key] !== "number" || !Number.isFinite(battle[key]))) return null;
-          if (typeof battle.date !== "number" || battle.date <= 0) return null;
-          if (battle.kind !== void 0 && battle.kind !== "MM" && battle.kind !== "PRO") return null;
-          const iconFields = ["turretIcon", "turretAugmentIcon", "hullIcon", "hullAugmentIcon"];
-          if (iconFields.some((key) => battle[key] !== void 0 && typeof battle[key] !== "string")) return null;
-          const teamFields = ["teamScoreMy", "teamScoreEnemy"];
-          if (teamFields.some((key) => battle[key] !== void 0 && (typeof battle[key] !== "number" || !Number.isFinite(battle[key])))) return null;
-          let players = [];
-          if (battle.players !== void 0) {
-            if (!Array.isArray(battle.players)) return null;
-            for (const value2 of battle.players) {
-              if (!value2 || typeof value2 !== "object" || Array.isArray(value2)) return null;
-              const player = value2;
-              if (typeof player.name !== "string" || typeof player.rank !== "string") return null;
-              const numericFields = ["gs", "score", "kills", "deaths", "kd", "crystals", "stars"];
-              if (numericFields.some((key) => typeof player[key] !== "number" || !Number.isFinite(player[key]))) return null;
-              if (typeof player.isEnemy !== "boolean" || typeof player.isMe !== "boolean") return null;
-              players.push({
-                name: player.name,
-                rank: player.rank,
-                gs: player.gs,
-                score: player.score,
-                kills: player.kills,
-                deaths: player.deaths,
-                kd: player.kd,
-                crystals: player.crystals,
-                stars: player.stars,
-                isEnemy: player.isEnemy,
-                isMe: player.isMe
-              });
-            }
-          }
-          return {
-            nickname: battle.nickname,
-            date: battle.date,
-            status: battle.status,
-            map: battle.map,
-            mode: battle.mode,
-            kind: battle.kind,
-            top: battle.top,
-            reputation: battle.reputation,
-            kills: battle.kills,
-            deaths: battle.deaths,
-            kd: battle.kd,
-            crystals: battle.crystals,
-            stars: battle.stars,
-            turretIcon: battle.turretIcon || "",
-            turretAugmentIcon: battle.turretAugmentIcon || "",
-            hullIcon: battle.hullIcon || "",
-            hullAugmentIcon: battle.hullAugmentIcon || "",
-            teamScoreMy: battle.teamScoreMy,
-            teamScoreEnemy: battle.teamScoreEnemy,
-            players
-          };
-        };
-        const importHistoryData = () => {
-          const input = document.createElement("input");
-          input.type = "file";
-          input.accept = ".json";
-          input.onchange = (e) => {
-            const target = e.target;
-            const file = target.files?.[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = async (ev) => {
-              try {
-                const data = JSON.parse(String(ev.target?.result ?? ""));
-                if (!Array.isArray(data) || data.length === 0) throw new Error("empty-or-invalid-list");
-                const battles = data.map(validateImportedBattle);
-                if (battles.some((battle) => battle === null)) throw new Error("invalid-battle-record");
-                await addBattles(battles);
-                await renderBattleList(1);
-                window.alert(state.lang === "RU" ? `\u0418\u043C\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u043D\u043E \u0431\u043E\u0451\u0432: ${battles.length}.` : `Imported battles: ${battles.length}.`);
-              } catch (err) {
-                console.error("[Tanki Battle History] Import error:", err);
-                window.alert(state.lang === "RU" ? "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0438\u043C\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0444\u0430\u0439\u043B. \u041F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435, \u0447\u0442\u043E \u044D\u0442\u043E JSON-\u0444\u0430\u0439\u043B \u0438\u0441\u0442\u043E\u0440\u0438\u0438 \u0431\u0438\u0442\u0432." : "Could not import this file. Check that it is a valid battle history JSON file.");
-              }
-            };
-            reader.readAsText(file);
-          };
-          input.click();
-        };
+        const results = createResultCapture(account);
         const createHistoryPage = async () => {
           if (document.querySelector(".custom-history-overlay")) return;
-          updateNickname();
+          const nickname = currentNickname;
           const lang = state.lang;
-          const dict = t[lang] || t["EN"];
-          try {
-            const templateUrl = chrome.runtime.getURL("templates/battle-history-overlay.html");
-            const response = await fetch(templateUrl);
-            if (!response.ok) {
-              throw new Error(`Failed to load history template: ${response.status}`);
-            }
-            const template = await response.text();
-            const replacements = {
-              title: String(dict.title ?? ""),
-              clear: String(dict.clear ?? ""),
-              link: String(dict.link ?? ""),
-              export: String(dict.export ?? ""),
-              import: String(dict.import ?? ""),
-              battles: String(dict.battles ?? "\u0411\u043E\u0451\u0432")
-            };
-            let html = template;
-            for (const [key, value] of Object.entries(replacements)) {
-              html = html.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), value);
-            }
-            const overlay = document.createElement("div");
-            overlay.className = "custom-history-overlay";
-            overlay.style.display = "none";
-            overlay.innerHTML = html;
-            document.body.appendChild(overlay);
-            overlay.querySelector(".custom-history-close")?.addEventListener("click", () => {
-              closeHistoryOverlay(overlay);
-            });
-            document.getElementById("bh-clear-btn")?.addEventListener("click", clearHistoryDb);
-            document.getElementById("bh-link-btn")?.addEventListener("click", openLinkHistoryDialog);
-            document.getElementById("bh-export-btn")?.addEventListener("click", exportHistoryData);
-            document.getElementById("bh-import-btn")?.addEventListener("click", importHistoryData);
-          } catch (error) {
-            console.error("[Tanki Battle History] Error loading overlay template:", error);
+          const dict = getHistoryDictionary(lang);
+          const templateUrl = chrome.runtime.getURL("templates/battle-history-overlay.html");
+          const response = await fetch(templateUrl);
+          if (!response.ok) {
+            throw new Error(`Failed to load history template: ${response.status}`);
           }
+          const template = await response.text();
+          if (nickname !== currentNickname || document.querySelector(".custom-history-overlay")) return;
+          const replacements = {
+            title: String(dict.title ?? ""),
+            clear: String(dict.clear ?? ""),
+            link: String(dict.link ?? ""),
+            export: String(dict.export ?? ""),
+            import: String(dict.import ?? ""),
+            battles: String(dict.battles ?? "\u0411\u043E\u0451\u0432")
+          };
+          const html = renderHistoryTemplate(template, replacements);
+          const overlay = document.createElement("div");
+          overlay.className = "custom-history-overlay";
+          overlay.style.display = "none";
+          overlay.innerHTML = html;
+          document.body.appendChild(overlay);
+          overlay.querySelector(".custom-history-close")?.addEventListener("click", () => {
+            navigation.closeHistoryOverlay(overlay);
+          });
+          document.getElementById("bh-clear-btn")?.addEventListener("click", actions.clearHistoryDb);
+          document.getElementById("bh-link-btn")?.addEventListener("click", actions.openLinkHistoryDialog);
+          document.getElementById("bh-export-btn")?.addEventListener("click", actions.exportHistoryData);
+          document.getElementById("bh-import-btn")?.addEventListener("click", actions.importHistoryData);
         };
         const ensureHistoryPage = () => {
+          updateNickname();
+          if (document.querySelector(".custom-history-overlay")) return Promise.resolve();
           if (!historyPagePromise) {
-            historyPagePromise = createHistoryPage();
+            const pending = createHistoryPage().catch((error) => console.error("[BattleHistory] Failed to create history page:", error)).finally(() => {
+              if (historyPagePromise === pending) historyPagePromise = null;
+            });
+            historyPagePromise = pending;
           }
           return historyPagePromise;
-        };
-        const injectFooterButton = () => {
-          const footerList = document.querySelector(".FooterComponentStyle-footer ul");
-          if (!footerList || footerList.querySelector(".custom-history-button")) return;
-          const lang = state.lang;
-          const dict = t[lang] || t["EN"];
-          const btn = document.createElement("li");
-          btn.className = "FooterComponentStyle-containerMenu custom-history-button";
-          btn.innerHTML = "<div></div>";
-          btn.title = dict.title;
-          btn.addEventListener("click", async () => {
-            const hidden = [];
-            const hideGameUI = () => {
-              const children = Array.from(document.body.children);
-              for (const el of children) {
-                if (el.classList.contains("kasp-loader-overlay")) continue;
-                if (el.classList.contains("custom-history-overlay")) continue;
-                if (el.id === "quick-upgrade-overlay") continue;
-                if (el.id === "kasp-welcome-overlay") continue;
-                if (el.id === "kasp-specs-tooltip") continue;
-                hidden.push({ el, prev: el.style.visibility });
-                el.style.visibility = "hidden";
-              }
-              document.documentElement.style.visibility = "hidden";
-              document.body.style.visibility = "visible";
-            };
-            const showGameUI = () => {
-              for (const { el, prev } of hidden) {
-                el.style.visibility = prev;
-              }
-              hidden.length = 0;
-              document.documentElement.style.visibility = "";
-            };
-            try {
-              showFakeLoader();
-              hideGameUI();
-              await ensureHistoryPage();
-              const overlay = document.querySelector(".custom-history-overlay");
-              if (!overlay) return;
-              await renderBattleList(1, true);
-              const duration = 500 + Math.random() * 2500;
-              await new Promise((r) => window.setTimeout(r, duration));
-              const ok = await openAsNativePage(overlay);
-              if (!ok) {
-                overlay.style.top = "0";
-                overlay.style.height = "100vh";
-                overlay.style.display = "flex";
-              }
-              playPendingBattleListAnimation();
-              showGameUI();
-              await new Promise((resolve) => {
-                let frames = 0;
-                const tick = () => {
-                  frames++;
-                  if (frames >= 3) resolve();
-                  else requestAnimationFrame(tick);
-                };
-                requestAnimationFrame(tick);
-              });
-            } finally {
-              showGameUI();
-              hideFakeLoader();
-            }
-          });
-          footerList.appendChild(btn);
-        };
-        const extractAndSaveBattleResult = async () => {
-          updateNickname();
-          const selfRow = document.querySelector("#selfUserBg");
-          if (!selfRow || battleProcessed) return;
-          if (currentNickname === "Unknown") {
-            const nickCell = selfRow.querySelector('.BattleKillBoardComponentStyle-col1, [class*="BattleKillBoardComponentStyle-col1"]');
-            if (nickCell) {
-              const raw = (nickCell.textContent || "").trim();
-              const clean = raw.replace(/^\[.*?\]\s*/, "").trim();
-              if (clean && clean !== "Unknown") {
-                currentNickname = clean;
-                try {
-                  localStorage.setItem(NICK_KEY, clean);
-                } catch {
-                }
-              }
-            }
-          }
-          if (currentNickname === "Unknown") return;
-          try {
-            const scoreEl = selfRow.querySelector(".BattleKillBoardComponentStyle-col3");
-            const killsEl = selfRow.querySelector(".BattleKillBoardComponentStyle-col4");
-            const deathsEl = selfRow.querySelector(".BattleKillBoardComponentStyle-col5");
-            if (!scoreEl || !killsEl || !deathsEl) return;
-            const scoreText = (scoreEl.textContent || "").trim();
-            const killsText = (killsEl.textContent || "").trim();
-            const deathsText = (deathsEl.textContent || "").trim();
-            if (!scoreText || !killsText || !deathsText) return;
-            battleProcessed = true;
-            let players = [];
-            const tbody = document.querySelector(".TableComponentStyle-tBody");
-            if (tbody) {
-              const allRows = Array.from(tbody.children);
-              let isEnemyTeam = false;
-              for (const row of allRows) {
-                if (row.id === "rowSpace") continue;
-                if (row.id === "teamRowSpace") {
-                  isEnemyTeam = true;
-                  continue;
-                }
-                const nickEl = row.querySelector('[class*="BattleKillBoardComponentStyle-col1"] span.-whiteSpaceNoWrap');
-                if (!nickEl) continue;
-                const rawNick = nickEl.textContent || "";
-                const rankImg = row.querySelector(".BattleKillBoardComponentStyle-rankIcon");
-                const rankSrc = rankImg ? rankImg.src : "";
-                const gsEl = row.querySelector(".BattleKillBoardComponentStyle-col2 span");
-                const gs = gsEl ? gsEl.textContent?.trim().replace(/\s/g, "") : "0";
-                const pScore = parseInt((row.querySelector(".BattleKillBoardComponentStyle-col3")?.textContent || "0").replace(/\s/g, "")) || 0;
-                const pKills = parseInt((row.querySelector(".BattleKillBoardComponentStyle-col4")?.textContent || "0").replace(/\s/g, "")) || 0;
-                const pDeaths = parseInt((row.querySelector(".BattleKillBoardComponentStyle-col5")?.textContent || "0").replace(/\s/g, "")) || 0;
-                const pKd = parseFloat(row.querySelector(".BattleKillBoardComponentStyle-col6")?.textContent || "0") || 0;
-                const pCrystals = parseInt((row.querySelector(".BattleKillBoardComponentStyle-col7")?.textContent || "0").replace(/\s/g, "")) || 0;
-                const pStars = parseInt((row.querySelector(".BattleKillBoardComponentStyle-col8")?.textContent || "0").replace(/\s/g, "")) || 0;
-                const isMe = row.id === "selfUserBg";
-                players.push({
-                  name: rawNick,
-                  rank: rankSrc,
-                  gs: parseInt(gs || "0") || 0,
-                  score: pScore,
-                  kills: pKills,
-                  deaths: pDeaths,
-                  kd: pKd,
-                  crystals: pCrystals,
-                  stars: pStars,
-                  isEnemy: isEnemyTeam,
-                  isMe
-                });
-              }
-            }
-            const mapEl = document.querySelector(".BattleResultHeaderComponentStyle-mapName");
-            const rawMapText = mapEl ? mapEl.textContent?.trim() || "" : "Unknown Map";
-            const parsedMapData = parseMapAndMode(rawMapText);
-            const statusEl = document.querySelector(".BattleResultHeaderComponentStyle-resultText") || document.querySelector('[class*="descriptionVictory"], [class*="descriptionDefeat"], [class*="descriptionDraw"]');
-            const isDM = parsedMapData.mode.toUpperCase() === "DM" || statusEl && statusEl.textContent?.trim() === "";
-            if (isDM) {
-              for (const p of players) {
-                p.isEnemy = !p.isMe;
-              }
-            }
-            const statusText = isDM ? "DM" : statusEl ? statusEl.textContent?.trim() || "Victory" : "Victory";
-            let topVal = "-";
-            if (selfRow.parentElement) {
-              const allRows = Array.from(selfRow.parentElement.children);
-              const selfIndex = allRows.indexOf(selfRow);
-              const teamDividerIndex = allRows.findIndex((r) => r.id === "teamRowSpace");
-              let teamRows = [];
-              if (teamDividerIndex === -1) teamRows = allRows;
-              else if (selfIndex < teamDividerIndex) teamRows = allRows.slice(0, teamDividerIndex);
-              else teamRows = allRows.slice(teamDividerIndex + 1);
-              const actualPlayers = teamRows.filter((r) => r.id && r.id !== "rowSpace" && r.id !== "teamRowSpace");
-              const rank = actualPlayers.indexOf(selfRow) + 1;
-              if (rank > 0) topVal = rank.toString();
-            }
-            let teamScoreMy;
-            let teamScoreEnemy;
-            if (!isDM) {
-              const firstScoreEl = document.querySelector(
-                ".BattleResultHeaderComponentStyle-firstTeamAccount .BattleResultHeaderComponentStyle-teamAccount"
-              );
-              const secondScoreEl = document.querySelector(
-                ".BattleResultHeaderComponentStyle-twoTeamAccount .BattleResultHeaderComponentStyle-teamAccount"
-              );
-              const firstScore = firstScoreEl ? parseInt((firstScoreEl.textContent || "").replace(/\s/g, ""), 10) : NaN;
-              const secondScore = secondScoreEl ? parseInt((secondScoreEl.textContent || "").replace(/\s/g, ""), 10) : NaN;
-              let amIFirstTeam = true;
-              if (selfRow.parentElement) {
-                const allRows = Array.from(selfRow.parentElement.children);
-                const selfIndex = allRows.indexOf(selfRow);
-                const teamDividerIndex = allRows.findIndex((r) => r.id === "teamRowSpace");
-                if (teamDividerIndex !== -1 && selfIndex > teamDividerIndex) {
-                  amIFirstTeam = false;
-                }
-              }
-              if (!isNaN(firstScore) && !isNaN(secondScore)) {
-                teamScoreMy = amIFirstTeam ? firstScore : secondScore;
-                teamScoreEnemy = amIFirstTeam ? secondScore : firstScore;
-              }
-            }
-            const score = parseInt(scoreText.replace(/\s/g, "")) || 0;
-            const kills = parseInt(killsText.replace(/\s/g, "")) || 0;
-            const deaths = parseInt(deathsText.replace(/\s/g, "")) || 0;
-            const kd = deaths > 0 ? parseFloat((kills / deaths).toFixed(2)) : kills;
-            const crystals = parseInt((selfRow.querySelector(".BattleKillBoardComponentStyle-col7")?.textContent || "0").replace(/\s/g, "")) || 0;
-            const stars = parseInt(selfRow.querySelector(".BattleKillBoardComponentStyle-col8")?.textContent || "0") || 0;
-            const eq = equipmentTracker.get();
-            if (currentNickname === "Unknown") return;
-            const battleData = {
-              nickname: currentNickname,
-              date: Date.now(),
-              status: statusText,
-              map: parsedMapData.map,
-              mode: parsedMapData.mode,
-              kind: window.__kaspBattleKind ?? "MM",
-              top: topVal,
-              reputation: score,
-              kills,
-              deaths,
-              kd,
-              crystals,
-              stars,
-              turretIcon: eq?.turret ?? "",
-              turretAugmentIcon: eq?.turretAugment ?? "",
-              hullIcon: eq?.hull ?? "",
-              hullAugmentIcon: eq?.hullAugment ?? "",
-              teamScoreMy,
-              teamScoreEnemy,
-              players
-            };
-            await addBattle(battleData);
-          } catch (err) {
-            console.error("[Tanki Battle History] Error saving battle result:", err);
-            battleProcessed = false;
-          }
         };
         return () => {
           if (!utils.getSetting("k_history", false)) return;
           if (!initialized) {
             initialized = true;
-            document.addEventListener("keydown", (e) => {
-              const overlay = document.querySelector(".custom-history-overlay");
-              const isHistoryOpen = overlay && window.getComputedStyle(overlay).display !== "none";
-              if (!isHistoryOpen) return;
-              if (e.code === "Space" || /^(Digit|Numpad)[1-7]$/.test(e.code)) {
-                if (document.activeElement && ["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-              }
-            }, true);
-            window.addEventListener("keydown", (e) => {
-              if (Date.now() < historyBackSuppressedUntil) {
-                e.preventDefault();
-                e.stopPropagation();
-                return;
-              }
-              if (document.getElementById("clear-confirm-overlay") || document.getElementById("link-history-overlay")) return;
-              const overlay = document.querySelector(".custom-history-overlay");
-              if (overlay && overlay.style.display === "flex") {
-                if (e.code === "Escape" || e.code === "KeyZ" || e.key.toLowerCase() === "z") {
-                  if (document.activeElement && ["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
-                  closeHistoryOverlay(overlay);
-                  e.preventDefault();
-                }
-              }
-            });
-            document.addEventListener("mousedown", (e) => {
-              if (Date.now() < historyBackSuppressedUntil) {
-                e.preventDefault();
-                e.stopPropagation();
-                return;
-              }
-              const overlay = document.querySelector(".custom-history-overlay");
-              if (overlay && overlay.style.display === "flex" && e.button === 3) {
-                closeHistoryOverlay(overlay);
-                e.preventDefault();
-              }
-            }, true);
-            setTimeout(() => updateNickname(), 5e3);
+            navigation.bindShortcuts();
+            setTimeout(updateNickname, 5e3);
           }
-          injectFooterButton();
+          navigation.injectFooterButton();
           void ensureHistoryPage();
-          const selfRow = document.querySelector("#selfUserBg");
           const inResults = document.querySelector(".BattleResultHeaderComponentStyle-resultText");
-          if (selfRow && inResults) {
-            extractAndSaveBattleResult();
+          if (document.querySelector("#selfUserBg") && inResults) {
+            void results.capture();
           } else if (!inResults) {
-            battleProcessed = false;
+            results.reset();
           }
         };
       })();
@@ -5298,11 +5466,13 @@
       init_state();
       init_utils();
       init_boot();
+      init_hideNickname();
       if (window === window.top) {
         setupElectronZKey();
         const loaderBg = chrome.runtime.getURL("assets/background.png");
         document.documentElement.style.setProperty("--kasp-loader-bg", `url("${loaderBg}")`);
         state.lang = utils.getLang();
+        setupNicknamePrivacy();
         startBoot();
       }
     }

@@ -113,14 +113,25 @@
           } catch (e) {
           }
         };
+        let bundleIntercepted = false;
         const observer = new MutationObserver((mutations) => {
           for (const m of mutations) {
             for (const node of Array.from(m.addedNodes)) {
-              if (node instanceof HTMLScriptElement && node.src.includes("/static/js/main.")) {
+              if (!bundleIntercepted && node instanceof HTMLScriptElement && node.src.includes("/static/js/main.")) {
+                bundleIntercepted = true;
+                const originalScript = document.createElement("script");
+                for (const attribute of Array.from(node.attributes)) {
+                  originalScript.setAttribute(attribute.name, attribute.value);
+                }
+                originalScript.async = node.async;
+                originalScript.nonce = node.nonce;
                 node.type = "javascript/blocked";
                 node.remove();
                 observer.disconnect();
-                fetch(node.src).then((res) => res.text()).then((code) => {
+                fetch(node.src).then((res) => {
+                  if (!res.ok) throw new Error(`Game bundle request failed: HTTP ${res.status}`);
+                  return res.text();
+                }).then((code) => {
                   const match = /return"TankUserActionLog\(\w+="\+(?:\w+\()?this\.(\w+)/.exec(code);
                   if (match) {
                     const propName = match[1];
@@ -140,8 +151,20 @@
                     }
                   }
                   const script = document.createElement("script");
+                  script.type = originalScript.type;
+                  script.nonce = originalScript.nonce;
                   script.textContent = code;
                   (document.head || document.documentElement).appendChild(script);
+                }).catch((error) => {
+                  console.error("[Kaspersky Inventions] Bundle injection failed; loading the original game script:", error);
+                  originalScript.addEventListener("error", () => {
+                    console.error("[Kaspersky Inventions] The original game script also failed to load:", originalScript.src);
+                  }, { once: true });
+                  try {
+                    (document.head || document.documentElement).appendChild(originalScript);
+                  } catch (restoreError) {
+                    console.error("[Kaspersky Inventions] Could not restore the original game script:", restoreError);
+                  }
                 });
               }
             }

@@ -261,16 +261,14 @@ export const autoUpgrade = (() => {
                         return;
                     }
                     if (hasNormalButton()) {
-                        clickConfirmButton();
+                        if (!clickConfirmButton()) { finish(); return; }
                         upgraded++;
                         isWaitingForDialogClose = true;
                         timer = window.setTimeout(doStep, DELAY);
                         return;
                     }
-                    pressEnter();
-                    upgraded++;
-                    isWaitingForDialogClose = true;
-                    timer = window.setTimeout(doStep, DELAY);
+                    // An unknown dialog must remain under the user's control.
+                    finish();
                     return;
                 }
 
