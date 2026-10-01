@@ -1,6 +1,6 @@
 # Kaspersky's Inventions - Technical Documentation
 
-## Complete Implementation Reference :
+## Complete Implementation Reference
 
 **Extension version:** 2.7.3 (`manifest.json`)
 
