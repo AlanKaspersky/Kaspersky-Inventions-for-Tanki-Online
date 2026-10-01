@@ -600,12 +600,12 @@ Kaspersky's Inventions/
 ├── package-lock.json         Dependency lockfile
 ├── tsconfig.json             TypeScript configuration
 ├── src/
-│   ├── kasp_main.ts           Main content-script entry point
-│   ├── kasp_injector.ts       Game-bundle interception entry point
+│   ├── kasp_main.ts          Main content-script entry point
+│   ├── kasp_injector.ts      Game-bundle interception entry point
 │   ├── core/                 Settings, identity, markup, and shared helpers
 │   └── modules/
-│       ├── battleHistory.ts   Battle History integration facade
-│       ├── battleHistory/     History implementation and internal notes
+│       ├── battleHistory.ts  Battle History integration facade
+│       ├── battleHistory/    History implementation and internal notes
 │       └── ...               Other feature modules
 ├── dist/                     Generated JavaScript loaded by the browser
 ├── styles/                   Manifest-injected stylesheets
@@ -827,4 +827,4 @@ For the in-game presentation of release information and credits, see [the welcom
 
 ---
 
-Documentation aligned with extension manifest version **2.7.2**, updated **October 2, 2026**.
+Documentation aligned with extension manifest version **2.7.3**, updated **October 2, 2026**.
