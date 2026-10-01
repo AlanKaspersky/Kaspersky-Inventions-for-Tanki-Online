@@ -180,6 +180,46 @@
     background-color: rgb(197, 197, 197);
 }
 
+.bh-btn-link {
+    background-color: rgb(0, 212, 255);
+    color: rgb(0, 10, 15);
+}
+
+.bh-btn-link:hover {
+    background-color: rgb(0, 185, 225);
+}
+
+.bh-link-target {
+    color: rgb(0, 212, 255);
+    font-family: BaseFontBold, FallbackFontBold, sans-serif;
+}
+
+.bh-link-select-label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55em;
+    color: rgba(255, 255, 255, 0.72);
+}
+
+.bh-link-select {
+    width: 100%;
+    min-height: 3em;
+    padding: 0.6em 0.8em;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 0.4em;
+    color: #ffffff;
+    background: #111519;
+    font: inherit;
+}
+
+.bh-link-empty {
+    margin: 0;
+    padding: 1em;
+    color: rgba(255, 255, 255, 0.62);
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 0.4em;
+}
+
 .bh-btn-export {
     background-color: rgb(255, 255, 255);
     color: rgb(0, 10, 15);
@@ -761,11 +801,6 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 1em;
-}
-
-.bh-detailed-view .toolbar-right {
-    display: flex;
-    gap: 0.5em;
 }
 
 .bh-detailed-view .result-hero {

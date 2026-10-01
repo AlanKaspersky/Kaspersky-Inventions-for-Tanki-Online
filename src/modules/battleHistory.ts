@@ -1,6 +1,7 @@
 import { state } from '../core/state';
 import { utils } from '../core/utils';
 import { DataLoader } from '../core/dataLoader';
+import { createKaspModal } from '../core/modal';
 import { equipmentTracker } from './equipmentTracker';
 
 export const battleHistory = (() => {
@@ -242,6 +243,10 @@ export const battleHistory = (() => {
     let bhAutoCloseObserver: MutationObserver | null = null;
 
     const closeHistoryOverlay = (overlay: HTMLElement, auto = false): void => {
+        for (const id of ['link-history-overlay', 'clear-confirm-overlay']) {
+            const modal = document.getElementById(id) as (HTMLElement & { closeDialogMethod?: () => void }) | null;
+            modal?.closeDialogMethod?.();
+        }
         overlay.style.display = 'none';
         restoreContainerBackground();
 
@@ -394,8 +399,7 @@ export const battleHistory = (() => {
     };
 
     async function showClearConfirmModal(onConfirm: () => void) {
-        const existing = document.getElementById('clear-confirm-overlay');
-        if (existing) existing.remove();
+        if (document.getElementById('clear-confirm-overlay')) return;
 
         const lang = state.lang as 'RU' | 'EN';
         const translations: Record<'RU' | 'EN', any> = {
@@ -405,113 +409,36 @@ export const battleHistory = (() => {
         const dict = translations[lang] || translations['EN'];
 
         try {
-            const response = await fetch(chrome.runtime.getURL('templates/clear-history-modal.html'));
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            let html = await response.text();
-            html = html
-                .replace(/{{title}}/g, dict.title)
-                .replace(/{{text}}/g, dict.text)
-                .replace(/{{cancel}}/g, dict.cancel)
-                .replace(/{{confirm}}/g, dict.confirm);
+            const modal = await createKaspModal({ id: 'clear-confirm-overlay', title: dict.title, closeLabel: dict.cancel });
+            if (!modal) return;
+            modal.actions.classList.add('kasp-modal-actions--center');
+            const message = document.createElement('p');
+            message.className = 'kasp-modal-copy kasp-modal-copy--center';
+            message.textContent = dict.text;
+            modal.body.appendChild(message);
 
-            const overlay = document.createElement('div');
-            overlay.id = 'clear-confirm-overlay';
-            overlay.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 9999; display: flex; align-items: center; justify-content: center;`;
+            const cancelButton = document.createElement('button');
+            cancelButton.type = 'button';
+            cancelButton.className = 'kasp-modal-button kasp-modal-button--secondary';
+            const cancelLabel = document.createElement('span');
+            cancelLabel.textContent = dict.cancel;
+            cancelButton.appendChild(cancelLabel);
 
-            const dialog = document.createElement('div');
-            dialog.style.cssText = `display: flex; flex-direction: column; align-items: stretch; justify-content: space-between; pointer-events: auto; min-width: 31.625em; max-width: 31.625em; width: auto; min-height: 14.125em; z-index: 60; box-shadow: rgba(0, 0, 0, 0.25) 0px 0.313em 1.25em 0px; outline: rgba(255, 255, 255, 0.25) solid 0.063em; padding: 2em; background: radial-gradient(100% 100% at 0% 0%, rgba(118, 255, 51, 0.75) 0%, rgba(119, 255, 51, 0) 100%), rgba(0, 25, 38, 0.75);`;
-            dialog.innerHTML = html;
-            overlay.appendChild(dialog);
+            const confirmButton = document.createElement('button');
+            confirmButton.type = 'button';
+            confirmButton.className = 'kasp-modal-button';
+            const confirmLabel = document.createElement('span');
+            confirmLabel.textContent = dict.confirm;
+            confirmButton.appendChild(confirmLabel);
+            modal.actions.append(cancelButton, confirmButton);
 
-            let isClosing = false;
-            let onKeyHandler: ((e: KeyboardEvent) => void) | null = null;
-            let onMouseHandler: ((e: MouseEvent) => void) | null = null;
-
-            const cleanup = () => {
-                if (onKeyHandler) {
-                    document.removeEventListener('keydown', onKeyHandler, true);
-                    onKeyHandler = null;
-                }
-                if (onMouseHandler) {
-                    window.removeEventListener('mousedown', onMouseHandler, true);
-                    onMouseHandler = null;
-                }
-            };
-
-            function closeDialog() {
-                if (!overlay.parentNode) return;
-                cleanup();
-                overlay.remove();
-            }
-            (overlay as any).closeDialogMethod = closeDialog;
-            document.body.appendChild(overlay);
-
-            onKeyHandler = (e: KeyboardEvent) => {
-                if (isClosing) return;
-                const isEsc = e.key === 'Escape' || e.key === 'Esc';
-                const isZ = e.code === 'KeyZ' || (e.key && e.key.toLowerCase() === 'z');
-                if (!isEsc && !isZ) return;
-                isClosing = true;
-                historyBackSuppressedUntil = Date.now() + 500;
-                if (isZ) blockRemainingBackEvents();
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-                closeDialog();
-            };
-            document.addEventListener('keydown', onKeyHandler, true);
-
-            const blockRemainingBackEvents = () => {
-                const block = (e: MouseEvent) => {
-                    if (e.button !== 3 && e.button !== 4) return;
-                    e.preventDefault();
-                    e.stopPropagation();
-                    e.stopImmediatePropagation();
-                };
-                window.addEventListener('mouseup', block, true);
-                window.addEventListener('click', block, true);
-                window.addEventListener('auxclick', block, true);
-                window.setTimeout(() => {
-                    window.removeEventListener('mouseup', block, true);
-                    window.removeEventListener('click', block, true);
-                    window.removeEventListener('auxclick', block, true);
-                }, 700);
-            };
-
-            onMouseHandler = (e: MouseEvent) => {
-                if (isClosing) return;
-                if (e.button !== 3) return;
-                isClosing = true;
-                historyBackSuppressedUntil = Date.now() + 500;
-                blockRemainingBackEvents();
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-                closeDialog();
-            };
-            window.addEventListener('mousedown', onMouseHandler, true);
-
-            dialog.querySelector('#clear-dlg-confirm')?.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (!isClosing) {
-                    isClosing = true;
-                    closeDialog();
-                    onConfirm();
-                }
-            });
-            dialog.querySelector('#clear-dlg-cancel')?.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (!isClosing) {
-                    isClosing = true;
-                    closeDialog();
-                }
-            });
-            dialog.querySelector('#clear-dlg-close')?.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (!isClosing) {
-                    isClosing = true;
-                    closeDialog();
-                }
+            let confirmed = false;
+            cancelButton.addEventListener('click', modal.close);
+            confirmButton.addEventListener('click', () => {
+                if (confirmed) return;
+                confirmed = true;
+                modal.close();
+                onConfirm();
             });
         } catch (error) {
             console.error('[Kaspersky Inventions] Failed to load clear history modal template:', error);
@@ -519,8 +446,8 @@ export const battleHistory = (() => {
     }
 
     const t: Record<string, any> = {
-        RU: { title: 'История Битв', date: 'Дата', map: 'Карта', status: 'Статус', top: 'Место', mode: 'Режим', score: 'Очки', kills: 'К', deaths: 'Д', kd: 'У/С', turret: 'Пушка', hull: 'Корпус', augment: 'Устройство', crystals: 'Кристаллы', stars: 'Звёзды', win: 'Победа', lose: 'Поражение', draw: 'Ничья', dm: 'Каждый сам за себя', teamScore: 'Счёт', clear: 'Очистить', export: 'Экспорт', import: 'Импорт', battles: 'Боёв', noBattles: 'Пока нет сохранённых боёв', player: 'Игрок', gs: 'GS', diamond: 'DIAMOND', myTeam: 'Моя команда', enemyTeam: 'Команда противника', playersCount: 'игроков', allBattles: '‹ &nbsp; Все битвы', deleteBtn: 'Удалить', yourScore: 'Ваш счёт', yourKd: 'Ваш К/Д' },
-        EN: { title: 'Battle History', date: 'Date', map: 'Map', status: 'Status', top: 'Top', mode: 'Mode', score: 'Score', kills: 'Kills', deaths: 'Deaths', kd: 'K/D', turret: 'Turret', hull: 'Hull', augment: 'Augment', crystals: 'Crystals', stars: 'Stars', win: 'Victory', lose: 'Defeat', draw: 'Draw', dm: 'Deathmatch', teamScore: 'Score', clear: 'Clear', export: 'Export', import: 'Import', battles: 'Battles', noBattles: 'No saved battles yet', player: 'Player', gs: 'GS', diamond: 'DIAMOND', myTeam: 'My Team', enemyTeam: 'Enemy Team', playersCount: 'players', allBattles: '‹ &nbsp; All battles', deleteBtn: 'Delete', yourScore: 'Your Score', yourKd: 'Your K/D' }
+        RU: { title: 'История Битв', date: 'Дата', map: 'Карта', status: 'Статус', top: 'Место', mode: 'Режим', score: 'Очки', kills: 'К', deaths: 'Д', kd: 'У/С', turret: 'Пушка', hull: 'Корпус', augment: 'Устройство', crystals: 'Кристаллы', stars: 'Звёзды', win: 'Победа', lose: 'Поражение', draw: 'Ничья', dm: 'Каждый сам за себя', teamScore: 'Счёт', clear: 'Очистить', link: 'Связать', export: 'Экспорт', import: 'Импорт', battles: 'Боёв', noBattles: 'Пока нет сохранённых боёв', player: 'Игрок', gs: 'GS', diamond: 'DIAMOND', myTeam: 'Моя команда', enemyTeam: 'Команда противника', playersCount: 'игроков', allBattles: '‹ &nbsp; Все битвы', yourScore: 'Ваш счёт', yourKd: 'Ваш К/Д' },
+        EN: { title: 'Battle History', date: 'Date', map: 'Map', status: 'Status', top: 'Top', mode: 'Mode', score: 'Score', kills: 'Kills', deaths: 'Deaths', kd: 'K/D', turret: 'Turret', hull: 'Hull', augment: 'Augment', crystals: 'Crystals', stars: 'Stars', win: 'Victory', lose: 'Defeat', draw: 'Draw', dm: 'Deathmatch', teamScore: 'Score', clear: 'Clear', link: 'Link', export: 'Export', import: 'Import', battles: 'Battles', noBattles: 'No saved battles yet', player: 'Player', gs: 'GS', diamond: 'DIAMOND', myTeam: 'My Team', enemyTeam: 'Enemy Team', playersCount: 'players', allBattles: '‹ &nbsp; All battles', yourScore: 'Your Score', yourKd: 'Your K/D' }
     };
 
     const waitForSelector = <T extends Element = Element>(
@@ -851,7 +778,6 @@ export const battleHistory = (() => {
 
         const replacements: Record<string, string> = {
             backLabel: dict.allBattles,
-            deleteLabel: dict.deleteBtn,
             leftScoreClass: isDM ? 'dm' : '',
             leftIconUrl,
             leftLabel,
@@ -906,20 +832,6 @@ export const battleHistory = (() => {
             void returnToList();
         });
 
-        detailedView.querySelector('#bh-detailed-delete')?.addEventListener('click', async () => {
-            try {
-                const db = await openDB();
-                const transaction = db.transaction('battles', 'readwrite');
-                const store = transaction.objectStore('battles');
-                if (b.id !== undefined) {
-                    store.delete(b.id);
-                }
-                await returnToList();
-                renderBattleList(currentPage);
-            } catch (e) {
-                console.error('[Tanki Battle History] Error deleting battle:', e);
-            }
-        });
     };
 
     const buildBattleCard = async (b: BattleData, dict: any, lang: string): Promise<HTMLElement> => {
@@ -1177,6 +1089,186 @@ export const battleHistory = (() => {
         if (totalEl) totalEl.textContent = String(battles.length);
     };
 
+    const getNicknameHistory = async (): Promise<Array<{ nickname: string; count: number }>> => {
+        const db = await openDB();
+        try {
+            return await new Promise((resolve, reject) => {
+                const transaction = db.transaction('battles', 'readonly');
+                const request = transaction.objectStore('battles').getAll();
+                request.onsuccess = () => {
+                    const counts = new Map<string, number>();
+                    for (const battle of request.result as BattleData[]) {
+                        if (battle.nickname) counts.set(battle.nickname, (counts.get(battle.nickname) || 0) + 1);
+                    }
+                    resolve(Array.from(counts, ([nickname, count]) => ({ nickname, count }))
+                        .sort((a, b) => a.nickname.localeCompare(b.nickname)));
+                };
+                request.onerror = () => reject(request.error);
+                transaction.onerror = () => reject(transaction.error);
+            });
+        } finally {
+            db.close();
+        }
+    };
+
+    const mergeNicknameHistory = async (sourceNickname: string, targetNickname: string): Promise<number> => {
+        const db = await openDB();
+        try {
+            return await new Promise((resolve, reject) => {
+                const transaction = db.transaction('battles', 'readwrite');
+                const store = transaction.objectStore('battles');
+                const request = store.index('nickname').openCursor(IDBKeyRange.only(sourceNickname));
+                let moved = 0;
+                request.onsuccess = () => {
+                    const cursor = request.result;
+                    if (!cursor) return;
+                    const battle = cursor.value as BattleData;
+                    battle.nickname = targetNickname;
+                    cursor.update(battle);
+                    moved++;
+                    cursor.continue();
+                };
+                request.onerror = () => reject(request.error);
+                transaction.oncomplete = () => resolve(moved);
+                transaction.onerror = () => reject(transaction.error);
+                transaction.onabort = () => reject(transaction.error || new Error('History linking was aborted'));
+            });
+        } finally {
+            db.close();
+        }
+    };
+
+    const openLinkHistoryDialog = async () => {
+        if (currentNickname === 'Unknown') {
+            window.alert(state.lang === 'RU'
+                ? 'Не удалось определить текущий ник.'
+                : 'Could not detect the current nickname.');
+            return;
+        }
+
+        const existing = document.getElementById('link-history-overlay');
+        if (existing) return;
+
+        try {
+            const lang = state.lang as 'RU' | 'EN';
+            const dict = lang === 'RU'
+                ? {
+                    title: 'СВЯЗАТЬ ИСТОРИИ',
+                    description: 'Выберите ник, историю которого нужно добавить к текущей истории.',
+                    target: 'Текущая история:',
+                    select: 'История для добавления',
+                    placeholder: 'Выберите никнейм',
+                    empty: 'Других никнеймов с сохранёнными боями нет.',
+                    cancel: 'Отмена',
+                    confirm: 'Связать',
+                    success: (count: number) => `Истории связаны. Добавлено боёв: ${count}.`,
+                    failed: 'Не удалось связать истории.'
+                }
+                : {
+                    title: 'LINK HISTORIES',
+                    description: 'Choose the nickname whose history should be added to the current history.',
+                    target: 'Current history:',
+                    select: 'History to add',
+                    placeholder: 'Select a nickname',
+                    empty: 'No other nicknames have saved battles.',
+                    cancel: 'Cancel',
+                    confirm: 'Link',
+                    success: (count: number) => `Histories linked. Battles added: ${count}.`,
+                    failed: 'Could not link the histories.'
+                };
+            const nicknames = (await getNicknameHistory()).filter(item => item.nickname !== currentNickname && item.nickname !== 'Unknown');
+            const modal = await createKaspModal({ id: 'link-history-overlay', title: dict.title, closeLabel: dict.cancel });
+            if (!modal) return;
+            const { body, actions, close } = modal;
+
+            const description = document.createElement('p');
+            description.className = 'kasp-modal-copy';
+            description.textContent = dict.description;
+            const target = document.createElement('p');
+            target.className = 'kasp-modal-copy';
+            const targetLabel = document.createElement('span');
+            targetLabel.textContent = `${dict.target} `;
+            const targetNickname = document.createElement('strong');
+            targetNickname.className = 'bh-link-target';
+            targetNickname.textContent = currentNickname;
+            target.append(targetLabel, targetNickname);
+
+            const selectLabel = document.createElement('label');
+            selectLabel.className = 'bh-link-select-label';
+            const selectLabelText = document.createElement('span');
+            selectLabelText.textContent = dict.select;
+            const select = document.createElement('select');
+            select.className = 'bh-link-select';
+            select.setAttribute('aria-label', dict.select);
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = dict.placeholder;
+            select.appendChild(placeholder);
+            for (const item of nicknames) {
+                const option = document.createElement('option');
+                option.value = item.nickname;
+                option.textContent = `${item.nickname} (${item.count})`;
+                select.appendChild(option);
+            }
+            selectLabel.append(selectLabelText, select);
+
+            const empty = document.createElement('p');
+            empty.className = 'bh-link-empty';
+            empty.textContent = dict.empty;
+            empty.hidden = nicknames.length > 0;
+            selectLabel.hidden = nicknames.length === 0;
+
+            const cancelButton = document.createElement('button');
+            cancelButton.type = 'button';
+            cancelButton.className = 'kasp-modal-button kasp-modal-button--secondary';
+            const cancelLabel = document.createElement('span');
+            cancelLabel.textContent = dict.cancel;
+            cancelButton.appendChild(cancelLabel);
+            const confirmButton = document.createElement('button');
+            confirmButton.type = 'button';
+            confirmButton.className = 'kasp-modal-button';
+            const confirmLabel = document.createElement('span');
+            confirmLabel.textContent = dict.confirm;
+            confirmButton.appendChild(confirmLabel);
+            confirmButton.disabled = true;
+            confirmButton.hidden = nicknames.length === 0;
+            actions.append(cancelButton, confirmButton);
+            body.append(description, target, selectLabel, empty);
+
+            let isLinking = false;
+            cancelButton.addEventListener('click', close);
+            select.addEventListener('change', () => {
+                confirmButton.disabled = select.value === '';
+            });
+            confirmButton.addEventListener('click', async () => {
+                const sourceNickname = select.value;
+                if (!sourceNickname || isLinking) return;
+                isLinking = true;
+                confirmButton.disabled = true;
+                cancelButton.disabled = true;
+                try {
+                    const moved = await mergeNicknameHistory(sourceNickname, currentNickname);
+                    close();
+                    await renderBattleList(1);
+                    window.setTimeout(() => window.alert(dict.success(moved)), 220);
+                } catch (error) {
+                    console.error('[Tanki Battle History] Error linking histories:', error);
+                    isLinking = false;
+                    confirmButton.disabled = false;
+                    cancelButton.disabled = false;
+                    window.alert(dict.failed);
+                }
+            });
+
+            modal.closeButton.focus();
+        } catch (error) {
+            console.error('[Tanki Battle History] Failed to open link history dialog:', error);
+            window.alert(state.lang === 'RU'
+                ? 'Не удалось загрузить список историй.'
+                : 'Could not load the history list.');
+        }
+    };
+
     const clearHistoryDb = () => {
         showClearConfirmModal(async () => {
             try {
@@ -1322,6 +1414,7 @@ export const battleHistory = (() => {
             const replacements: Record<string, string> = {
                 title: String(dict.title ?? ''),
                 clear: String(dict.clear ?? ''),
+                link: String(dict.link ?? ''),
                 export: String(dict.export ?? ''),
                 import: String(dict.import ?? ''),
                 battles: String(dict.battles ?? 'Боёв')
@@ -1342,6 +1435,7 @@ export const battleHistory = (() => {
             });
 
             document.getElementById('bh-clear-btn')?.addEventListener('click', clearHistoryDb);
+            document.getElementById('bh-link-btn')?.addEventListener('click', openLinkHistoryDialog);
             document.getElementById('bh-export-btn')?.addEventListener('click', exportHistoryData);
             document.getElementById('bh-import-btn')?.addEventListener('click', importHistoryData);
         } catch (error) {
@@ -1626,7 +1720,7 @@ export const battleHistory = (() => {
                     e.stopPropagation();
                     return;
                 }
-                if (document.getElementById('clear-confirm-overlay')) return;
+                if (document.getElementById('clear-confirm-overlay') || document.getElementById('link-history-overlay')) return;
                 const overlay = document.querySelector('.custom-history-overlay') as HTMLElement | null;
                 if (overlay && overlay.style.display === 'flex') {
                     if (e.code === 'Escape' || e.code === 'KeyZ' || e.key.toLowerCase() === 'z') {

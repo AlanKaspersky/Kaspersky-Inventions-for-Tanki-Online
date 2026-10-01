@@ -1,5 +1,6 @@
 import { state } from '../core/state';
 import { utils } from '../core/utils';
+import { createKaspModal } from '../core/modal';
 
 export const autoUpgrade = (() => {
     let initialized = false;
@@ -136,10 +137,7 @@ export const autoUpgrade = (() => {
         return false;
     }
 
-    function showConfirmDialog(count: number, callback: () => void) {
-        const existing = document.getElementById('quick-upgrade-overlay');
-        if (existing) existing.remove();
-
+    async function showConfirmDialog(count: number, callback: () => void) {
         const lang = state.lang;
         const t: any = {
             RU: { title: 'БЫСТРАЯ ПРОКАЧКА', textPre: 'Вы собираетесь купить улучшение на\u00A0', steps: ' шагов', maxSteps: 'максимум шагов', cancel: 'Отмена', buy: 'КУПИТЬ' },
@@ -147,122 +145,72 @@ export const autoUpgrade = (() => {
         };
         const dict = t[lang] || t['EN'];
         const label = count === Infinity ? dict.maxSteps : `${count}${dict.steps}`;
+        const modal = await createKaspModal({ id: 'quick-upgrade-overlay', title: dict.title, closeLabel: dict.cancel });
+        if (!modal) return;
+        modal.dialog.id = 'quick-upgrade-dialog';
+        modal.body.classList.add('kasp-modal-body--center');
+        modal.actions.classList.add('kasp-modal-actions--center');
 
-        const overlay = document.createElement('div');
-        overlay.id = 'quick-upgrade-overlay';
-        overlay.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 9999; display: flex; align-items: center; justify-content: center;`;
-
-        const dialog = document.createElement('div');
-        dialog.id = 'quick-upgrade-dialog';
-        dialog.style.cssText = `display: flex; flex-direction: column; align-items: stretch; justify-content: space-between; pointer-events: auto; min-width: 31.625em; max-width: 31.625em; width: auto; min-height: 14.125em; z-index: 60; box-shadow: rgba(0, 0, 0, 0.25) 0px 0.313em 1.25em 0px; outline: rgba(255, 255, 255, 0.25) solid 0.063em; padding: 2em; background: radial-gradient(100% 100% at 0% 0%, rgba(118, 255, 51, 0.75) 0%, rgba(119, 255, 51, 0) 100%), rgba(0, 25, 38, 0.75);`;
-
-        const header = document.createElement('div');
-        header.style.cssText = `display: flex; align-items: center; justify-content: space-between; background-color: transparent; width: 100%; position: relative; margin-bottom: 1.5em;`;
-        const title = document.createElement('h1');
-        title.textContent = dict.title;
-        title.style.cssText = `font-size: 1.5em; color: rgb(255, 255, 255); font-family: BaseFontBold, FallbackFontBold, sans-serif; font-weight: 500; margin: 0; padding: 0; line-height: 1.2; flex: 1;`;
-        const closeBtn = document.createElement('div');
-        closeBtn.style.cssText = `width: 1.5em; height: 1.5em; cursor: pointer; background-image: url(https://s.eu.tankionline.com/static/images/iconDelete.b879b0ab.svg); background-repeat: no-repeat; background-size: contain; background-position: center center; flex-shrink: 0; margin-left: 0.5em;`;
-        closeBtn.addEventListener('mouseenter', () => { closeBtn.style.backgroundImage = 'url(https://s.eu.tankionline.com/static/images/deleteHoverModal.3aceb055.svg)'; });
-        closeBtn.addEventListener('mouseleave', () => { closeBtn.style.backgroundImage = 'url(https://s.eu.tankionline.com/static/images/iconDelete.b879b0ab.svg)'; });
-        header.appendChild(title); header.appendChild(closeBtn);
-
-        const content = document.createElement('div');
-        content.style.cssText = `display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; flex: 1; margin-bottom: 1.5em;`;
-        const textLine = document.createElement('div');
-        textLine.style.cssText = `display: flex; flex-direction: row; align-items: center; justify-content: center; flex-wrap: wrap;`;
+        const textLine = document.createElement('p');
+        textLine.className = 'kasp-modal-copy kasp-modal-copy--center';
         const textSpan = document.createElement('span');
         textSpan.textContent = dict.textPre;
-        textSpan.style.cssText = `font-size: 1em; color: rgb(255, 255, 255); font-family: BaseFont, FallbackFont, sans-serif; line-height: 1.4;`;
-        const countSpan = document.createElement('span');
+        const countSpan = document.createElement('strong');
+        countSpan.className = 'kasp-modal-emphasis';
         countSpan.textContent = label;
-        countSpan.style.cssText = `font-size: 1em; color: rgb(255, 255, 0); font-family: BaseFontBold, FallbackFontBold, sans-serif; font-weight: 500; line-height: 1.4;`;
-        textLine.appendChild(textSpan); textLine.appendChild(countSpan); content.appendChild(textLine);
+        textLine.append(textSpan, countSpan);
+        modal.body.appendChild(textLine);
 
-        const footer = document.createElement('div');
-        footer.style.cssText = `background-color: transparent; width: 100%; display: flex; align-items: center; justify-content: center; gap: 1.25em;`;
-        const cancelBtn = document.createElement('div');
-        cancelBtn.textContent = dict.cancel;
-        cancelBtn.style.cssText = `width: 12.375em; height: 3em; text-align: center; border-radius: 0.75em; cursor: pointer; background-color: rgba(255, 255, 255, 0.15); border: 0.063em solid transparent; display: flex; align-items: center; justify-content: center; color: rgb(255, 255, 255); font-family: BaseFontBold, FallbackFontBold, sans-serif; font-style: normal; font-weight: 500; font-size: 1em; line-height: 1.2; text-transform: uppercase; white-space: nowrap; padding: 0.2em 1.8em; box-sizing: border-box; flex-shrink: 0;`;
-        cancelBtn.addEventListener('mouseenter', () => { cancelBtn.style.borderColor = 'rgb(255, 255, 255)'; cancelBtn.style.boxShadow = '0 0 0 1px rgb(255, 255, 255)'; });
-        cancelBtn.addEventListener('mouseleave', () => { cancelBtn.style.borderColor = 'transparent'; cancelBtn.style.boxShadow = 'none'; });
-        const confirmBtn = document.createElement('div');
-        confirmBtn.textContent = dict.buy;
-        confirmBtn.style.cssText = `width: 12.375em; height: 3em; text-align: center; border-radius: 0.75em; cursor: pointer; background-color: rgb(118, 255, 51); border: 0.063em solid transparent; display: flex; align-items: center; justify-content: center; color: rgb(0, 25, 38); font-family: BaseFontBold, FallbackFontBold, sans-serif; font-style: normal; font-weight: 500; font-size: 1em; line-height: 1.2; text-transform: uppercase; white-space: nowrap; padding: 0.2em 1.8em; box-sizing: border-box; flex-shrink: 0;`;
-        confirmBtn.addEventListener('mouseenter', () => { confirmBtn.style.borderColor = 'rgb(255, 255, 255)'; confirmBtn.style.boxShadow = '0 0 0 1px rgb(255, 255, 255)'; });
-        confirmBtn.addEventListener('mouseleave', () => { confirmBtn.style.borderColor = 'transparent'; confirmBtn.style.boxShadow = 'none'; });
-        footer.appendChild(cancelBtn); footer.appendChild(confirmBtn);
-
-        dialog.appendChild(header); dialog.appendChild(content); dialog.appendChild(footer);
-        overlay.appendChild(dialog);
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'kasp-modal-button kasp-modal-button--secondary';
+        const cancelLabel = document.createElement('span');
+        cancelLabel.textContent = dict.cancel;
+        cancelBtn.appendChild(cancelLabel);
+        const confirmBtn = document.createElement('button');
+        confirmBtn.type = 'button';
+        confirmBtn.className = 'kasp-modal-button';
+        const confirmLabel = document.createElement('span');
+        confirmLabel.textContent = dict.buy;
+        confirmBtn.appendChild(confirmLabel);
+        modal.actions.append(cancelBtn, confirmBtn);
 
         let isClosing = false;
+        const closeDialog = () => {
+            if (isClosing) return;
+            isClosing = true;
+            modal.close();
+        };
+        modal.onClose(() => {
+            isClosing = true;
+            document.removeEventListener('keydown', onKeyDown, true);
+            window.setTimeout(() => document.removeEventListener('keyup', onKeyUp, true), 700);
+        });
 
-        function closeDialog() {
-            if (!overlay.parentNode) return;
-            overlay.remove();
-            window.setTimeout(() => {
-                document.removeEventListener('keydown', onKeyDown, true);
-                document.removeEventListener('keyup', onKeyUp, true);
-                document.removeEventListener('mousedown', onMouseDown, true);
-                document.removeEventListener('mouseup', onMouseUp, true);
-            }, 1000);
-        }
-
-        (overlay as any).closeDialogMethod = closeDialog;
-        document.body.appendChild(overlay);
-
-        confirmBtn.addEventListener('click', (e) => { e.stopPropagation(); closeDialog(); if (callback) callback(); });
-        cancelBtn.addEventListener('click', (e) => { e.stopPropagation(); closeDialog(); });
-        closeBtn.addEventListener('click', (e) => { e.stopPropagation(); closeDialog(); });
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) closeDialog(); });
-
-        function onKeyDown(e: KeyboardEvent) {
-            if (!document.getElementById('quick-upgrade-overlay')) {
-                document.removeEventListener('keydown', onKeyDown, true);
-                return;
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key !== 'Enter' || isClosing) return;
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            closeDialog();
+            callback();
+        };
+        const onKeyUp = (event: KeyboardEvent) => {
+            if (event.key === 'Enter' || event.key === 'Escape' || event.code === 'KeyZ' || event.key?.toLowerCase() === 'z') {
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation();
             }
-            if (e.key === 'Escape' || e.code === 'KeyZ' || e.key.toLowerCase() === 'z') {
-                e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
-                if (!isClosing) { isClosing = true; closeDialog(); }
-            } else if (e.key === 'Enter') {
-                e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
-                if (!isClosing) { isClosing = true; closeDialog(); if (callback) callback(); }
-            }
-        }
+        };
 
-        function onKeyUp(e: KeyboardEvent) {
-            if (e.key === 'Escape' || e.code === 'KeyZ' || e.key.toLowerCase() === 'z' || e.key === 'Enter') {
-                e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
-            }
-        }
-
-        function onMouseDown(e: MouseEvent) {
-            if (!document.getElementById('quick-upgrade-overlay')) {
-                document.removeEventListener('mousedown', onMouseDown, true);
-                return;
-            }
-            if (e.button === 3 || e.button === 4) {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-                if (e.button === 3 && !isClosing) {
-                    isClosing = true;
-                    closeDialog();
-                }
-            }
-        }
-
-        function onMouseUp(e: MouseEvent) {
-            if (e.button === 3 || e.button === 4) {
-                e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
-            }
-        }
-
+        confirmBtn.addEventListener('click', () => {
+            if (isClosing) return;
+            closeDialog();
+            callback();
+        });
+        cancelBtn.addEventListener('click', closeDialog);
         document.addEventListener('keydown', onKeyDown, true);
         document.addEventListener('keyup', onKeyUp, true);
-        document.addEventListener('mousedown', onMouseDown, true);
-        document.addEventListener('mouseup', onMouseUp, true);
     }
 
     function performAction(count) {

@@ -36,6 +36,43 @@
     }
 }
 
+@keyframes kasp-modal-backdrop-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes kasp-modal-backdrop-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+@keyframes kasp-modal-dialog-in {
+    from { opacity: 0; transform: translateY(1.2em) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes kasp-modal-dialog-out {
+    from { opacity: 1; transform: translateY(0) scale(1); }
+    to { opacity: 0; transform: translateY(0.7em) scale(0.98); }
+}
+
+.kasp-modal-overlay.kasp-modal-opening {
+    animation: kasp-modal-backdrop-in 180ms ease-out both;
+}
+
+.kasp-modal-opening .kasp-modal-dialog {
+    animation: kasp-modal-dialog-in 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.kasp-modal-overlay.kasp-modal-closing {
+    pointer-events: none;
+    animation: kasp-modal-backdrop-out 180ms ease-in both;
+}
+
+.kasp-modal-closing .kasp-modal-dialog {
+    animation: kasp-modal-dialog-out 180ms ease-in both;
+}
+
 @keyframes bh-card-rise-in {
     from {
         opacity: 0;
@@ -122,7 +159,10 @@
 }
 
 .bh-control-btn:hover::after,
-.bh-detailed-view .toolbar .button:hover::after {
+.bh-detailed-view .toolbar .button:hover::after,
+.ModalStyle-shaded .DialogContainerComponentStyle-footerContainer > div:hover::after,
+.kasp-modal-close:hover::after,
+.kasp-modal-button:hover:not(:disabled)::after {
     animation: kasp-metal-shine 0.6s ease-in-out;
 }
 
@@ -140,5 +180,19 @@
     .bh-detail-enter,
     .bh-detail-leave {
         animation-duration: 1ms;
+    }
+
+    .kasp-modal-overlay.kasp-modal-opening,
+    .kasp-modal-opening .kasp-modal-dialog,
+    .kasp-modal-overlay.kasp-modal-closing,
+    .kasp-modal-closing .kasp-modal-dialog {
+        animation-duration: 1ms;
+    }
+
+    .ModalStyle-shaded:has(> .DialogContainerComponentStyle-container .DialogContainerComponentStyle-containerForImg:active),
+    .ModalStyle-shaded:has(> .DialogContainerComponentStyle-container .DialogContainerComponentStyle-footerContainer > div:active),
+    .ModalStyle-shaded:has(> .DialogContainerComponentStyle-container .DialogContainerComponentStyle-containerForImg:active) > .DialogContainerComponentStyle-container,
+    .ModalStyle-shaded:has(> .DialogContainerComponentStyle-container .DialogContainerComponentStyle-footerContainer > div:active) > .DialogContainerComponentStyle-container {
+        animation-duration: 1ms !important;
     }
 }

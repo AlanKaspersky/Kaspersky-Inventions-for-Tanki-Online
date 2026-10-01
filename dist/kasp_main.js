@@ -158,12 +158,141 @@
     }
   });
 
+  // src/core/modal.ts
+  var pendingModalIds, createKaspModal;
+  var init_modal = __esm({
+    "src/core/modal.ts"() {
+      pendingModalIds = /* @__PURE__ */ new Set();
+      createKaspModal = async (options) => {
+        if (document.getElementById(options.id) || pendingModalIds.has(options.id)) return null;
+        pendingModalIds.add(options.id);
+        try {
+          const response = await fetch(chrome.runtime.getURL("templates/modal.html"));
+          if (!response.ok) throw new Error(`Modal template request failed: ${response.status}`);
+          const template = document.createElement("template");
+          template.innerHTML = await response.text();
+          const overlay = template.content.firstElementChild;
+          if (!overlay) throw new Error("Modal template is empty");
+          overlay.id = options.id;
+          const dialog = overlay.querySelector("[data-kasp-modal-dialog]");
+          const title = overlay.querySelector("[data-kasp-modal-title]");
+          const closeButton = overlay.querySelector("[data-kasp-modal-close]");
+          const body = overlay.querySelector("[data-kasp-modal-body]");
+          const actions = overlay.querySelector("[data-kasp-modal-actions]");
+          if (!dialog || !title || !closeButton || !body || !actions) {
+            throw new Error("Modal template is missing required elements");
+          }
+          title.id = `${options.id}-title`;
+          dialog.setAttribute("aria-labelledby", title.id);
+          title.textContent = options.title;
+          closeButton.setAttribute("aria-label", options.closeLabel);
+          let isClosing = false;
+          let isRemoved = false;
+          let removeTimer = 0;
+          const closeListeners = /* @__PURE__ */ new Set();
+          const cleanup = () => {
+            document.removeEventListener("keydown", onKeyDown, true);
+            window.removeEventListener("mousedown", onMouseDown, true);
+          };
+          const removeOverlay = () => {
+            if (isRemoved) return;
+            isRemoved = true;
+            window.clearTimeout(removeTimer);
+            dialog.removeEventListener("animationend", onDialogAnimationEnd);
+            overlay.remove();
+          };
+          const onDialogAnimationEnd = (event) => {
+            if (event.target === dialog) removeOverlay();
+          };
+          const close = () => {
+            if (isClosing) return;
+            isClosing = true;
+            cleanup();
+            overlay.classList.remove("kasp-modal-opening");
+            overlay.classList.add("kasp-modal-closing");
+            for (const listener of closeListeners) listener();
+            closeListeners.clear();
+            dialog.addEventListener("animationend", onDialogAnimationEnd);
+            removeTimer = window.setTimeout(removeOverlay, 260);
+          };
+          const onKeyDown = (event) => {
+            const isEscape = event.key === "Escape" || event.key === "Esc";
+            const isZ = event.code === "KeyZ" || event.key?.toLowerCase() === "z";
+            const activeTag = document.activeElement?.tagName;
+            if (isZ && ["INPUT", "TEXTAREA", "SELECT"].includes(activeTag || "")) return;
+            const isBackKey = isEscape || isZ;
+            if (!isBackKey) return;
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            close();
+          };
+          const blockRemainingBackEvents = () => {
+            const block = (event) => {
+              if (event.button !== 3 && event.button !== 4) return;
+              event.preventDefault();
+              event.stopPropagation();
+              event.stopImmediatePropagation();
+            };
+            window.addEventListener("mouseup", block, true);
+            window.addEventListener("click", block, true);
+            window.addEventListener("auxclick", block, true);
+            window.setTimeout(() => {
+              window.removeEventListener("mouseup", block, true);
+              window.removeEventListener("click", block, true);
+              window.removeEventListener("auxclick", block, true);
+            }, 700);
+          };
+          const onMouseDown = (event) => {
+            if (event.button !== 3 && event.button !== 4) return;
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            if (event.button === 3) close();
+            blockRemainingBackEvents();
+          };
+          closeButton.addEventListener("click", (event) => {
+            event.stopPropagation();
+            close();
+          });
+          dialog.addEventListener("mousedown", (event) => event.stopPropagation());
+          dialog.addEventListener("click", (event) => event.stopPropagation());
+          overlay.addEventListener("mousedown", (event) => {
+            if (event.target !== overlay) return;
+            event.preventDefault();
+            event.stopPropagation();
+            close();
+          });
+          document.addEventListener("keydown", onKeyDown, true);
+          window.addEventListener("mousedown", onMouseDown, true);
+          overlay.closeDialogMethod = close;
+          document.body.appendChild(overlay);
+          return {
+            overlay,
+            dialog,
+            body,
+            actions,
+            closeButton,
+            close,
+            onClose: (listener) => {
+              if (isClosing) listener();
+              else closeListeners.add(listener);
+            }
+          };
+        } finally {
+          pendingModalIds.delete(options.id);
+        }
+      };
+    }
+  });
+
   // src/core/coreSettings.ts
   var coreSettings;
   var init_coreSettings = __esm({
     "src/core/coreSettings.ts"() {
       init_state();
       init_utils();
+      init_modal();
       coreSettings = /* @__PURE__ */ (() => {
         let needsReload = false;
         let initialSettingsState = {};
@@ -196,124 +325,66 @@
           { id: "k_hideNicknameXP", label: { RU: "\u0421\u043A\u0440\u044B\u0442\u044C \u043D\u0438\u043A\u043D\u0435\u0439\u043C \u0438 \u043E\u043F\u044B\u0442", EN: "Hide nickname and score" }, default: false },
           { id: "k_history", label: { RU: "\u0412\u0435\u0441\u0442\u0438 \u0438\u0441\u0442\u043E\u0440\u0438\u044E \u0431\u0438\u0442\u0432", EN: "Keep a history of battles" }, default: false }
         ];
-        function showWarningDialog(callback) {
-          const existing = document.getElementById("kasp-warning-overlay");
-          if (existing) existing.remove();
+        async function showWarningDialog(callback) {
           const lang = state.lang;
           const dict = t[lang] || t["EN"];
-          const overlay = document.createElement("div");
-          overlay.id = "kasp-warning-overlay";
-          overlay.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 99999; display: flex; align-items: center; justify-content: center;`;
-          const dialog = document.createElement("div");
-          dialog.style.cssText = `display: flex; flex-direction: column; align-items: stretch; justify-content: space-between; pointer-events: auto; min-width: 31.625em; max-width: 31.625em; width: auto; min-height: 14.125em; z-index: 60; box-shadow: rgba(0, 0, 0, 0.25) 0px 0.313em 1.25em 0px; outline: rgba(255, 255, 255, 0.25) solid 0.063em; padding: 2em; background: radial-gradient(100% 100% at 0% 0%, rgba(118, 255, 51, 0.75) 0%, rgba(119, 255, 51, 0) 100%), rgba(0, 25, 38, 0.75)`;
-          const header = document.createElement("div");
-          header.style.cssText = `display: flex; align-items: center; justify-content: space-between; background-color: transparent; width: 100%; position: relative; margin-bottom: 1.5em;`;
-          const title = document.createElement("h1");
-          title.textContent = dict.warnTitle;
-          title.style.cssText = `font-size: 1.5em; color: rgb(255, 255, 255); font-family: BaseFontBold, FallbackFontBold, sans-serif; font-weight: 500; margin: 0; padding: 0; line-height: 1.2; flex: 1;`;
-          const closeBtn = document.createElement("div");
-          closeBtn.style.cssText = `width: 1.5em; height: 1.5em; cursor: pointer; background-image: url(https://s.eu.tankionline.com/static/images/iconDelete.b879b0ab.svg); background-repeat: no-repeat; background-size: contain; background-position: center center; flex-shrink: 0; margin-left: 0.5em;`;
-          closeBtn.addEventListener("mouseenter", () => {
-            closeBtn.style.backgroundImage = "url(https://s.eu.tankionline.com/static/images/deleteHoverModal.3aceb055.svg)";
-          });
-          closeBtn.addEventListener("mouseleave", () => {
-            closeBtn.style.backgroundImage = "url(https://s.eu.tankionline.com/static/images/iconDelete.b879b0ab.svg)";
-          });
-          header.appendChild(title);
-          header.appendChild(closeBtn);
-          const content = document.createElement("div");
-          content.style.cssText = `display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; flex: 1; margin-bottom: 1.5em; text-align: center;`;
-          const textSpan = document.createElement("span");
-          textSpan.textContent = dict.warnText;
-          textSpan.style.cssText = `font-size: 1em; color: rgb(255, 255, 255); font-family: BaseFont, FallbackFont, sans-serif; line-height: 1.4;`;
-          content.appendChild(textSpan);
-          const footer = document.createElement("div");
-          footer.style.cssText = `background-color: transparent; width: 100%; display: flex; align-items: center; justify-content: center; gap: 1.25em;`;
-          const cancelBtn = document.createElement("div");
-          cancelBtn.textContent = dict.warnCancel;
-          cancelBtn.style.cssText = `width: 12.375em; height: 3em; text-align: center; border-radius: 0.75em; cursor: pointer; background-color: rgba(255, 255, 255, 0.15); border: 0.063em solid transparent; display: flex; align-items: center; justify-content: center; color: rgb(255, 255, 255); font-family: BaseFontBold, FallbackFontBold, sans-serif; font-style: normal; font-weight: 500; font-size: 1em; line-height: 1.2; text-transform: uppercase; white-space: nowrap; padding: 0.2em 1.8em; box-sizing: border-box; flex-shrink: 0;`;
-          cancelBtn.addEventListener("mouseenter", () => {
-            cancelBtn.style.borderColor = "rgb(255, 255, 255)";
-            cancelBtn.style.boxShadow = "0 0 0 1px rgb(255, 255, 255)";
-          });
-          cancelBtn.addEventListener("mouseleave", () => {
-            cancelBtn.style.borderColor = "transparent";
-            cancelBtn.style.boxShadow = "none";
-          });
-          const confirmBtn = document.createElement("div");
-          confirmBtn.textContent = dict.warnConfirm;
-          confirmBtn.style.cssText = `width: 12.375em; height: 3em; text-align: center; border-radius: 0.75em; cursor: pointer; background-color: rgb(118, 255, 51); border: 0.063em solid transparent; display: flex; align-items: center; justify-content: center; color: rgb(0, 25, 38); font-family: BaseFontBold, FallbackFontBold, sans-serif; font-style: normal; font-weight: 500; font-size: 1em; line-height: 1.2; text-transform: uppercase; white-space: nowrap; padding: 0.2em 1.8em; box-sizing: border-box; flex-shrink: 0;`;
-          confirmBtn.addEventListener("mouseenter", () => {
-            confirmBtn.style.borderColor = "rgb(255, 255, 255)";
-            confirmBtn.style.boxShadow = "0 0 0 1px rgb(255, 255, 255)";
-          });
-          confirmBtn.addEventListener("mouseleave", () => {
-            confirmBtn.style.borderColor = "transparent";
-            confirmBtn.style.boxShadow = "none";
-          });
-          footer.appendChild(cancelBtn);
-          footer.appendChild(confirmBtn);
-          dialog.appendChild(header);
-          dialog.appendChild(content);
-          dialog.appendChild(footer);
-          overlay.appendChild(dialog);
-          document.body.appendChild(overlay);
+          const modal = await createKaspModal({ id: "kasp-warning-overlay", title: dict.warnTitle, closeLabel: dict.warnCancel });
+          if (!modal) return;
+          modal.body.classList.add("kasp-modal-body--center");
+          modal.actions.classList.add("kasp-modal-actions--center");
+          const message = document.createElement("p");
+          message.className = "kasp-modal-copy kasp-modal-copy--center";
+          message.textContent = dict.warnText;
+          modal.body.appendChild(message);
+          const cancelBtn = document.createElement("button");
+          cancelBtn.type = "button";
+          cancelBtn.className = "kasp-modal-button kasp-modal-button--secondary";
+          const cancelLabel = document.createElement("span");
+          cancelLabel.textContent = dict.warnCancel;
+          cancelBtn.appendChild(cancelLabel);
+          const confirmBtn = document.createElement("button");
+          confirmBtn.type = "button";
+          confirmBtn.className = "kasp-modal-button";
+          const confirmLabel = document.createElement("span");
+          confirmLabel.textContent = dict.warnConfirm;
+          confirmBtn.appendChild(confirmLabel);
+          modal.actions.append(cancelBtn, confirmBtn);
           const loaderObserver = new MutationObserver(() => {
-            if (document.querySelector(".ApplicationLoaderComponentStyle-container.-background")) closeDialog();
+            if (document.querySelector(".ApplicationLoaderComponentStyle-container.-background")) modal.close();
           });
           loaderObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
-          let dialogClosed = false;
-          function handleMouse(e) {
-            if (e.button === 3 || e.button === 4) {
-              e.preventDefault();
-              e.stopPropagation();
-              e.stopImmediatePropagation();
-              if (e.button === 3 && e.type === "mousedown" && !dialogClosed) {
-                dialogClosed = true;
-                closeDialog();
-              }
-            }
-          }
-          function closeDialog() {
-            if (!overlay.parentNode) return;
-            overlay.remove();
-            document.removeEventListener("keydown", onKeyDown, true);
+          let confirmed = false;
+          let isClosed = false;
+          const closeDialog = () => {
+            isClosed = true;
             loaderObserver.disconnect();
-            setTimeout(() => {
-              document.removeEventListener("mousedown", handleMouse, true);
-              document.removeEventListener("mouseup", handleMouse, true);
-              document.removeEventListener("click", handleMouse, true);
-            }, 300);
-          }
-          confirmBtn.addEventListener("click", (e) => {
-            e.stopPropagation();
-            closeDialog();
-            if (callback) callback();
+            document.removeEventListener("keydown", onKeyDown, true);
+            modal.close();
+          };
+          modal.onClose(() => {
+            isClosed = true;
+            loaderObserver.disconnect();
+            document.removeEventListener("keydown", onKeyDown, true);
           });
-          cancelBtn.addEventListener("click", (e) => {
-            e.stopPropagation();
-            closeDialog();
-          });
-          closeBtn.addEventListener("click", (e) => {
-            e.stopPropagation();
-            closeDialog();
-          });
-          overlay.addEventListener("click", (e) => {
-            if (e.target === overlay) closeDialog();
-          });
-          function onKeyDown(e) {
-            if (e.key === "Escape" || e.code === "KeyZ" || e.key.toLowerCase() === "z" || e.key === "Enter") {
-              e.preventDefault();
-              e.stopPropagation();
-              e.stopImmediatePropagation();
+          const onKeyDown = (event) => {
+            if (event.key !== "Enter" || isClosed) return;
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            if (!confirmed) {
+              confirmed = true;
               closeDialog();
-              if (e.key === "Enter" && callback) callback();
+              callback();
             }
-          }
+          };
+          cancelBtn.addEventListener("click", closeDialog);
+          confirmBtn.addEventListener("click", () => {
+            if (confirmed || isClosed) return;
+            confirmed = true;
+            closeDialog();
+            callback();
+          });
           document.addEventListener("keydown", onKeyDown, true);
-          document.addEventListener("mousedown", handleMouse, true);
-          document.addEventListener("mouseup", handleMouse, true);
-          document.addEventListener("click", handleMouse, true);
         }
         return {
           inject: () => {
@@ -396,7 +467,7 @@
                   });
                 };
                 if (id === "k_hideNicknameXP" && !isCurrentlyChecked) {
-                  showWarningDialog(performToggle);
+                  void showWarningDialog(performToggle);
                 } else {
                   performToggle();
                 }
@@ -486,8 +557,7 @@
             state2.skins = await skinsRes.json();
             state2.ready = true;
             console.log(
-              `[KI] DB loaded: paints=${Object.keys(state2.paints).length}, augments=${Object.keys(state2.augments).length}, maps=${mapsRaw.length}`,
-              `skins=${Object.keys(state2.skins.database).length}`
+              `[KI] DB loaded: paints=${Object.keys(state2.paints).length}, augments=${Object.keys(state2.augments).length}, maps=${mapsRaw.length}, skins=${Object.keys(state2.skins?.names ?? {}).length}`
             );
           } catch (e) {
             state2.error = e;
@@ -2048,6 +2118,7 @@
     "src/modules/autoUpgrade.ts"() {
       init_state();
       init_utils();
+      init_modal();
       autoUpgrade = /* @__PURE__ */ (() => {
         let initialized = false;
         let isRunning = false;
@@ -2180,9 +2251,7 @@
           }
           return false;
         }
-        function showConfirmDialog(count, callback) {
-          const existing = document.getElementById("quick-upgrade-overlay");
-          if (existing) existing.remove();
+        async function showConfirmDialog(count, callback) {
           const lang = state.lang;
           const t = {
             RU: { title: "\u0411\u042B\u0421\u0422\u0420\u0410\u042F \u041F\u0420\u041E\u041A\u0410\u0427\u041A\u0410", textPre: "\u0412\u044B \u0441\u043E\u0431\u0438\u0440\u0430\u0435\u0442\u0435\u0441\u044C \u043A\u0443\u043F\u0438\u0442\u044C \u0443\u043B\u0443\u0447\u0448\u0435\u043D\u0438\u0435 \u043D\u0430\xA0", steps: " \u0448\u0430\u0433\u043E\u0432", maxSteps: "\u043C\u0430\u043A\u0441\u0438\u043C\u0443\u043C \u0448\u0430\u0433\u043E\u0432", cancel: "\u041E\u0442\u043C\u0435\u043D\u0430", buy: "\u041A\u0423\u041F\u0418\u0422\u042C" },
@@ -2190,156 +2259,67 @@
           };
           const dict = t[lang] || t["EN"];
           const label = count === Infinity ? dict.maxSteps : `${count}${dict.steps}`;
-          const overlay = document.createElement("div");
-          overlay.id = "quick-upgrade-overlay";
-          overlay.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 9999; display: flex; align-items: center; justify-content: center;`;
-          const dialog = document.createElement("div");
-          dialog.id = "quick-upgrade-dialog";
-          dialog.style.cssText = `display: flex; flex-direction: column; align-items: stretch; justify-content: space-between; pointer-events: auto; min-width: 31.625em; max-width: 31.625em; width: auto; min-height: 14.125em; z-index: 60; box-shadow: rgba(0, 0, 0, 0.25) 0px 0.313em 1.25em 0px; outline: rgba(255, 255, 255, 0.25) solid 0.063em; padding: 2em; background: radial-gradient(100% 100% at 0% 0%, rgba(118, 255, 51, 0.75) 0%, rgba(119, 255, 51, 0) 100%), rgba(0, 25, 38, 0.75);`;
-          const header = document.createElement("div");
-          header.style.cssText = `display: flex; align-items: center; justify-content: space-between; background-color: transparent; width: 100%; position: relative; margin-bottom: 1.5em;`;
-          const title = document.createElement("h1");
-          title.textContent = dict.title;
-          title.style.cssText = `font-size: 1.5em; color: rgb(255, 255, 255); font-family: BaseFontBold, FallbackFontBold, sans-serif; font-weight: 500; margin: 0; padding: 0; line-height: 1.2; flex: 1;`;
-          const closeBtn = document.createElement("div");
-          closeBtn.style.cssText = `width: 1.5em; height: 1.5em; cursor: pointer; background-image: url(https://s.eu.tankionline.com/static/images/iconDelete.b879b0ab.svg); background-repeat: no-repeat; background-size: contain; background-position: center center; flex-shrink: 0; margin-left: 0.5em;`;
-          closeBtn.addEventListener("mouseenter", () => {
-            closeBtn.style.backgroundImage = "url(https://s.eu.tankionline.com/static/images/deleteHoverModal.3aceb055.svg)";
-          });
-          closeBtn.addEventListener("mouseleave", () => {
-            closeBtn.style.backgroundImage = "url(https://s.eu.tankionline.com/static/images/iconDelete.b879b0ab.svg)";
-          });
-          header.appendChild(title);
-          header.appendChild(closeBtn);
-          const content = document.createElement("div");
-          content.style.cssText = `display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; flex: 1; margin-bottom: 1.5em;`;
-          const textLine = document.createElement("div");
-          textLine.style.cssText = `display: flex; flex-direction: row; align-items: center; justify-content: center; flex-wrap: wrap;`;
+          const modal = await createKaspModal({ id: "quick-upgrade-overlay", title: dict.title, closeLabel: dict.cancel });
+          if (!modal) return;
+          modal.dialog.id = "quick-upgrade-dialog";
+          modal.body.classList.add("kasp-modal-body--center");
+          modal.actions.classList.add("kasp-modal-actions--center");
+          const textLine = document.createElement("p");
+          textLine.className = "kasp-modal-copy kasp-modal-copy--center";
           const textSpan = document.createElement("span");
           textSpan.textContent = dict.textPre;
-          textSpan.style.cssText = `font-size: 1em; color: rgb(255, 255, 255); font-family: BaseFont, FallbackFont, sans-serif; line-height: 1.4;`;
-          const countSpan = document.createElement("span");
+          const countSpan = document.createElement("strong");
+          countSpan.className = "kasp-modal-emphasis";
           countSpan.textContent = label;
-          countSpan.style.cssText = `font-size: 1em; color: rgb(255, 255, 0); font-family: BaseFontBold, FallbackFontBold, sans-serif; font-weight: 500; line-height: 1.4;`;
-          textLine.appendChild(textSpan);
-          textLine.appendChild(countSpan);
-          content.appendChild(textLine);
-          const footer = document.createElement("div");
-          footer.style.cssText = `background-color: transparent; width: 100%; display: flex; align-items: center; justify-content: center; gap: 1.25em;`;
-          const cancelBtn = document.createElement("div");
-          cancelBtn.textContent = dict.cancel;
-          cancelBtn.style.cssText = `width: 12.375em; height: 3em; text-align: center; border-radius: 0.75em; cursor: pointer; background-color: rgba(255, 255, 255, 0.15); border: 0.063em solid transparent; display: flex; align-items: center; justify-content: center; color: rgb(255, 255, 255); font-family: BaseFontBold, FallbackFontBold, sans-serif; font-style: normal; font-weight: 500; font-size: 1em; line-height: 1.2; text-transform: uppercase; white-space: nowrap; padding: 0.2em 1.8em; box-sizing: border-box; flex-shrink: 0;`;
-          cancelBtn.addEventListener("mouseenter", () => {
-            cancelBtn.style.borderColor = "rgb(255, 255, 255)";
-            cancelBtn.style.boxShadow = "0 0 0 1px rgb(255, 255, 255)";
-          });
-          cancelBtn.addEventListener("mouseleave", () => {
-            cancelBtn.style.borderColor = "transparent";
-            cancelBtn.style.boxShadow = "none";
-          });
-          const confirmBtn = document.createElement("div");
-          confirmBtn.textContent = dict.buy;
-          confirmBtn.style.cssText = `width: 12.375em; height: 3em; text-align: center; border-radius: 0.75em; cursor: pointer; background-color: rgb(118, 255, 51); border: 0.063em solid transparent; display: flex; align-items: center; justify-content: center; color: rgb(0, 25, 38); font-family: BaseFontBold, FallbackFontBold, sans-serif; font-style: normal; font-weight: 500; font-size: 1em; line-height: 1.2; text-transform: uppercase; white-space: nowrap; padding: 0.2em 1.8em; box-sizing: border-box; flex-shrink: 0;`;
-          confirmBtn.addEventListener("mouseenter", () => {
-            confirmBtn.style.borderColor = "rgb(255, 255, 255)";
-            confirmBtn.style.boxShadow = "0 0 0 1px rgb(255, 255, 255)";
-          });
-          confirmBtn.addEventListener("mouseleave", () => {
-            confirmBtn.style.borderColor = "transparent";
-            confirmBtn.style.boxShadow = "none";
-          });
-          footer.appendChild(cancelBtn);
-          footer.appendChild(confirmBtn);
-          dialog.appendChild(header);
-          dialog.appendChild(content);
-          dialog.appendChild(footer);
-          overlay.appendChild(dialog);
+          textLine.append(textSpan, countSpan);
+          modal.body.appendChild(textLine);
+          const cancelBtn = document.createElement("button");
+          cancelBtn.type = "button";
+          cancelBtn.className = "kasp-modal-button kasp-modal-button--secondary";
+          const cancelLabel = document.createElement("span");
+          cancelLabel.textContent = dict.cancel;
+          cancelBtn.appendChild(cancelLabel);
+          const confirmBtn = document.createElement("button");
+          confirmBtn.type = "button";
+          confirmBtn.className = "kasp-modal-button";
+          const confirmLabel = document.createElement("span");
+          confirmLabel.textContent = dict.buy;
+          confirmBtn.appendChild(confirmLabel);
+          modal.actions.append(cancelBtn, confirmBtn);
           let isClosing = false;
-          function closeDialog() {
-            if (!overlay.parentNode) return;
-            overlay.remove();
-            window.setTimeout(() => {
-              document.removeEventListener("keydown", onKeyDown, true);
-              document.removeEventListener("keyup", onKeyUp, true);
-              document.removeEventListener("mousedown", onMouseDown, true);
-              document.removeEventListener("mouseup", onMouseUp, true);
-            }, 1e3);
-          }
-          overlay.closeDialogMethod = closeDialog;
-          document.body.appendChild(overlay);
-          confirmBtn.addEventListener("click", (e) => {
-            e.stopPropagation();
+          const closeDialog = () => {
+            if (isClosing) return;
+            isClosing = true;
+            modal.close();
+          };
+          modal.onClose(() => {
+            isClosing = true;
+            document.removeEventListener("keydown", onKeyDown, true);
+            window.setTimeout(() => document.removeEventListener("keyup", onKeyUp, true), 700);
+          });
+          const onKeyDown = (event) => {
+            if (event.key !== "Enter" || isClosing) return;
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
             closeDialog();
-            if (callback) callback();
-          });
-          cancelBtn.addEventListener("click", (e) => {
-            e.stopPropagation();
+            callback();
+          };
+          const onKeyUp = (event) => {
+            if (event.key === "Enter" || event.key === "Escape" || event.code === "KeyZ" || event.key?.toLowerCase() === "z") {
+              event.preventDefault();
+              event.stopPropagation();
+              event.stopImmediatePropagation();
+            }
+          };
+          confirmBtn.addEventListener("click", () => {
+            if (isClosing) return;
             closeDialog();
+            callback();
           });
-          closeBtn.addEventListener("click", (e) => {
-            e.stopPropagation();
-            closeDialog();
-          });
-          overlay.addEventListener("click", (e) => {
-            if (e.target === overlay) closeDialog();
-          });
-          function onKeyDown(e) {
-            if (!document.getElementById("quick-upgrade-overlay")) {
-              document.removeEventListener("keydown", onKeyDown, true);
-              return;
-            }
-            if (e.key === "Escape" || e.code === "KeyZ" || e.key.toLowerCase() === "z") {
-              e.preventDefault();
-              e.stopPropagation();
-              e.stopImmediatePropagation();
-              if (!isClosing) {
-                isClosing = true;
-                closeDialog();
-              }
-            } else if (e.key === "Enter") {
-              e.preventDefault();
-              e.stopPropagation();
-              e.stopImmediatePropagation();
-              if (!isClosing) {
-                isClosing = true;
-                closeDialog();
-                if (callback) callback();
-              }
-            }
-          }
-          function onKeyUp(e) {
-            if (e.key === "Escape" || e.code === "KeyZ" || e.key.toLowerCase() === "z" || e.key === "Enter") {
-              e.preventDefault();
-              e.stopPropagation();
-              e.stopImmediatePropagation();
-            }
-          }
-          function onMouseDown(e) {
-            if (!document.getElementById("quick-upgrade-overlay")) {
-              document.removeEventListener("mousedown", onMouseDown, true);
-              return;
-            }
-            if (e.button === 3 || e.button === 4) {
-              e.preventDefault();
-              e.stopPropagation();
-              e.stopImmediatePropagation();
-              if (e.button === 3 && !isClosing) {
-                isClosing = true;
-                closeDialog();
-              }
-            }
-          }
-          function onMouseUp(e) {
-            if (e.button === 3 || e.button === 4) {
-              e.preventDefault();
-              e.stopPropagation();
-              e.stopImmediatePropagation();
-            }
-          }
+          cancelBtn.addEventListener("click", closeDialog);
           document.addEventListener("keydown", onKeyDown, true);
           document.addEventListener("keyup", onKeyUp, true);
-          document.addEventListener("mousedown", onMouseDown, true);
-          document.addEventListener("mouseup", onMouseUp, true);
         }
         function performAction(count) {
           if (isRunning) return;
@@ -2680,25 +2660,39 @@
   var customGarageSkins;
   var init_customGarageSkins = __esm({
     "src/modules/customGarageSkins.ts"() {
-      init_state();
-      init_dataLoader();
-      customGarageSkins = /* @__PURE__ */ (() => {
+      customGarageSkins = (() => {
         const STORAGE_KEY = "kasp_equipped_skins";
         const BASE_IMG_KEY = "kasp_base_images";
-        let SKIN_BRANDS_MAP = null;
         let NAME_TRANSLATE = null;
         let PREFILLED_DEFAULTS = null;
-        let SKINS_DATABASE = null;
-        function getSavedSkins() {
+        let dataReadyPromise = null;
+        function loadSkinsData() {
+          if (dataReadyPromise) return dataReadyPromise;
+          dataReadyPromise = fetch(chrome.runtime.getURL("database/skins.json")).then((res) => {
+            if (!res.ok) throw new Error("skins.json: HTTP " + res.status);
+            return res.json();
+          }).then((data) => {
+            NAME_TRANSLATE = data.names;
+            PREFILLED_DEFAULTS = data.defaults;
+            console.log("[KI-test][garage-skins] database loaded");
+          }).catch((e) => console.error("[KI-test][garage-skins] failed to load database/skins.json:", e));
+          return dataReadyPromise;
+        }
+        loadSkinsData();
+        function safeParseJSON(raw) {
+          if (!raw) return null;
           try {
-            return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+            return JSON.parse(raw);
           } catch (e) {
-            return {};
+            return null;
           }
+        }
+        function getSavedSkins() {
+          return safeParseJSON(localStorage.getItem(STORAGE_KEY)) || {};
         }
         function getDefaultImages() {
           try {
-            const stored = JSON.parse(localStorage.getItem(BASE_IMG_KEY)) || {};
+            const stored = safeParseJSON(localStorage.getItem(BASE_IMG_KEY)) || {};
             const merged = {};
             for (const key in PREFILLED_DEFAULTS) {
               merged[key] = [PREFILLED_DEFAULTS[key]];
@@ -2725,20 +2719,10 @@
           const savedSkins = getSavedSkins();
           const defaultImages = getDefaultImages();
           let css = "";
-          const allItems = /* @__PURE__ */ new Set([...Object.keys(defaultImages), ...Object.keys(SKINS_DATABASE)]);
-          for (const item of allItems) {
+          for (const item of Object.keys(defaultImages)) {
             const targetUrl = savedSkins[item];
             if (!targetUrl) continue;
-            const urlsToOverride = [];
-            if (defaultImages[item]) {
-              urlsToOverride.push(...defaultImages[item]);
-            }
-            if (SKINS_DATABASE[item]) {
-              for (const skinUrl of Object.values(SKINS_DATABASE[item])) {
-                if (skinUrl) urlsToOverride.push(skinUrl);
-              }
-            }
-            const finalUrls = urlsToOverride.filter((url) => url !== targetUrl);
+            const finalUrls = defaultImages[item].filter((url) => url !== targetUrl);
             if (finalUrls.length > 0) {
               const selectors = finalUrls.map(
                 (url) => `.GarageItemComponentStyle-mainImg[src="${url}"], .garage-item img[src="${url}"], .MountedItemsStyle-itemPreview[src="${url}"]`
@@ -2762,113 +2746,195 @@
             styleEl.textContent = css;
           }
         }
-        let lastItemName = "";
-        let readAllowedTime = 0;
-        return () => {
-          if (state.currentScreen !== "garage") return;
-          if (!SKIN_BRANDS_MAP) {
-            const data = DataLoader.getSkinsData();
-            if (!data)
-              return;
-            SKIN_BRANDS_MAP = data.brands;
-            NAME_TRANSLATE = data.names;
-            PREFILLED_DEFAULTS = data.defaults;
-            SKINS_DATABASE = data.database;
+        function hasUnknownSkin(itemNameEN, savedSkins, prefilledDefaults) {
+          const saved = savedSkins[itemNameEN];
+          return !!saved && saved === prefilledDefaults[itemNameEN];
+        }
+        function toggleUnknownLabel(host, show) {
+          const existing = host.querySelector(".kasp-unknown-skin");
+          if (!show) {
+            if (existing) existing.remove();
+            return;
           }
+          if (!existing) {
+            const label = document.createElement("span");
+            label.className = "kasp-unknown-skin";
+            label.textContent = "unknown skin";
+            host.appendChild(label);
+          }
+        }
+        function markMountedUnknownSkins(savedSkins, defaultImages, prefilledDefaults) {
+          const blocks = document.querySelectorAll(".MountedItemsStyle-commonBlockForTurretsHulls");
+          blocks.forEach((block) => {
+            const src = block.querySelector(".MountedItemsStyle-itemPreview")?.getAttribute("src") || "";
+            const owner = Object.keys(savedSkins).find((item) => defaultImages[item]?.includes(src));
+            toggleUnknownLabel(block, !!owner && hasUnknownSkin(owner, savedSkins, prefilledDefaults));
+          });
+        }
+        function readSkinCards(row) {
+          const cards = [];
+          row.querySelectorAll(".SkinCellStyle-nameDevices").forEach((titleEl) => {
+            const card = titleEl.parentElement;
+            if (!card) return;
+            const icon = card.querySelector(".SkinCellStyle-iconCell");
+            cards.push({
+              title: (titleEl.textContent ?? "").trim(),
+              isStandard: (icon?.getAttribute("src") ?? "").includes("ic_standard"),
+              isEquipped: !!card.querySelector(".SkinCellStyle-mountIcon")
+            });
+          });
+          return cards;
+        }
+        function readSelectedTitle(menu, row, cardTitles) {
+          for (const el of menu.querySelectorAll("*")) {
+            if (el.children.length > 0 || row.contains(el)) continue;
+            const text = (el.textContent ?? "").trim();
+            if (cardTitles.has(text.toLowerCase())) return text;
+          }
+          return null;
+        }
+        function readPreviewArt(menu, row) {
+          for (const el of menu.querySelectorAll('[class*="backgroundImageContain"]')) {
+            if (row.contains(el)) continue;
+            const match = /url\("?([^")]+\.webp)"?\)/.exec(getComputedStyle(el).backgroundImage);
+            if (match) return match[1];
+          }
+          return null;
+        }
+        function readSkinsScreen(nameTranslate) {
+          const row = document.querySelector(".SkinsAndAlterationsStyle-SkinsVerticalComponent");
+          const menu = document.querySelector(".GarageCommonStyle-subMenu");
+          if (!row || !menu) return { kind: "absent" };
+          const cards = readSkinCards(row);
+          const equippedCard = cards.find((card) => card.isEquipped);
+          const namedCard = equippedCard && !equippedCard.isStandard ? equippedCard : cards.find((card) => !card.isStandard);
+          if (!equippedCard || !namedCard) return { kind: "absent" };
+          const words = namedCard.title.toLowerCase().split(/\s+/);
+          const matchedWord = words.find((w) => nameTranslate[w]);
+          if (!matchedWord) return { kind: "absent" };
+          return {
+            kind: "ready",
+            item: nameTranslate[matchedWord],
+            equipped: equippedCard.isStandard ? { kind: "standard" } : { kind: "skin", title: equippedCard.title },
+            selectedTitle: readSelectedTitle(menu, row, new Set(cards.map((card) => card.title.toLowerCase()))),
+            artUrl: readPreviewArt(menu, row)
+          };
+        }
+        function describeSkinsScreen(state2) {
+          if (state2.kind === "absent") return "absent";
+          const equipped = state2.equipped.kind === "standard" ? "standard" : `skin "${state2.equipped.title}"`;
+          const art = state2.artUrl?.split("/").slice(-2).join("/") ?? "none";
+          return `item=${state2.item} equipped=${equipped} selected=${JSON.stringify(state2.selectedTitle)} art=${art}`;
+        }
+        let lastSkinsSummary = null;
+        function logSkinsScreen(state2) {
+          const summary = describeSkinsScreen(state2);
+          if (summary === lastSkinsSummary) return;
+          const isFirstRead = lastSkinsSummary === null;
+          lastSkinsSummary = summary;
+          if (state2.kind === "absent" && isFirstRead) return;
+          console.log(`[KI-test][garage-skins] skins tab: ${summary}`);
+        }
+        const SAFE_ART_URL = /^https:\/\/[a-z0-9.-]+\.tankionline\.com\/[A-Za-z0-9/_.-]+\.webp$/;
+        function decideLearnAction(state2, stockUrl) {
+          if (state2.kind === "absent") return { kind: "none", reason: null };
+          if (state2.equipped.kind === "standard") return { kind: "clear", item: state2.item };
+          const selectedIsEquipped = state2.selectedTitle !== null && state2.selectedTitle.toLowerCase() === state2.equipped.title.toLowerCase();
+          if (!selectedIsEquipped) {
+            return {
+              kind: "none",
+              reason: `waiting, selected ${JSON.stringify(state2.selectedTitle)} is not the equipped ${JSON.stringify(state2.equipped.title)}`
+            };
+          }
+          if (state2.artUrl && SAFE_ART_URL.test(state2.artUrl)) {
+            return { kind: "set", item: state2.item, url: state2.artUrl, source: "art" };
+          }
+          return stockUrl ? { kind: "set", item: state2.item, url: stockUrl, source: "stock" } : { kind: "none", reason: `art of ${JSON.stringify(state2.equipped.title)} is unreadable and no stock image is known` };
+        }
+        let lastLearnNote = null;
+        function noteLearn(note) {
+          if (note === lastLearnNote) return;
+          lastLearnNote = note;
+          if (note) console.log(`[KI-test][garage-skins] learn: ${note}`);
+        }
+        function describeLearnAction(action) {
+          if (action.kind === "clear") return `standard equipped, clearing ${action.item}`;
+          const art = action.url.split("/").slice(-2).join("/");
+          return action.source === "art" ? `equipped skin art ${art} for ${action.item}` : `equipped skin art is unreadable, storing stock ${art} for ${action.item}`;
+        }
+        function writeSavedSkins(savedSkins) {
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(savedSkins));
+          } catch (e) {
+            console.warn("[KI-test][garage-skins] could not save skins:", e instanceof Error ? e.message : e);
+          }
+        }
+        let pendingLearn = null;
+        function learnFromSkinsScreen(state2, prefilledDefaults) {
+          const stockUrl = state2.kind === "ready" ? prefilledDefaults[state2.item] : void 0;
+          const action = decideLearnAction(state2, stockUrl);
+          if (action.kind === "none") {
+            pendingLearn = null;
+            noteLearn(action.reason);
+            return;
+          }
+          noteLearn(describeLearnAction(action));
+          const key = action.kind === "set" ? `set|${action.item}|${action.url}` : `clear|${action.item}`;
+          pendingLearn = { key, ticks: pendingLearn?.key === key ? pendingLearn.ticks + 1 : 1 };
+          if (pendingLearn.ticks < 2) return;
+          const savedSkins = getSavedSkins();
+          if (action.kind === "set") {
+            if (savedSkins[action.item] === action.url) return;
+            savedSkins[action.item] = action.url;
+            console.log(`[KI-test][garage-skins] saved ${action.item}: ${action.url.split("/").slice(-2).join("/")}`);
+          } else {
+            if (savedSkins[action.item] === void 0) return;
+            delete savedSkins[action.item];
+            console.log(`[KI-test][garage-skins] cleared ${action.item}`);
+          }
+          writeSavedSkins(savedSkins);
+        }
+        function isGarageScreen() {
+          return !!document.querySelector(
+            ".GarageCommonStyle-positionContent, .GarageItemComponent-container, .ContainerInfoComponentStyle-lootBoxContainer, .GarageMainScreenStyle-blockParameters, .SkinsAndAlterationsStyle-SkinsVerticalComponent"
+          );
+        }
+        function tick() {
+          if (!NAME_TRANSLATE || !PREFILLED_DEFAULTS) return;
+          if (!isGarageScreen()) return;
+          const nameTranslate = NAME_TRANSLATE;
+          const prefilledDefaults = PREFILLED_DEFAULTS;
+          const skinsScreen = readSkinsScreen(nameTranslate);
+          logSkinsScreen(skinsScreen);
+          learnFromSkinsScreen(skinsScreen, prefilledDefaults);
           const defaultImages = getDefaultImages();
           let defaultsUpdated = false;
+          const savedSkinsForList = getSavedSkins();
           const garageItems = document.querySelectorAll(".garage-item");
           garageItems.forEach((item) => {
             const titleSpan = item.querySelector(".GarageItemComponentStyle-descriptionDevice span");
             const imgMain = item.querySelector(".GarageItemComponentStyle-mainImg");
             if (titleSpan && imgMain) {
-              const rawTitle = titleSpan.textContent.trim().toLowerCase();
-              const itemNameEN = NAME_TRANSLATE[rawTitle.split(/\s+/)[0]] || rawTitle.split(/\s+/)[0];
+              const rawTitle = (titleSpan.textContent ?? "").trim().toLowerCase();
+              const itemNameEN = nameTranslate[rawTitle.split(/\s+/)[0]] || rawTitle.split(/\s+/)[0];
               const originalSrc = imgMain.getAttribute("src") || "";
-              if (originalSrc && originalSrc.includes("tankionline.com")) {
-                let isCustomSkin = false;
-                if (SKINS_DATABASE[itemNameEN]) {
-                  isCustomSkin = Object.values(SKINS_DATABASE[itemNameEN]).includes(originalSrc);
-                }
-                if (!isCustomSkin) {
-                  if (!defaultImages[itemNameEN]) defaultImages[itemNameEN] = [];
-                  if (!defaultImages[itemNameEN].includes(originalSrc)) {
-                    defaultImages[itemNameEN].push(originalSrc);
-                    defaultsUpdated = true;
-                  }
+              if (originalSrc && originalSrc.includes("tankionline.com") && originalSrc !== savedSkinsForList[itemNameEN]) {
+                if (!defaultImages[itemNameEN]) defaultImages[itemNameEN] = [];
+                if (!defaultImages[itemNameEN].includes(originalSrc)) {
+                  defaultImages[itemNameEN].push(originalSrc);
+                  defaultsUpdated = true;
                 }
               }
+              toggleUnknownLabel(item, hasUnknownSkin(itemNameEN, savedSkinsForList, prefilledDefaults));
             }
           });
+          markMountedUnknownSkins(savedSkinsForList, defaultImages, prefilledDefaults);
           if (defaultsUpdated) {
             localStorage.setItem(BASE_IMG_KEY, JSON.stringify(defaultImages));
           }
-          const nameEl = document.querySelector(".ItemDescriptionComponentStyle-nameItem span") || document.querySelector(".garage-item.-active .GarageItemComponentStyle-descriptionDevice span");
-          if (nameEl) {
-            const rawName = nameEl.textContent.trim().toLowerCase();
-            const firstWord = rawName.split(/\s+/)[0];
-            const itemNameEN = NAME_TRANSLATE[firstWord] || firstWord;
-            if (itemNameEN !== lastItemName) {
-              lastItemName = itemNameEN;
-              readAllowedTime = Date.now() + 400;
-            }
-            if (Date.now() >= readAllowedTime) {
-              const skinImgs = document.querySelectorAll(".SkinsIconComponentStyle-cellSkins img");
-              let foundBrand = null;
-              for (const skinImg of skinImgs) {
-                const src = skinImg.getAttribute("src") || "";
-                if (SKIN_BRANDS_MAP[src]) {
-                  foundBrand = SKIN_BRANDS_MAP[src];
-                  break;
-                } else if (src.includes("ic_standard") || src.includes("standard")) {
-                  foundBrand = "default";
-                  break;
-                }
-              }
-              if (!foundBrand) {
-                const previewImg = document.querySelector(".MountedItemsStyle-itemPreview, .ItemDescriptionComponentStyle-previewImg img");
-                if (previewImg) {
-                  const currentSrc = previewImg.getAttribute("src") || "";
-                  if (SKINS_DATABASE[itemNameEN]) {
-                    for (const [brand, url] of Object.entries(SKINS_DATABASE[itemNameEN])) {
-                      if (url === currentSrc) {
-                        foundBrand = brand;
-                        break;
-                      }
-                    }
-                  }
-                }
-              }
-              if (foundBrand) {
-                const savedSkins = getSavedSkins();
-                let skinsUpdated = false;
-                if (foundBrand === "default") {
-                  if (savedSkins[itemNameEN]) {
-                    delete savedSkins[itemNameEN];
-                    skinsUpdated = true;
-                  }
-                } else if (SKINS_DATABASE[itemNameEN] && SKINS_DATABASE[itemNameEN][foundBrand]) {
-                  const targetUrl = SKINS_DATABASE[itemNameEN][foundBrand];
-                  if (savedSkins[itemNameEN] !== targetUrl) {
-                    savedSkins[itemNameEN] = targetUrl;
-                    skinsUpdated = true;
-                  }
-                }
-                if (skinsUpdated) {
-                  localStorage.setItem(STORAGE_KEY, JSON.stringify(savedSkins));
-                }
-              } else if (skinImgs.length > 0) {
-                const savedSkins = getSavedSkins();
-                const fallbackUrl = PREFILLED_DEFAULTS[itemNameEN];
-                if (fallbackUrl && savedSkins[itemNameEN] !== fallbackUrl) {
-                  savedSkins[itemNameEN] = fallbackUrl;
-                  localStorage.setItem(STORAGE_KEY, JSON.stringify(savedSkins));
-                }
-              }
-            }
-          }
           updateGlobalCSS();
-        };
+        }
+        return tick;
       })();
     }
   });
@@ -3469,6 +3535,7 @@
       init_state();
       init_utils();
       init_dataLoader();
+      init_modal();
       init_equipmentTracker();
       battleHistory = (() => {
         let initialized = false;
@@ -3630,6 +3697,10 @@
         };
         let bhAutoCloseObserver = null;
         const closeHistoryOverlay = (overlay, auto = false) => {
+          for (const id of ["link-history-overlay", "clear-confirm-overlay"]) {
+            const modal = document.getElementById(id);
+            modal?.closeDialogMethod?.();
+          }
           overlay.style.display = "none";
           restoreContainerBackground();
           const nativeContent = document.querySelector(".SettingsComponentStyle-container");
@@ -3782,8 +3853,7 @@
           return translated || cleanText;
         };
         async function showClearConfirmModal(onConfirm) {
-          const existing = document.getElementById("clear-confirm-overlay");
-          if (existing) existing.remove();
+          if (document.getElementById("clear-confirm-overlay")) return;
           const lang = state.lang;
           const translations = {
             RU: { title: "\u041E\u0427\u0418\u0421\u0422\u041A\u0410 \u0418\u0421\u0422\u041E\u0420\u0418\u0418", text: "\u0412\u044B \u0443\u0432\u0435\u0440\u0435\u043D\u044B, \u0447\u0442\u043E \u0445\u043E\u0442\u0438\u0442\u0435 \u0443\u0434\u0430\u043B\u0438\u0442\u044C \u0432\u0441\u044E \u0438\u0441\u0442\u043E\u0440\u0438\u044E \u043C\u0430\u0442\u0447\u0435\u0439?", cancel: "\u041E\u0442\u043C\u0435\u043D\u0430", confirm: "\u0423\u0414\u0410\u041B\u0418\u0422\u042C" },
@@ -3791,108 +3861,41 @@
           };
           const dict = translations[lang] || translations["EN"];
           try {
-            let closeDialog = function() {
-              if (!overlay.parentNode) return;
-              cleanup();
-              overlay.remove();
-            };
-            const response = await fetch(chrome.runtime.getURL("templates/clear-history-modal.html"));
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            let html = await response.text();
-            html = html.replace(/{{title}}/g, dict.title).replace(/{{text}}/g, dict.text).replace(/{{cancel}}/g, dict.cancel).replace(/{{confirm}}/g, dict.confirm);
-            const overlay = document.createElement("div");
-            overlay.id = "clear-confirm-overlay";
-            overlay.style.cssText = `position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 9999; display: flex; align-items: center; justify-content: center;`;
-            const dialog = document.createElement("div");
-            dialog.style.cssText = `display: flex; flex-direction: column; align-items: stretch; justify-content: space-between; pointer-events: auto; min-width: 31.625em; max-width: 31.625em; width: auto; min-height: 14.125em; z-index: 60; box-shadow: rgba(0, 0, 0, 0.25) 0px 0.313em 1.25em 0px; outline: rgba(255, 255, 255, 0.25) solid 0.063em; padding: 2em; background: radial-gradient(100% 100% at 0% 0%, rgba(118, 255, 51, 0.75) 0%, rgba(119, 255, 51, 0) 100%), rgba(0, 25, 38, 0.75);`;
-            dialog.innerHTML = html;
-            overlay.appendChild(dialog);
-            let isClosing = false;
-            let onKeyHandler = null;
-            let onMouseHandler = null;
-            const cleanup = () => {
-              if (onKeyHandler) {
-                document.removeEventListener("keydown", onKeyHandler, true);
-                onKeyHandler = null;
-              }
-              if (onMouseHandler) {
-                window.removeEventListener("mousedown", onMouseHandler, true);
-                onMouseHandler = null;
-              }
-            };
-            overlay.closeDialogMethod = closeDialog;
-            document.body.appendChild(overlay);
-            onKeyHandler = (e) => {
-              if (isClosing) return;
-              const isEsc = e.key === "Escape" || e.key === "Esc";
-              const isZ = e.code === "KeyZ" || e.key && e.key.toLowerCase() === "z";
-              if (!isEsc && !isZ) return;
-              isClosing = true;
-              historyBackSuppressedUntil = Date.now() + 500;
-              if (isZ) blockRemainingBackEvents();
-              e.preventDefault();
-              e.stopPropagation();
-              e.stopImmediatePropagation();
-              closeDialog();
-            };
-            document.addEventListener("keydown", onKeyHandler, true);
-            const blockRemainingBackEvents = () => {
-              const block = (e) => {
-                if (e.button !== 3 && e.button !== 4) return;
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-              };
-              window.addEventListener("mouseup", block, true);
-              window.addEventListener("click", block, true);
-              window.addEventListener("auxclick", block, true);
-              window.setTimeout(() => {
-                window.removeEventListener("mouseup", block, true);
-                window.removeEventListener("click", block, true);
-                window.removeEventListener("auxclick", block, true);
-              }, 700);
-            };
-            onMouseHandler = (e) => {
-              if (isClosing) return;
-              if (e.button !== 3) return;
-              isClosing = true;
-              historyBackSuppressedUntil = Date.now() + 500;
-              blockRemainingBackEvents();
-              e.preventDefault();
-              e.stopPropagation();
-              e.stopImmediatePropagation();
-              closeDialog();
-            };
-            window.addEventListener("mousedown", onMouseHandler, true);
-            dialog.querySelector("#clear-dlg-confirm")?.addEventListener("click", (e) => {
-              e.stopPropagation();
-              if (!isClosing) {
-                isClosing = true;
-                closeDialog();
-                onConfirm();
-              }
-            });
-            dialog.querySelector("#clear-dlg-cancel")?.addEventListener("click", (e) => {
-              e.stopPropagation();
-              if (!isClosing) {
-                isClosing = true;
-                closeDialog();
-              }
-            });
-            dialog.querySelector("#clear-dlg-close")?.addEventListener("click", (e) => {
-              e.stopPropagation();
-              if (!isClosing) {
-                isClosing = true;
-                closeDialog();
-              }
+            const modal = await createKaspModal({ id: "clear-confirm-overlay", title: dict.title, closeLabel: dict.cancel });
+            if (!modal) return;
+            modal.actions.classList.add("kasp-modal-actions--center");
+            const message = document.createElement("p");
+            message.className = "kasp-modal-copy kasp-modal-copy--center";
+            message.textContent = dict.text;
+            modal.body.appendChild(message);
+            const cancelButton = document.createElement("button");
+            cancelButton.type = "button";
+            cancelButton.className = "kasp-modal-button kasp-modal-button--secondary";
+            const cancelLabel = document.createElement("span");
+            cancelLabel.textContent = dict.cancel;
+            cancelButton.appendChild(cancelLabel);
+            const confirmButton = document.createElement("button");
+            confirmButton.type = "button";
+            confirmButton.className = "kasp-modal-button";
+            const confirmLabel = document.createElement("span");
+            confirmLabel.textContent = dict.confirm;
+            confirmButton.appendChild(confirmLabel);
+            modal.actions.append(cancelButton, confirmButton);
+            let confirmed = false;
+            cancelButton.addEventListener("click", modal.close);
+            confirmButton.addEventListener("click", () => {
+              if (confirmed) return;
+              confirmed = true;
+              modal.close();
+              onConfirm();
             });
           } catch (error) {
             console.error("[Kaspersky Inventions] Failed to load clear history modal template:", error);
           }
         }
         const t = {
-          RU: { title: "\u0418\u0441\u0442\u043E\u0440\u0438\u044F \u0411\u0438\u0442\u0432", date: "\u0414\u0430\u0442\u0430", map: "\u041A\u0430\u0440\u0442\u0430", status: "\u0421\u0442\u0430\u0442\u0443\u0441", top: "\u041C\u0435\u0441\u0442\u043E", mode: "\u0420\u0435\u0436\u0438\u043C", score: "\u041E\u0447\u043A\u0438", kills: "\u041A", deaths: "\u0414", kd: "\u0423/\u0421", turret: "\u041F\u0443\u0448\u043A\u0430", hull: "\u041A\u043E\u0440\u043F\u0443\u0441", augment: "\u0423\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u043E", crystals: "\u041A\u0440\u0438\u0441\u0442\u0430\u043B\u043B\u044B", stars: "\u0417\u0432\u0451\u0437\u0434\u044B", win: "\u041F\u043E\u0431\u0435\u0434\u0430", lose: "\u041F\u043E\u0440\u0430\u0436\u0435\u043D\u0438\u0435", draw: "\u041D\u0438\u0447\u044C\u044F", dm: "\u041A\u0430\u0436\u0434\u044B\u0439 \u0441\u0430\u043C \u0437\u0430 \u0441\u0435\u0431\u044F", teamScore: "\u0421\u0447\u0451\u0442", clear: "\u041E\u0447\u0438\u0441\u0442\u0438\u0442\u044C", export: "\u042D\u043A\u0441\u043F\u043E\u0440\u0442", import: "\u0418\u043C\u043F\u043E\u0440\u0442", battles: "\u0411\u043E\u0451\u0432", noBattles: "\u041F\u043E\u043A\u0430 \u043D\u0435\u0442 \u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u0445 \u0431\u043E\u0451\u0432", player: "\u0418\u0433\u0440\u043E\u043A", gs: "GS", diamond: "DIAMOND", myTeam: "\u041C\u043E\u044F \u043A\u043E\u043C\u0430\u043D\u0434\u0430", enemyTeam: "\u041A\u043E\u043C\u0430\u043D\u0434\u0430 \u043F\u0440\u043E\u0442\u0438\u0432\u043D\u0438\u043A\u0430", playersCount: "\u0438\u0433\u0440\u043E\u043A\u043E\u0432", allBattles: "\u2039 &nbsp; \u0412\u0441\u0435 \u0431\u0438\u0442\u0432\u044B", deleteBtn: "\u0423\u0434\u0430\u043B\u0438\u0442\u044C", yourScore: "\u0412\u0430\u0448 \u0441\u0447\u0451\u0442", yourKd: "\u0412\u0430\u0448 \u041A/\u0414" },
-          EN: { title: "Battle History", date: "Date", map: "Map", status: "Status", top: "Top", mode: "Mode", score: "Score", kills: "Kills", deaths: "Deaths", kd: "K/D", turret: "Turret", hull: "Hull", augment: "Augment", crystals: "Crystals", stars: "Stars", win: "Victory", lose: "Defeat", draw: "Draw", dm: "Deathmatch", teamScore: "Score", clear: "Clear", export: "Export", import: "Import", battles: "Battles", noBattles: "No saved battles yet", player: "Player", gs: "GS", diamond: "DIAMOND", myTeam: "My Team", enemyTeam: "Enemy Team", playersCount: "players", allBattles: "\u2039 &nbsp; All battles", deleteBtn: "Delete", yourScore: "Your Score", yourKd: "Your K/D" }
+          RU: { title: "\u0418\u0441\u0442\u043E\u0440\u0438\u044F \u0411\u0438\u0442\u0432", date: "\u0414\u0430\u0442\u0430", map: "\u041A\u0430\u0440\u0442\u0430", status: "\u0421\u0442\u0430\u0442\u0443\u0441", top: "\u041C\u0435\u0441\u0442\u043E", mode: "\u0420\u0435\u0436\u0438\u043C", score: "\u041E\u0447\u043A\u0438", kills: "\u041A", deaths: "\u0414", kd: "\u0423/\u0421", turret: "\u041F\u0443\u0448\u043A\u0430", hull: "\u041A\u043E\u0440\u043F\u0443\u0441", augment: "\u0423\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u043E", crystals: "\u041A\u0440\u0438\u0441\u0442\u0430\u043B\u043B\u044B", stars: "\u0417\u0432\u0451\u0437\u0434\u044B", win: "\u041F\u043E\u0431\u0435\u0434\u0430", lose: "\u041F\u043E\u0440\u0430\u0436\u0435\u043D\u0438\u0435", draw: "\u041D\u0438\u0447\u044C\u044F", dm: "\u041A\u0430\u0436\u0434\u044B\u0439 \u0441\u0430\u043C \u0437\u0430 \u0441\u0435\u0431\u044F", teamScore: "\u0421\u0447\u0451\u0442", clear: "\u041E\u0447\u0438\u0441\u0442\u0438\u0442\u044C", link: "\u0421\u0432\u044F\u0437\u0430\u0442\u044C", export: "\u042D\u043A\u0441\u043F\u043E\u0440\u0442", import: "\u0418\u043C\u043F\u043E\u0440\u0442", battles: "\u0411\u043E\u0451\u0432", noBattles: "\u041F\u043E\u043A\u0430 \u043D\u0435\u0442 \u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u0445 \u0431\u043E\u0451\u0432", player: "\u0418\u0433\u0440\u043E\u043A", gs: "GS", diamond: "DIAMOND", myTeam: "\u041C\u043E\u044F \u043A\u043E\u043C\u0430\u043D\u0434\u0430", enemyTeam: "\u041A\u043E\u043C\u0430\u043D\u0434\u0430 \u043F\u0440\u043E\u0442\u0438\u0432\u043D\u0438\u043A\u0430", playersCount: "\u0438\u0433\u0440\u043E\u043A\u043E\u0432", allBattles: "\u2039 &nbsp; \u0412\u0441\u0435 \u0431\u0438\u0442\u0432\u044B", yourScore: "\u0412\u0430\u0448 \u0441\u0447\u0451\u0442", yourKd: "\u0412\u0430\u0448 \u041A/\u0414" },
+          EN: { title: "Battle History", date: "Date", map: "Map", status: "Status", top: "Top", mode: "Mode", score: "Score", kills: "Kills", deaths: "Deaths", kd: "K/D", turret: "Turret", hull: "Hull", augment: "Augment", crystals: "Crystals", stars: "Stars", win: "Victory", lose: "Defeat", draw: "Draw", dm: "Deathmatch", teamScore: "Score", clear: "Clear", link: "Link", export: "Export", import: "Import", battles: "Battles", noBattles: "No saved battles yet", player: "Player", gs: "GS", diamond: "DIAMOND", myTeam: "My Team", enemyTeam: "Enemy Team", playersCount: "players", allBattles: "\u2039 &nbsp; All battles", yourScore: "Your Score", yourKd: "Your K/D" }
         };
         const waitForSelector = (selector, timeoutMs = 3e3) => {
           const existing = document.querySelector(selector);
@@ -4166,7 +4169,6 @@
           }
           const replacements = {
             backLabel: dict.allBattles,
-            deleteLabel: dict.deleteBtn,
             leftScoreClass: isDM ? "dm" : "",
             leftIconUrl,
             leftLabel,
@@ -4216,20 +4218,6 @@
           };
           detailedView.querySelector("#bh-detailed-back")?.addEventListener("click", () => {
             void returnToList();
-          });
-          detailedView.querySelector("#bh-detailed-delete")?.addEventListener("click", async () => {
-            try {
-              const db = await openDB();
-              const transaction = db.transaction("battles", "readwrite");
-              const store = transaction.objectStore("battles");
-              if (b.id !== void 0) {
-                store.delete(b.id);
-              }
-              await returnToList();
-              renderBattleList(currentPage);
-            } catch (e) {
-              console.error("[Tanki Battle History] Error deleting battle:", e);
-            }
           });
         };
         const buildBattleCard = async (b, dict, lang) => {
@@ -4450,6 +4438,168 @@
           const totalEl = document.getElementById("bh-total-battles");
           if (totalEl) totalEl.textContent = String(battles.length);
         };
+        const getNicknameHistory = async () => {
+          const db = await openDB();
+          try {
+            return await new Promise((resolve, reject) => {
+              const transaction = db.transaction("battles", "readonly");
+              const request = transaction.objectStore("battles").getAll();
+              request.onsuccess = () => {
+                const counts = /* @__PURE__ */ new Map();
+                for (const battle of request.result) {
+                  if (battle.nickname) counts.set(battle.nickname, (counts.get(battle.nickname) || 0) + 1);
+                }
+                resolve(Array.from(counts, ([nickname, count]) => ({ nickname, count })).sort((a, b) => a.nickname.localeCompare(b.nickname)));
+              };
+              request.onerror = () => reject(request.error);
+              transaction.onerror = () => reject(transaction.error);
+            });
+          } finally {
+            db.close();
+          }
+        };
+        const mergeNicknameHistory = async (sourceNickname, targetNickname) => {
+          const db = await openDB();
+          try {
+            return await new Promise((resolve, reject) => {
+              const transaction = db.transaction("battles", "readwrite");
+              const store = transaction.objectStore("battles");
+              const request = store.index("nickname").openCursor(IDBKeyRange.only(sourceNickname));
+              let moved = 0;
+              request.onsuccess = () => {
+                const cursor = request.result;
+                if (!cursor) return;
+                const battle = cursor.value;
+                battle.nickname = targetNickname;
+                cursor.update(battle);
+                moved++;
+                cursor.continue();
+              };
+              request.onerror = () => reject(request.error);
+              transaction.oncomplete = () => resolve(moved);
+              transaction.onerror = () => reject(transaction.error);
+              transaction.onabort = () => reject(transaction.error || new Error("History linking was aborted"));
+            });
+          } finally {
+            db.close();
+          }
+        };
+        const openLinkHistoryDialog = async () => {
+          if (currentNickname === "Unknown") {
+            window.alert(state.lang === "RU" ? "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u043F\u0440\u0435\u0434\u0435\u043B\u0438\u0442\u044C \u0442\u0435\u043A\u0443\u0449\u0438\u0439 \u043D\u0438\u043A." : "Could not detect the current nickname.");
+            return;
+          }
+          const existing = document.getElementById("link-history-overlay");
+          if (existing) return;
+          try {
+            const lang = state.lang;
+            const dict = lang === "RU" ? {
+              title: "\u0421\u0412\u042F\u0417\u0410\u0422\u042C \u0418\u0421\u0422\u041E\u0420\u0418\u0418",
+              description: "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043D\u0438\u043A, \u0438\u0441\u0442\u043E\u0440\u0438\u044E \u043A\u043E\u0442\u043E\u0440\u043E\u0433\u043E \u043D\u0443\u0436\u043D\u043E \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043A \u0442\u0435\u043A\u0443\u0449\u0435\u0439 \u0438\u0441\u0442\u043E\u0440\u0438\u0438.",
+              target: "\u0422\u0435\u043A\u0443\u0449\u0430\u044F \u0438\u0441\u0442\u043E\u0440\u0438\u044F:",
+              select: "\u0418\u0441\u0442\u043E\u0440\u0438\u044F \u0434\u043B\u044F \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u0438\u044F",
+              placeholder: "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043D\u0438\u043A\u043D\u0435\u0439\u043C",
+              empty: "\u0414\u0440\u0443\u0433\u0438\u0445 \u043D\u0438\u043A\u043D\u0435\u0439\u043C\u043E\u0432 \u0441 \u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u043C\u0438 \u0431\u043E\u044F\u043C\u0438 \u043D\u0435\u0442.",
+              cancel: "\u041E\u0442\u043C\u0435\u043D\u0430",
+              confirm: "\u0421\u0432\u044F\u0437\u0430\u0442\u044C",
+              success: (count) => `\u0418\u0441\u0442\u043E\u0440\u0438\u0438 \u0441\u0432\u044F\u0437\u0430\u043D\u044B. \u0414\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043E \u0431\u043E\u0451\u0432: ${count}.`,
+              failed: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u0432\u044F\u0437\u0430\u0442\u044C \u0438\u0441\u0442\u043E\u0440\u0438\u0438."
+            } : {
+              title: "LINK HISTORIES",
+              description: "Choose the nickname whose history should be added to the current history.",
+              target: "Current history:",
+              select: "History to add",
+              placeholder: "Select a nickname",
+              empty: "No other nicknames have saved battles.",
+              cancel: "Cancel",
+              confirm: "Link",
+              success: (count) => `Histories linked. Battles added: ${count}.`,
+              failed: "Could not link the histories."
+            };
+            const nicknames = (await getNicknameHistory()).filter((item) => item.nickname !== currentNickname && item.nickname !== "Unknown");
+            const modal = await createKaspModal({ id: "link-history-overlay", title: dict.title, closeLabel: dict.cancel });
+            if (!modal) return;
+            const { body, actions, close } = modal;
+            const description = document.createElement("p");
+            description.className = "kasp-modal-copy";
+            description.textContent = dict.description;
+            const target = document.createElement("p");
+            target.className = "kasp-modal-copy";
+            const targetLabel = document.createElement("span");
+            targetLabel.textContent = `${dict.target} `;
+            const targetNickname = document.createElement("strong");
+            targetNickname.className = "bh-link-target";
+            targetNickname.textContent = currentNickname;
+            target.append(targetLabel, targetNickname);
+            const selectLabel = document.createElement("label");
+            selectLabel.className = "bh-link-select-label";
+            const selectLabelText = document.createElement("span");
+            selectLabelText.textContent = dict.select;
+            const select = document.createElement("select");
+            select.className = "bh-link-select";
+            select.setAttribute("aria-label", dict.select);
+            const placeholder = document.createElement("option");
+            placeholder.value = "";
+            placeholder.textContent = dict.placeholder;
+            select.appendChild(placeholder);
+            for (const item of nicknames) {
+              const option = document.createElement("option");
+              option.value = item.nickname;
+              option.textContent = `${item.nickname} (${item.count})`;
+              select.appendChild(option);
+            }
+            selectLabel.append(selectLabelText, select);
+            const empty = document.createElement("p");
+            empty.className = "bh-link-empty";
+            empty.textContent = dict.empty;
+            empty.hidden = nicknames.length > 0;
+            selectLabel.hidden = nicknames.length === 0;
+            const cancelButton = document.createElement("button");
+            cancelButton.type = "button";
+            cancelButton.className = "kasp-modal-button kasp-modal-button--secondary";
+            const cancelLabel = document.createElement("span");
+            cancelLabel.textContent = dict.cancel;
+            cancelButton.appendChild(cancelLabel);
+            const confirmButton = document.createElement("button");
+            confirmButton.type = "button";
+            confirmButton.className = "kasp-modal-button";
+            const confirmLabel = document.createElement("span");
+            confirmLabel.textContent = dict.confirm;
+            confirmButton.appendChild(confirmLabel);
+            confirmButton.disabled = true;
+            confirmButton.hidden = nicknames.length === 0;
+            actions.append(cancelButton, confirmButton);
+            body.append(description, target, selectLabel, empty);
+            let isLinking = false;
+            cancelButton.addEventListener("click", close);
+            select.addEventListener("change", () => {
+              confirmButton.disabled = select.value === "";
+            });
+            confirmButton.addEventListener("click", async () => {
+              const sourceNickname = select.value;
+              if (!sourceNickname || isLinking) return;
+              isLinking = true;
+              confirmButton.disabled = true;
+              cancelButton.disabled = true;
+              try {
+                const moved = await mergeNicknameHistory(sourceNickname, currentNickname);
+                close();
+                await renderBattleList(1);
+                window.setTimeout(() => window.alert(dict.success(moved)), 220);
+              } catch (error) {
+                console.error("[Tanki Battle History] Error linking histories:", error);
+                isLinking = false;
+                confirmButton.disabled = false;
+                cancelButton.disabled = false;
+                window.alert(dict.failed);
+              }
+            });
+            modal.closeButton.focus();
+          } catch (error) {
+            console.error("[Tanki Battle History] Failed to open link history dialog:", error);
+            window.alert(state.lang === "RU" ? "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0441\u043F\u0438\u0441\u043E\u043A \u0438\u0441\u0442\u043E\u0440\u0438\u0439." : "Could not load the history list.");
+          }
+        };
         const clearHistoryDb = () => {
           showClearConfirmModal(async () => {
             try {
@@ -4580,6 +4730,7 @@
             const replacements = {
               title: String(dict.title ?? ""),
               clear: String(dict.clear ?? ""),
+              link: String(dict.link ?? ""),
               export: String(dict.export ?? ""),
               import: String(dict.import ?? ""),
               battles: String(dict.battles ?? "\u0411\u043E\u0451\u0432")
@@ -4597,6 +4748,7 @@
               closeHistoryOverlay(overlay);
             });
             document.getElementById("bh-clear-btn")?.addEventListener("click", clearHistoryDb);
+            document.getElementById("bh-link-btn")?.addEventListener("click", openLinkHistoryDialog);
             document.getElementById("bh-export-btn")?.addEventListener("click", exportHistoryData);
             document.getElementById("bh-import-btn")?.addEventListener("click", importHistoryData);
           } catch (error) {
@@ -4849,7 +5001,7 @@
                 e.stopPropagation();
                 return;
               }
-              if (document.getElementById("clear-confirm-overlay")) return;
+              if (document.getElementById("clear-confirm-overlay") || document.getElementById("link-history-overlay")) return;
               const overlay = document.querySelector(".custom-history-overlay");
               if (overlay && overlay.style.display === "flex") {
                 if (e.code === "Escape" || e.code === "KeyZ" || e.key.toLowerCase() === "z") {
