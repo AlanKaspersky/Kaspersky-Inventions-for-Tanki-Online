@@ -12,6 +12,11 @@
 
 This document describes the current source implementation, installation procedure, configuration, data storage, and maintenance workflow. The version displayed by the browser and the welcome window is obtained from the extension manifest.
 
+## Technical Documentation
+
+For implementation details, module logic, and workflows, see
+[Complete Technical Documentation](DOCUMENTATION.md).
+
 ## Table of Contents
 
 1. [Overview](#overview)
