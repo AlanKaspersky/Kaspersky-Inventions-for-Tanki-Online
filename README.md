@@ -827,4 +827,4 @@ For the in-game presentation of release information and credits, see [the welcom
 
 ---
 
-Documentation aligned with extension manifest version **2.7.2**, updated **October 2, 2026**.
+Documentation aligned with extension manifest version **2.7.3**, updated **October 2, 2026**.
