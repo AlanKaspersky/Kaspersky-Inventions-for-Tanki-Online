@@ -165,3 +165,36 @@ test('invalid record shapes are still rejected', () => {
         assert.equal(f.validateImportedBattle(value), null);
     }
 });
+
+test('DM detail merges self and opponents into one centered table without changing saved order or flags', async () => {
+    const f = fixture();
+    const self = battle().players[0];
+    const players = [
+        { ...self, name: 'Leader', score: 300, isMe: false, isEnemy: true },
+        { ...self, name: 'TestPlayer', score: 200 },
+        { ...self, name: 'Opponent', score: 100, isMe: false, isEnemy: true },
+    ];
+    const input = battle({ status: 'DM', mode: 'DM', players, top: '2' });
+    const before = JSON.stringify(input);
+    await f.renderDetailedMatch(input, f.t.RU, 'RU');
+    const html = f.content.detail.innerHTML;
+    assert.ok(html.includes('stats-wrapper solo-mode'));
+    const panels = [...html.matchAll(/<article class="([^"]*)">([\s\S]*?)<\/article>/g)];
+    assert.equal(panels.length, 2);
+    assert.ok(!panels[0][1].includes('bh-hidden'));
+    assert.ok(panels[1][1].includes('bh-hidden'));
+    assert.equal((panels[0][2].match(/<tr class=/g) || []).length, 3);
+    assert.equal((panels[0][2].match(/current-player/g) || []).length, 1);
+    assert.equal((panels[0][2].match(/class="enemy-player"/g) || []).length, 2);
+    assert.ok(panels[0][2].includes('3\u00a0игрока'));
+    assert.ok(panels[0][2].includes('Каждый сам за себя'));
+    assert.ok(panels[0][2].indexOf('Leader') < panels[0][2].indexOf('TestPlayer'));
+    assert.ok(panels[0][2].indexOf('TestPlayer') < panels[0][2].indexOf('Opponent'));
+    assert.ok(panels[1][2].includes('<tbody></tbody>'));
+    assert.equal(JSON.stringify(input), before);
+    // The same players still form separate teams in team modes.
+    await f.renderDetailedMatch(battle({ players }), f.t.EN, 'EN');
+    const teamHtml = f.content.detail.innerHTML;
+    assert.ok(!teamHtml.includes('stats-wrapper solo-mode'));
+    assert.ok(!teamHtml.includes('team-panel enemy-team bh-hidden'));
+});

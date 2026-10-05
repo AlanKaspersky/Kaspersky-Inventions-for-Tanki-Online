@@ -2,7 +2,7 @@
 
 ## Complete Implementation Reference
 
-**Extension version:** 2.8.0 (`manifest.json`)
+**Extension version:** 2.8.1 (`manifest.json`)
 
 **Documentation updated:** October 5, 2026
 
@@ -971,6 +971,8 @@ Cards use localized maps, sanitized map backgrounds, result classes, score/comba
 
 Details generate escaped player rows, sanitized rank images, GS classes, team counts, and result presentation. When both team scores are available outside DM, the hero uses team totals; otherwise it shows the player's score and K/D. Empty team groups are hidden.
 
+For DM, `buildDetailedMarkup()` places every player in the first table regardless of the stored `isEnemy` flag. The `solo-mode dm-mode` layout centers this table and hides the empty opponent panel. Other players receive `enemy-player` classes with red backgrounds; the current player retains the blue `current-player` highlight. Saved row order is preserved, and rendering does not rewrite stored player flags. Other modes retain their existing team grouping.
+
 The `current-player` class links presentation to nickname privacy. `backLabel` contains an actual `\u00A0` character in the dictionary; it is not an HTML entity string that would render as literal `&nbsp;` after escaping.
 
 Mode icons are implementation-owned constants. The AR icon currently uses a Tanki Wiki URL; these static constants are distinct from imported image fields validated by the Tanki-host sanitizer.
@@ -1393,7 +1395,7 @@ The build does not invoke regression tests automatically. Reload the extension a
 
 ### Dependency Metadata
 
-The current manifest, package, and lockfile package versions are 2.8.0. Dependency ranges still differ between the package manifest and lockfile root: `@types/chrome` `^0.0.260` versus `^0.3.0`, esbuild `^0.21.0` versus `^0.28.2`, and TypeScript `^5.4.0` versus `^7.0.2`.
+The current manifest, package, and lockfile package versions are 2.8.1. Dependency ranges still differ between the package manifest and lockfile root: `@types/chrome` `^0.0.260` versus `^0.3.0`, esbuild `^0.21.0` versus `^0.28.2`, and TypeScript `^5.4.0` versus `^7.0.2`.
 
 `npm ci` can reject an inconsistent lockfile, and `npm install` can rewrite it. Review/reconcile dependency declarations when establishing a reproducible installation. The project does not declare a Node `engines` field; tooling requires APIs such as `fs.cpSync` and the built-in Node test runner.
 
@@ -1412,7 +1414,7 @@ The current manifest, package, and lockfile package versions are 2.8.0. Dependen
 
 Configured directories are `dist`, `styles`, `assets`, `database`, `_locales`, and `templates`. Configured root files are `manifest.json` and `LICENSE.txt`.
 
-For 2.8.0, the folder and archive names are `release/Kaspersky's Inventions 2.8.0/` and `release/Kaspersky's Inventions 2.8.0.zip`. The ZIP contains that outer versioned folder.
+For 2.8.1, the folder and archive names are `release/Kaspersky's Inventions 2.8.1/` and `release/Kaspersky's Inventions 2.8.1.zip`. The ZIP contains that outer versioned folder.
 
 The script removes the existing same-version output before recreating it. It throws if no directory or no root file was copied, but does not require every configured input to exist. `build:zip` can package stale bundles or partial resources if invoked without appropriate preparation.
 
@@ -1514,4 +1516,4 @@ Project use and distribution are governed by [LICENSE.txt](LICENSE.txt), which c
 
 ---
 
-Technical documentation aligned with the source implementation and manifest version **2.8.0**, updated **October 5, 2026**.
+Technical documentation aligned with the source implementation and manifest version **2.8.1**, updated **October 5, 2026**.

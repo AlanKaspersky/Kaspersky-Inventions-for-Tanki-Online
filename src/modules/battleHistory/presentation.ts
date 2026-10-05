@@ -72,13 +72,14 @@ function formatBattleDate(timestamp: number) {
 }
 
 export function buildDetailedMarkup(b: BattleData, dict: HistoryDictionary, lang: string, template: string): string {
+    const { isWin, isDraw, isDM } = classifyResult(b);
     let myTeamHtml = '';
     let enemyTeamHtml = '';
     let myTeamCount = 0;
     let enemyTeamCount = 0;
 
     (b.players || []).forEach(p => {
-        const isMeClass = p.isMe ? 'current-player' : '';
+        const isMeClass = p.isMe ? 'current-player' : (isDM ? 'enemy-player' : '');
         const gsClass = getGsClass(p.gs);
 
         const gsFormatted = formatNumber(p.gs);
@@ -103,7 +104,7 @@ export function buildDetailedMarkup(b: BattleData, dict: HistoryDictionary, lang
                         <td class="stars">${escapeHistoryHtml(p.stars)}</td>
                     </tr>
                 `;
-        if (p.isEnemy) {
+        if (!isDM && p.isEnemy) {
             enemyTeamHtml += rowHtml;
             enemyTeamCount++;
         } else {
@@ -111,8 +112,6 @@ export function buildDetailedMarkup(b: BattleData, dict: HistoryDictionary, lang
             myTeamCount++;
         }
     });
-
-    const { isWin, isDraw, isDM } = classifyResult(b);
 
     let resultClass = isWin ? 'victory' : (isDraw ? 'draw' : 'defeat');
     let resultText = isWin ? dict.win : (isDraw ? dict.draw : dict.lose);
@@ -169,12 +168,12 @@ export function buildDetailedMarkup(b: BattleData, dict: HistoryDictionary, lang
         rightIconUrl,
         rightLabel,
         rightValue,
-        statsClass: enemyTeamCount === 0 ? 'solo-mode' : '',
+        statsClass: isDM ? 'solo-mode dm-mode' : enemyTeamCount === 0 ? 'solo-mode' : '',
         playerLabel: dict.player,
         gsLabel: dict.gs,
         scoreLabel: dict.score,
         myTeamClass: myTeamCount > 0 ? '' : 'bh-hidden',
-        myTeamTitle: isDM ? dict.player : dict.myTeam,
+        myTeamTitle: isDM ? dict.dm : dict.myTeam,
         myTeamCount: `${myTeamCount}\u00A0${playersWord(myTeamCount, lang)}`,
         myTeamRows: myTeamHtml,
         enemyTeamClass: enemyTeamCount > 0 ? '' : 'bh-hidden',

@@ -1,6 +1,6 @@
 {
   "name": "Kaspersky's Inventions",
-  "version": "2.8.0",
+  "version": "2.8.1",
   "description": "Browser extension for Kaspersky's Inventions",
   "private": true,
   "scripts": {
@@ -15,8 +15,8 @@
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
-    "@types/chrome": "^0.0.260",
-    "esbuild": "^0.21.0",
-    "typescript": "^5.4.0"
+    "@types/chrome": "^0.3.0",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2"
   }
 }

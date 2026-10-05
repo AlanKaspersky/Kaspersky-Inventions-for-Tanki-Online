@@ -1217,6 +1217,14 @@
     background: rgba(255, 83, 96, 0.05);
 }
 
+.bh-detailed-view .stats-wrapper.dm-mode .players-table tbody tr.enemy-player:nth-child(odd) {
+    background: rgba(255, 83, 96, 0.10);
+}
+
+.bh-detailed-view .stats-wrapper.dm-mode .players-table tbody tr.enemy-player:nth-child(even) {
+    background: rgba(255, 83, 96, 0.05);
+}
+
 .bh-detailed-view .toolbar .button {
     position: relative;
     height: 2.6em;

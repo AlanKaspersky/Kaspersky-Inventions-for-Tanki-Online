@@ -3836,12 +3836,13 @@
     };
   }
   function buildDetailedMarkup(b, dict, lang, template) {
+    const { isWin, isDraw, isDM } = classifyResult(b);
     let myTeamHtml = "";
     let enemyTeamHtml = "";
     let myTeamCount = 0;
     let enemyTeamCount = 0;
     (b.players || []).forEach((p) => {
-      const isMeClass = p.isMe ? "current-player" : "";
+      const isMeClass = p.isMe ? "current-player" : isDM ? "enemy-player" : "";
       const gsClass = getGsClass(p.gs);
       const gsFormatted = formatNumber(p.gs);
       const scoreFormatted = formatNumber(p.score);
@@ -3864,7 +3865,7 @@
                         <td class="stars">${escapeHistoryHtml(p.stars)}</td>
                     </tr>
                 `;
-      if (p.isEnemy) {
+      if (!isDM && p.isEnemy) {
         enemyTeamHtml += rowHtml;
         enemyTeamCount++;
       } else {
@@ -3872,7 +3873,6 @@
         myTeamCount++;
       }
     });
-    const { isWin, isDraw, isDM } = classifyResult(b);
     let resultClass = isWin ? "victory" : isDraw ? "draw" : "defeat";
     let resultText = isWin ? dict.win : isDraw ? dict.draw : dict.lose;
     if (isDM) {
@@ -3910,12 +3910,12 @@
       rightIconUrl,
       rightLabel,
       rightValue,
-      statsClass: enemyTeamCount === 0 ? "solo-mode" : "",
+      statsClass: isDM ? "solo-mode dm-mode" : enemyTeamCount === 0 ? "solo-mode" : "",
       playerLabel: dict.player,
       gsLabel: dict.gs,
       scoreLabel: dict.score,
       myTeamClass: myTeamCount > 0 ? "" : "bh-hidden",
-      myTeamTitle: isDM ? dict.player : dict.myTeam,
+      myTeamTitle: isDM ? dict.dm : dict.myTeam,
       myTeamCount: `${myTeamCount}\xA0${playersWord(myTeamCount, lang)}`,
       myTeamRows: myTeamHtml,
       enemyTeamClass: enemyTeamCount > 0 ? "" : "bh-hidden",

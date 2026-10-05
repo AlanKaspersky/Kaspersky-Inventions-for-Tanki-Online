@@ -2,7 +2,7 @@
 
 ## Complete Documentation
 
-**Extension version:** 2.8.0 (`manifest.json`)
+**Extension version:** 2.8.1 (`manifest.json`)
 
 **Documentation updated:** October 5, 2026
 
@@ -426,6 +426,8 @@ The list shows records for the current nickname, newest first, with 15 records p
 
 The detailed view provides captured player statistics, team grouping where applicable, and the current player's equipment icons. Missing optional data uses placeholders. Dates follow the browser's locale and time zone.
 
+Deathmatch (DM) results show all players in one centered table: opponents use red row backgrounds and the current player is highlighted in blue. Saved player order is preserved. Team modes retain separate team tables.
+
 The **All battles** button returns from details to the list. Back navigation also supports Escape, Z, and the mouse back button. These controls apply to the history view; an active confirmation or account-linking dialog handles its own interaction.
 
 History integrates with the native settings window when the expected structure is available and can provide its own header otherwise. Its observer releases the view when the native window closes or navigation moves elsewhere. Async rendering checks the active account and current view before displaying results, preventing a completed older request from replacing a newer view.
@@ -716,7 +718,7 @@ After rebuilding, reload the unpacked extension and then reload the game page. A
 
 ### Version metadata
 
-The current `manifest.json` version is **2.8.0**; `package.json` and the lockfile package version remain **2.8.0**. The browser, welcome window, and release-folder naming use the manifest version. These metadata values should be aligned as part of release maintenance.
+The current `manifest.json` version is **2.8.1**; `package.json` and the lockfile package version remain **2.8.1**. The browser, welcome window, and release-folder naming use the manifest version. These metadata values should be aligned as part of release maintenance.
 
 ### Release output
 
@@ -726,11 +728,11 @@ For the current manifest version, output is:
 
 ```text
 release/
-├── Kaspersky's Inventions 2.8.0/
+├── Kaspersky's Inventions 2.8.1/
 │   ├── manifest.json
 │   ├── LICENSE.txt
 │   └── ... runtime directories
-└── Kaspersky's Inventions 2.8.0.zip
+└── Kaspersky's Inventions 2.8.1.zip
 ```
 
 The archive contains the versioned outer folder. Extract it and select the folder containing `manifest.json` when loading the extension. Source files, tests, `node_modules`, and this README are not included by the current packaging script.
@@ -852,4 +854,4 @@ For the in-game presentation of release information and credits, see [the welcom
 
 ---
 
-Documentation aligned with extension manifest version **2.8.0*, updated **October 5, 2026**.
+Documentation aligned with extension manifest version **2.8.1*, updated **October 5, 2026**.

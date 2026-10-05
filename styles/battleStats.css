@@ -1,5 +1,12 @@
+.BattleTabStatisticComponentStyle-containerInsideTeams,
+.BattleTabStatisticComponentStyle-containerInsideResults,
+.BattleTabStatisticComponentStyle-container table,
+.BattleTabStatisticComponentStyle-container table > thead,
+.BattleTabStatisticComponentStyle-container table > tbody {
+    background: rgb(21, 21, 21) !important;
+}
+
 div:is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults) {
-    background-color: rgb(21 21 21 / 92%) !important;
     box-shadow: rgb(255 255 255) 0em 0em 0px 0.3em !important;
     backdrop-filter: blur(6px) !important;
 }
@@ -71,12 +78,15 @@ div.BattleTabStatisticComponentStyle-containerInsideResults {
     min-width: unset !important;
 }
 
-.BattleTabStatisticComponentStyle-container table>thead {
+.BattleTabStatisticComponentStyle-container table>thead,
+.BattleTabStatisticComponentStyle-container .TableComponentStyle-thead {
     display: block !important;
     width: 100% !important;
     position: sticky !important;
     top: 0 !important;
     z-index: 10 !important;
+    background: rgb(21, 21, 21) !important;
+    isolation: isolate !important;
 }
 
 .BattleTabStatisticComponentStyle-container table>thead>tr {
@@ -137,6 +147,8 @@ div.BattleTabStatisticComponentStyle-containerInsideResults {
 .BattleTabStatisticComponentStyle-container table>tbody {
     display: block !important;
     width: 100% !important;
+    position: relative !important;
+    z-index: 0 !important;
 }
 
 .BattleTabStatisticComponentStyle-container table>tbody>tr {
@@ -584,33 +596,4 @@ body.kasp-tab-expanded .BattleTabStatisticComponentStyle-resistanceModuleCell > 
 
 .BattleTabStatisticComponentStyle-container table tbody tr > :nth-child(2), .BattleTabStatisticComponentStyle-resistanceModuleCell {
     padding-left: 0.4em !important;
-}
-
-.-flexStartAlignStartColumn:has(.BattleKillBoardComponentStyle-col1WithOutStar) {
-    align-items: center !important;
-}
-
-.-flexStartAlignStartColumn:has(.BattleKillBoardComponentStyle-col1WithOutStar) > .-blockCenter {
-    width: 100% !important;
-    max-width: 100% !important;
-    display: flex !important;
-    justify-content: center !important;
-    align-self: stretch !important;
-}
-
-.-flexStartAlignStartColumn:has(.BattleKillBoardComponentStyle-col1WithOutStar)
-    .BattleKillBoardComponentStyle-tableContainer {
-    width: 50em !important;
-    max-width: 95vw !important;
-    margin: 0 auto !important;
-    align-self: center !important;
-}
-
-.-flexStartAlignStartColumn:has(.BattleKillBoardComponentStyle-col1WithOutStar)
-    .BattleKillBoardComponentStyle-tableContainer > table > thead,
-.-flexStartAlignStartColumn:has(.BattleKillBoardComponentStyle-col1WithOutStar)
-    .BattleKillBoardComponentStyle-tableContainer > table > tbody {
-    width: 50em !important;
-    max-width: 50em !important;
-    box-sizing: border-box !important;
 }
