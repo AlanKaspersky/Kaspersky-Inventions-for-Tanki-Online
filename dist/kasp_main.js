@@ -112,7 +112,8 @@
         "k_paints",
         "k_hideCurrency",
         "k_hideNicknameXP",
-        "k_history"
+        "k_history",
+        "k_overdrive_timer"
       ];
       settingsCache = /* @__PURE__ */ new Map();
       for (const key of SETTINGS_KEYS) {
@@ -183,6 +184,8 @@
         screens: {
           loadingBackground: ".ApplicationLoaderComponentStyle-container.-background",
           battleCanvas: ".BattleComponentStyle-canvasContainer",
+          tankPreview: ".GarageComponentStyle-tankPreview",
+          visibleTankPreview: ".GarageComponentStyle-tankPreview.TankPreviewComponentStyle-visible",
           garage: ".GarageCommonStyle-positionContent, .GarageItemComponent-container, .ContainerInfoComponentStyle-lootBoxContainer, .GarageMainScreenStyle-blockParameters, .SkinsAndAlterationsStyle-SkinsVerticalComponent",
           lootBox: ".ContainerInfoComponentStyle-lootBoxContainer",
           shop: ".NewShopCommonComponentStyle-commonContainer",
@@ -454,7 +457,8 @@
           { id: "k_paints", label: { RU: "\u0423\u043C\u043D\u044B\u0439 \u043F\u043E\u0438\u0441\u043A \u043A\u0440\u0430\u0441\u043E\u043A", EN: "Smart paint search" }, default: false },
           { id: "k_hideCurrency", label: { RU: "\u0421\u043A\u0440\u044B\u0442\u044C \u0432\u0430\u043B\u044E\u0442\u0443", EN: "Hide currency" }, default: false },
           { id: "k_hideNicknameXP", label: { RU: "\u0421\u043A\u0440\u044B\u0442\u044C \u043D\u0438\u043A\u043D\u0435\u0439\u043C \u0438 \u043E\u043F\u044B\u0442", EN: "Hide nickname and score" }, default: false },
-          { id: "k_history", label: { RU: "\u0412\u0435\u0441\u0442\u0438 \u0438\u0441\u0442\u043E\u0440\u0438\u044E \u0431\u0438\u0442\u0432", EN: "Keep a history of battles" }, default: false }
+          { id: "k_history", label: { RU: "\u0412\u0435\u0441\u0442\u0438 \u0438\u0441\u0442\u043E\u0440\u0438\u044E \u0431\u0438\u0442\u0432", EN: "Keep a history of battles" }, default: false },
+          { id: "k_overdrive_timer", label: { RU: "\u0422\u0430\u0439\u043C\u0435\u0440 \u043A\u043E\u0440\u043E\u0431\u043A\u0438 \u043E\u0432\u0435\u0440\u0434\u0440\u0430\u0439\u0432\u0430", EN: "Overdrive box timer" }, default: false }
         ];
         return {
           inject: () => {
@@ -5402,6 +5406,199 @@
     }
   });
 
+  // src/core/bonusPickup.ts
+  function readBonusPosition(value) {
+    if (!value || typeof value !== "object") return null;
+    try {
+      const point = value;
+      const coordinates = "x" in point ? [point.x, point.y, point.z] : [point.f20_1, point.g20_1, point.h20_1];
+      if (!coordinates.every((coordinate) => typeof coordinate === "number" && Number.isFinite(coordinate))) return null;
+      const [x, y, z] = coordinates;
+      return { x, y, z };
+    } catch {
+      return null;
+    }
+  }
+  var OVERDRIVE_BOX_MODEL, BONUS_PICKUP_MESSAGE;
+  var init_bonusPickup = __esm({
+    "src/core/bonusPickup.ts"() {
+      OVERDRIVE_BOX_MODEL = "1647333199409";
+      BONUS_PICKUP_MESSAGE = "kasp:bonus-pickup";
+    }
+  });
+
+  // src/modules/overdriveTimer.ts
+  function createOverdriveCountdown(now = Date.now, boxModel = OVERDRIVE_BOX_MODEL) {
+    let readyAt = null;
+    return {
+      pickup(model) {
+        if (model !== boxModel) return false;
+        readyAt = now() + OVERDRIVE_COOLDOWN_MS;
+        return true;
+      },
+      reset() {
+        readyAt = null;
+      },
+      remaining() {
+        return readyAt === null ? null : Math.max(0, Math.ceil((readyAt - now()) / 1e3));
+      }
+    };
+  }
+  function createOverdriveLocations(now = Date.now) {
+    const timers = [0, 1].map((index) => ({
+      id: index === 0 ? "kasp-overdrive-timer" : "kasp-overdrive-timer-secondary",
+      alwaysVisible: index === 0,
+      position: null,
+      countdown: createOverdriveCountdown(now)
+    }));
+    return {
+      timers,
+      pickup(model, rawPosition) {
+        if (model !== OVERDRIVE_BOX_MODEL) return false;
+        const position = readBonusPosition(rawPosition);
+        if (!position) {
+          if (timers.every((timer) => timer.position)) return false;
+          return timers[0].countdown.pickup(model);
+        }
+        const nearest = timers.filter((timer) => timer.position).map((timer) => ({
+          timer,
+          distance: Math.hypot(
+            position.x - timer.position.x,
+            position.y - timer.position.y,
+            position.z - timer.position.z
+          )
+        })).sort((a, b) => a.distance - b.distance)[0];
+        const selected = nearest && nearest.distance <= OVERDRIVE_POINT_RADIUS ? nearest.timer : timers.find((timer) => !timer.position);
+        if (!selected) return false;
+        if (!selected.position) selected.position = position;
+        return selected.countdown.pickup(model);
+      },
+      reset() {
+        for (const timer of timers) {
+          timer.position = null;
+          timer.countdown.reset();
+        }
+      }
+    };
+  }
+  var OVERDRIVE_COOLDOWN_MS, OVERDRIVE_POINT_RADIUS, overdriveTimer;
+  var init_overdriveTimer = __esm({
+    "src/modules/overdriveTimer.ts"() {
+      init_bonusPickup();
+      init_gameDOM();
+      init_state();
+      init_utils();
+      OVERDRIVE_COOLDOWN_MS = 85e3;
+      OVERDRIVE_POINT_RADIUS = 250;
+      overdriveTimer = (() => {
+        const locations = createOverdriveLocations();
+        const timers = locations.timers.map((location) => ({
+          location,
+          panel: null,
+          time: null
+        }));
+        let initialized = false;
+        let battleCanvas = null;
+        let sectionOpen = false;
+        let resumeUntil = 0;
+        function reset() {
+          locations.reset();
+        }
+        function isSectionVisible() {
+          if (document.querySelector(gameDOM.screens.visibleTankPreview)) return true;
+          return Array.from(document.querySelectorAll(gameDOM.common.container)).some((container) => {
+            if (!container.getClientRects().length) return false;
+            const style = getComputedStyle(container);
+            return style.display !== "none" && style.visibility !== "hidden" && style.visibility !== "collapse" && style.opacity !== "0";
+          });
+        }
+        function syncBattle() {
+          const current = document.querySelector(gameDOM.screens.battleCanvas);
+          if (document.querySelector(gameDOM.results.status) || document.querySelector(gameDOM.play.mainMenu)) {
+            battleCanvas = null;
+            sectionOpen = false;
+            return false;
+          }
+          if (battleCanvas && isSectionVisible()) {
+            sectionOpen = true;
+            resumeUntil = Date.now() + 1e3;
+            return true;
+          }
+          if (sectionOpen && !current && Date.now() < resumeUntil) return true;
+          if (current !== battleCanvas) {
+            battleCanvas = current;
+            if (!sectionOpen || !current) reset();
+          }
+          sectionOpen = false;
+          return !!current;
+        }
+        function render() {
+          const inBattle = syncBattle();
+          if (!inBattle) reset();
+          const enabled = utils.getSetting("k_overdrive_timer", false);
+          const sectionVisible = isSectionVisible();
+          for (const timer of timers) renderTimer(timer, inBattle && enabled && !sectionVisible);
+        }
+        function renderTimer(timer, visible) {
+          const seconds = timer.location.countdown.remaining();
+          if (!visible || !timer.location.alwaysVisible && seconds === null) {
+            timer.panel?.remove();
+            timer.panel = timer.time = null;
+            return;
+          }
+          if (!document.body) return;
+          if (!timer.panel?.isConnected) {
+            timer.panel = document.createElement("div");
+            timer.panel.id = timer.location.id;
+            timer.panel.className = "kasp-overdrive-timer";
+            timer.time = document.createElement("strong");
+            timer.panel.append(timer.time);
+            document.body.appendChild(timer.panel);
+          }
+          const { panel, time } = timer;
+          const ru = state.lang === "RU";
+          const value = seconds === null ? "0:00" : `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+          if (time.textContent !== value) time.textContent = value;
+          panel.classList.toggle("kasp-overdrive-soon", seconds !== null && seconds > 0 && seconds <= 10);
+          panel.classList.toggle("kasp-overdrive-ready", seconds === 0);
+          const hint = ru ? "85 \u0441\u0435\u043A\u0443\u043D\u0434 \u043F\u043E\u0441\u043B\u0435 \u043F\u043E\u0434\u0431\u043E\u0440\u0430 \u043A\u043E\u0440\u043E\u0431\u043A\u0438. \u0412\u0440\u0435\u043C\u044F \u043F\u043E\u044F\u0432\u043B\u0435\u043D\u0438\u044F \u043F\u0440\u0438\u0431\u043B\u0438\u0437\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0435." : "85 seconds after a box pickup. Respawn time is an estimate.";
+          if (panel.title !== hint) panel.title = hint;
+        }
+        function setup() {
+          if (initialized) return;
+          initialized = true;
+          window.addEventListener("message", (event) => {
+            if (event.source !== window || !utils.getSetting("k_overdrive_timer", false)) return;
+            const message = event.data;
+            if (!message || typeof message !== "object") return;
+            const { type, detail } = message;
+            if (type !== BONUS_PICKUP_MESSAGE || !syncBattle()) return;
+            const pickup = typeof detail === "string" ? { model: detail, position: null } : detail && typeof detail === "object" ? detail : null;
+            if (!pickup || typeof pickup.model !== "string") return;
+            if (locations.pickup(pickup.model, pickup.position)) render();
+          });
+          document.addEventListener("kasp:battle:id", () => {
+            reset();
+            render();
+          });
+          const previewObserver = new MutationObserver((records) => {
+            const selector = `${gameDOM.screens.tankPreview}, ${gameDOM.common.container}`;
+            if (records.some((record) => record.type === "childList" ? [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)].some((node) => node.matches?.(selector) || node.querySelector?.(selector)) : record.target.matches(selector))) render();
+          });
+          previewObserver.observe(document.documentElement, {
+            childList: true,
+            attributes: true,
+            attributeFilter: ["class", "style", "hidden"],
+            subtree: true
+          });
+          window.setInterval(render, 250);
+          render();
+        }
+        return { setup, sync: render };
+      })();
+    }
+  });
+
   // src/modules/index.ts
   var modules;
   var init_modules = __esm({
@@ -5422,6 +5619,7 @@
       init_zeroResists();
       init_equipmentTracker();
       init_battleHistory();
+      init_overdriveTimer();
       modules = {
         customPaints,
         augmentSpecs,
@@ -5438,7 +5636,8 @@
         weaponAugmentTracker,
         zeroResists,
         equipmentTracker,
-        battleHistory
+        battleHistory,
+        overdriveTimer
       };
     }
   });
@@ -5462,6 +5661,7 @@
       lastFullRefresh = performance.now();
       refreshScheduled = false;
       modules.changeCounter.onTick();
+      modules.overdriveTimer.sync();
       modules.welcomeModal();
       modules.hideNickname();
       modules.hideCurrency();
@@ -5618,6 +5818,7 @@
     };
     const boot = () => {
       state.lang = utils.getLang();
+      modules.overdriveTimer.setup();
       masterObserver.observe(document.documentElement, { childList: true, subtree: true });
       window.setInterval(() => modules.customGarageSkins(), 250);
       const langObserver = new MutationObserver(() => {

@@ -25,6 +25,7 @@ export function startBoot() {
         refreshScheduled = false;
 
         modules.changeCounter.onTick();
+        modules.overdriveTimer.sync();
 
         modules.welcomeModal();
         modules.hideNickname();
@@ -213,6 +214,7 @@ export function startBoot() {
 
     const boot = () => {
         state.lang = utils.getLang();
+        modules.overdriveTimer.setup();
         masterObserver.observe(document.documentElement, { childList: true, subtree: true });
         window.setInterval(() => modules.customGarageSkins(), 250);
 

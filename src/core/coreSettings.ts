@@ -24,7 +24,8 @@ export const coreSettings = (() => {
             { id: 'k_paints', label: { RU: 'Умный поиск красок', EN: 'Smart paint search' }, default: false },
             { id: 'k_hideCurrency', label: { RU: 'Скрыть валюту', EN: 'Hide currency' }, default: false },
             { id: 'k_hideNicknameXP', label: { RU: 'Скрыть никнейм и опыт', EN: 'Hide nickname and score' }, default: false },
-            { id: 'k_history', label: { RU: 'Вести историю битв', EN: 'Keep a history of battles' }, default: false }
+            { id: 'k_history', label: { RU: 'Вести историю битв', EN: 'Keep a history of battles' }, default: false },
+            { id: 'k_overdrive_timer', label: { RU: 'Таймер коробки овердрайва', EN: 'Overdrive box timer' }, default: false }
         ];
 
         return {

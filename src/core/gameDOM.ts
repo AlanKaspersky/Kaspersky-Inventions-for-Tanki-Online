@@ -19,6 +19,8 @@ export const gameDOM = {
     screens: {
         loadingBackground: ".ApplicationLoaderComponentStyle-container.-background",
         battleCanvas: ".BattleComponentStyle-canvasContainer",
+        tankPreview: ".GarageComponentStyle-tankPreview",
+        visibleTankPreview: ".GarageComponentStyle-tankPreview.TankPreviewComponentStyle-visible",
         garage: ".GarageCommonStyle-positionContent, .GarageItemComponent-container, .ContainerInfoComponentStyle-lootBoxContainer, .GarageMainScreenStyle-blockParameters, .SkinsAndAlterationsStyle-SkinsVerticalComponent",
         lootBox: ".ContainerInfoComponentStyle-lootBoxContainer",
         shop: ".NewShopCommonComponentStyle-commonContainer",

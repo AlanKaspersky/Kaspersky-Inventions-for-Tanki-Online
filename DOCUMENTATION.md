@@ -2,7 +2,7 @@
 
 ## Complete Implementation Reference
 
-**Extension version:** 2.7.3.1 (`manifest.json`)
+**Extension version:** 2.8.0 (`manifest.json`)
 
 **Documentation updated:** October 5, 2026
 
@@ -361,6 +361,7 @@ Source: [src/core/coreSettings.ts](src/core/coreSettings.ts).
 | `k_hideCurrency` | Currency masking | `false` |
 | `k_hideNicknameXP` | Nickname/XP masking | `false` |
 | `k_history` | Battle History | `false` |
+| `k_overdrive_timer` | Overdrive box timer | `false` |
 
 Injection records the current values in `initialSettingsState`. Clicking an accepted label or switch changes its active class, persists the value, and computes `needsReload` by comparing all final values against that snapshot. Reverting all changes cancels the reload requirement.
 
@@ -653,6 +654,52 @@ Initialization starts a permanent animation-frame `renderLoop()` and installs po
 `createBar()` creates the fixed overlay lazily. `renderLoop()` displays progress as elapsed time divided by duration and hides it at completion, without pointer lock, or when there is no duration. It schedules the next frame even when hidden.
 
 The model measures input timing, not confirmed projectile firing, reload telemetry, or server state. Cache-only startup, changed equipment, unsupported tables, and missed releases can affect accuracy.
+
+### Overdrive Box Timer
+
+Sources: [src/modules/overdriveTimer.ts](src/modules/overdriveTimer.ts), [src/core/bonusPickup.ts](src/core/bonusPickup.ts), and [styles/overdriveTimer.css](styles/overdriveTimer.css).
+
+The module is registered as `modules.overdriveTimer`. Boot calls `setup()` once and `sync()` during normal heavy passes. A 250 ms interval maintains the display even when the battle DOM is otherwise idle. The setting `k_overdrive_timer` defaults to `false` and uses the existing settings panel, boolean cache, and settings-close reload workflow.
+
+#### Pickup Bridge and Bundle Transformation
+
+The MAIN-world injector installs `window.__kaspBonusRegister` and `window.__kaspBonusPickup` before processing the game bundle. `patchBonusPickups()` recognizes the game's `"bonus pickup"` path and wraps the bonus expression with the pickup callback. The callback returns the identical input object, preserving the original game arguments. A second insertion registers bonus data in a constructor associated with `onBonusCollision`. Unrecognized patterns remain unchanged.
+
+`createBonusPickupBridge()` resolves model identifiers from bounded game-object traversal (up to three levels, twenty fields per level, and eight root fields). A visited set prevents cycles, and inaccessible properties are ignored. Two-number game identifier objects are converted through their string representation. Registration associates sound IDs with box model IDs only while that association remains unambiguous. The observed sound `118254` is shared by multiple bonus types; registering different models for one sound permanently marks that sound association ambiguous for the page session.
+
+The call insertion uses `__kaspBonusPrepare(resource, soundField)`. It evaluates the original sound property once and returns the unchanged argument. Model traversal excludes that property to avoid evaluating its getter again. The resolved resource model is placed on a short-lived stack keyed by the actual sound argument. The method observer consumes the matching stack entry in `__kaspBonusContext(sound, position)`, normalizes the second argument with `readBonusPosition()`, and emits the paired model and coordinates. Nested calls sharing one sound use separate stack entries; unused entries are removed at the next microtask to prevent aborted calls from contaminating later events. An unpaired context does not emit a guessed model.
+
+`readBonusPosition()` recognizes finite numeric `x/y/z` or the observed game vector fields `f20_1/g20_1/h20_1`. The MAIN-world injector posts `{ type: 'kasp:bonus-pickup', detail: { model, position } }` through `window.postMessage`. A missing or invalid position becomes `null`. The legacy `__kaspBonusPickup()` helper remains available, but normal patched calls use the paired argument path.
+
+`OVERDRIVE_BOX_MODEL` identifies overdrive model `1647333199409`. Model `1647333199408` is a speed boost and does not start an overdrive countdown. The model identifier and bundle signatures depend on the game implementation. They should be checked after game updates; failure to match leaves the module waiting for a recognized pickup. No server respawn timestamp is read.
+
+#### Optional Instance Diagnostics
+
+`window.__kaspBonusDebug` exposes `enable(value = true)`, `clear()`, and `export()`. Enabling persists the `kasp_bonus_debug` boolean in page local storage; reload before joining a battle to capture its initial registrations. Disabling stops collection and snapshot traversal. Records are kept in memory, capped at 200, and exported as JSON; page reload clears the journal. Clear does not disable collection. The debug switch is separate from the timer's display setting.
+
+The `hooks` record reports whether the pickup call and argument observer were inserted, and how many registration insertions matched. A saved hook status is also recorded when debugging is enabled after bundle processing. The registration insertion now forwards the candidate instance ID and the next three constructor arguments alongside the bonus model data. A `register` record contains resolved model/sound IDs, an instance ID snapshot, and a position only when all three coordinate arguments are finite numbers. The exact meaning of those constructor arguments requires verification against a real battle journal.
+
+`pickup-model` records capture the resource model prepared for the timer message. The pickup method invokes `__kaspBonusContext(first, second)` after its caller has evaluated the arguments; `pickup-context` records contain the paired model, a `paired` flag, normalized position, and bounded snapshots of both arguments. Original call arguments are not evaluated twice and are not changed. A registration alone does not assign a pickup to a spawn location. Invalid registration coordinates are additionally recorded as bounded `coordinateArguments` snapshots for investigation.
+
+`snapshotBonusArgument()` limits depth to three levels, twelve fields per object, and an object traversal budget of 120. It detects cycles, summarizes long IDs, truncates strings, and isolates inaccessible properties. Console output contains JSON snapshots rather than live resource objects. Exceptions in diagnostic output or the inserted context observer cannot interrupt original pickup playback. Collect appearances and pickups at both locations, then use `copy(window.__kaspBonusDebug.export())` in the game page console to export data for comparison. Location assignment currently uses the paired pickup vector, not the registration instance ID.
+
+#### Countdown State and Battle Lifecycle
+
+`createOverdriveCountdown(now, boxModel)` owns a nullable deadline for one model, defaulting to the overdrive model. A matching `pickup(model)` sets it to `now() + OVERDRIVE_COOLDOWN_MS`, where the interval is exactly 85,000 ms. Other models leave it unchanged. `remaining()` returns `null` before a pickup, then the nonnegative ceiling of the deadline difference in seconds. Delayed browser ticks therefore do not accumulate drift. `reset()` clears the deadline. At zero the module waits for a subsequent pickup instead of automatically starting another cycle.
+
+`createOverdriveLocations(now)` owns two independent countdown entries and two initially null positions. The first valid pickup position is assigned to the first entry. Subsequent positions are compared by three-dimensional Euclidean distance with existing anchors; the nearest anchor within `OVERDRIVE_POINT_RADIUS` (250 game-world units) is reused. Otherwise the remaining empty entry becomes the second point. Anchors are learned per battle and never hardcoded from a map or diagnostic dump. A third distant point is ignored. With no position available, the primary timer can act as a fallback while fewer than two positions are known; once both are known, unlocated events cannot safely choose a timer and are ignored. Reset clears deadlines and anchors.
+
+The message listener requires `event.source === window`, the expected message type, a string model identifier, an enabled setting, and a mounted battle canvas. It processes pickups reported by the client regardless of the collecting player. This page-to-extension bridge is observational and is not an authenticated source of server state.
+
+`syncBattle()` tracks the canvas element through `gameDOM.screens.battleCanvas`. Removing or replacing that element outside an in-battle section clears the countdown. While the native tank preview has `TankPreviewComponentStyle-visible` or a visible `.-container` section is open, countdowns and learned positions are preserved even if the canvas is temporarily unmounted. A resumed section can remount a new canvas without resetting deadlines; up to one second is allowed for the return transition. Native lobby and result screens end the battle session. A mounted result screen suppresses the panel and clears the deadline. The existing `kasp:battle:id` event also resets it when delivered. Entering a battle does not start a speculative initial timer. State is kept in memory and does not survive a page reload.
+
+#### Presentation
+
+`render()` creates `#kasp-overdrive-timer` only during a battle with the setting enabled. It displays only numeric `minutes:seconds`, using `0:00` before the first pickup and after completion. The background is yellow during the normal countdown, reddish during the final ten seconds, and green at zero; the text remains dark in every state, with a 0.2-second background-color transition. Text and title updates are conditional to avoid repeatedly waking the master DOM observer. Disabled or non-battle states remove the panel. The stylesheet uses `top: 1em`, `left: 60%`, medium-weight game fonts, and dimensions in `em`, with pointer events disabled, so it does not intercept battle controls.
+
+The displayed deadline estimates a box's next appearance from a pickup; it does not confirm that a box is currently on the map. There is no manual restart key, sound alert, paid-access gate, or persistent deadline.
+
+`renderTimer()` uses the `.kasp-overdrive-timer` styling. The primary panel is always shown during an enabled battle at `left: 60%`. `#kasp-overdrive-timer-secondary` appears at `left: 38%` after the second learned point is picked up, then remains visible until battle reset or disabling the feature. Both panels use `z-index: 1` and represent the same overdrive model at different positions; speed boosts remain excluded. Both panels retain their left anchors. Completion keeps `0:00` and changes only the background to green. An observer watches section insertion/removal and class, style, or hidden attribute changes: a visible native preview or `.-container` hides both panels without clearing deadlines, and returning to battle restores their current values. Container visibility is checked through layout rectangles and computed display, visibility, and opacity. Selectors are defined in `gameDOM.screens.tankPreview`, `gameDOM.screens.visibleTankPreview`, and `gameDOM.common.container`. The proximity tolerance is heuristic and requires verification on real maps, especially when spawn points are close together or pickup vectors vary significantly.
 
 ### Equipment Change Indicators
 
@@ -1346,7 +1393,7 @@ The build does not invoke regression tests automatically. Reload the extension a
 
 ### Dependency Metadata
 
-The current manifest, package, and lockfile package versions are 2.7.3. Dependency ranges still differ between the package manifest and lockfile root: `@types/chrome` `^0.0.260` versus `^0.3.0`, esbuild `^0.21.0` versus `^0.28.2`, and TypeScript `^5.4.0` versus `^7.0.2`.
+The current manifest, package, and lockfile package versions are 2.8.0. Dependency ranges still differ between the package manifest and lockfile root: `@types/chrome` `^0.0.260` versus `^0.3.0`, esbuild `^0.21.0` versus `^0.28.2`, and TypeScript `^5.4.0` versus `^7.0.2`.
 
 `npm ci` can reject an inconsistent lockfile, and `npm install` can rewrite it. Review/reconcile dependency declarations when establishing a reproducible installation. The project does not declare a Node `engines` field; tooling requires APIs such as `fs.cpSync` and the built-in Node test runner.
 
@@ -1365,7 +1412,7 @@ The current manifest, package, and lockfile package versions are 2.7.3. Dependen
 
 Configured directories are `dist`, `styles`, `assets`, `database`, `_locales`, and `templates`. Configured root files are `manifest.json` and `LICENSE.txt`.
 
-For 2.7.3, the folder and archive names are `release/Kaspersky's Inventions 2.7.3/` and `release/Kaspersky's Inventions 2.7.3.zip`. The ZIP contains that outer versioned folder.
+For 2.8.0, the folder and archive names are `release/Kaspersky's Inventions 2.8.0/` and `release/Kaspersky's Inventions 2.8.0.zip`. The ZIP contains that outer versioned folder.
 
 The script removes the existing same-version output before recreating it. It throws if no directory or no root file was copied, but does not require every configured input to exist. `build:zip` can package stale bundles or partial resources if invoked without appropriate preparation.
 
@@ -1467,4 +1514,4 @@ Project use and distribution are governed by [LICENSE.txt](LICENSE.txt), which c
 
 ---
 
-Technical documentation aligned with the source implementation and manifest version **2.7.3.1**, updated **October 5, 2026**.
+Technical documentation aligned with the source implementation and manifest version **2.8.0**, updated **October 5, 2026**.

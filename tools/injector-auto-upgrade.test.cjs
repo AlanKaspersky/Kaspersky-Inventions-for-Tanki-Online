@@ -10,6 +10,8 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 const compile = source => transformSync(source, { loader: 'ts', format: 'cjs' }).code;
 const gameDOMModule = { exports: {} };
 vm.runInNewContext(compile(read('src/core/gameDOM.ts')), { module: gameDOMModule });
+const bonusPickupModule = { exports: {} };
+vm.runInNewContext(compile(read('src/core/bonusPickup.ts')), { module: bonusPickupModule });
 const tick = () => new Promise(resolve => setImmediate(resolve));
 
 function injectorFixture(fetch) {
@@ -40,6 +42,10 @@ function injectorFixture(fetch) {
     const observers = [];
     const head = { appendChild(script) { appended.push(script); } };
     const context = {
+        require: id => {
+            if (id === './core/bonusPickup') return bonusPickupModule.exports;
+            throw new Error(`Unexpected injector import: ${id}`);
+        },
         window: { postMessage() {} },
         document: { head, documentElement: head, createElement: () => {
             const script = new Script();

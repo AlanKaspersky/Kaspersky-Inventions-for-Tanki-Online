@@ -2,7 +2,7 @@
 
 ## Complete Documentation
 
-**Extension version:** 2.7.3.1 (`manifest.json`)
+**Extension version:** 2.8.0 (`manifest.json`)
 
 **Documentation updated:** October 5, 2026
 
@@ -37,6 +37,7 @@ For implementation details, module logic, and workflows, see
    - [Custom Garage Skins Module](#custom-garage-skins-module)
    - [Weapon Augment Tracker Module](#weapon-augment-tracker-module)
    - [Change Counter Module](#change-counter-module)
+   - [Overdrive Timer Module](#overdrive-timer-module)
    - [Zero Resists Module](#zero-resists-module)
    - [Garage Buttons Module](#garage-buttons-module)
    - [Equipment Tracker Module](#equipment-tracker-module)
@@ -179,6 +180,7 @@ Nickname privacy also updates its root CSS state immediately when switched on or
 | `k_hideCurrency` | Hide currency | Disabled | Supported currency displays outside battle |
 | `k_hideNicknameXP` | Hide nickname and score | Disabled | Nickname, XP, self-player fields, and client UID |
 | `k_history` | Keep a history of battles | Disabled | Result capture and Battle History |
+| `k_overdrive_timer` | Overdrive box timer | Disabled | Automatic 85-second box countdown during battles |
 
 Keys are case-sensitive and stored as the strings `true` or `false`. The general `k_` naming convention does not mean keys can be freely renamed; the exact keys above are used by the implementation.
 
@@ -194,6 +196,24 @@ Language detection follows this priority:
 Russian and English are the supported interface languages. Map and paint localization also use bundled reference data. Language changes trigger update scheduling and can rebuild settings; reload the page if an already-created interface retains an older label.
 
 ## Module Documentation
+
+### Overdrive Timer Module
+
+**Setting:** `k_overdrive_timer` (disabled by default).
+
+Enable **Overdrive box timer** in the KASPERSKY settings tab. A compact yellow indicator shows only the timer near the top of the battle screen (`top: 1em; left: 60%`). It displays `0:00` until an overdrive box pickup is detected, then counts down from `1:25`. Each subsequent pickup restarts the full 85-second countdown. The background transitions over 0.2 seconds, turns reddish during the final ten seconds and green at zero, while the indicator stays at `0:00`.
+
+The indicator tracks overdrive model `1647333199409`. Model `1647333199408` is a speed boost and is ignored by this timer. The first observed pickup position is assigned to the indicator at `left: 60%`. When an overdrive pickup occurs at a distinct position, a second indicator appears at `left: 38%` with its own 85-second countdown. Picking up a box near either learned position restarts only that position's timer. Both indicators use the same presentation with `z-index: 1` and reset on battle changes. Both indicators retain their left anchors; completion keeps the numeric `0:00` display. Opening an in-battle section hides both indicators while their countdowns continue. A visible native tank preview (`TankPreviewComponentStyle-visible`) or a visible `.-container` section hides both indicators.
+
+Positions are learned afresh in each battle, so there is no table of map-specific coordinates. Pickup positions within 250 game-world units of a learned position are grouped together to accommodate small shifts. This is a proximity heuristic based on the client's pickup vector; points closer than that tolerance or unusually large position changes may be grouped incorrectly. At most two positions are tracked. Once both positions are known, a pickup without valid coordinates or at a third distant position leaves both deadlines unchanged. Debugging can help adjust the tolerance if a map's behavior differs.
+
+To collect diagnostics with a build containing the current injector, open the game page console, run `window.__kaspBonusDebug.enable()`, and reload the page before entering the battle. After observing box appearances and pickups at both locations, run `copy(window.__kaspBonusDebug.export())` to copy the journal. Disable collection with `window.__kaspBonusDebug.enable(false)`. Debug mode persists across reloads until disabled; up to 200 records are retained in memory per page. This journal observes the client; it does not establish a server respawn deadline.
+
+Detection uses a hook in the game bundle's bonus pickup path, rather than screen-image recognition. The hook identifies the overdrive bonus model and sends a message to the extension module. The countdown does not depend on which player picked up the box; any matching pickup reported by the client restarts it. Other bonus types do not affect it.
+
+The timer estimates the next appearance from the configured game interval. It does not receive a server respawn deadline or establish whether an uncollected box is currently present. Entering a battle alone does not start a countdown. Leaving the battle or replacing its canvas outside an in-battle section clears both countdowns and learned positions; deadlines are not saved across page reloads. The second indicator appears only after a pickup at its position has been observed.
+
+Game updates may change the internal pickup code or bonus model identifier. If the hook cannot recognize a pickup, the timer remains at `0:00`; it does not invent a deadline. The overlay does not capture mouse input or add a gameplay hotkey.
 
 ### Core Settings Module
 
@@ -696,7 +716,7 @@ After rebuilding, reload the unpacked extension and then reload the game page. A
 
 ### Version metadata
 
-The current `manifest.json` version is **2.7.2**; `package.json` and the lockfile package version remain **2.7.1**. The browser, welcome window, and release-folder naming use the manifest version. These metadata values should be aligned as part of release maintenance.
+The current `manifest.json` version is **2.8.0**; `package.json` and the lockfile package version remain **2.8.0**. The browser, welcome window, and release-folder naming use the manifest version. These metadata values should be aligned as part of release maintenance.
 
 ### Release output
 
@@ -706,11 +726,11 @@ For the current manifest version, output is:
 
 ```text
 release/
-├── Kaspersky's Inventions 2.7.2/
+├── Kaspersky's Inventions 2.8.0/
 │   ├── manifest.json
 │   ├── LICENSE.txt
 │   └── ... runtime directories
-└── Kaspersky's Inventions 2.7.2.zip
+└── Kaspersky's Inventions 2.8.0.zip
 ```
 
 The archive contains the versioned outer folder. Extract it and select the folder containing `manifest.json` when loading the extension. Source files, tests, `node_modules`, and this README are not included by the current packaging script.
@@ -832,4 +852,4 @@ For the in-game presentation of release information and credits, see [the welcom
 
 ---
 
-Documentation aligned with extension manifest version **2.7.3.1*, updated **October 5, 2026**.
+Documentation aligned with extension manifest version **2.8.0*, updated **October 5, 2026**.

@@ -1,5 +1,30 @@
+import { BONUS_PICKUP_MESSAGE, createBonusDiagnostics, createBonusPickupBridge, patchBonusPickups } from './core/bonusPickup';
+
 (function (): void {
     'use strict';
+
+    const debugKey = 'kasp_bonus_debug';
+    let debugEnabled = false;
+    try { debugEnabled = localStorage.getItem(debugKey) === 'true'; } catch { }
+    const diagnostics = createBonusDiagnostics(record => console.log('[KASP Bonus]', JSON.stringify(record)), debugEnabled);
+    let hookStatus: Parameters<typeof diagnostics.record>[0] | null = null;
+    window.__kaspBonusDebug = {
+        enable(value = true): void {
+            debugEnabled = value;
+            diagnostics.enable(value);
+            try { localStorage.setItem(debugKey, String(value)); } catch { }
+            if (value && hookStatus) diagnostics.record(hookStatus);
+        },
+        clear: diagnostics.clear,
+        export: diagnostics.export,
+    };
+    const bonusBridge = createBonusPickupBridge((model, position) => {
+        window.postMessage({ type: BONUS_PICKUP_MESSAGE, detail: { model, position: position || null } }, '*');
+    }, diagnostics.record, () => debugEnabled);
+    window.__kaspBonusPickup = bonusBridge.pickup;
+    window.__kaspBonusPrepare = bonusBridge.prepare;
+    window.__kaspBonusRegister = bonusBridge.register;
+    window.__kaspBonusContext = bonusBridge.context;
 
     const KNOWN_MODES = new Set<string>([
         'DM', 'TDM', 'CTF', 'CP', 'SGE',
@@ -131,6 +156,10 @@
                             return res.text();
                         })
                         .then(code => {
+                            code = patchBonusPickups(code, status => {
+                                hookStatus = status;
+                                diagnostics.record(status);
+                            });
                             const match = /return"TankUserActionLog\(\w+="\+(?:\w+\()?this\.(\w+)/.exec(code);
                             if (match) {
                                 const propName = match[1];

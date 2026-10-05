@@ -8,7 +8,7 @@ const ROOT = path.resolve(__dirname, '..');
 const OUT_DIR = path.resolve(ROOT, 'release');
 
 const DIRS = ['dist', 'styles', 'assets', 'database', '_locales', 'templates'];
-const FILES = ['manifest.json', 'LICENSE.txt'];
+const FILES = ['manifest.json', 'LICENSE.txt', 'README.md', 'DOCUMENTATION.md'];
 
 function log(msg) {
     process.stdout.write(`[build] ${msg}\n`);
