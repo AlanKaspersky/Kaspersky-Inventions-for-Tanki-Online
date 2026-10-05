@@ -158,6 +158,184 @@
     }
   });
 
+  // src/core/gameDOM.ts
+  var gameDOM;
+  var init_gameDOM = __esm({
+    "src/core/gameDOM.ts"() {
+      gameDOM = {
+        common: {
+          appContainer: "#app-root > .-container",
+          container: ".-container",
+          backgroundDiv: 'div[class*="-backgroundImageContain"]',
+          background: '[class*="backgroundImageContain"]',
+          icon: '[class*="-backgroundImage"]',
+          hotkey: ".-commonBlockForHotKey",
+          hotkeyFragment: '[class*="-commonBlockForHotKey"]',
+          flexDiv: 'div[class*="-displayFlex"]',
+          boldSpan: "span.-bold"
+        },
+        account: {
+          privateHeaderFields: ".UserInfoContainerStyle-userNameRank, .UserInfoContainerStyle-progressValue",
+          clientParameter: ".ClientInfoComponentStyle-parameterText",
+          currencyIcon: ".HeaderCommonStyle-icons",
+          currencyValues: ".UserScoreComponentStyle-coinBlock span, .HeaderCommonStyle-icons span"
+        },
+        screens: {
+          loadingBackground: ".ApplicationLoaderComponentStyle-container.-background",
+          battleCanvas: ".BattleComponentStyle-canvasContainer",
+          garage: ".GarageCommonStyle-positionContent, .GarageItemComponent-container, .ContainerInfoComponentStyle-lootBoxContainer, .GarageMainScreenStyle-blockParameters, .SkinsAndAlterationsStyle-SkinsVerticalComponent",
+          lootBox: ".ContainerInfoComponentStyle-lootBoxContainer",
+          shop: ".NewShopCommonComponentStyle-commonContainer",
+          invitations: ".InvitationWindowsComponentStyle-centerBlock",
+          progress: ".UserProgressComponentStyle-progressContainer"
+        },
+        dialogs: {
+          container: ".DialogContainerComponentStyle-container",
+          confirmation: ".DialogContainerComponentStyle-enterButton.DialogContainerComponentStyle-getRubyButton",
+          contents: ".DialogContainerComponentStyle-container div",
+          cancelKey: ".DialogContainerComponentStyle-keyButton",
+          rubyImage: 'img[src*="rubyBlack"], img[src*="ruby"]'
+        },
+        navigation: {
+          garageCategory: ".MenuComponentStyle-mainMenuItem",
+          activeGarageCategory: ".MenuComponentStyle-mainMenuItem.-activeMenu",
+          mountedBlock: '[class*="MountedItemsStyle-commonBlock"]',
+          equipmentItem: '[class*="Item"], [class*="item"], [class*="Equipment"], [class*="equipment"]',
+          backControls: '.BreadcrumbsComponentStyle-backButton, .IconStyle-iconBackArrow, [class*="backButton" i]',
+          header: ".BreadcrumbsComponentStyle-headerContainer",
+          title: ".BreadcrumbsComponentStyle-rootTitle > span",
+          back: ".BreadcrumbsComponentStyle-backButton",
+          primaryItem: ".PrimaryMenuItemComponentStyle-itemCommonLi.PrimaryMenuItemComponentStyle-menuItemContainer",
+          settingsIcon: ".PrimaryMenuItemComponentStyle-itemLiOption",
+          primaryItemName: ".PrimaryMenuItemComponentStyle-itemName",
+          settingsContent: ".SettingsComponentStyle-container",
+          footerList: ".FooterComponentStyle-footer ul"
+        },
+        garage: {
+          item: ".garage-item",
+          itemImage: ".GarageItemComponentStyle-mainImg",
+          itemName: ".ItemDescriptionComponentStyle-nameItem",
+          itemDescription: ".GarageItemComponentStyle-descriptionDevice span",
+          weaponName: ".ItemDescriptionComponentStyle-nameItem span, .GarageItemComponentStyle-descriptionDevice span",
+          upgradeTitles: ".ItemDescriptionComponentStyle-nameItem span, .GarageItemComponentStyle-descriptionDevice span, .MountedItemsStyle-tankPartNameContainer h1",
+          deviceIcon: ".DeviceButtonComponentStyle-deviceIcon",
+          priceButton: ".SquarePriceButtonComponentStyle-commonBlockButton",
+          maxPriceTitle: ".SquarePriceButtonComponentStyle-commonBlockButton h2",
+          actionContainer: ".TanksPartBaseComponentStyle-buttonsContainer",
+          mountContainer: ".TanksPartBaseComponentStyle-marginTop",
+          established: ".TanksPartBaseComponentStyle-marginTop .-buttonEstablished",
+          coinIcon: ".GarageCommonStyle-iconCoinSmall",
+          actionButton: ".GarageCommonStyle-bigActionButton",
+          styledActions: ".GarageCommonStyle-bigActionButton, .AlterationButtonStyle-commonButton",
+          weaponActions: ".GarageCommonStyle-bigActionButton, .SquarePriceButtonComponentStyle-commonBlockButton",
+          suppliesActions: ".GarageSuppliesComponentStyle-containerButtons",
+          mountedEquipment: ".MountedItemsStyle-commonBlockForTurretsHulls",
+          mountedPreview: ".MountedItemsStyle-itemPreview",
+          submenu: ".GarageCommonStyle-subMenu"
+        },
+        augments: {
+          cardImage: "img.SkinCellStyle-iconCell",
+          rewardImageBlock: ".RewardCardComponentStyle-imageBlock",
+          possibleRewards: ".ContainersComponentStyle-possibleRewardsBlock"
+        },
+        skins: {
+          cards: ".SkinsAndAlterationsStyle-SkinsVerticalComponent",
+          cardTitle: ".SkinCellStyle-nameDevices",
+          cardIcon: ".SkinCellStyle-iconCell",
+          equippedIcon: ".SkinCellStyle-mountIcon"
+        },
+        paints: {
+          caption: ".PaintsCollectionComponentStyle-captionPaint",
+          categoryInfo: ".PaintsCollectionComponentStyle-commonBlockFOrInfoAndCaptionCategory",
+          items: ".ListItemsComponentStyle-itemsContainer"
+        },
+        friends: {
+          lists: ".FriendListComponentStyle-scrollCommunity, .InvitationWindowsComponentStyle-usersScroll",
+          card: ".FriendListComponentStyle-blockList",
+          invitationCard: ".InvitationWindowsComponentStyle-usersScroll > div > div",
+          online: ".FriendListComponentStyle-greenTextOnline",
+          offline: ".FriendListComponentStyle-offline",
+          contextMenu: ".ContextMenuStyle-menu",
+          contextPlayer: ".ContextMenuStyle-menuItemRank"
+        },
+        play: {
+          disabled: ".MainScreenComponentStyle-disabledButtonPlay",
+          cards: '.BattlePickComponentStyle-commonStyleBlock, .blockCard, [class*="commonStyleBlock"]',
+          container: ".MainScreenComponentStyle-playButtonContainer",
+          untreatedContainer: '.MainScreenComponentStyle-playButtonContainer:not([data-overridden="true"])',
+          button: ".MainScreenComponentStyle-buttonPlay",
+          mainMenu: ".MainScreenComponentStyle-blockMainMenu"
+        },
+        trophies: {
+          rewardImage: '[class*="rewardsContainer"] [class*="-backgroundImageContain"]',
+          cards: ".MainQuestComponentStyle-cardPlayCommon, .TableMainQuestComponentStyle-commonTableMainQuest, .MainQuestComponentStyle-cardPlay",
+          favorite: ".PaintsCollectionComponentStyle-favoriteIconContainer",
+          resultText: ".BattleResultQuestProgressComponentStyle-text",
+          resultCards: ".BattleResultQuestProgressComponentStyle-container",
+          lobbyAnchor: ".BattlePassLobbyComponentStyle-menuBattlePass"
+        },
+        statistics: {
+          container: ".BattleTabStatisticComponentStyle-container",
+          nickname: ".BattleTabStatisticComponentStyle-nicknameCell",
+          nicknameText: ".BattleTabStatisticComponentStyle-nicknameCell span",
+          equipment: ".BattleTabStatisticComponentStyle-commonBlock",
+          selectedRow: ".BattleTabStatisticComponentStyle-selectedRowBackGround",
+          deviceCell: ".BattleTabStatisticComponentStyle-deviceCell",
+          hullCell: ".BattleTabStatisticComponentStyle-defenceCell",
+          teams: ".BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults",
+          headerRows: ":is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults) table thead tr",
+          resistanceCell: ".BattleTabStatisticComponentStyle-resistanceModuleCell",
+          options: ".BattleTabStatisticComponentStyle-commonContainerIconOptions"
+        },
+        results: {
+          selfRow: "#selfUserBg",
+          columnPrefix: ".BattleKillBoardComponentStyle-col",
+          playerName: '[class*="BattleKillBoardComponentStyle-col1"] span.-whiteSpaceNoWrap',
+          nicknameCell: '.BattleKillBoardComponentStyle-col1, [class*="BattleKillBoardComponentStyle-col1"]',
+          rankIcon: ".BattleKillBoardComponentStyle-rankIcon",
+          gearScore: ".BattleKillBoardComponentStyle-col2 span",
+          score: ".BattleKillBoardComponentStyle-col3",
+          kills: ".BattleKillBoardComponentStyle-col4",
+          deaths: ".BattleKillBoardComponentStyle-col5",
+          kd: ".BattleKillBoardComponentStyle-col6",
+          stars: ".BattleKillBoardComponentStyle-col8",
+          body: ".TableComponentStyle-tBody",
+          mapName: ".BattleResultHeaderComponentStyle-mapName",
+          status: ".BattleResultHeaderComponentStyle-resultText",
+          statusFallback: '[class*="descriptionVictory"], [class*="descriptionDefeat"], [class*="descriptionDraw"]',
+          firstTeamScore: ".BattleResultHeaderComponentStyle-firstTeamAccount .BattleResultHeaderComponentStyle-teamAccount",
+          secondTeamScore: ".BattleResultHeaderComponentStyle-twoTeamAccount .BattleResultHeaderComponentStyle-teamAccount"
+        },
+        classes: {
+          wideGarageButton: "-widthHeightButtonGarage",
+          activeMenu: "-activeMenu",
+          upgradeTransition: "GarageCommonStyle-animatedBlurredRightBlock",
+          upgradeButton: "SquarePriceButtonComponentStyle-commonBlockButton -commonButtonUpdate -flexCenterAlignCenter -displayFlex -alignCenter",
+          footerEntry: "FooterComponentStyle-containerMenu",
+          friendList: "FriendListComponentStyle-scrollCommunity",
+          disabledPlay: "MainScreenComponentStyle-disabledButtonPlay",
+          gridTrophy: "MainQuestComponentStyle-cardPlay",
+          favorite: "PaintsCollectionComponentStyle-favoriteIconContainer",
+          defenceLabel: "BattleTabStatisticComponentStyle-defenceLabel",
+          flexCenter: "-flexCenterAlignCenter",
+          mask: "-maskImageContain -maskImage",
+          regular: "-regular",
+          normal: "-normal",
+          flexStart: "-flexStart"
+        },
+        ids: {
+          selfRow: "selfUserBg",
+          spacer: "rowSpace",
+          teamDivider: "teamRowSpace"
+        },
+        fragments: {
+          nicknameText: "whiteSpaceNoWrap",
+          header: "header"
+        }
+      };
+    }
+  });
+
   // src/core/accountIdentity.ts
   function parseAccountIdentity(text) {
     const displayName = text.trim();
@@ -196,10 +374,10 @@
     if (root.style.getPropertyValue("--kasp-hidden-label") !== label) {
       root.style.setProperty("--kasp-hidden-label", label);
     }
-    document.querySelectorAll(".UserInfoContainerStyle-userNameRank, .UserInfoContainerStyle-progressValue").forEach((element) => {
+    document.querySelectorAll(gameDOM.account.privateHeaderFields).forEach((element) => {
       setTooltip(element, element.textContent?.trim() || "");
     });
-    document.querySelectorAll(".ClientInfoComponentStyle-parameterText").forEach((element) => {
+    document.querySelectorAll(gameDOM.account.clientParameter).forEach((element) => {
       const uid = /^UID:\s*(.*)$/i.exec(element.textContent?.trim() || "");
       if (uid) {
         if (element.hasAttribute("data-kasp-public-parameter")) element.removeAttribute("data-kasp-public-parameter");
@@ -214,7 +392,7 @@
       }
     });
     const own = getAccountIdentity()?.nickname;
-    document.querySelectorAll(".BattleTabStatisticComponentStyle-nicknameCell span").forEach((element) => {
+    document.querySelectorAll(gameDOM.statistics.nicknameText).forEach((element) => {
       const isSelf = !!own && parseAccountIdentity(element.textContent || "")?.nickname === own;
       if (isSelf && !element.hasAttribute("data-kasp-private-nickname")) {
         element.setAttribute("data-kasp-private-nickname", "");
@@ -239,6 +417,7 @@
   var privacyObserver;
   var init_hideNickname = __esm({
     "src/modules/hideNickname.ts"() {
+      init_gameDOM();
       init_state();
       init_utils();
       init_accountIdentity();
@@ -484,6 +663,7 @@
   var customPaints;
   var init_customPaints = __esm({
     "src/modules/customPaints.ts"() {
+      init_gameDOM();
       init_state();
       init_utils();
       init_dataLoader();
@@ -499,14 +679,14 @@
           if (!input) return;
           const rawQuery = input.value.trim();
           const queryWords = normalizeText(rawQuery).split(/\s+/).filter((word) => word.length > 0);
-          const items = document.querySelectorAll(".kasp-paints-container .garage-item");
+          const items = document.querySelectorAll(`.kasp-paints-container ${gameDOM.garage.item}`);
           items.forEach((itemEl) => {
             const item = itemEl;
             if (queryWords.length === 0) {
               item.style.display = "";
               return;
             }
-            const imgElement = item.querySelector(".GarageItemComponentStyle-mainImg");
+            const imgElement = item.querySelector(gameDOM.garage.itemImage);
             if (!imgElement) return;
             const src = imgElement.getAttribute("src");
             if (!src) return;
@@ -521,16 +701,16 @@
           const columns = document.querySelectorAll(".kasp-paints-container > div");
           columns.forEach((colEl) => {
             const col = colEl;
-            const visibleItems = Array.from(col.querySelectorAll(".garage-item")).filter((i) => i.style.display !== "none");
+            const visibleItems = Array.from(col.querySelectorAll(gameDOM.garage.item)).filter((i) => i.style.display !== "none");
             col.style.display = visibleItems.length === 0 ? "none" : "";
           });
         }
         function addSearchInput() {
-          const captionContainer = document.querySelector(".PaintsCollectionComponentStyle-captionPaint");
+          const captionContainer = document.querySelector(gameDOM.paints.caption);
           if (!captionContainer) return;
-          const parentBlock = captionContainer.closest(".PaintsCollectionComponentStyle-commonBlockFOrInfoAndCaptionCategory");
+          const parentBlock = captionContainer.closest(gameDOM.paints.categoryInfo);
           if (!parentBlock || parentBlock.querySelector(".kasp-search-wrapper")) return;
-          const itemsContainer = document.querySelector(".ListItemsComponentStyle-itemsContainer");
+          const itemsContainer = document.querySelector(gameDOM.paints.items);
           if (itemsContainer) {
             itemsContainer.classList.add("kasp-paints-container");
           }
@@ -543,7 +723,7 @@
           const input = document.createElement("input");
           input.type = "text";
           input.placeholder = state.lang === "RU" ? "\u041D\u0430\u0439\u0442\u0438" : "Search";
-          input.className = "-normal";
+          input.className = gameDOM.classes.normal;
           input.addEventListener("input", applySearch);
           const searchIcon = document.createElement("div");
           searchIcon.className = "kasp-search-icon";
@@ -573,6 +753,7 @@
   var augmentSpecs;
   var init_augmentSpecs = __esm({
     "src/modules/augmentSpecs.ts"() {
+      init_gameDOM();
       init_state();
       init_utils();
       init_dataLoader();
@@ -682,15 +863,15 @@
               card.appendChild(btn);
             }
           };
-          const cardsImgs = document.querySelectorAll("img.SkinCellStyle-iconCell");
+          const cardsImgs = document.querySelectorAll(gameDOM.augments.cardImage);
           cardsImgs.forEach((img) => {
             applyButtonToCard(img.parentElement, img.src);
           });
-          const containerImageBlocks = document.querySelectorAll(".RewardCardComponentStyle-imageBlock");
+          const containerImageBlocks = document.querySelectorAll(gameDOM.augments.rewardImageBlock);
           containerImageBlocks.forEach((block) => {
-            if (block.closest(".ContainersComponentStyle-possibleRewardsBlock")) return;
+            if (block.closest(gameDOM.augments.possibleRewards)) return;
             const card = block.parentElement;
-            const imageDiv = block.querySelector('div[class*="-backgroundImageContain"]');
+            const imageDiv = block.querySelector(gameDOM.common.backgroundDiv);
             if (!imageDiv || !card) return;
             const bgImage = window.getComputedStyle(imageDiv).backgroundImage;
             const match = bgImage.match(/url\(['"]?(.*?)['"]?\)/);
@@ -703,7 +884,7 @@
         function updateLiveStats() {
           if (!utils.getSetting("k_augments", false)) return;
           const activeValues = /* @__PURE__ */ new Set();
-          const deviceImg = document.querySelector(".DeviceButtonComponentStyle-deviceIcon");
+          const deviceImg = document.querySelector(gameDOM.garage.deviceIcon);
           const deviceData = deviceImg ? DataLoader.getDevice(deviceImg.src) : void 0;
           const allSpans = deviceData?.modifiers ? Array.from(document.querySelectorAll("span")).filter((s) => !s.closest(".custom-live-stat")) : [];
           allSpans.forEach((nameSpan) => {
@@ -770,7 +951,7 @@
             updateQueued = false;
             if (!utils.getSetting("k_augments", false)) return;
             const isGarage = state.currentScreen === "garage";
-            const isContainers = !!document.querySelector(".ContainerInfoComponentStyle-lootBoxContainer");
+            const isContainers = !!document.querySelector(gameDOM.screens.lootBox);
             if (!isGarage && !isContainers) return;
             injectButtons();
             updateLiveStats();
@@ -797,8 +978,8 @@
             }, true);
           }
           const isGarage = state.currentScreen === "garage";
-          const isContainers = !!document.querySelector(".ContainerInfoComponentStyle-lootBoxContainer");
-          const loadingScreen = document.querySelector(".ApplicationLoaderComponentStyle-container.-background");
+          const isContainers = !!document.querySelector(gameDOM.screens.lootBox);
+          const loadingScreen = document.querySelector(gameDOM.screens.loadingBackground);
           if (loadingScreen || !isGarage && !isContainers) {
             const hoverTooltip = document.getElementById("kasp-specs-tooltip");
             if (hoverTooltip) hoverTooltip.style.display = "none";
@@ -815,6 +996,7 @@
   var customPlayButton;
   var init_customPlayButton = __esm({
     "src/modules/customPlayButton.ts"() {
+      init_gameDOM();
       init_state();
       init_utils();
       customPlayButton = (() => {
@@ -850,7 +1032,7 @@
         ];
         const modesButtonNames = ["\u0420\u0415\u0416\u0418\u041C\u042B", "MODES"];
         function isSearching() {
-          return !!document.querySelector(".MainScreenComponentStyle-disabledButtonPlay");
+          return !!document.querySelector(gameDOM.play.disabled);
         }
         function simulateClick(el) {
           if (!el) return false;
@@ -864,7 +1046,7 @@
           return names.some((n) => upper === n.toUpperCase());
         }
         function clickSpecificCard(modeNames) {
-          const allCards = document.querySelectorAll('.BattlePickComponentStyle-commonStyleBlock, .blockCard, [class*="commonStyleBlock"]');
+          const allCards = document.querySelectorAll(gameDOM.play.cards);
           for (const card of Array.from(allCards)) {
             const h2 = card.querySelector("h2");
             if (h2 && matchText(h2.textContent || "", modeNames)) return simulateClick(card);
@@ -894,8 +1076,8 @@
         function startAutoQueue(modeData) {
           if (isSearching()) return;
           targetMode = modeData;
-          const playButton = document.querySelector(".MainScreenComponentStyle-playButtonContainer");
-          if (playButton && !playButton.classList.contains("MainScreenComponentStyle-disabledButtonPlay")) {
+          const playButton = document.querySelector(gameDOM.play.container);
+          if (playButton && !playButton.classList.contains(gameDOM.classes.disabledPlay)) {
             autoQueueState = 1;
             document.body.classList.add("kasp-autoqueue-active");
             if (failSafeTimer) window.clearTimeout(failSafeTimer);
@@ -915,7 +1097,7 @@
           if (!utils.getSetting("k_ext_btn", false)) return;
           if (isSearching()) return;
           if (autoQueueState !== 0) return;
-          if (document.querySelector(".DialogContainerComponentStyle-container")) return;
+          if (document.querySelector(gameDOM.dialogs.container)) return;
           let handled = false;
           if (e.code === "Space") {
             startAutoQueue(quickBattleMode);
@@ -946,10 +1128,10 @@
           if (!force && searching === lastSearchingState) return;
           lastSearchingState = searching;
           const currentLang = state.lang;
-          const playButton = document.querySelector(".MainScreenComponentStyle-playButtonContainer");
+          const playButton = document.querySelector(gameDOM.play.container);
           if (playButton) {
             const bgLayer = playButton.querySelector(".custom-main-bg-layer");
-            const innerBtn = playButton.querySelector(".MainScreenComponentStyle-buttonPlay") || playButton;
+            const innerBtn = playButton.querySelector(gameDOM.play.button) || playButton;
             let customText = innerBtn.querySelector(".custom-main-text");
             let lockDiv = innerBtn.querySelector(".main-lock-icon");
             if (searching) {
@@ -1086,8 +1268,8 @@
           if (playButton.parentElement) playButton.parentElement.appendChild(quickWrapper);
         }
         function applyStyles(playButton) {
-          const container = playButton.closest('div[class*="-displayFlex"]') || playButton.parentElement?.parentElement;
-          const mainMenu = document.querySelector(".MainScreenComponentStyle-blockMainMenu");
+          const container = playButton.closest(gameDOM.common.flexDiv) || playButton.parentElement?.parentElement;
+          const mainMenu = document.querySelector(gameDOM.play.mainMenu);
           if (container) {
             container.style.marginLeft = "5em";
             container.style.height = "auto";
@@ -1112,7 +1294,7 @@
             playButton.addEventListener("mouseleave", () => {
               if (!isSearching()) playButton.style.boxShadow = "rgba(255, 255, 255, 0.25) 0 0 0 0.0625em";
             });
-            const innerBtn = playButton.querySelector(".MainScreenComponentStyle-buttonPlay") || playButton;
+            const innerBtn = playButton.querySelector(gameDOM.play.button) || playButton;
             innerBtn.style.backgroundImage = "none";
             innerBtn.classList.add("custom-inner-btn");
             let bgLayer = innerBtn.querySelector(".custom-main-bg-layer");
@@ -1166,7 +1348,7 @@
               if (autoQueueState !== 0) processAutoQueue();
             }, 50);
           }
-          const playButton = document.querySelector('.MainScreenComponentStyle-playButtonContainer:not([data-overridden="true"])');
+          const playButton = document.querySelector(gameDOM.play.untreatedContainer);
           if (playButton) {
             buttonsCreated = false;
             applyStyles(playButton);
@@ -1183,6 +1365,7 @@
   var customFriends;
   var init_customFriends = __esm({
     "src/modules/customFriends.ts"() {
+      init_gameDOM();
       init_state();
       init_utils();
       init_accountIdentity();
@@ -1229,7 +1412,7 @@
         };
         const updateCardBadge = (el, isFriendsList) => {
           const cardText = el.innerText || "";
-          const span = Array.from(el.querySelectorAll("span")).find((s) => s.className.includes("whiteSpaceNoWrap"));
+          const span = Array.from(el.querySelectorAll("span")).find((s) => s.className.includes(gameDOM.fragments.nicknameText));
           const nickText = span ? span.innerText.trim() : cardText.split("\n")[0].trim();
           const clanTag = getMyClanTag();
           const isClan = Boolean(clanTag && cardText.includes(clanTag));
@@ -1260,8 +1443,8 @@
         const applyFilter = (scrollBlock, filterType) => {
           const clanTag = getMyClanTag();
           const cats = getCustomCategories();
-          const isFriendsList = scrollBlock.classList.contains("FriendListComponentStyle-scrollCommunity");
-          const itemSelector = isFriendsList ? ".FriendListComponentStyle-blockList" : ".InvitationWindowsComponentStyle-usersScroll > div > div";
+          const isFriendsList = scrollBlock.classList.contains(gameDOM.classes.friendList);
+          const itemSelector = isFriendsList ? gameDOM.friends.card : gameDOM.friends.invitationCard;
           const items = scrollBlock.querySelectorAll(itemSelector);
           items.forEach((node) => {
             const el = node;
@@ -1272,9 +1455,9 @@
             }
             const cardText = el.innerText || "";
             const textLower = cardText.toLowerCase();
-            const isOnline = isFriendsList ? !!el.querySelector(".FriendListComponentStyle-greenTextOnline") : textLower.includes("\u0432 \u0441\u0435\u0442\u0438") || textLower.includes("online");
-            const isOffline = isFriendsList ? !!el.querySelector(".FriendListComponentStyle-offline") : !isOnline;
-            const span = Array.from(el.querySelectorAll("span")).find((s) => s.className.includes("whiteSpaceNoWrap"));
+            const isOnline = isFriendsList ? !!el.querySelector(gameDOM.friends.online) : textLower.includes("\u0432 \u0441\u0435\u0442\u0438") || textLower.includes("online");
+            const isOffline = isFriendsList ? !!el.querySelector(gameDOM.friends.offline) : !isOnline;
+            const span = Array.from(el.querySelectorAll("span")).find((s) => s.className.includes(gameDOM.fragments.nicknameText));
             const nickText = span ? span.innerText.trim() : cardText.split("\n")[0].trim();
             let match = true;
             if (filterType === "online") match = isOnline;
@@ -1289,9 +1472,9 @@
         const injectCategoriesMenu = (menu) => {
           if (menu.dataset.customCategoriesInjected === "true") return;
           menu.dataset.customCategoriesInjected = "true";
-          const rankItem = menu.querySelector(".ContextMenuStyle-menuItemRank");
+          const rankItem = menu.querySelector(gameDOM.friends.contextPlayer);
           if (!rankItem) return;
-          const span = Array.from(rankItem.querySelectorAll("span")).find((s) => s.className.includes("whiteSpaceNoWrap"));
+          const span = Array.from(rankItem.querySelectorAll("span")).find((s) => s.className.includes(gameDOM.fragments.nicknameText));
           if (!span) return;
           const nickname = span.innerText.trim();
           const row = document.createElement("div");
@@ -1331,7 +1514,7 @@
         const setupSidebar = (scrollBlock) => {
           if (scrollBlock.dataset.sidebarInjected === "true") return;
           scrollBlock.dataset.sidebarInjected = "true";
-          const isFriends = scrollBlock.classList.contains("FriendListComponentStyle-scrollCommunity");
+          const isFriends = scrollBlock.classList.contains(gameDOM.classes.friendList);
           if (isFriends) {
             const wrapper = document.createElement("div");
             wrapper.className = "custom-friends-wrapper";
@@ -1388,17 +1571,17 @@
           if (!initialized) {
             initialized = true;
           }
-          const scrollBlocks = document.querySelectorAll(".FriendListComponentStyle-scrollCommunity, .InvitationWindowsComponentStyle-usersScroll");
+          const scrollBlocks = document.querySelectorAll(gameDOM.friends.lists);
           scrollBlocks.forEach((node) => {
             const scrollBlock = node;
             if (scrollBlock.dataset.sidebarInjected !== "true") setupSidebar(scrollBlock);
-            const isFriendsList = scrollBlock.classList.contains("FriendListComponentStyle-scrollCommunity");
-            const itemSelector = isFriendsList ? ".FriendListComponentStyle-blockList" : ".InvitationWindowsComponentStyle-usersScroll > div > div";
+            const isFriendsList = scrollBlock.classList.contains(gameDOM.classes.friendList);
+            const itemSelector = isFriendsList ? gameDOM.friends.card : gameDOM.friends.invitationCard;
             scrollBlock.querySelectorAll(itemSelector).forEach((el) => {
               updateCardBadge(el, isFriendsList);
             });
           });
-          const contextMenus = document.querySelectorAll(".ContextMenuStyle-menu");
+          const contextMenus = document.querySelectorAll(gameDOM.friends.contextMenu);
           contextMenus.forEach((node) => {
             const menu = node;
             if (menu.dataset.customCategoriesInjected !== "true") injectCategoriesMenu(menu);
@@ -1412,6 +1595,7 @@
   var garageButtons;
   var init_garageButtons = __esm({
     "src/modules/garageButtons.ts"() {
+      init_gameDOM();
       init_state();
       garageButtons = /* @__PURE__ */ (() => {
         const ICONS = {
@@ -1421,7 +1605,7 @@
         };
         const processedSigs = /* @__PURE__ */ new WeakMap();
         function getActiveTabCategory() {
-          const activeMenu = document.querySelector(".MenuComponentStyle-mainMenuItem.-activeMenu");
+          const activeMenu = document.querySelector(gameDOM.navigation.activeGarageCategory);
           if (!activeMenu)
             return "default";
           const txt = activeMenu.textContent?.toLowerCase() || "";
@@ -1436,20 +1620,20 @@
         function computeButtonSig(btn, category) {
           const text = (btn.textContent || "").trim().slice(0, 80);
           const kidCount = btn.children.length;
-          const hasIcon = btn.querySelector('[class*="-backgroundImage"]') ? 1 : 0;
+          const hasIcon = btn.querySelector(gameDOM.common.icon) ? 1 : 0;
           const hasKaspActive = btn.classList.contains("kasp-active-btn") ? 1 : 0;
           const hasKaspDisabled = btn.classList.contains("kasp-disabled-btn") ? 1 : 0;
           return `${text}|${category}|${kidCount}|${hasIcon}|${hasKaspActive}|${hasKaspDisabled}`;
         }
         function applyButtonFixes() {
-          const buttons = document.querySelectorAll(".GarageCommonStyle-bigActionButton, .AlterationButtonStyle-commonButton");
+          const buttons = document.querySelectorAll(gameDOM.garage.styledActions);
           if (!buttons.length)
             return;
           const currentCategory = getActiveTabCategory();
           buttons.forEach((btn) => {
             const textHTML = btn.innerHTML.toLowerCase();
             const textContent = btn.textContent?.toLowerCase() || "";
-            const hasHotKey = btn.querySelector('[class*="-commonBlockForHotKey"]');
+            const hasHotKey = btn.querySelector(gameDOM.common.hotkeyFragment);
             const hasPrice = textHTML.includes("price") || textHTML.includes("\u043A\u0440\u0438\u0441\u0442\u0430\u043B") || textHTML.includes("ruby") || textHTML.includes("discount") || textHTML.includes("tankoin");
             const isActive = hasHotKey || hasPrice;
             btn.classList.remove("kasp-hover-up", "kasp-hover-down", "kasp-btn-white", "kasp-btn-gray");
@@ -1459,7 +1643,7 @@
             let btnColorClass = "kasp-btn-white";
             const isEquipText = textContent.includes("space") || textContent.includes("\u0443\u0441\u0442\u0430\u043D\u043E\u0432") || textContent.includes("equip") || textContent.includes("mount") || textContent.includes("\u0441\u043D\u044F\u0442\u044C") || textContent.includes("unequip");
             const isMaxedText = textContent.includes("\u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043D\u043E") || textContent.includes("maxed") || textContent.includes("upgraded") || textContent.includes("completed");
-            const isSuppliesContainer = btn.closest(".GarageSuppliesComponentStyle-containerButtons") !== null;
+            const isSuppliesContainer = btn.closest(gameDOM.garage.suppliesActions) !== null;
             if (currentCategory === "paints") {
               targetIcon = ICONS.MOUNT;
               hoverClass = "kasp-hover-down";
@@ -1475,8 +1659,8 @@
               targetIcon = ICONS.BUY;
               hoverClass = "kasp-hover-up";
             } else {
-              const parent = btn.closest(".TanksPartBaseComponentStyle-buttonsContainer");
-              const siblingsCount = parent ? parent.querySelectorAll(".GarageCommonStyle-bigActionButton").length : 1;
+              const parent = btn.closest(gameDOM.garage.actionContainer);
+              const siblingsCount = parent ? parent.querySelectorAll(gameDOM.garage.actionButton).length : 1;
               if (siblingsCount === 1) {
                 targetIcon = ICONS.BUY;
                 hoverClass = "kasp-hover-up";
@@ -1492,7 +1676,7 @@
               btn.classList.add("kasp-disabled-btn");
               btn.classList.remove("kasp-active-btn");
             }
-            const iconDiv = btn.querySelector('[class*="-backgroundImage"]');
+            const iconDiv = btn.querySelector(gameDOM.common.icon);
             if (iconDiv) {
               applyMask(iconDiv, targetIcon, iconColor);
             }
@@ -1514,7 +1698,7 @@
         return () => {
           if (state.currentScreen !== "garage")
             return;
-          const buttons = document.querySelectorAll(".GarageCommonStyle-bigActionButton, .AlterationButtonStyle-commonButton");
+          const buttons = document.querySelectorAll(gameDOM.garage.styledActions);
           if (!buttons.length)
             return;
           const category = getActiveTabCategory();
@@ -1630,6 +1814,7 @@
   var hideCurrency;
   var init_hideCurrency = __esm({
     "src/modules/hideCurrency.ts"() {
+      init_gameDOM();
       init_state();
       init_utils();
       hideCurrency = /* @__PURE__ */ (() => {
@@ -1640,7 +1825,7 @@
         function processSpan(span) {
           const text = span.textContent?.trim() || "";
           const targetText = getHiddenText();
-          const parentElement = span.closest(".HeaderCommonStyle-icons") || span.parentElement;
+          const parentElement = span.closest(gameDOM.account.currencyIcon) || span.parentElement;
           if (text && text !== targetText && text !== "\u0421\u043A\u0440\u044B\u0442\u043E" && text !== "Hidden" && /\d/.test(text)) {
             span.dataset.originalValue = text;
             span.textContent = targetText;
@@ -1661,11 +1846,11 @@
             initialized = true;
             window.setInterval(() => {
               if (state.currentScreen === "battle") return;
-              const spans2 = document.querySelectorAll(".ksc-22 span, .ksc-24 span, .UserScoreComponentStyle-coinBlock span, .HeaderCommonStyle-icons span");
+              const spans2 = document.querySelectorAll(gameDOM.account.currencyValues);
               spans2.forEach((node) => processSpan(node));
             }, 500);
           }
-          const spans = document.querySelectorAll(".ksc-22 span, .ksc-24 span, .UserScoreComponentStyle-coinBlock span, .HeaderCommonStyle-icons span");
+          const spans = document.querySelectorAll(gameDOM.account.currencyValues);
           spans.forEach((node) => processSpan(node));
         };
       })();
@@ -1676,6 +1861,7 @@
   var customTrophies;
   var init_customTrophies = __esm({
     "src/modules/customTrophies.ts"() {
+      init_gameDOM();
       init_state();
       customTrophies = /* @__PURE__ */ (() => {
         let initialized = false;
@@ -1728,7 +1914,7 @@
           return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
         }
         function extractIcon(card) {
-          const rewardDiv = card.querySelector('[class*="rewardsContainer"] [class*="-backgroundImageContain"]');
+          const rewardDiv = card.querySelector(gameDOM.trophies.rewardImage);
           if (rewardDiv) {
             const bg = window.getComputedStyle(rewardDiv).backgroundImage;
             const match = bg.match(/url\(['"]?(.*?)['"]?\)/);
@@ -1747,7 +1933,7 @@
             favs.push({ id: itemId, type, icon: iconUrl, current, max });
           }
           saveFavs(favs);
-          const cards = document.querySelectorAll(".MainQuestComponentStyle-cardPlayCommon, .TableMainQuestComponentStyle-commonTableMainQuest, .MainQuestComponentStyle-cardPlay");
+          const cards = document.querySelectorAll(gameDOM.trophies.cards);
           if (cards.length > 0) processGarageMissions(Array.from(cards));
         }
         function processGarageMissions(garageCards) {
@@ -1761,7 +1947,7 @@
             const rawText = card.textContent || "";
             const itemInfo = parseItem(rawText);
             if (!itemInfo) return;
-            const isGrid = card.classList.contains("MainQuestComponentStyle-cardPlay");
+            const isGrid = card.classList.contains(gameDOM.classes.gridTrophy);
             card.style.position = "relative";
             if (isGrid) {
               card.classList.add("card-type-grid");
@@ -1782,10 +1968,10 @@
               favsUpdated = true;
             }
             const limitReached = !favItem && (type === "turret" && favTurrets >= 2 || type === "hull" && favHulls >= 2);
-            let starContainer = card.querySelector(".PaintsCollectionComponentStyle-favoriteIconContainer");
+            let starContainer = card.querySelector(gameDOM.trophies.favorite);
             if (!starContainer) {
               starContainer = document.createElement("div");
-              starContainer.className = "PaintsCollectionComponentStyle-favoriteIconContainer";
+              starContainer.className = gameDOM.classes.favorite;
               starContainer.innerHTML = `<img src="${favItem ? ICON_FAV : ICON_UNFAV}">`;
               starContainer.addEventListener("click", (e) => {
                 e.stopPropagation();
@@ -1807,7 +1993,7 @@
           let favs = getFavs();
           let favsUpdated = false;
           battleCards.forEach((card) => {
-            const textElements = card.querySelectorAll(".BattleResultQuestProgressComponentStyle-text");
+            const textElements = card.querySelectorAll(gameDOM.trophies.resultText);
             if (textElements.length < 2) return;
             let rawText = "";
             let rawProgress = "";
@@ -1867,7 +2053,7 @@
           return panel;
         }
         function updateInterface() {
-          const challengesBlock = document.querySelector(".BattlePassLobbyComponentStyle-menuBattlePass");
+          const challengesBlock = document.querySelector(gameDOM.trophies.lobbyAnchor);
           const panel = document.getElementById("custom-trophy-panel");
           if (challengesBlock) {
             if (!panel && getFavs().length > 0 && challengesBlock.parentElement) {
@@ -1876,7 +2062,7 @@
           } else {
             if (panel) panel.remove();
           }
-          const cards = document.querySelectorAll(".MainQuestComponentStyle-cardPlayCommon, .TableMainQuestComponentStyle-commonTableMainQuest, .MainQuestComponentStyle-cardPlay");
+          const cards = document.querySelectorAll(gameDOM.trophies.cards);
           if (cards.length > 0) processGarageMissions(Array.from(cards));
         }
         return async () => {
@@ -1887,7 +2073,7 @@
           if (state.currentScreen === "lobby" || state.currentScreen === "garage") {
             updateInterface();
           } else if (state.currentScreen === "match_results") {
-            const battleCards = document.querySelectorAll(".BattleResultQuestProgressComponentStyle-container");
+            const battleCards = document.querySelectorAll(gameDOM.trophies.resultCards);
             if (battleCards.length > 0) processBattleResults(Array.from(battleCards));
           }
         };
@@ -2027,6 +2213,7 @@
   var autoUpgrade;
   var init_autoUpgrade = __esm({
     "src/modules/autoUpgrade.ts"() {
+      init_gameDOM();
       init_state();
       init_utils();
       init_modal();
@@ -2056,29 +2243,29 @@
           return true;
         }
         function isDialogOpen() {
-          return !!document.querySelector(".DialogContainerComponentStyle-container");
+          return !!document.querySelector(gameDOM.dialogs.container);
         }
         function isRubyButton() {
-          const dialog = document.querySelector(".DialogContainerComponentStyle-container");
+          const dialog = document.querySelector(gameDOM.dialogs.container);
           if (dialog) {
             const headerText = dialog.querySelector("h1")?.textContent?.toLowerCase() || "";
             if (headerText.includes("\u0440\u0443\u0431\u0438\u043D") || headerText.includes("ruby")) return true;
           }
-          const btn = document.querySelector(".DialogContainerComponentStyle-enterButton.DialogContainerComponentStyle-getRubyButton");
+          const btn = document.querySelector(gameDOM.dialogs.confirmation);
           if (!btn) return false;
           const text = btn.textContent?.toLowerCase() || "";
           if (text.includes("\u0437\u0430 ") || text.includes("for ") || text.includes("\u0440\u0443\u0431\u0438\u043D") || text.includes("ruby") || text.includes("\u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C") || text.includes("get")) return true;
-          const rubyImg = btn.querySelector('img[src*="rubyBlack"], img[src*="ruby"]');
+          const rubyImg = btn.querySelector(gameDOM.dialogs.rubyImage);
           if (rubyImg) return true;
           return false;
         }
         function hasNormalButton() {
-          const btn = document.querySelector(".DialogContainerComponentStyle-enterButton.DialogContainerComponentStyle-getRubyButton");
+          const btn = document.querySelector(gameDOM.dialogs.confirmation);
           if (!btn) return false;
           return !isRubyButton();
         }
         function clickConfirmButton() {
-          const btn = document.querySelector(".DialogContainerComponentStyle-enterButton.DialogContainerComponentStyle-getRubyButton");
+          const btn = document.querySelector(gameDOM.dialogs.confirmation);
           if (btn) {
             btn.click();
             return true;
@@ -2086,7 +2273,7 @@
           return false;
         }
         function clickCancel() {
-          const buttons = document.querySelectorAll(".DialogContainerComponentStyle-container div");
+          const buttons = document.querySelectorAll(gameDOM.dialogs.contents);
           for (let i = 0; i < buttons.length; i++) {
             const el = buttons[i];
             const text = el.textContent?.trim().toLowerCase() || "";
@@ -2095,7 +2282,7 @@
               return true;
             }
           }
-          const btn = document.querySelector(".DialogContainerComponentStyle-keyButton");
+          const btn = document.querySelector(gameDOM.dialogs.cancelKey);
           if (btn) {
             btn.click();
             return true;
@@ -2103,10 +2290,10 @@
           return false;
         }
         function isCompleted() {
-          const btns = document.querySelectorAll(".SquarePriceButtonComponentStyle-commonBlockButton");
+          const btns = document.querySelectorAll(gameDOM.garage.priceButton);
           for (let i = 0; i < btns.length; i++) {
             const btn = btns[i];
-            const span = btn.querySelector("span.-bold");
+            const span = btn.querySelector(gameDOM.common.boldSpan);
             if (span) {
               const text = span.textContent?.trim().toUpperCase() || "";
               if (text === "\u0417\u0410\u0412\u0415\u0420\u0428\u0415\u041D\u041E" || text === "COMPLETED") return true;
@@ -2115,10 +2302,10 @@
           return false;
         }
         function isUnavailableButton() {
-          const btns = document.querySelectorAll(".SquarePriceButtonComponentStyle-commonBlockButton");
+          const btns = document.querySelectorAll(gameDOM.garage.priceButton);
           for (let i = 0; i < btns.length; i++) {
             const btn = btns[i];
-            if (btn.closest(".TanksPartBaseComponentStyle-marginTop"))
+            if (btn.closest(gameDOM.garage.mountContainer))
               continue;
             const text = (btn.textContent || "").toLowerCase();
             if (text.includes("\u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u043E") || text.includes("unavailable"))
@@ -2127,15 +2314,15 @@
           return false;
         }
         function isMaxLevel() {
-          if (document.querySelector(".TanksPartBaseComponentStyle-marginTop .-buttonEstablished")) return true;
-          const titleNodes = document.querySelectorAll(".ItemDescriptionComponentStyle-nameItem span, .GarageItemComponentStyle-descriptionDevice span, .MountedItemsStyle-tankPartNameContainer h1");
+          if (document.querySelector(gameDOM.garage.established)) return true;
+          const titleNodes = document.querySelectorAll(gameDOM.garage.upgradeTitles);
           for (let i = 0; i < titleNodes.length; i++) {
             const text = titleNodes[i].textContent?.trim().toUpperCase() || "";
             if (/(MK|МК)7[- ]?20/.test(text)) return true;
             if (/(УР|LVL)[- ]?(20|45)/.test(text)) return true;
             if (text.includes("MAX")) return true;
           }
-          const maxBtn = document.querySelector(".SquarePriceButtonComponentStyle-commonBlockButton h2");
+          const maxBtn = document.querySelector(gameDOM.garage.maxPriceTitle);
           if (maxBtn && maxBtn.textContent?.trim().toUpperCase() === "MAX") return true;
           return false;
         }
@@ -2143,16 +2330,16 @@
           if (!utils.getSetting("k_auto_upgrade", false)) return false;
           if (isMaxLevel()) return false;
           if (isCompleted()) return false;
-          const buttonsContainer = document.querySelector(".TanksPartBaseComponentStyle-buttonsContainer");
+          const buttonsContainer = document.querySelector(gameDOM.garage.actionContainer);
           if (!buttonsContainer) return false;
-          const btns = buttonsContainer.querySelectorAll(".SquarePriceButtonComponentStyle-commonBlockButton");
+          const btns = buttonsContainer.querySelectorAll(gameDOM.garage.priceButton);
           for (let i = 0; i < btns.length; i++) {
             const btn = btns[i];
-            if (btn.closest(".TanksPartBaseComponentStyle-marginTop")) continue;
-            const hotkey = btn.querySelector(".-commonBlockForHotKey");
+            if (btn.closest(gameDOM.garage.mountContainer)) continue;
+            const hotkey = btn.querySelector(gameDOM.common.hotkey);
             if (hotkey && hotkey.textContent?.trim() === "Enter") {
-              if (btn.classList.contains("-widthHeightButtonGarage")) {
-                const coinIcon = btn.querySelector(".GarageCommonStyle-iconCoinSmall");
+              if (btn.classList.contains(gameDOM.classes.wideGarageButton)) {
+                const coinIcon = btn.querySelector(gameDOM.garage.coinIcon);
                 if (coinIcon) {
                   const bgImage = window.getComputedStyle(coinIcon).backgroundImage;
                   if (!bgImage.includes("ruby")) return true;
@@ -2309,7 +2496,7 @@
           });
         }
         function createButtons() {
-          const containerNode = document.querySelector(".TanksPartBaseComponentStyle-buttonsContainer");
+          const containerNode = document.querySelector(gameDOM.garage.actionContainer);
           const panel = containerNode?.parentNode;
           if (!panel) return;
           if (!shouldShowQuickButtons()) {
@@ -2321,7 +2508,7 @@
           const quickButtonsWrapper = document.createElement("div");
           quickButtonsWrapper.id = "quick-buttons";
           if (typeof isCategorySwitch !== "undefined" && isCategorySwitch) {
-            quickButtonsWrapper.className = "GarageCommonStyle-animatedBlurredRightBlock";
+            quickButtonsWrapper.className = gameDOM.classes.upgradeTransition;
           }
           quickButtonsWrapper.style.cssText = `display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.3em; margin-top: 0.28em; width: 100%; margin-left: 0.12em; box-sizing: border-box;`;
           const buttons = [
@@ -2334,7 +2521,7 @@
           const tooltipSteps = state.lang === "RU" ? "\u041F\u0440\u043E\u043A\u0430\u0447\u0430\u0442\u044C {n} \u0440\u0430\u0437" : "Upgrade {n} times";
           buttons.forEach((btn) => {
             const el = document.createElement("div");
-            el.className = "SquarePriceButtonComponentStyle-commonBlockButton -commonButtonUpdate -flexCenterAlignCenter -displayFlex -alignCenter";
+            el.className = gameDOM.classes.upgradeButton;
             el.style.cssText = `cursor: pointer; background-color: rgb(218, 218, 218) !important; transition: background-color 0.2s, box-shadow 0.2s; box-shadow: rgba(255, 255, 255, 0.25) 0em 0em 0em 0.063em; border-radius: 0.75em; display: flex; min-width: 0; align-items: center; justify-content: center; height: 3em; box-sizing: border-box;`;
             el.addEventListener("mouseenter", () => {
               el.style.backgroundColor = "rgb(197, 197, 197)";
@@ -2371,13 +2558,13 @@
                 return;
               if (target.closest("#quick-upgrade-overlay"))
                 return;
-              let menuCategory = target.closest(".MenuComponentStyle-mainMenuItem");
-              if (menuCategory && menuCategory.classList.contains("-activeMenu")) {
+              let menuCategory = target.closest(gameDOM.navigation.garageCategory);
+              if (menuCategory && menuCategory.classList.contains(gameDOM.classes.activeMenu)) {
                 menuCategory = null;
               }
-              const mainGarageBlock = target.closest('[class*="MountedItemsStyle-commonBlock"]');
-              const itemElement = target.closest('[class*="Item"], [class*="item"], [class*="Equipment"], [class*="equipment"]');
-              const backButton = target.closest('.BreadcrumbsComponentStyle-backButton, .IconStyle-iconBackArrow, [class*="backButton" i]');
+              const mainGarageBlock = target.closest(gameDOM.navigation.mountedBlock);
+              const itemElement = target.closest(gameDOM.navigation.equipmentItem);
+              const backButton = target.closest(gameDOM.navigation.backControls);
               if (menuCategory || mainGarageBlock || backButton) {
                 isCategorySwitch = true;
                 if (categorySwitchTimeout) window.clearTimeout(categorySwitchTimeout);
@@ -2426,14 +2613,14 @@
               }
             }, true);
           }
-          const loader = document.querySelector(".ApplicationLoaderComponentStyle-container.-background");
+          const loader = document.querySelector(gameDOM.screens.loadingBackground);
           if (loader) {
             const overlay = document.getElementById("quick-upgrade-overlay");
             if (overlay && overlay.closeDialogMethod) overlay.closeDialogMethod();
           }
           if (document.getElementById("quick-upgrade-overlay")) return;
-          const container = document.querySelector(".TanksPartBaseComponentStyle-buttonsContainer");
-          const nameElement = document.querySelector(".ItemDescriptionComponentStyle-nameItem") || container;
+          const container = document.querySelector(gameDOM.garage.actionContainer);
+          const nameElement = document.querySelector(gameDOM.garage.itemName) || container;
           if (container) {
             const currentSignature = nameElement ? nameElement.textContent?.trim() || "" : "";
             if (currentSignature !== lastItemSignature) {
@@ -2460,6 +2647,7 @@
   var changeCounter;
   var init_changeCounter = __esm({
     "src/modules/changeCounter.ts"() {
+      init_gameDOM();
       changeCounter = (() => {
         const CACHE_KEY = "kasp_player_changes_cache";
         const playerChanges = /* @__PURE__ */ new Map();
@@ -2503,7 +2691,7 @@
           if (!nickname) return;
           playerChanges.set(nickname, (playerChanges.get(nickname) ?? 0) + 1);
           saveCache();
-          if (document.querySelector(".BattleTabStatisticComponentStyle-container")) {
+          if (document.querySelector(gameDOM.statistics.container)) {
             update();
           }
         });
@@ -2512,7 +2700,7 @@
           update();
         });
         function checkBattleCanvas() {
-          const currentInBattle = !!document.querySelector(".BattleComponentStyle-canvasContainer");
+          const currentInBattle = !!document.querySelector(gameDOM.screens.battleCanvas);
           if (currentInBattle !== isInBattle) {
             isInBattle = currentInBattle;
             if (!isInBattle) {
@@ -2522,7 +2710,7 @@
           }
         }
         function sync() {
-          const container = document.querySelector(".BattleTabStatisticComponentStyle-container");
+          const container = document.querySelector(gameDOM.statistics.container);
           if (!container) return;
           const headerRows = container.querySelectorAll("table > thead > tr");
           for (let i = 0; i < headerRows.length; i++) {
@@ -2543,7 +2731,7 @@
               td.className = "kasp-change-td";
               row.appendChild(td);
             }
-            const cell = row.querySelector(".BattleTabStatisticComponentStyle-nicknameCell");
+            const cell = row.querySelector(gameDOM.statistics.nickname);
             if (!cell) continue;
             const nickname = (cell.textContent || "").replace(/^\[.*?\]\s*/, "").trim();
             if (!nickname) continue;
@@ -2571,6 +2759,7 @@
   var customGarageSkins;
   var init_customGarageSkins = __esm({
     "src/modules/customGarageSkins.ts"() {
+      init_gameDOM();
       customGarageSkins = (() => {
         const STORAGE_KEY = "kasp_equipped_skins";
         const BASE_IMG_KEY = "kasp_base_images";
@@ -2675,23 +2864,23 @@
           }
         }
         function markMountedUnknownSkins(savedSkins, defaultImages, prefilledDefaults) {
-          const blocks = document.querySelectorAll(".MountedItemsStyle-commonBlockForTurretsHulls");
+          const blocks = document.querySelectorAll(gameDOM.garage.mountedEquipment);
           blocks.forEach((block) => {
-            const src = block.querySelector(".MountedItemsStyle-itemPreview")?.getAttribute("src") || "";
+            const src = block.querySelector(gameDOM.garage.mountedPreview)?.getAttribute("src") || "";
             const owner = Object.keys(savedSkins).find((item) => defaultImages[item]?.includes(src));
             toggleUnknownLabel(block, !!owner && hasUnknownSkin(owner, savedSkins, prefilledDefaults));
           });
         }
         function readSkinCards(row) {
           const cards = [];
-          row.querySelectorAll(".SkinCellStyle-nameDevices").forEach((titleEl) => {
+          row.querySelectorAll(gameDOM.skins.cardTitle).forEach((titleEl) => {
             const card = titleEl.parentElement;
             if (!card) return;
-            const icon = card.querySelector(".SkinCellStyle-iconCell");
+            const icon = card.querySelector(gameDOM.skins.cardIcon);
             cards.push({
               title: (titleEl.textContent ?? "").trim(),
               isStandard: (icon?.getAttribute("src") ?? "").includes("ic_standard"),
-              isEquipped: !!card.querySelector(".SkinCellStyle-mountIcon")
+              isEquipped: !!card.querySelector(gameDOM.skins.equippedIcon)
             });
           });
           return cards;
@@ -2705,7 +2894,7 @@
           return null;
         }
         function readPreviewArt(menu, row) {
-          for (const el of menu.querySelectorAll('[class*="backgroundImageContain"]')) {
+          for (const el of menu.querySelectorAll(gameDOM.common.background)) {
             if (row.contains(el)) continue;
             const match = /url\("?([^")]+\.webp)"?\)/.exec(getComputedStyle(el).backgroundImage);
             if (match) return match[1];
@@ -2713,8 +2902,8 @@
           return null;
         }
         function readSkinsScreen(nameTranslate) {
-          const row = document.querySelector(".SkinsAndAlterationsStyle-SkinsVerticalComponent");
-          const menu = document.querySelector(".GarageCommonStyle-subMenu");
+          const row = document.querySelector(gameDOM.skins.cards);
+          const menu = document.querySelector(gameDOM.garage.submenu);
           if (!row || !menu) return { kind: "absent" };
           const cards = readSkinCards(row);
           const equippedCard = cards.find((card) => card.isEquipped);
@@ -2807,7 +2996,7 @@
         }
         function isGarageScreen() {
           return !!document.querySelector(
-            ".GarageCommonStyle-positionContent, .GarageItemComponent-container, .ContainerInfoComponentStyle-lootBoxContainer, .GarageMainScreenStyle-blockParameters, .SkinsAndAlterationsStyle-SkinsVerticalComponent"
+            gameDOM.screens.garage
           );
         }
         function tick() {
@@ -2821,10 +3010,10 @@
           const defaultImages = getDefaultImages();
           let defaultsUpdated = false;
           const savedSkinsForList = getSavedSkins();
-          const garageItems = document.querySelectorAll(".garage-item");
+          const garageItems = document.querySelectorAll(gameDOM.garage.item);
           garageItems.forEach((item) => {
-            const titleSpan = item.querySelector(".GarageItemComponentStyle-descriptionDevice span");
-            const imgMain = item.querySelector(".GarageItemComponentStyle-mainImg");
+            const titleSpan = item.querySelector(gameDOM.garage.itemDescription);
+            const imgMain = item.querySelector(gameDOM.garage.itemImage);
             if (titleSpan && imgMain) {
               const rawTitle = (titleSpan.textContent ?? "").trim().toLowerCase();
               const itemNameEN = nameTranslate[rawTitle.split(/\s+/)[0]] || rawTitle.split(/\s+/)[0];
@@ -2854,6 +3043,7 @@
   var weaponAugmentTracker;
   var init_weaponAugmentTracker = __esm({
     "src/modules/weaponAugmentTracker.ts"() {
+      init_gameDOM();
       init_state();
       weaponAugmentTracker = (() => {
         const STORAGE_KEY = "kasp_weapon_augment_tracker";
@@ -3011,13 +3201,13 @@
         }
         function trackGarage() {
           if (state.currentScreen !== "garage") return;
-          const nameEl = document.querySelector(".ItemDescriptionComponentStyle-nameItem span, .GarageItemComponentStyle-descriptionDevice span");
+          const nameEl = document.querySelector(gameDOM.garage.weaponName);
           if (!nameEl) return;
           const rawName = nameEl.textContent.trim().toLowerCase();
           const firstWord = rawName.split(/\s+/)[0];
           const itemNameEN = NAME_TRANSLATE[firstWord] || firstWord;
           if (!TURRETS.includes(itemNameEN)) return;
-          const buttons = document.querySelectorAll(".GarageCommonStyle-bigActionButton, .SquarePriceButtonComponentStyle-commonBlockButton");
+          const buttons = document.querySelectorAll(gameDOM.garage.weaponActions);
           let isEquipped = false;
           buttons.forEach((btn) => {
             const text = btn.textContent?.toLowerCase() || "";
@@ -3026,7 +3216,7 @@
             }
           });
           if (!isEquipped) return;
-          const deviceIconEl = document.querySelector(".DeviceButtonComponentStyle-deviceIcon");
+          const deviceIconEl = document.querySelector(gameDOM.garage.deviceIcon);
           let augmentSrc = "default";
           if (deviceIconEl) augmentSrc = deviceIconEl.getAttribute("src") || "default";
           let mkLevel = 7;
@@ -3109,6 +3299,7 @@
   var zeroResists;
   var init_zeroResists = __esm({
     "src/modules/zeroResists.ts"() {
+      init_gameDOM();
       init_state();
       zeroResists = (() => {
         const SHIELD_ICON_URL = chrome.runtime.getURL("assets/modulesTAB.svg");
@@ -3133,7 +3324,7 @@
           "gauss": "https://s.eu.tankionline.com/static/images/gauss_resistance.bb8f409c.svg",
           "shaft": "https://s.eu.tankionline.com/static/images/shaft_resistance.0778fd3e.svg"
         };
-        const TAB_SELECTOR = ".BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults";
+        const TAB_SELECTOR = gameDOM.statistics.teams;
         const iconStyleCache = /* @__PURE__ */ new WeakMap();
         let isTabExpanded = localStorage.getItem("kasp_tab_expanded") === "true";
         let initialExpandedSet = false;
@@ -3158,7 +3349,7 @@
           return null;
         }
         function injectHeaderShield() {
-          const theadRows = document.querySelectorAll(":is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults) table thead tr");
+          const theadRows = document.querySelectorAll(gameDOM.statistics.headerRows);
           theadRows.forEach((row) => {
             if (row.querySelector(".kasp-defence-th")) return;
             const gsHeader = row.children[1];
@@ -3182,11 +3373,11 @@
           return "";
         }
         function injectCompactCells() {
-          const cells = document.querySelectorAll(".BattleTabStatisticComponentStyle-resistanceModuleCell");
+          const cells = document.querySelectorAll(gameDOM.statistics.resistanceCell);
           cells.forEach((cell) => {
             const htmlCell = cell;
             const labels = Array.from(htmlCell.children).filter(
-              (el) => el.classList.contains("BattleTabStatisticComponentStyle-defenceLabel") && !el.closest(".kasp-compact-cell")
+              (el) => el.classList.contains(gameDOM.classes.defenceLabel) && !el.closest(".kasp-compact-cell")
             );
             let protectLabel = null;
             let protectIsSpectrum = false;
@@ -3258,12 +3449,12 @@
           const tabContainer = document.querySelector(TAB_SELECTOR);
           if (!tabContainer) return;
           let summaryRow = Array.from(tabContainer.children).find(
-            (el) => el.className.includes("-flexCenterAlignCenter") && !el.className.toLowerCase().includes("header")
+            (el) => el.className.includes(gameDOM.classes.flexCenter) && !el.className.toLowerCase().includes(gameDOM.fragments.header)
           );
           if (!summaryRow) {
             summaryRow = document.createElement("div");
-            summaryRow.className = "-flexCenterAlignCenter kasp-custom-summary-row";
-            const optionsContainer = tabContainer.querySelector(".BattleTabStatisticComponentStyle-commonContainerIconOptions");
+            summaryRow.className = gameDOM.classes.flexCenter + " kasp-custom-summary-row";
+            const optionsContainer = tabContainer.querySelector(gameDOM.statistics.options);
             if (optionsContainer) optionsContainer.before(summaryRow);
             else tabContainer.appendChild(summaryRow);
           }
@@ -3285,14 +3476,14 @@
           Object.keys(RESISTANCE_MAP).forEach((turret) => {
             if (!presentResistances.has(turret) && !summaryRow.querySelector(`.kasp-zero-summary[data-turret="${turret}"]`)) {
               const zeroLabel = document.createElement("div");
-              zeroLabel.className = "kasp-zero-summary -flexStart";
+              zeroLabel.className = `kasp-zero-summary ${gameDOM.classes.flexStart}`;
               zeroLabel.setAttribute("data-turret", turret);
               zeroLabel.style.cssText = "display: flex !important; align-items: center !important; justify-content: flex-start !important; margin-right: 0.75em !important; cursor: default !important; opacity: 1 !important; pointer-events: none !important;";
               const iconDiv = document.createElement("div");
-              iconDiv.className = "-maskImageContain -maskImage";
+              iconDiv.className = gameDOM.classes.mask;
               iconDiv.style.cssText = `background-color: #5cfc47 !important; height: 1em !important; width: 1em !important; margin-right: 0.1875em !important; -webkit-mask-image: url('${RESISTANCE_MAP[turret]}') !important; mask-image: url('${RESISTANCE_MAP[turret]}') !important; -webkit-mask-size: contain !important; mask-size: contain !important; -webkit-mask-repeat: no-repeat !important; mask-repeat: no-repeat !important; -webkit-mask-position: center center !important; mask-position: center center !important;`;
               const textSpan = document.createElement("span");
-              textSpan.className = "-regular";
+              textSpan.className = gameDOM.classes.regular;
               textSpan.innerHTML = "&#215;0";
               textSpan.style.cssText = "font-size: 0.875em !important; color: #5cfc47 !important; font-family: BaseFontRegular, FallbackFontRegular, sans-serif !important; font-style: normal !important; font-weight: normal !important;";
               zeroLabel.appendChild(iconDiv);
@@ -3308,7 +3499,7 @@
           }
           const tabContainer = document.querySelector(TAB_SELECTOR);
           if (!tabContainer) return;
-          const summaryRow = Array.from(tabContainer.children).find((el) => el.className.includes("-flexCenterAlignCenter") && !el.className.toLowerCase().includes("header"));
+          const summaryRow = Array.from(tabContainer.children).find((el) => el.className.includes(gameDOM.classes.flexCenter) && !el.className.toLowerCase().includes(gameDOM.fragments.header));
           if (!summaryRow || document.getElementById("kasp-tab-toggle-btn")) return;
           if (window.getComputedStyle(summaryRow).position === "static") {
             summaryRow.style.position = "relative";
@@ -3351,6 +3542,7 @@
   var equipmentTracker;
   var init_equipmentTracker = __esm({
     "src/modules/equipmentTracker.ts"() {
+      init_gameDOM();
       init_accountIdentity();
       equipmentTracker = /* @__PURE__ */ (() => {
         const STORAGE_KEY = "kasp_my_equipment";
@@ -3375,7 +3567,7 @@
         };
         const iconsOf = (cell) => {
           if (!cell) return [];
-          const block = cell.querySelector(".BattleTabStatisticComponentStyle-commonBlock");
+          const block = cell.querySelector(gameDOM.statistics.equipment);
           if (!block) return [];
           return Array.from(block.children);
         };
@@ -3383,13 +3575,13 @@
           return getAccountIdentity()?.nickname || "";
         };
         const findSelfRow = () => {
-          const byId = document.getElementById("selfUserBg");
+          const byId = document.getElementById(gameDOM.ids.selfRow);
           if (byId) return byId;
-          const selected = document.querySelector(".BattleTabStatisticComponentStyle-selectedRowBackGround");
+          const selected = document.querySelector(gameDOM.statistics.selectedRow);
           if (selected) return selected;
           const own = getOwnNickname();
           if (!own) return null;
-          const cells = document.querySelectorAll(".BattleTabStatisticComponentStyle-nicknameCell");
+          const cells = document.querySelectorAll(gameDOM.statistics.nickname);
           for (let i = 0; i < cells.length; i++) {
             const nick = (cells[i].textContent || "").trim().replace(/^\[.*?\]\s*/, "").trim();
             if (nick === own) return cells[i].closest("tr");
@@ -3399,8 +3591,8 @@
         const sync = () => {
           const selfRow = findSelfRow();
           if (!selfRow) return;
-          const device = selfRow.querySelector(".BattleTabStatisticComponentStyle-deviceCell");
-          const defence = selfRow.querySelector(".BattleTabStatisticComponentStyle-defenceCell");
+          const device = selfRow.querySelector(gameDOM.statistics.deviceCell);
+          const defence = selfRow.querySelector(gameDOM.statistics.hullCell);
           if (!device && !defence) return;
           const dIcons = iconsOf(device);
           const hIcons = iconsOf(defence);
@@ -4512,7 +4704,7 @@
     let previousBackground = null;
     let previousBackgroundPriority = "";
     const applyHistoryBackground = () => {
-      backgroundContainer = document.querySelector("#app-root > .-container") ?? document.querySelector(".-container");
+      backgroundContainer = document.querySelector(gameDOM.common.appContainer) ?? document.querySelector(gameDOM.common.container);
       if (!backgroundContainer) return;
       previousBackground = backgroundContainer.style.background || null;
       previousBackgroundPriority = backgroundContainer.style.getPropertyPriority("background");
@@ -4536,7 +4728,7 @@
     let returnLoaderObserver = null;
     const showFakeLoader = () => {
       document.querySelector(".kasp-loader-overlay")?.remove();
-      const host = document.querySelector("#app-root > .-container") ?? document.querySelector(".-container") ?? document.body;
+      const host = document.querySelector(gameDOM.common.appContainer) ?? document.querySelector(gameDOM.common.container) ?? document.body;
       const baseFont = getComputedStyle(host).fontSize;
       const overlay = document.createElement("div");
       overlay.className = "kasp-loader-overlay";
@@ -4573,7 +4765,7 @@
         `;
       document.body.appendChild(cover);
       const watch = new MutationObserver(() => {
-        if (!document.querySelector(".BreadcrumbsComponentStyle-headerContainer")) {
+        if (!document.querySelector(gameDOM.navigation.header)) {
           cover.style.opacity = "0";
           window.setTimeout(() => {
             watch.disconnect();
@@ -4602,12 +4794,12 @@
       exitAfterReturn = true;
       returnObserver = new MutationObserver(() => {
         if (!exitAfterReturn) return;
-        if (!document.querySelector(".BreadcrumbsComponentStyle-headerContainer")) {
+        if (!document.querySelector(gameDOM.navigation.header)) {
           disarmReturnWatcher();
           return;
         }
         const titleEl = document.querySelector(
-          ".BreadcrumbsComponentStyle-rootTitle > span"
+          gameDOM.navigation.title
         );
         const text = (titleEl?.textContent?.trim() ?? "").toUpperCase();
         if (text === "SETTINGS" || text === "\u041D\u0410\u0421\u0422\u0420\u041E\u0419\u041A\u0418") {
@@ -4620,7 +4812,7 @@
             hideFakeLoader();
           };
           returnLoaderObserver = new MutationObserver(() => {
-            if (!document.querySelector(".BreadcrumbsComponentStyle-headerContainer")) {
+            if (!document.querySelector(gameDOM.navigation.header)) {
               finishLoading();
             }
           });
@@ -4628,7 +4820,7 @@
           returnLoaderTimer = window.setTimeout(finishLoading, 2e3);
           returnBackTimer = window.setTimeout(() => {
             const backBtn = document.querySelector(
-              ".BreadcrumbsComponentStyle-backButton"
+              gameDOM.navigation.back
             );
             if (backBtn) backBtn.click();
           }, 150);
@@ -4666,24 +4858,24 @@
     const closeHistoryOverlay = (overlay, auto = false) => {
       releasePage(overlay);
       if (auto) armExitAfterReturn();
-      const title = document.querySelector(".BreadcrumbsComponentStyle-rootTitle > span");
+      const title = document.querySelector(gameDOM.navigation.title);
       if (title?.textContent?.trim() === getHistoryDictionary(state.lang).title.toUpperCase()) {
         flashHideSettings();
-        document.querySelector(".BreadcrumbsComponentStyle-backButton")?.click();
+        document.querySelector(gameDOM.navigation.back)?.click();
       }
     };
     const watchNativePage = (overlay, ourTitle) => {
       pageObserver?.disconnect();
       pageObserver = new MutationObserver(() => {
-        if (!document.querySelector(".BreadcrumbsComponentStyle-headerContainer")) {
+        if (!document.querySelector(gameDOM.navigation.header)) {
           releasePage(overlay);
           return;
         }
-        const title = document.querySelector(".BreadcrumbsComponentStyle-rootTitle > span");
+        const title = document.querySelector(gameDOM.navigation.title);
         const anotherPage = document.querySelector([
-          ".NewShopCommonComponentStyle-commonContainer",
-          ".InvitationWindowsComponentStyle-centerBlock",
-          ".UserProgressComponentStyle-progressContainer"
+          gameDOM.screens.shop,
+          gameDOM.screens.invitations,
+          gameDOM.screens.progress
         ].join(", "));
         if (anotherPage || title && title.textContent?.trim() !== ourTitle) {
           closeHistoryOverlay(overlay, true);
@@ -4724,13 +4916,13 @@
       const dict = getHistoryDictionary(state.lang);
       disarmReturnWatcher();
       if (pageObserver) releasePage(overlay);
-      let header = document.querySelector(".BreadcrumbsComponentStyle-headerContainer");
+      let header = document.querySelector(gameDOM.navigation.header);
       if (!header) {
         const settingsBtn = [...document.querySelectorAll(
-          ".PrimaryMenuItemComponentStyle-itemCommonLi.PrimaryMenuItemComponentStyle-menuItemContainer"
+          gameDOM.navigation.primaryItem
         )].find((el) => {
-          if (el.querySelector(".PrimaryMenuItemComponentStyle-itemLiOption")) return true;
-          const name = (el.querySelector(".PrimaryMenuItemComponentStyle-itemName")?.textContent?.trim() ?? "").toUpperCase();
+          if (el.querySelector(gameDOM.navigation.settingsIcon)) return true;
+          const name = (el.querySelector(gameDOM.navigation.primaryItemName)?.textContent?.trim() ?? "").toUpperCase();
           return name === "SETTINGS" || name === "\u041D\u0410\u0421\u0422\u0420\u041E\u0419\u041A\u0418";
         });
         if (!settingsBtn) {
@@ -4739,14 +4931,14 @@
         }
         settingsBtn.click();
         header = await waitForSelector(
-          ".BreadcrumbsComponentStyle-headerContainer",
+          gameDOM.navigation.header,
           3e3
         );
       }
       if (!header) return false;
-      const title = header.querySelector(".BreadcrumbsComponentStyle-rootTitle > span");
+      const title = header.querySelector(gameDOM.navigation.title);
       if (title) title.textContent = dict.title.toUpperCase();
-      nativeContent = document.querySelector(".SettingsComponentStyle-container");
+      nativeContent = document.querySelector(gameDOM.navigation.settingsContent);
       if (nativeContent) {
         previousNativeDisplay = nativeContent.style.display;
         nativeContent.style.display = "none";
@@ -4765,12 +4957,12 @@
       return true;
     };
     const injectFooterButton = () => {
-      const footerList = document.querySelector(".FooterComponentStyle-footer ul");
+      const footerList = document.querySelector(gameDOM.navigation.footerList);
       if (!footerList || footerList.querySelector(".custom-history-button")) return;
       const lang = state.lang;
       const dict = getHistoryDictionary(lang);
       const btn = document.createElement("li");
-      btn.className = "FooterComponentStyle-containerMenu custom-history-button";
+      btn.className = gameDOM.classes.footerEntry + " custom-history-button";
       btn.innerHTML = "<div></div>";
       btn.title = dict.title;
       btn.addEventListener("click", async () => {
@@ -4886,6 +5078,7 @@
   }
   var init_navigation = __esm({
     "src/modules/battleHistory/navigation.ts"() {
+      init_gameDOM();
       init_state();
       init_localization();
     }
@@ -4893,7 +5086,7 @@
 
   // src/modules/battleHistory/capture.ts
   function readInteger(row, column) {
-    return parseInt((row.querySelector(".BattleKillBoardComponentStyle-col" + column)?.textContent || "0").replace(/\s/g, "")) || 0;
+    return parseInt((row.querySelector(gameDOM.results.columnPrefix + column)?.textContent || "0").replace(/\s/g, "")) || 0;
   }
   function readPlayers(tbody) {
     const players = [];
@@ -4901,25 +5094,25 @@
       const allRows = Array.from(tbody.children);
       let isEnemyTeam = false;
       for (const row of allRows) {
-        if (row.id === "rowSpace") continue;
-        if (row.id === "teamRowSpace") {
+        if (row.id === gameDOM.ids.spacer) continue;
+        if (row.id === gameDOM.ids.teamDivider) {
           isEnemyTeam = true;
           continue;
         }
-        const nickEl = row.querySelector('[class*="BattleKillBoardComponentStyle-col1"] span.-whiteSpaceNoWrap');
+        const nickEl = row.querySelector(gameDOM.results.playerName);
         if (!nickEl) continue;
         const rawNick = nickEl.textContent || "";
-        const rankImg = row.querySelector(".BattleKillBoardComponentStyle-rankIcon");
+        const rankImg = row.querySelector(gameDOM.results.rankIcon);
         const rankSrc = rankImg ? rankImg.src : "";
-        const gsEl = row.querySelector(".BattleKillBoardComponentStyle-col2 span");
+        const gsEl = row.querySelector(gameDOM.results.gearScore);
         const gs = gsEl ? gsEl.textContent?.trim().replace(/\s/g, "") : "0";
         const pScore = readInteger(row, 3);
         const pKills = readInteger(row, 4);
         const pDeaths = readInteger(row, 5);
-        const pKd = parseFloat(row.querySelector(".BattleKillBoardComponentStyle-col6")?.textContent || "0") || 0;
+        const pKd = parseFloat(row.querySelector(gameDOM.results.kd)?.textContent || "0") || 0;
         const pCrystals = readInteger(row, 7);
         const pStars = readInteger(row, 8);
-        const isMe = row.id === "selfUserBg";
+        const isMe = row.id === gameDOM.ids.selfRow;
         players.push({
           name: rawNick,
           rank: rankSrc,
@@ -4943,32 +5136,32 @@
     if (selfRow.parentElement) {
       const allRows = Array.from(selfRow.parentElement.children);
       const selfIndex = allRows.indexOf(selfRow);
-      const teamDividerIndex = allRows.findIndex((r) => r.id === "teamRowSpace");
+      const teamDividerIndex = allRows.findIndex((r) => r.id === gameDOM.ids.teamDivider);
       firstTeam = teamDividerIndex === -1 || selfIndex <= teamDividerIndex;
       let teamRows = [];
       if (teamDividerIndex === -1) teamRows = allRows;
       else if (selfIndex < teamDividerIndex) teamRows = allRows.slice(0, teamDividerIndex);
       else teamRows = allRows.slice(teamDividerIndex + 1);
-      const actualPlayers = teamRows.filter((r) => r.id && r.id !== "rowSpace" && r.id !== "teamRowSpace");
+      const actualPlayers = teamRows.filter((r) => r.id && r.id !== gameDOM.ids.spacer && r.id !== gameDOM.ids.teamDivider);
       const rank = actualPlayers.indexOf(selfRow) + 1;
       if (rank > 0) topVal = rank.toString();
     }
     return { top: topVal, firstTeam };
   }
   function readBattleResult(selfRow, nickname) {
-    const scoreEl = selfRow.querySelector(".BattleKillBoardComponentStyle-col3");
-    const killsEl = selfRow.querySelector(".BattleKillBoardComponentStyle-col4");
-    const deathsEl = selfRow.querySelector(".BattleKillBoardComponentStyle-col5");
+    const scoreEl = selfRow.querySelector(gameDOM.results.score);
+    const killsEl = selfRow.querySelector(gameDOM.results.kills);
+    const deathsEl = selfRow.querySelector(gameDOM.results.deaths);
     if (!scoreEl || !killsEl || !deathsEl) return null;
     const scoreText = (scoreEl.textContent || "").trim();
     const killsText = (killsEl.textContent || "").trim();
     const deathsText = (deathsEl.textContent || "").trim();
     if (!scoreText || !killsText || !deathsText) return null;
-    const players = readPlayers(document.querySelector(".TableComponentStyle-tBody"));
-    const mapEl = document.querySelector(".BattleResultHeaderComponentStyle-mapName");
+    const players = readPlayers(document.querySelector(gameDOM.results.body));
+    const mapEl = document.querySelector(gameDOM.results.mapName);
     const rawMapText = mapEl ? mapEl.textContent?.trim() || "" : "Unknown Map";
     const parsedMapData = parseMapAndMode(rawMapText);
-    const statusEl = document.querySelector(".BattleResultHeaderComponentStyle-resultText") || document.querySelector('[class*="descriptionVictory"], [class*="descriptionDefeat"], [class*="descriptionDraw"]');
+    const statusEl = document.querySelector(gameDOM.results.status) || document.querySelector(gameDOM.results.statusFallback);
     const isDM = parsedMapData.mode.toUpperCase() === "DM" || statusEl && statusEl.textContent?.trim() === "";
     if (isDM) {
       for (const p of players) {
@@ -4981,10 +5174,10 @@
     let teamScoreEnemy;
     if (!isDM) {
       const firstScoreEl = document.querySelector(
-        ".BattleResultHeaderComponentStyle-firstTeamAccount .BattleResultHeaderComponentStyle-teamAccount"
+        gameDOM.results.firstTeamScore
       );
       const secondScoreEl = document.querySelector(
-        ".BattleResultHeaderComponentStyle-twoTeamAccount .BattleResultHeaderComponentStyle-teamAccount"
+        gameDOM.results.secondTeamScore
       );
       const firstScore = firstScoreEl ? parseInt((firstScoreEl.textContent || "").replace(/\s/g, ""), 10) : NaN;
       const secondScore = secondScoreEl ? parseInt((secondScoreEl.textContent || "").replace(/\s/g, ""), 10) : NaN;
@@ -4998,7 +5191,7 @@
     const deaths = parseInt(deathsText.replace(/\s/g, "")) || 0;
     const kd = deaths > 0 ? parseFloat((kills / deaths).toFixed(2)) : kills;
     const crystals = readInteger(selfRow, 7);
-    const stars = parseInt(selfRow.querySelector(".BattleKillBoardComponentStyle-col8")?.textContent || "0") || 0;
+    const stars = parseInt(selfRow.querySelector(gameDOM.results.stars)?.textContent || "0") || 0;
     const eq = equipmentTracker.get();
     return {
       nickname,
@@ -5028,10 +5221,10 @@
     let resultGeneration = 0;
     const capture = async () => {
       account.updateNickname();
-      const selfRow = document.querySelector("#selfUserBg");
+      const selfRow = document.querySelector(gameDOM.results.selfRow);
       if (!selfRow || battleProcessed) return;
       if (account.getNickname() === "Unknown") {
-        const nickCell = selfRow.querySelector('.BattleKillBoardComponentStyle-col1, [class*="BattleKillBoardComponentStyle-col1"]');
+        const nickCell = selfRow.querySelector(gameDOM.results.nicknameCell);
         if (nickCell) {
           const raw = (nickCell.textContent || "").trim();
           const clean = raw.replace(/^\[.*?\]\s*/, "").trim();
@@ -5063,6 +5256,7 @@
   var parseMapAndMode;
   var init_capture = __esm({
     "src/modules/battleHistory/capture.ts"() {
+      init_gameDOM();
       init_equipmentTracker();
       init_repository();
       parseMapAndMode = (rawMapText) => {
@@ -5088,6 +5282,7 @@
   var battleHistory;
   var init_battleHistory = __esm({
     "src/modules/battleHistory.ts"() {
+      init_gameDOM();
       init_utils();
       init_state();
       init_accountIdentity();
@@ -5196,8 +5391,8 @@
           }
           navigation.injectFooterButton();
           void ensureHistoryPage();
-          const inResults = document.querySelector(".BattleResultHeaderComponentStyle-resultText");
-          if (document.querySelector("#selfUserBg") && inResults) {
+          const inResults = document.querySelector(gameDOM.results.status);
+          if (document.querySelector(gameDOM.results.selfRow) && inResults) {
             void results.capture();
           } else if (!inResults) {
             results.reset();

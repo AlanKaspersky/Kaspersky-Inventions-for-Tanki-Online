@@ -1,3 +1,4 @@
+import { gameDOM } from '../core/gameDOM';
 import { state } from '../core/state';
 import { utils } from '../core/utils';
 import { createKaspModal } from '../core/modal';
@@ -25,53 +26,53 @@ export const autoUpgrade = (() => {
     }
 
     function isDialogOpen() {
-        return !!document.querySelector('.DialogContainerComponentStyle-container');
+        return !!document.querySelector(gameDOM.dialogs.container);
     }
 
     function isRubyButton() {
-        const dialog = document.querySelector('.DialogContainerComponentStyle-container');
+        const dialog = document.querySelector(gameDOM.dialogs.container);
         if (dialog) {
             const headerText = dialog.querySelector('h1')?.textContent?.toLowerCase() || '';
             if (headerText.includes('рубин') || headerText.includes('ruby')) return true;
         }
-        const btn = document.querySelector('.DialogContainerComponentStyle-enterButton.DialogContainerComponentStyle-getRubyButton');
+        const btn = document.querySelector(gameDOM.dialogs.confirmation);
         if (!btn) return false;
         const text = btn.textContent?.toLowerCase() || '';
         if (text.includes('за ') || text.includes('for ') || text.includes('рубин') || text.includes('ruby') || text.includes('получить') || text.includes('get')) return true;
-        const rubyImg = btn.querySelector('img[src*="rubyBlack"], img[src*="ruby"]');
+        const rubyImg = btn.querySelector(gameDOM.dialogs.rubyImage);
         if (rubyImg) return true;
         return false;
     }
 
     function hasNormalButton() {
-        const btn = document.querySelector('.DialogContainerComponentStyle-enterButton.DialogContainerComponentStyle-getRubyButton');
+        const btn = document.querySelector(gameDOM.dialogs.confirmation);
         if (!btn) return false;
         return !isRubyButton();
     }
 
     function clickConfirmButton() {
-        const btn = document.querySelector('.DialogContainerComponentStyle-enterButton.DialogContainerComponentStyle-getRubyButton') as HTMLElement;
+        const btn = document.querySelector(gameDOM.dialogs.confirmation) as HTMLElement;
         if (btn) { btn.click(); return true; }
         return false;
     }
 
     function clickCancel() {
-        const buttons = document.querySelectorAll('.DialogContainerComponentStyle-container div');
+        const buttons = document.querySelectorAll(gameDOM.dialogs.contents);
         for (let i = 0; i < buttons.length; i++) {
             const el = buttons[i] as HTMLElement;
             const text = el.textContent?.trim().toLowerCase() || '';
             if (text === 'отмена' || text === 'cancel') { el.click(); return true; }
         }
-        const btn = document.querySelector('.DialogContainerComponentStyle-keyButton') as HTMLElement;
+        const btn = document.querySelector(gameDOM.dialogs.cancelKey) as HTMLElement;
         if (btn) { btn.click(); return true; }
         return false;
     }
 
     function isCompleted() {
-        const btns = document.querySelectorAll('.SquarePriceButtonComponentStyle-commonBlockButton');
+        const btns = document.querySelectorAll(gameDOM.garage.priceButton);
         for (let i = 0; i < btns.length; i++) {
             const btn = btns[i];
-            const span = btn.querySelector('span.-bold');
+            const span = btn.querySelector(gameDOM.common.boldSpan);
             if (span) {
                 const text = span.textContent?.trim().toUpperCase() || '';
                 if (text === 'ЗАВЕРШЕНО' || text === 'COMPLETED') return true;
@@ -81,10 +82,10 @@ export const autoUpgrade = (() => {
     }
 
     function isUnavailableButton() {
-        const btns = document.querySelectorAll('.SquarePriceButtonComponentStyle-commonBlockButton');
+        const btns = document.querySelectorAll(gameDOM.garage.priceButton);
         for (let i = 0; i < btns.length; i++) {
             const btn = btns[i];
-            if (btn.closest('.TanksPartBaseComponentStyle-marginTop'))
+            if (btn.closest(gameDOM.garage.mountContainer))
                 continue;
             const text = (btn.textContent || '').toLowerCase();
             if (text.includes('недоступно') || text.includes('unavailable'))
@@ -94,9 +95,9 @@ export const autoUpgrade = (() => {
     }
 
     function isMaxLevel() {
-        if (document.querySelector('.TanksPartBaseComponentStyle-marginTop .-buttonEstablished')) return true;
+        if (document.querySelector(gameDOM.garage.established)) return true;
 
-        const titleNodes = document.querySelectorAll('.ItemDescriptionComponentStyle-nameItem span, .GarageItemComponentStyle-descriptionDevice span, .MountedItemsStyle-tankPartNameContainer h1');
+        const titleNodes = document.querySelectorAll(gameDOM.garage.upgradeTitles);
         for (let i = 0; i < titleNodes.length; i++) {
             const text = titleNodes[i].textContent?.trim().toUpperCase() || '';
             if (/(MK|МК)7[- ]?20/.test(text)) return true;
@@ -104,7 +105,7 @@ export const autoUpgrade = (() => {
             if (text.includes('MAX')) return true;
         }
 
-        const maxBtn = document.querySelector('.SquarePriceButtonComponentStyle-commonBlockButton h2');
+        const maxBtn = document.querySelector(gameDOM.garage.maxPriceTitle);
         if (maxBtn && maxBtn.textContent?.trim().toUpperCase() === 'MAX') return true;
 
         return false;
@@ -117,16 +118,16 @@ export const autoUpgrade = (() => {
 
         if (isCompleted()) return false;
 
-        const buttonsContainer = document.querySelector('.TanksPartBaseComponentStyle-buttonsContainer');
+        const buttonsContainer = document.querySelector(gameDOM.garage.actionContainer);
         if (!buttonsContainer) return false;
-        const btns = buttonsContainer.querySelectorAll('.SquarePriceButtonComponentStyle-commonBlockButton');
+        const btns = buttonsContainer.querySelectorAll(gameDOM.garage.priceButton);
         for (let i = 0; i < btns.length; i++) {
             const btn = btns[i];
-            if (btn.closest('.TanksPartBaseComponentStyle-marginTop')) continue;
-            const hotkey = btn.querySelector('.-commonBlockForHotKey');
+            if (btn.closest(gameDOM.garage.mountContainer)) continue;
+            const hotkey = btn.querySelector(gameDOM.common.hotkey);
             if (hotkey && hotkey.textContent?.trim() === 'Enter') {
-                if (btn.classList.contains('-widthHeightButtonGarage')) {
-                    const coinIcon = btn.querySelector('.GarageCommonStyle-iconCoinSmall');
+                if (btn.classList.contains(gameDOM.classes.wideGarageButton)) {
+                    const coinIcon = btn.querySelector(gameDOM.garage.coinIcon);
                     if (coinIcon) {
                         const bgImage = window.getComputedStyle(coinIcon).backgroundImage;
                         if (!bgImage.includes('ruby')) return true;
@@ -291,7 +292,7 @@ export const autoUpgrade = (() => {
     }
 
     function createButtons() {
-        const containerNode = document.querySelector('.TanksPartBaseComponentStyle-buttonsContainer');
+        const containerNode = document.querySelector(gameDOM.garage.actionContainer);
         const panel = containerNode?.parentNode;
         if (!panel) return;
 
@@ -305,7 +306,7 @@ export const autoUpgrade = (() => {
         const quickButtonsWrapper = document.createElement('div');
         quickButtonsWrapper.id = 'quick-buttons';
         if (typeof isCategorySwitch !== 'undefined' && isCategorySwitch) {
-            quickButtonsWrapper.className = 'GarageCommonStyle-animatedBlurredRightBlock';
+            quickButtonsWrapper.className = gameDOM.classes.upgradeTransition;
         }
         quickButtonsWrapper.style.cssText = `display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.3em; margin-top: 0.28em; width: 100%; margin-left: 0.12em; box-sizing: border-box;`;
 
@@ -322,7 +323,7 @@ export const autoUpgrade = (() => {
         buttons.forEach(btn => {
             const el = document.createElement('div');
 
-            el.className = 'SquarePriceButtonComponentStyle-commonBlockButton -commonButtonUpdate -flexCenterAlignCenter -displayFlex -alignCenter';
+            el.className = gameDOM.classes.upgradeButton;
 
             el.style.cssText = `cursor: pointer; background-color: rgb(218, 218, 218) !important; transition: background-color 0.2s, box-shadow 0.2s; box-shadow: rgba(255, 255, 255, 0.25) 0em 0em 0em 0.063em; border-radius: 0.75em; display: flex; min-width: 0; align-items: center; justify-content: center; height: 3em; box-sizing: border-box;`;
 
@@ -370,15 +371,15 @@ export const autoUpgrade = (() => {
                 if (target.closest('#quick-upgrade-overlay'))
                     return;
 
-                let menuCategory = target.closest('.MenuComponentStyle-mainMenuItem');
+                let menuCategory = target.closest(gameDOM.navigation.garageCategory);
 
-                if (menuCategory && menuCategory.classList.contains('-activeMenu')) {
+                if (menuCategory && menuCategory.classList.contains(gameDOM.classes.activeMenu)) {
                     menuCategory = null;
                 }
 
-                const mainGarageBlock = target.closest('[class*="MountedItemsStyle-commonBlock"]');
-                const itemElement = target.closest('[class*="Item"], [class*="item"], [class*="Equipment"], [class*="equipment"]');
-                const backButton = target.closest('.BreadcrumbsComponentStyle-backButton, .IconStyle-iconBackArrow, [class*="backButton" i]');
+                const mainGarageBlock = target.closest(gameDOM.navigation.mountedBlock);
+                const itemElement = target.closest(gameDOM.navigation.equipmentItem);
+                const backButton = target.closest(gameDOM.navigation.backControls);
 
                 if (menuCategory || mainGarageBlock || backButton) {
                     isCategorySwitch = true;
@@ -423,7 +424,7 @@ export const autoUpgrade = (() => {
             }, true);
         }
 
-        const loader = document.querySelector('.ApplicationLoaderComponentStyle-container.-background');
+        const loader = document.querySelector(gameDOM.screens.loadingBackground);
         if (loader) {
             const overlay = document.getElementById('quick-upgrade-overlay') as any;
             if (overlay && overlay.closeDialogMethod) overlay.closeDialogMethod();
@@ -431,8 +432,8 @@ export const autoUpgrade = (() => {
 
         if (document.getElementById('quick-upgrade-overlay')) return;
 
-        const container = document.querySelector('.TanksPartBaseComponentStyle-buttonsContainer');
-        const nameElement = document.querySelector('.ItemDescriptionComponentStyle-nameItem') || container;
+        const container = document.querySelector(gameDOM.garage.actionContainer);
+        const nameElement = document.querySelector(gameDOM.garage.itemName) || container;
 
         if (container) {
             const currentSignature = nameElement ? (nameElement.textContent?.trim() || '') : '';

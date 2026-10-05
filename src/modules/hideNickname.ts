@@ -1,3 +1,4 @@
+import { gameDOM } from '../core/gameDOM';
 import { state } from '../core/state';
 import { utils } from '../core/utils';
 import { getAccountIdentity, parseAccountIdentity } from '../core/accountIdentity';
@@ -22,11 +23,11 @@ export function hideNickname() {
 
     // CSS masks known locations before painting. Preserve the game's text and
     // children so identity, history and friend categories remain accurate.
-    document.querySelectorAll('.UserInfoContainerStyle-userNameRank, .UserInfoContainerStyle-progressValue').forEach(element => {
+    document.querySelectorAll(gameDOM.account.privateHeaderFields).forEach(element => {
         setTooltip(element, element.textContent?.trim() || '');
     });
 
-    document.querySelectorAll('.ClientInfoComponentStyle-parameterText').forEach(element => {
+    document.querySelectorAll(gameDOM.account.clientParameter).forEach(element => {
         const uid = /^UID:\s*(.*)$/i.exec(element.textContent?.trim() || '');
         if (uid) {
             if (element.hasAttribute('data-kasp-public-parameter')) element.removeAttribute('data-kasp-public-parameter');
@@ -42,7 +43,7 @@ export function hideNickname() {
     });
 
     const own = getAccountIdentity()?.nickname;
-    document.querySelectorAll('.BattleTabStatisticComponentStyle-nicknameCell span').forEach(element => {
+    document.querySelectorAll(gameDOM.statistics.nicknameText).forEach(element => {
         const isSelf = !!own && parseAccountIdentity(element.textContent || '')?.nickname === own;
         if (isSelf && !element.hasAttribute('data-kasp-private-nickname')) {
             element.setAttribute('data-kasp-private-nickname', '');

@@ -1,3 +1,4 @@
+import { gameDOM } from '../core/gameDOM';
 import { state } from '../core/state';
 
 export const weaponAugmentTracker = (() => {
@@ -140,7 +141,7 @@ export const weaponAugmentTracker = (() => {
     function trackGarage() {
         if (state.currentScreen !== 'garage') return;
 
-        const nameEl = document.querySelector('.ItemDescriptionComponentStyle-nameItem span, .GarageItemComponentStyle-descriptionDevice span');
+        const nameEl = document.querySelector(gameDOM.garage.weaponName);
         if (!nameEl) return;
 
         const rawName = nameEl.textContent.trim().toLowerCase();
@@ -149,7 +150,7 @@ export const weaponAugmentTracker = (() => {
 
         if (!TURRETS.includes(itemNameEN)) return;
 
-        const buttons = document.querySelectorAll('.GarageCommonStyle-bigActionButton, .SquarePriceButtonComponentStyle-commonBlockButton');
+        const buttons = document.querySelectorAll(gameDOM.garage.weaponActions);
         let isEquipped = false;
 
         buttons.forEach(btn => {
@@ -161,7 +162,7 @@ export const weaponAugmentTracker = (() => {
 
         if (!isEquipped) return;
 
-        const deviceIconEl = document.querySelector('.DeviceButtonComponentStyle-deviceIcon');
+        const deviceIconEl = document.querySelector(gameDOM.garage.deviceIcon);
         let augmentSrc = 'default';
         if (deviceIconEl) augmentSrc = deviceIconEl.getAttribute('src') || 'default';
 

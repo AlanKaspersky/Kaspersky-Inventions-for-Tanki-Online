@@ -1,3 +1,4 @@
+import { gameDOM } from '../core/gameDOM';
 import { getAccountIdentity } from '../core/accountIdentity';
 
 export const equipmentTracker = (() => {
@@ -26,7 +27,7 @@ export const equipmentTracker = (() => {
 
     const iconsOf = (cell: Element | null): Element[] => {
         if (!cell) return [];
-        const block = cell.querySelector('.BattleTabStatisticComponentStyle-commonBlock');
+        const block = cell.querySelector(gameDOM.statistics.equipment);
         if (!block) return [];
         return Array.from(block.children);
     };
@@ -36,15 +37,15 @@ export const equipmentTracker = (() => {
     };
 
     const findSelfRow = (): Element | null => {
-        const byId = document.getElementById('selfUserBg');
+        const byId = document.getElementById(gameDOM.ids.selfRow);
         if (byId) return byId;
 
-        const selected = document.querySelector('.BattleTabStatisticComponentStyle-selectedRowBackGround');
+        const selected = document.querySelector(gameDOM.statistics.selectedRow);
         if (selected) return selected;
 
         const own = getOwnNickname();
         if (!own) return null;
-        const cells = document.querySelectorAll('.BattleTabStatisticComponentStyle-nicknameCell');
+        const cells = document.querySelectorAll(gameDOM.statistics.nickname);
         for (let i = 0; i < cells.length; i++) {
             const nick = (cells[i].textContent || '')
                 .trim().replace(/^\[.*?\]\s*/, '').trim();
@@ -57,8 +58,8 @@ export const equipmentTracker = (() => {
         const selfRow = findSelfRow();
         if (!selfRow) return;
 
-        const device = selfRow.querySelector('.BattleTabStatisticComponentStyle-deviceCell');
-        const defence = selfRow.querySelector('.BattleTabStatisticComponentStyle-defenceCell');
+        const device = selfRow.querySelector(gameDOM.statistics.deviceCell);
+        const defence = selfRow.querySelector(gameDOM.statistics.hullCell);
         if (!device && !defence) return;
 
         const dIcons = iconsOf(device);

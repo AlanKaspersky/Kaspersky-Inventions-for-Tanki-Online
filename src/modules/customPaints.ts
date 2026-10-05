@@ -1,3 +1,4 @@
+import { gameDOM } from '../core/gameDOM';
 import { state } from '../core/state';
 import { utils } from '../core/utils';
 import { DataLoader } from '../core/dataLoader';
@@ -16,7 +17,7 @@ export const customPaints = (() => {
         if (!input) return;
         const rawQuery = input.value.trim();
         const queryWords = normalizeText(rawQuery).split(/\s+/).filter(word => word.length > 0);
-        const items = document.querySelectorAll('.kasp-paints-container .garage-item');
+        const items = document.querySelectorAll(`.kasp-paints-container ${gameDOM.garage.item}`);
 
         items.forEach(itemEl => {
             const item = itemEl as HTMLElement;
@@ -24,7 +25,7 @@ export const customPaints = (() => {
                 item.style.display = '';
                 return;
             }
-            const imgElement = item.querySelector('.GarageItemComponentStyle-mainImg');
+            const imgElement = item.querySelector(gameDOM.garage.itemImage);
             if (!imgElement) return;
             const src = imgElement.getAttribute('src');
             if (!src) return;
@@ -40,18 +41,18 @@ export const customPaints = (() => {
         const columns = document.querySelectorAll('.kasp-paints-container > div');
         columns.forEach(colEl => {
             const col = colEl as HTMLElement;
-            const visibleItems = Array.from(col.querySelectorAll('.garage-item')).filter(i => (i as HTMLElement).style.display !== 'none');
+            const visibleItems = Array.from(col.querySelectorAll(gameDOM.garage.item)).filter(i => (i as HTMLElement).style.display !== 'none');
             col.style.display = visibleItems.length === 0 ? 'none' : '';
         });
     }
 
     function addSearchInput() {
-        const captionContainer = document.querySelector('.PaintsCollectionComponentStyle-captionPaint');
+        const captionContainer = document.querySelector(gameDOM.paints.caption);
         if (!captionContainer) return;
-        const parentBlock = captionContainer.closest('.PaintsCollectionComponentStyle-commonBlockFOrInfoAndCaptionCategory');
+        const parentBlock = captionContainer.closest(gameDOM.paints.categoryInfo);
         if (!parentBlock || parentBlock.querySelector('.kasp-search-wrapper')) return;
 
-        const itemsContainer = document.querySelector('.ListItemsComponentStyle-itemsContainer');
+        const itemsContainer = document.querySelector(gameDOM.paints.items);
         if (itemsContainer) {
             itemsContainer.classList.add('kasp-paints-container');
         }
@@ -66,7 +67,7 @@ export const customPaints = (() => {
         const input = document.createElement('input');
         input.type = 'text';
         input.placeholder = state.lang === 'RU' ? 'Найти' : 'Search';
-        input.className = '-normal';
+        input.className = gameDOM.classes.normal;
         input.addEventListener('input', applySearch);
 
         const searchIcon = document.createElement('div');

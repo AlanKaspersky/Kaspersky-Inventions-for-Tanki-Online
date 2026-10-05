@@ -18,6 +18,7 @@ function load(file, context, expose = '') {
         ...context, module: { exports: {} },
         require(name) {
             const dependency = path.posix.normalize(path.posix.join(path.posix.dirname(file), name)) + '.ts';
+            if (dependency === 'src/core/gameDOM.ts') return load(dependency, {});
             if (dependency.startsWith('src/modules/battleHistory/')) return load(dependency, context);
             return context.require(name.replace('../../core/', '../core/').replace('../equipmentTracker', './equipmentTracker'));
         },

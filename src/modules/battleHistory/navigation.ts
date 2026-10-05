@@ -1,3 +1,4 @@
+import { gameDOM } from '../../core/gameDOM';
 import { state } from '../../core/state';
 import { getHistoryDictionary } from './localization';
 import type { RenderBattleList } from './types';
@@ -21,8 +22,8 @@ export function createHistoryNavigation(options: NavigationOptions) {
 
     const applyHistoryBackground = (): void => {
         backgroundContainer =
-            document.querySelector<HTMLElement>('#app-root > .-container') ??
-            document.querySelector<HTMLElement>('.-container');
+            document.querySelector<HTMLElement>(gameDOM.common.appContainer) ??
+            document.querySelector<HTMLElement>(gameDOM.common.container);
         if (!backgroundContainer) return;
 
         previousBackground = backgroundContainer.style.background || null;
@@ -53,8 +54,8 @@ export function createHistoryNavigation(options: NavigationOptions) {
         document.querySelector('.kasp-loader-overlay')?.remove();
 
         const host =
-            document.querySelector<HTMLElement>('#app-root > .-container') ??
-            document.querySelector<HTMLElement>('.-container') ??
+            document.querySelector<HTMLElement>(gameDOM.common.appContainer) ??
+            document.querySelector<HTMLElement>(gameDOM.common.container) ??
             document.body;
         const baseFont = getComputedStyle(host).fontSize;
 
@@ -99,7 +100,7 @@ export function createHistoryNavigation(options: NavigationOptions) {
         document.body.appendChild(cover);
 
         const watch = new MutationObserver(() => {
-            if (!document.querySelector('.BreadcrumbsComponentStyle-headerContainer')) {
+            if (!document.querySelector(gameDOM.navigation.header)) {
                 cover.style.opacity = '0';
                 window.setTimeout(() => {
                     watch.disconnect();
@@ -133,13 +134,13 @@ export function createHistoryNavigation(options: NavigationOptions) {
         returnObserver = new MutationObserver(() => {
             if (!exitAfterReturn) return;
 
-            if (!document.querySelector('.BreadcrumbsComponentStyle-headerContainer')) {
+            if (!document.querySelector(gameDOM.navigation.header)) {
                 disarmReturnWatcher();
                 return;
             }
 
             const titleEl = document.querySelector<HTMLSpanElement>(
-                '.BreadcrumbsComponentStyle-rootTitle > span'
+                gameDOM.navigation.title
             );
 
             const text = (titleEl?.textContent?.trim() ?? '').toUpperCase();
@@ -155,7 +156,7 @@ export function createHistoryNavigation(options: NavigationOptions) {
                     hideFakeLoader();
                 };
                 returnLoaderObserver = new MutationObserver(() => {
-                    if (!document.querySelector('.BreadcrumbsComponentStyle-headerContainer')) {
+                    if (!document.querySelector(gameDOM.navigation.header)) {
                         finishLoading();
                     }
                 });
@@ -164,7 +165,7 @@ export function createHistoryNavigation(options: NavigationOptions) {
 
                 returnBackTimer = window.setTimeout(() => {
                     const backBtn = document.querySelector<HTMLElement>(
-                        '.BreadcrumbsComponentStyle-backButton'
+                        gameDOM.navigation.back
                     );
                     if (backBtn) backBtn.click();
                 }, 150);
@@ -206,25 +207,25 @@ export function createHistoryNavigation(options: NavigationOptions) {
     const closeHistoryOverlay = (overlay: HTMLElement, auto = false): void => {
         releasePage(overlay);
         if (auto) armExitAfterReturn();
-        const title = document.querySelector('.BreadcrumbsComponentStyle-rootTitle > span');
+        const title = document.querySelector(gameDOM.navigation.title);
         if (title?.textContent?.trim() === getHistoryDictionary(state.lang).title.toUpperCase()) {
             flashHideSettings();
-            document.querySelector<HTMLElement>('.BreadcrumbsComponentStyle-backButton')?.click();
+            document.querySelector<HTMLElement>(gameDOM.navigation.back)?.click();
         }
     };
 
     const watchNativePage = (overlay: HTMLElement, ourTitle: string): void => {
         pageObserver?.disconnect();
         pageObserver = new MutationObserver(() => {
-            if (!document.querySelector('.BreadcrumbsComponentStyle-headerContainer')) {
+            if (!document.querySelector(gameDOM.navigation.header)) {
                 releasePage(overlay);
                 return;
             }
-            const title = document.querySelector('.BreadcrumbsComponentStyle-rootTitle > span');
+            const title = document.querySelector(gameDOM.navigation.title);
             const anotherPage = document.querySelector([
-                '.NewShopCommonComponentStyle-commonContainer',
-                '.InvitationWindowsComponentStyle-centerBlock',
-                '.UserProgressComponentStyle-progressContainer',
+                gameDOM.screens.shop,
+                gameDOM.screens.invitations,
+                gameDOM.screens.progress,
             ].join(', '));
             if (anotherPage || (title && title.textContent?.trim() !== ourTitle)) {
                 closeHistoryOverlay(overlay, true);
@@ -273,14 +274,14 @@ export function createHistoryNavigation(options: NavigationOptions) {
         disarmReturnWatcher();
         if (pageObserver) releasePage(overlay);
 
-        let header = document.querySelector<HTMLElement>('.BreadcrumbsComponentStyle-headerContainer');
+        let header = document.querySelector<HTMLElement>(gameDOM.navigation.header);
 
         if (!header) {
             const settingsBtn = [...document.querySelectorAll<HTMLElement>(
-                '.PrimaryMenuItemComponentStyle-itemCommonLi.PrimaryMenuItemComponentStyle-menuItemContainer'
+                gameDOM.navigation.primaryItem
             )].find(el => {
-                if (el.querySelector('.PrimaryMenuItemComponentStyle-itemLiOption')) return true;
-                const name = (el.querySelector('.PrimaryMenuItemComponentStyle-itemName')
+                if (el.querySelector(gameDOM.navigation.settingsIcon)) return true;
+                const name = (el.querySelector(gameDOM.navigation.primaryItemName)
                     ?.textContent?.trim() ?? '').toUpperCase();
                 return name === 'SETTINGS' || name === 'НАСТРОЙКИ';
             });
@@ -292,16 +293,16 @@ export function createHistoryNavigation(options: NavigationOptions) {
 
             settingsBtn.click();
             header = await waitForSelector<HTMLElement>(
-                '.BreadcrumbsComponentStyle-headerContainer',
+                gameDOM.navigation.header,
                 3000
             );
         }
         if (!header) return false;
 
-        const title = header.querySelector<HTMLSpanElement>('.BreadcrumbsComponentStyle-rootTitle > span');
+        const title = header.querySelector<HTMLSpanElement>(gameDOM.navigation.title);
         if (title) title.textContent = dict.title.toUpperCase();
 
-        nativeContent = document.querySelector<HTMLElement>('.SettingsComponentStyle-container');
+        nativeContent = document.querySelector<HTMLElement>(gameDOM.navigation.settingsContent);
         if (nativeContent) {
             previousNativeDisplay = nativeContent.style.display;
             nativeContent.style.display = 'none';
@@ -325,13 +326,13 @@ export function createHistoryNavigation(options: NavigationOptions) {
     };
 
     const injectFooterButton = () => {
-        const footerList = document.querySelector('.FooterComponentStyle-footer ul');
+        const footerList = document.querySelector(gameDOM.navigation.footerList);
         if (!footerList || footerList.querySelector('.custom-history-button')) return;
 
         const lang = state.lang;
         const dict = getHistoryDictionary(lang);
         const btn = document.createElement('li');
-        btn.className = 'FooterComponentStyle-containerMenu custom-history-button';
+        btn.className = gameDOM.classes.footerEntry + ' custom-history-button';
         btn.innerHTML = '<div></div>';
         btn.title = dict.title;
 

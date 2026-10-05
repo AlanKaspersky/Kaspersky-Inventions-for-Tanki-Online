@@ -1,3 +1,4 @@
+import { gameDOM } from '../core/gameDOM';
 import { state } from '../core/state';
 
 export const garageButtons = (() => {
@@ -10,7 +11,7 @@ export const garageButtons = (() => {
     const processedSigs = new WeakMap();
 
     function getActiveTabCategory() {
-        const activeMenu = document.querySelector('.MenuComponentStyle-mainMenuItem.-activeMenu');
+        const activeMenu = document.querySelector(gameDOM.navigation.activeGarageCategory);
         if (!activeMenu)
             return 'default';
         const txt = activeMenu.textContent?.toLowerCase() || '';
@@ -26,21 +27,21 @@ export const garageButtons = (() => {
     function computeButtonSig(btn, category) {
         const text = (btn.textContent || '').trim().slice(0, 80);
         const kidCount = btn.children.length;
-        const hasIcon = btn.querySelector('[class*="-backgroundImage"]') ? 1 : 0;
+        const hasIcon = btn.querySelector(gameDOM.common.icon) ? 1 : 0;
         const hasKaspActive = btn.classList.contains('kasp-active-btn') ? 1 : 0;
         const hasKaspDisabled = btn.classList.contains('kasp-disabled-btn') ? 1 : 0;
         return `${text}|${category}|${kidCount}|${hasIcon}|${hasKaspActive}|${hasKaspDisabled}`;
     }
 
     function applyButtonFixes() {
-        const buttons = document.querySelectorAll('.GarageCommonStyle-bigActionButton, .AlterationButtonStyle-commonButton');
+        const buttons = document.querySelectorAll(gameDOM.garage.styledActions);
         if (!buttons.length)
             return;
         const currentCategory = getActiveTabCategory();
         buttons.forEach((btn) => {
             const textHTML = btn.innerHTML.toLowerCase();
             const textContent = btn.textContent?.toLowerCase() || '';
-            const hasHotKey = btn.querySelector('[class*="-commonBlockForHotKey"]');
+            const hasHotKey = btn.querySelector(gameDOM.common.hotkeyFragment);
             const hasPrice = textHTML.includes('price') ||
                 textHTML.includes('кристал') ||
                 textHTML.includes('ruby') ||
@@ -57,7 +58,7 @@ export const garageButtons = (() => {
 
             const isEquipText = textContent.includes('space') || textContent.includes('установ') || textContent.includes('equip') || textContent.includes('mount') || textContent.includes('снять') || textContent.includes('unequip');
             const isMaxedText = textContent.includes('завершено') || textContent.includes('maxed') || textContent.includes('upgraded') || textContent.includes('completed');
-            const isSuppliesContainer = btn.closest('.GarageSuppliesComponentStyle-containerButtons') !== null;
+            const isSuppliesContainer = btn.closest(gameDOM.garage.suppliesActions) !== null;
 
             if (currentCategory === 'paints') {
                 targetIcon = ICONS.MOUNT;
@@ -78,8 +79,8 @@ export const garageButtons = (() => {
                 hoverClass = 'kasp-hover-up';
             }
             else {
-                const parent = btn.closest('.TanksPartBaseComponentStyle-buttonsContainer');
-                const siblingsCount = parent ? parent.querySelectorAll('.GarageCommonStyle-bigActionButton').length : 1;
+                const parent = btn.closest(gameDOM.garage.actionContainer);
+                const siblingsCount = parent ? parent.querySelectorAll(gameDOM.garage.actionButton).length : 1;
                 if (siblingsCount === 1) {
                     targetIcon = ICONS.BUY;
                     hoverClass = 'kasp-hover-up';
@@ -99,7 +100,7 @@ export const garageButtons = (() => {
                 btn.classList.remove('kasp-active-btn');
             }
 
-            const iconDiv = btn.querySelector('[class*="-backgroundImage"]');
+            const iconDiv = btn.querySelector(gameDOM.common.icon);
             if (iconDiv) {
                 applyMask(iconDiv, targetIcon, iconColor);
             }
@@ -124,7 +125,7 @@ export const garageButtons = (() => {
         if (state.currentScreen !== 'garage')
             return;
 
-        const buttons = document.querySelectorAll('.GarageCommonStyle-bigActionButton, .AlterationButtonStyle-commonButton');
+        const buttons = document.querySelectorAll(gameDOM.garage.styledActions);
         if (!buttons.length)
             return;
 

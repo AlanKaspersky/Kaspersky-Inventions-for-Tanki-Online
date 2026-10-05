@@ -1,3 +1,4 @@
+import { gameDOM } from '../core/gameDOM';
 import { state } from '../core/state';
 
 export const zeroResists = (() => {
@@ -26,7 +27,7 @@ export const zeroResists = (() => {
         'shaft': 'https://s.eu.tankionline.com/static/images/shaft_resistance.0778fd3e.svg'
     };
 
-    const TAB_SELECTOR = '.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults';
+    const TAB_SELECTOR = gameDOM.statistics.teams;
 
     const iconStyleCache = new WeakMap<Element, { mask: string; bg: string }>();
 
@@ -58,7 +59,7 @@ export const zeroResists = (() => {
     }
 
     function injectHeaderShield(): void {
-        const theadRows = document.querySelectorAll(':is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults) table thead tr');
+        const theadRows = document.querySelectorAll(gameDOM.statistics.headerRows);
         theadRows.forEach(row => {
             if (row.querySelector('.kasp-defence-th')) return;
 
@@ -85,11 +86,11 @@ export const zeroResists = (() => {
     }
 
     function injectCompactCells(): void {
-        const cells = document.querySelectorAll('.BattleTabStatisticComponentStyle-resistanceModuleCell');
+        const cells = document.querySelectorAll(gameDOM.statistics.resistanceCell);
         cells.forEach(cell => {
             const htmlCell = cell as HTMLElement;
             const labels = Array.from(htmlCell.children).filter(el =>
-                el.classList.contains('BattleTabStatisticComponentStyle-defenceLabel') &&
+                el.classList.contains(gameDOM.classes.defenceLabel) &&
                 !el.closest('.kasp-compact-cell')
             ) as HTMLElement[];
 
@@ -170,13 +171,13 @@ export const zeroResists = (() => {
         if (!tabContainer) return;
 
         let summaryRow = Array.from(tabContainer.children).find(el =>
-            el.className.includes('-flexCenterAlignCenter') && !el.className.toLowerCase().includes('header')
+            el.className.includes(gameDOM.classes.flexCenter) && !el.className.toLowerCase().includes(gameDOM.fragments.header)
         ) as HTMLElement;
 
         if (!summaryRow) {
             summaryRow = document.createElement('div');
-            summaryRow.className = '-flexCenterAlignCenter kasp-custom-summary-row';
-            const optionsContainer = tabContainer.querySelector('.BattleTabStatisticComponentStyle-commonContainerIconOptions');
+            summaryRow.className = gameDOM.classes.flexCenter + ' kasp-custom-summary-row';
+            const optionsContainer = tabContainer.querySelector(gameDOM.statistics.options);
             if (optionsContainer) optionsContainer.before(summaryRow);
             else tabContainer.appendChild(summaryRow);
         }
@@ -201,16 +202,16 @@ export const zeroResists = (() => {
         Object.keys(RESISTANCE_MAP).forEach((turret: string) => {
             if (!presentResistances.has(turret) && !summaryRow.querySelector(`.kasp-zero-summary[data-turret="${turret}"]`)) {
                 const zeroLabel = document.createElement('div');
-                zeroLabel.className = 'kasp-zero-summary -flexStart';
+                zeroLabel.className = `kasp-zero-summary ${gameDOM.classes.flexStart}`;
                 zeroLabel.setAttribute('data-turret', turret);
                 zeroLabel.style.cssText = 'display: flex !important; align-items: center !important; justify-content: flex-start !important; margin-right: 0.75em !important; cursor: default !important; opacity: 1 !important; pointer-events: none !important;';
 
                 const iconDiv = document.createElement('div');
-                iconDiv.className = '-maskImageContain -maskImage';
+                iconDiv.className = gameDOM.classes.mask;
                 iconDiv.style.cssText = `background-color: #5cfc47 !important; height: 1em !important; width: 1em !important; margin-right: 0.1875em !important; -webkit-mask-image: url('${RESISTANCE_MAP[turret]}') !important; mask-image: url('${RESISTANCE_MAP[turret]}') !important; -webkit-mask-size: contain !important; mask-size: contain !important; -webkit-mask-repeat: no-repeat !important; mask-repeat: no-repeat !important; -webkit-mask-position: center center !important; mask-position: center center !important;`;
 
                 const textSpan = document.createElement('span');
-                textSpan.className = '-regular';
+                textSpan.className = gameDOM.classes.regular;
                 textSpan.innerHTML = '&#215;0';
                 textSpan.style.cssText = 'font-size: 0.875em !important; color: #5cfc47 !important; font-family: BaseFontRegular, FallbackFontRegular, sans-serif !important; font-style: normal !important; font-weight: normal !important;';
 
@@ -230,7 +231,7 @@ export const zeroResists = (() => {
         const tabContainer = document.querySelector(TAB_SELECTOR);
         if (!tabContainer) return;
 
-        const summaryRow = Array.from(tabContainer.children).find(el => el.className.includes('-flexCenterAlignCenter') && !el.className.toLowerCase().includes('header'));
+        const summaryRow = Array.from(tabContainer.children).find(el => el.className.includes(gameDOM.classes.flexCenter) && !el.className.toLowerCase().includes(gameDOM.fragments.header));
 
         if (!summaryRow || document.getElementById('kasp-tab-toggle-btn')) return;
 

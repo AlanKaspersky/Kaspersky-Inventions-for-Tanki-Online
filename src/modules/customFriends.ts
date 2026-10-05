@@ -1,3 +1,4 @@
+import { gameDOM } from '../core/gameDOM';
 import { state } from '../core/state';
 import { utils } from '../core/utils';
 import { getAccountIdentity } from '../core/accountIdentity';
@@ -51,7 +52,7 @@ export const customFriends = (() => {
 
     const updateCardBadge = (el: HTMLElement, isFriendsList: boolean) => {
         const cardText = el.innerText || "";
-        const span = Array.from(el.querySelectorAll('span')).find(s => s.className.includes('whiteSpaceNoWrap')) as HTMLElement;
+        const span = Array.from(el.querySelectorAll('span')).find(s => s.className.includes(gameDOM.fragments.nicknameText)) as HTMLElement;
         const nickText = span ? span.innerText.trim() : cardText.split('\n')[0].trim();
         const clanTag = getMyClanTag();
         const isClan = Boolean(clanTag && cardText.includes(clanTag));
@@ -85,8 +86,8 @@ export const customFriends = (() => {
     const applyFilter = (scrollBlock: HTMLElement, filterType: string) => {
         const clanTag = getMyClanTag();
         const cats = getCustomCategories();
-        const isFriendsList = scrollBlock.classList.contains('FriendListComponentStyle-scrollCommunity');
-        const itemSelector = isFriendsList ? '.FriendListComponentStyle-blockList' : '.InvitationWindowsComponentStyle-usersScroll > div > div';
+        const isFriendsList = scrollBlock.classList.contains(gameDOM.classes.friendList);
+        const itemSelector = isFriendsList ? gameDOM.friends.card : gameDOM.friends.invitationCard;
         const items = scrollBlock.querySelectorAll(itemSelector);
 
         items.forEach(node => {
@@ -98,9 +99,9 @@ export const customFriends = (() => {
             }
             const cardText = el.innerText || "";
             const textLower = cardText.toLowerCase();
-            const isOnline = isFriendsList ? !!el.querySelector('.FriendListComponentStyle-greenTextOnline') : (textLower.includes("в сети") || textLower.includes("online"));
-            const isOffline = isFriendsList ? !!el.querySelector('.FriendListComponentStyle-offline') : !isOnline;
-            const span = Array.from(el.querySelectorAll('span')).find(s => s.className.includes('whiteSpaceNoWrap')) as HTMLElement;
+            const isOnline = isFriendsList ? !!el.querySelector(gameDOM.friends.online) : (textLower.includes("в сети") || textLower.includes("online"));
+            const isOffline = isFriendsList ? !!el.querySelector(gameDOM.friends.offline) : !isOnline;
+            const span = Array.from(el.querySelectorAll('span')).find(s => s.className.includes(gameDOM.fragments.nicknameText)) as HTMLElement;
             const nickText = span ? span.innerText.trim() : cardText.split('\n')[0].trim();
 
             let match = true;
@@ -117,9 +118,9 @@ export const customFriends = (() => {
     const injectCategoriesMenu = (menu: HTMLElement) => {
         if (menu.dataset.customCategoriesInjected === 'true') return;
         menu.dataset.customCategoriesInjected = 'true';
-        const rankItem = menu.querySelector('.ContextMenuStyle-menuItemRank') as HTMLElement;
+        const rankItem = menu.querySelector(gameDOM.friends.contextPlayer) as HTMLElement;
         if (!rankItem) return;
-        const span = Array.from(rankItem.querySelectorAll('span')).find(s => s.className.includes('whiteSpaceNoWrap')) as HTMLElement;
+        const span = Array.from(rankItem.querySelectorAll('span')).find(s => s.className.includes(gameDOM.fragments.nicknameText)) as HTMLElement;
         if (!span) return;
 
         const nickname = span.innerText.trim();
@@ -164,7 +165,7 @@ export const customFriends = (() => {
     const setupSidebar = (scrollBlock: HTMLElement) => {
         if (scrollBlock.dataset.sidebarInjected === 'true') return;
         scrollBlock.dataset.sidebarInjected = 'true';
-        const isFriends = scrollBlock.classList.contains('FriendListComponentStyle-scrollCommunity');
+        const isFriends = scrollBlock.classList.contains(gameDOM.classes.friendList);
 
         if (isFriends) {
             const wrapper = document.createElement('div');
@@ -227,20 +228,20 @@ export const customFriends = (() => {
             initialized = true;
         }
 
-        const scrollBlocks = document.querySelectorAll('.FriendListComponentStyle-scrollCommunity, .InvitationWindowsComponentStyle-usersScroll');
+        const scrollBlocks = document.querySelectorAll(gameDOM.friends.lists);
         scrollBlocks.forEach(node => {
             const scrollBlock = node as HTMLElement;
             if (scrollBlock.dataset.sidebarInjected !== 'true') setupSidebar(scrollBlock);
 
-            const isFriendsList = scrollBlock.classList.contains('FriendListComponentStyle-scrollCommunity');
-            const itemSelector = isFriendsList ? '.FriendListComponentStyle-blockList' : '.InvitationWindowsComponentStyle-usersScroll > div > div';
+            const isFriendsList = scrollBlock.classList.contains(gameDOM.classes.friendList);
+            const itemSelector = isFriendsList ? gameDOM.friends.card : gameDOM.friends.invitationCard;
 
             scrollBlock.querySelectorAll(itemSelector).forEach(el => {
                 updateCardBadge(el as HTMLElement, isFriendsList);
             });
         });
 
-        const contextMenus = document.querySelectorAll('.ContextMenuStyle-menu');
+        const contextMenus = document.querySelectorAll(gameDOM.friends.contextMenu);
         contextMenus.forEach(node => {
             const menu = node as HTMLElement;
             if (menu.dataset.customCategoriesInjected !== 'true') injectCategoriesMenu(menu);

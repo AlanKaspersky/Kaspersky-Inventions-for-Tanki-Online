@@ -8,6 +8,8 @@ const { transformSync } = require('esbuild');
 const root = path.join(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 const compile = source => transformSync(source, { loader: 'ts', format: 'cjs' }).code;
+const gameDOMModule = { exports: {} };
+vm.runInNewContext(compile(read('src/core/gameDOM.ts')), { module: gameDOMModule });
 const tick = () => new Promise(resolve => setImmediate(resolve));
 
 function injectorFixture(fetch) {
@@ -195,6 +197,7 @@ function upgradeFixture() {
             if (name === '../core/state') return { state: { lang: 'EN' } };
             if (name === '../core/utils') return { utils: { getSetting: () => true } };
             if (name === '../core/modal') return { createKaspModal: async () => modal };
+            if (name === '../core/gameDOM') return gameDOMModule.exports;
             throw Error(name);
         },
     };

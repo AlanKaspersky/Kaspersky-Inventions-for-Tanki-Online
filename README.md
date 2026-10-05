@@ -2,7 +2,7 @@
 
 ## Complete Documentation
 
-**Extension version:** 2.7.2 (`manifest.json`)
+**Extension version:** 2.7.3.1 (`manifest.json`)
 
 **Documentation updated:** October 2, 2026
 
@@ -827,4 +827,4 @@ For the in-game presentation of release information and credits, see [the welcom
 
 ---
 
-Documentation aligned with extension manifest version **2.7.3**, updated **October 2, 2026**.
+Documentation aligned with extension manifest version **2.7.3.1*, updated **October 5, 2026**.

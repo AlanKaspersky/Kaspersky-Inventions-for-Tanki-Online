@@ -1,3 +1,4 @@
+import { gameDOM } from '../core/gameDOM';
 export const changeCounter = (() => {
     const CACHE_KEY = 'kasp_player_changes_cache';
     const playerChanges = new Map<string, number>();
@@ -53,7 +54,7 @@ export const changeCounter = (() => {
 
         playerChanges.set(nickname, (playerChanges.get(nickname) ?? 0) + 1);
         saveCache();
-        if (document.querySelector('.BattleTabStatisticComponentStyle-container')) {
+        if (document.querySelector(gameDOM.statistics.container)) {
             update();
         }
     });
@@ -64,7 +65,7 @@ export const changeCounter = (() => {
     });
 
     function checkBattleCanvas(): void {
-        const currentInBattle = !!document.querySelector('.BattleComponentStyle-canvasContainer');
+        const currentInBattle = !!document.querySelector(gameDOM.screens.battleCanvas);
         if (currentInBattle !== isInBattle) {
             isInBattle = currentInBattle;
             if (!isInBattle) {
@@ -75,7 +76,7 @@ export const changeCounter = (() => {
     }
 
     function sync(): void {
-        const container = document.querySelector('.BattleTabStatisticComponentStyle-container');
+        const container = document.querySelector(gameDOM.statistics.container);
         if (!container) return;
 
         const headerRows = container.querySelectorAll('table > thead > tr');
@@ -98,7 +99,7 @@ export const changeCounter = (() => {
                 td.className = 'kasp-change-td';
                 row.appendChild(td);
             }
-            const cell = row.querySelector('.BattleTabStatisticComponentStyle-nicknameCell');
+            const cell = row.querySelector(gameDOM.statistics.nickname);
             if (!cell) continue;
             const nickname = (cell.textContent || '').replace(/^\[.*?\]\s*/, '').trim();
             if (!nickname) continue;

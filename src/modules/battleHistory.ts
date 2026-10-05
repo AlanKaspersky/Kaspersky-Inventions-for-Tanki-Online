@@ -1,3 +1,4 @@
+import { gameDOM } from '../core/gameDOM';
 import { utils } from '../core/utils';
 import { state } from '../core/state';
 import { getAccountIdentity } from '../core/accountIdentity';
@@ -121,8 +122,8 @@ export const battleHistory = (() => {
         navigation.injectFooterButton();
         void ensureHistoryPage();
 
-        const inResults = document.querySelector('.BattleResultHeaderComponentStyle-resultText');
-        if (document.querySelector('#selfUserBg') && inResults) {
+        const inResults = document.querySelector(gameDOM.results.status);
+        if (document.querySelector(gameDOM.results.selfRow) && inResults) {
             void results.capture();
         } else if (!inResults) {
             results.reset();

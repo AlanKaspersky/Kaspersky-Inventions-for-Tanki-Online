@@ -5,6 +5,10 @@ const vm = require('node:vm');
 const { test } = require('node:test');
 const { transformSync } = require('esbuild');
 
+const gameDOMModule = { exports: {} };
+vm.runInNewContext(transformSync(fs.readFileSync(path.join(__dirname, '../src/core/gameDOM.ts'), 'utf8'),
+    { loader: 'ts', format: 'cjs' }).code, { module: gameDOMModule });
+
 const source = fs.readFileSync(path.join(__dirname, '../src/modules/augmentSpecs.ts'), 'utf8');
 const code = transformSync(source, { loader: 'ts', format: 'cjs' }).code;
 
@@ -94,6 +98,7 @@ function fixture() {
             if (name === '../core/state') return { state: { lang: 'EN', currentScreen: 'garage' } };
             if (name === '../core/utils') return { utils: { getSetting: () => true } };
             if (name === '../core/dataLoader') return { DataLoader: { getDevice: () => device, hasDevice: () => false } };
+            if (name === '../core/gameDOM') return gameDOMModule.exports;
             throw new Error(`Unexpected import: ${name}`);
         },
     });

@@ -1,3 +1,4 @@
+import { gameDOM } from '../core/gameDOM';
 import { state } from '../core/state';
 import { utils } from '../core/utils';
 import { DataLoader } from '../core/dataLoader';
@@ -127,17 +128,17 @@ export const augmentSpecs = (() => {
             }
         };
 
-        const cardsImgs = document.querySelectorAll<HTMLImageElement>('img.SkinCellStyle-iconCell');
+        const cardsImgs = document.querySelectorAll<HTMLImageElement>(gameDOM.augments.cardImage);
         cardsImgs.forEach(img => {
             applyButtonToCard(img.parentElement, img.src);
         });
 
-        const containerImageBlocks = document.querySelectorAll('.RewardCardComponentStyle-imageBlock');
+        const containerImageBlocks = document.querySelectorAll(gameDOM.augments.rewardImageBlock);
         containerImageBlocks.forEach(block => {
-            if (block.closest('.ContainersComponentStyle-possibleRewardsBlock')) return;
+            if (block.closest(gameDOM.augments.possibleRewards)) return;
 
             const card = block.parentElement;
-            const imageDiv = block.querySelector('div[class*="-backgroundImageContain"]');
+            const imageDiv = block.querySelector(gameDOM.common.backgroundDiv);
             if (!imageDiv || !card) return;
 
             const bgImage = window.getComputedStyle(imageDiv).backgroundImage;
@@ -157,7 +158,7 @@ export const augmentSpecs = (() => {
     function updateLiveStats() {
         if (!utils.getSetting('k_augments', false)) return;
         const activeValues = new Set<HTMLElement>();
-        const deviceImg = document.querySelector<HTMLImageElement>('.DeviceButtonComponentStyle-deviceIcon');
+        const deviceImg = document.querySelector<HTMLImageElement>(gameDOM.garage.deviceIcon);
         const deviceData = deviceImg ? DataLoader.getDevice(deviceImg.src) : undefined;
 
         const allSpans = deviceData?.modifiers
@@ -229,7 +230,7 @@ export const augmentSpecs = (() => {
             if (!utils.getSetting('k_augments', false)) return;
 
             const isGarage = state.currentScreen === 'garage';
-            const isContainers = !!document.querySelector('.ContainerInfoComponentStyle-lootBoxContainer');
+            const isContainers = !!document.querySelector(gameDOM.screens.lootBox);
             if (!isGarage && !isContainers) return;
 
             injectButtons();
@@ -263,8 +264,8 @@ export const augmentSpecs = (() => {
         }
 
         const isGarage = state.currentScreen === 'garage';
-        const isContainers = !!document.querySelector('.ContainerInfoComponentStyle-lootBoxContainer');
-        const loadingScreen = document.querySelector('.ApplicationLoaderComponentStyle-container.-background');
+        const isContainers = !!document.querySelector(gameDOM.screens.lootBox);
+        const loadingScreen = document.querySelector(gameDOM.screens.loadingBackground);
 
         if (loadingScreen || (!isGarage && !isContainers)) {
             const hoverTooltip = document.getElementById('kasp-specs-tooltip');

@@ -2,9 +2,9 @@
 
 ## Complete Implementation Reference
 
-**Extension version:** 2.7.3 (`manifest.json`)
+**Extension version:** 2.7.3.1 (`manifest.json`)
 
-**Documentation updated:** October 2, 2026
+**Documentation updated:** October 5, 2026
 
 **Interface languages:** English and Russian
 
@@ -68,6 +68,7 @@ The source implementation is authoritative. `dist/` contains generated browser e
 | `src/kasp_injector.ts` | Page-world game script interception and instrumentation |
 | `src/boot.ts` | Shared observation, screen detection, and module scheduling |
 | `src/core/` | State, settings, identity, resource loading, shared dialogs, markup, and Electron adaptation |
+| `src/core/gameDOM.ts` | Central native-game selectors, class names, IDs, and class fragments used by feature modules |
 | `src/modules/index.ts` | Imports and exposes the feature-module registry |
 | `src/modules/*.ts` | Feature entry points and private module state |
 | `src/modules/battleHistory/` | History repository, capture, validation, presentation, views, navigation, actions, types, and dictionaries |
@@ -94,6 +95,27 @@ The main bundle uses the browser's default isolated content-script world and als
 Content-script match patterns target Tanki Online pages. The injector also lists the apex-domain pattern explicitly. The main script and web-accessible resources use the wildcard subdomain pattern. The main entry point additionally checks `window === window.top` before starting its runtime.
 
 No background service worker, options-page controller, cloud synchronization service, or `chrome.storage` persistence layer is declared in the current implementation. The manifest exposes packaged assets, HTML templates, and JSON databases to matching pages.
+
+### Native Game DOM Registry
+
+Feature modules import `gameDOM` from `src/core/gameDOM.ts`. The registry groups native bindings by account, screen, dialog, navigation, garage, augment, skin, paint, friend, play, trophy, statistics, and result responsibilities.
+
+Selector entries retain their complete context and fallback order. `classes` contains names for class checks and native button construction; `ids` contains result-row identifiers; `fragments` contains partial class-name matches. A class name is not interchangeable with a selector containing a leading dot.
+
+For example:
+
+```ts
+import { gameDOM } from '../core/gameDOM';
+
+const dialog = document.querySelector(gameDOM.dialogs.container);
+const selfRow = document.getElementById(gameDOM.ids.selfRow);
+```
+
+This registry applies to native bindings in feature modules. Extension-owned classes, template IDs, stylesheets, and generated CSS strings retain their existing definitions. Boot and other core services also retain their own bindings. A future native change affecting CSS or a core service must therefore be reviewed there separately.
+
+The registry is a synchronous, side-effect-free TypeScript constant. It does not load configuration over the network, add an observer, delay startup, or change screen recognition and event handling. Bundling includes it through normal static imports.
+
+When updating a binding, preserve spelling/casing, parent context, exact versus partial matching, and selector-list order. Do not broaden a purchase-confirmation or self-player selector merely to make a missing match succeed.
 
 ### Function Contract Conventions
 
@@ -1401,7 +1423,7 @@ Check that other players and public client parameters remain correctly classifie
 
 ### Updating Game Selectors
 
-Trace an affected element through JavaScript queries, CSS rules, templates, reference URL matching, and tests. A replacement native class can affect capture, presentation, and privacy simultaneously.
+Update the corresponding feature-module binding in `src/core/gameDOM.ts`, then trace the affected element through core-service queries, CSS rules, templates, reference URL matching, and tests. A replacement native class can affect capture, presentation, and privacy simultaneously. The module registry does not rewrite CSS or core-service selectors automatically.
 
 Preserve early-return behavior for absent UI. Do not assume the last recognized `state.currentScreen` proves every screen element is still attached during transitions.
 
@@ -1445,4 +1467,4 @@ Project use and distribution are governed by [LICENSE.txt](LICENSE.txt), which c
 
 ---
 
-Technical documentation aligned with the source implementation and manifest version **2.7.3**, updated **October 2, 2026**.
+Technical documentation aligned with the source implementation and manifest version **2.7.3.1**, updated **October 5, 2026**.

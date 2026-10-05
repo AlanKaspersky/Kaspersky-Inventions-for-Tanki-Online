@@ -1,3 +1,4 @@
+import { gameDOM } from '../core/gameDOM';
 interface SkinsDatabase {
     names: Record<string, string>;
     defaults: Record<string, string>;
@@ -129,9 +130,9 @@ export const customGarageSkins = (() => {
         defaultImages: DefaultImagesMap,
         prefilledDefaults: SkinsDatabase['defaults']
     ): void {
-        const blocks = document.querySelectorAll('.MountedItemsStyle-commonBlockForTurretsHulls');
+        const blocks = document.querySelectorAll(gameDOM.garage.mountedEquipment);
         blocks.forEach((block) => {
-            const src = block.querySelector('.MountedItemsStyle-itemPreview')?.getAttribute('src') || '';
+            const src = block.querySelector(gameDOM.garage.mountedPreview)?.getAttribute('src') || '';
             const owner = Object.keys(savedSkins).find(item => defaultImages[item]?.includes(src));
             toggleUnknownLabel(block, !!owner && hasUnknownSkin(owner, savedSkins, prefilledDefaults));
         });
@@ -159,14 +160,14 @@ export const customGarageSkins = (() => {
 
     function readSkinCards(row: Element): SkinCard[] {
         const cards: SkinCard[] = [];
-        row.querySelectorAll('.SkinCellStyle-nameDevices').forEach((titleEl) => {
+        row.querySelectorAll(gameDOM.skins.cardTitle).forEach((titleEl) => {
             const card = titleEl.parentElement;
             if (!card) return;
-            const icon = card.querySelector('.SkinCellStyle-iconCell');
+            const icon = card.querySelector(gameDOM.skins.cardIcon);
             cards.push({
                 title: (titleEl.textContent ?? '').trim(),
                 isStandard: (icon?.getAttribute('src') ?? '').includes('ic_standard'),
-                isEquipped: !!card.querySelector('.SkinCellStyle-mountIcon'),
+                isEquipped: !!card.querySelector(gameDOM.skins.equippedIcon),
             });
         });
         return cards;
@@ -182,7 +183,7 @@ export const customGarageSkins = (() => {
     }
 
     function readPreviewArt(menu: Element, row: Element): string | null {
-        for (const el of menu.querySelectorAll('[class*="backgroundImageContain"]')) {
+        for (const el of menu.querySelectorAll(gameDOM.common.background)) {
             if (row.contains(el)) continue;
             const match = /url\("?([^")]+\.webp)"?\)/.exec(getComputedStyle(el).backgroundImage);
             if (match) return match[1];
@@ -191,8 +192,8 @@ export const customGarageSkins = (() => {
     }
 
     function readSkinsScreen(nameTranslate: SkinsDatabase['names']): SkinsScreenState {
-        const row = document.querySelector('.SkinsAndAlterationsStyle-SkinsVerticalComponent');
-        const menu = document.querySelector('.GarageCommonStyle-subMenu');
+        const row = document.querySelector(gameDOM.skins.cards);
+        const menu = document.querySelector(gameDOM.garage.submenu);
         if (!row || !menu) return { kind: 'absent' };
 
         const cards = readSkinCards(row);
@@ -318,7 +319,7 @@ export const customGarageSkins = (() => {
 
     function isGarageScreen(): boolean {
         return !!document.querySelector(
-            '.GarageCommonStyle-positionContent, .GarageItemComponent-container, .ContainerInfoComponentStyle-lootBoxContainer, .GarageMainScreenStyle-blockParameters, .SkinsAndAlterationsStyle-SkinsVerticalComponent'
+            gameDOM.screens.garage
         );
     }
 
@@ -337,10 +338,10 @@ export const customGarageSkins = (() => {
         let defaultsUpdated = false;
         const savedSkinsForList = getSavedSkins();
 
-        const garageItems = document.querySelectorAll('.garage-item');
+        const garageItems = document.querySelectorAll(gameDOM.garage.item);
         garageItems.forEach((item) => {
-            const titleSpan = item.querySelector('.GarageItemComponentStyle-descriptionDevice span');
-            const imgMain = item.querySelector('.GarageItemComponentStyle-mainImg');
+            const titleSpan = item.querySelector(gameDOM.garage.itemDescription);
+            const imgMain = item.querySelector(gameDOM.garage.itemImage);
 
             if (titleSpan && imgMain) {
                 const rawTitle = (titleSpan.textContent ?? '').trim().toLowerCase();

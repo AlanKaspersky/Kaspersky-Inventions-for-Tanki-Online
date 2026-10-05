@@ -1,3 +1,4 @@
+import { gameDOM } from '../core/gameDOM';
 import { state } from '../core/state';
 
 export const customTrophies = (() => {
@@ -62,7 +63,7 @@ export const customTrophies = (() => {
     }
 
     function extractIcon(card: HTMLElement) {
-        const rewardDiv = card.querySelector('[class*="rewardsContainer"] [class*="-backgroundImageContain"]');
+        const rewardDiv = card.querySelector(gameDOM.trophies.rewardImage);
         if (rewardDiv) {
             const bg = window.getComputedStyle(rewardDiv).backgroundImage;
             const match = bg.match(/url\(['"]?(.*?)['"]?\)/);
@@ -82,7 +83,7 @@ export const customTrophies = (() => {
             favs.push({ id: itemId, type, icon: iconUrl, current, max });
         }
         saveFavs(favs);
-        const cards = document.querySelectorAll('.MainQuestComponentStyle-cardPlayCommon, .TableMainQuestComponentStyle-commonTableMainQuest, .MainQuestComponentStyle-cardPlay');
+        const cards = document.querySelectorAll(gameDOM.trophies.cards);
         if (cards.length > 0) processGarageMissions(Array.from(cards) as HTMLElement[]);
     }
 
@@ -99,7 +100,7 @@ export const customTrophies = (() => {
             const itemInfo = parseItem(rawText);
             if (!itemInfo) return;
 
-            const isGrid = card.classList.contains('MainQuestComponentStyle-cardPlay');
+            const isGrid = card.classList.contains(gameDOM.classes.gridTrophy);
             card.style.position = 'relative';
             if (isGrid) {
                 card.classList.add('card-type-grid'); card.classList.remove('card-type-list');
@@ -121,11 +122,11 @@ export const customTrophies = (() => {
             }
 
             const limitReached = !favItem && ((type === 'turret' && favTurrets >= 2) || (type === 'hull' && favHulls >= 2));
-            let starContainer = card.querySelector('.PaintsCollectionComponentStyle-favoriteIconContainer');
+            let starContainer = card.querySelector(gameDOM.trophies.favorite);
 
             if (!starContainer) {
                 starContainer = document.createElement('div');
-                starContainer.className = 'PaintsCollectionComponentStyle-favoriteIconContainer';
+                starContainer.className = gameDOM.classes.favorite;
                 starContainer.innerHTML = `<img src="${favItem ? ICON_FAV : ICON_UNFAV}">`;
                 starContainer.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -149,7 +150,7 @@ export const customTrophies = (() => {
         let favs = getFavs();
         let favsUpdated = false;
         battleCards.forEach(card => {
-            const textElements = card.querySelectorAll('.BattleResultQuestProgressComponentStyle-text');
+            const textElements = card.querySelectorAll(gameDOM.trophies.resultText);
             if (textElements.length < 2) return;
             let rawText = '';
             let rawProgress = '';
@@ -215,7 +216,7 @@ export const customTrophies = (() => {
     }
 
     function updateInterface() {
-        const challengesBlock = document.querySelector('.BattlePassLobbyComponentStyle-menuBattlePass');
+        const challengesBlock = document.querySelector(gameDOM.trophies.lobbyAnchor);
         const panel = document.getElementById('custom-trophy-panel');
 
         if (challengesBlock) {
@@ -226,7 +227,7 @@ export const customTrophies = (() => {
             if (panel) panel.remove();
         }
 
-        const cards = document.querySelectorAll('.MainQuestComponentStyle-cardPlayCommon, .TableMainQuestComponentStyle-commonTableMainQuest, .MainQuestComponentStyle-cardPlay');
+        const cards = document.querySelectorAll(gameDOM.trophies.cards);
         if (cards.length > 0) processGarageMissions(Array.from(cards) as HTMLElement[]);
     }
 
@@ -239,7 +240,7 @@ export const customTrophies = (() => {
         if (state.currentScreen === 'lobby' || state.currentScreen === 'garage') {
             updateInterface();
         } else if (state.currentScreen === 'match_results') {
-            const battleCards = document.querySelectorAll('.BattleResultQuestProgressComponentStyle-container');
+            const battleCards = document.querySelectorAll(gameDOM.trophies.resultCards);
             if (battleCards.length > 0) processBattleResults(Array.from(battleCards) as HTMLElement[]);
         }
     };

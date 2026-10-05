@@ -1,3 +1,4 @@
+import { gameDOM } from '../core/gameDOM';
 import { state } from '../core/state';
 import { utils } from '../core/utils';
 
@@ -37,7 +38,7 @@ export const customPlayButton = (() => {
     const modesButtonNames = ['РЕЖИМЫ', 'MODES'];
 
     function isSearching() {
-        return !!document.querySelector('.MainScreenComponentStyle-disabledButtonPlay');
+        return !!document.querySelector(gameDOM.play.disabled);
     }
 
     function simulateClick(el: HTMLElement) {
@@ -54,7 +55,7 @@ export const customPlayButton = (() => {
     }
 
     function clickSpecificCard(modeNames: string[]) {
-        const allCards = document.querySelectorAll('.BattlePickComponentStyle-commonStyleBlock, .blockCard, [class*="commonStyleBlock"]');
+        const allCards = document.querySelectorAll(gameDOM.play.cards);
         for (const card of Array.from(allCards)) {
             const h2 = card.querySelector('h2');
             if (h2 && matchText(h2.textContent || '', modeNames)) return simulateClick(card as HTMLElement);
@@ -82,8 +83,8 @@ export const customPlayButton = (() => {
     function startAutoQueue(modeData: any) {
         if (isSearching()) return;
         targetMode = modeData;
-        const playButton = document.querySelector('.MainScreenComponentStyle-playButtonContainer') as HTMLElement;
-        if (playButton && !playButton.classList.contains('MainScreenComponentStyle-disabledButtonPlay')) {
+        const playButton = document.querySelector(gameDOM.play.container) as HTMLElement;
+        if (playButton && !playButton.classList.contains(gameDOM.classes.disabledPlay)) {
             autoQueueState = 1;
             document.body.classList.add('kasp-autoqueue-active');
             if (failSafeTimer) window.clearTimeout(failSafeTimer);
@@ -114,7 +115,7 @@ export const customPlayButton = (() => {
         if (isSearching()) return;
         if (autoQueueState !== 0) return;
 
-        if (document.querySelector('.DialogContainerComponentStyle-container')) return;
+        if (document.querySelector(gameDOM.dialogs.container)) return;
 
         let handled = false;
 
@@ -153,10 +154,10 @@ export const customPlayButton = (() => {
         lastSearchingState = searching;
         const currentLang = state.lang;
 
-        const playButton = document.querySelector('.MainScreenComponentStyle-playButtonContainer') as HTMLElement;
+        const playButton = document.querySelector(gameDOM.play.container) as HTMLElement;
         if (playButton) {
             const bgLayer = playButton.querySelector('.custom-main-bg-layer') as HTMLElement;
-            const innerBtn = (playButton.querySelector('.MainScreenComponentStyle-buttonPlay') || playButton) as HTMLElement;
+            const innerBtn = (playButton.querySelector(gameDOM.play.button) || playButton) as HTMLElement;
             let customText = innerBtn.querySelector('.custom-main-text') as HTMLElement;
             let lockDiv = innerBtn.querySelector('.main-lock-icon') as HTMLElement;
 
@@ -282,8 +283,8 @@ export const customPlayButton = (() => {
     }
 
     function applyStyles(playButton: HTMLElement) {
-        const container = (playButton.closest('div[class*="-displayFlex"]') || playButton.parentElement?.parentElement) as HTMLElement;
-        const mainMenu = document.querySelector('.MainScreenComponentStyle-blockMainMenu') as HTMLElement;
+        const container = (playButton.closest(gameDOM.common.flexDiv) || playButton.parentElement?.parentElement) as HTMLElement;
+        const mainMenu = document.querySelector(gameDOM.play.mainMenu) as HTMLElement;
         if (container) {
             container.style.marginLeft = '5em'; container.style.height = 'auto';
             container.style.marginTop = '10em'; container.style.width = '31.25em';
@@ -297,7 +298,7 @@ export const customPlayButton = (() => {
             playButton.style.borderRadius = '0.5rem'; playButton.style.transition = 'box-shadow 0.2s ease-in-out, opacity 0.2s ease-in';
             playButton.addEventListener('mouseenter', () => { if (!isSearching()) playButton.style.boxShadow = 'rgb(255, 255, 255) 0 0 0 0.2em'; });
             playButton.addEventListener('mouseleave', () => { if (!isSearching()) playButton.style.boxShadow = 'rgba(255, 255, 255, 0.25) 0 0 0 0.0625em'; });
-            const innerBtn = (playButton.querySelector('.MainScreenComponentStyle-buttonPlay') || playButton) as HTMLElement;
+            const innerBtn = (playButton.querySelector(gameDOM.play.button) || playButton) as HTMLElement;
             innerBtn.style.backgroundImage = 'none'; innerBtn.classList.add('custom-inner-btn');
             let bgLayer = innerBtn.querySelector('.custom-main-bg-layer') as HTMLElement;
             if (!bgLayer) {
@@ -351,7 +352,7 @@ export const customPlayButton = (() => {
             }, 50);
         }
 
-        const playButton = document.querySelector('.MainScreenComponentStyle-playButtonContainer:not([data-overridden="true"])') as HTMLElement;
+        const playButton = document.querySelector(gameDOM.play.untreatedContainer) as HTMLElement;
         if (playButton) {
             buttonsCreated = false;
             applyStyles(playButton);
