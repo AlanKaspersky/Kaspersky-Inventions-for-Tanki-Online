@@ -4,7 +4,7 @@
 
 **Extension version:** 2.7.3.1 (`manifest.json`)
 
-**Documentation updated:** October 2, 2026
+**Documentation updated:** October 5, 2026
 
 **Interface languages:** English and Russian
 
