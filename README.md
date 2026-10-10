@@ -2,7 +2,7 @@
 
 ## Complete Documentation
 
-**Extension version:** 2.9.0 (`manifest.json`)
+**Extension version:** 2.9.1 (`manifest.json`)
 
 **Documentation updated:** October 5, 2026
 
@@ -766,7 +766,7 @@ After rebuilding, reload the unpacked extension and then reload the game page. A
 
 ### Version metadata
 
-The current `manifest.json` version is **2.9.0**; `package.json` and the lockfile package version remain **2.9.0**. The browser, welcome window, and release-folder naming use the manifest version. These metadata values should be aligned as part of release maintenance.
+The current `manifest.json` version is **2.9.1**; `package.json` and the lockfile package version remain **2.9.1**. The browser, welcome window, and release-folder naming use the manifest version. These metadata values should be aligned as part of release maintenance.
 
 ### Release output
 
@@ -776,11 +776,11 @@ For the current manifest version, output is:
 
 ```text
 release/
-├── Kaspersky's Inventions 2.9.0/
+├── Kaspersky's Inventions 2.9.1/
 │   ├── manifest.json
 │   ├── LICENSE.txt
 │   └── ... runtime directories
-└── Kaspersky's Inventions 2.9.0.zip
+└── Kaspersky's Inventions 2.9.1.zip
 ```
 
 The archive contains the versioned outer folder. Extract it and select the folder containing `manifest.json` when loading the extension. Source files, tests, `node_modules`, and this README are not included by the current packaging script.
@@ -904,4 +904,4 @@ For the in-game presentation of release information and credits, see [the welcom
 
 ---
 
-Documentation aligned with extension manifest version **2.9.0*, updated **October 5, 2026**.
+Documentation aligned with extension manifest version **2.9.1*, updated **October 5, 2026**.

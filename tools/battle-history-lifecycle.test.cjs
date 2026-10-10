@@ -953,3 +953,50 @@ test('boot saves results over a retained canvas and resets capture before a dire
     showingResults = true; await update();
     assert.equal(saved.length, 2, 'the next battle saves without a lobby visit');
 });
+
+test('boot styles garage actions over a retained battle canvas and resumes battle after closing', () => {
+    let garageOpen = false;
+    const frames = [], observers = [], classes = new Set(), iconStyles = new Map();
+    const state = { lang: 'EN', currentScreen: 'battle', friendsMenuOpen: false, settingsOpen: false };
+    const icon = { style: { setProperty: (key, value) => iconStyles.set(key, value) } };
+    const button = {
+        textContent: 'Завершено', innerHTML: '<span>Завершено</span>', children: [{}],
+        classList: { contains: name => classes.has(name),
+            add: (...names) => names.forEach(name => classes.add(name)),
+            remove: (...names) => names.forEach(name => classes.delete(name)) },
+        querySelector: selector => selector.includes('-backgroundImage') ? icon : null,
+        closest: () => null,
+    };
+    const document = {
+        documentElement: { lang: 'en' }, getElementById: () => null, addEventListener() {},
+        querySelector(selector) {
+            if (selector.includes('BattleComponentStyle-canvasContainer')) return {};
+            if (garageOpen && selector.includes('GarageCommonStyle-positionContent')) return {};
+            return null;
+        },
+        querySelectorAll: selector => garageOpen && selector.includes('GarageCommonStyle-bigActionButton') ? [button] : [],
+    };
+    const globals = { document, window: { addEventListener() {}, setInterval() {}, setTimeout() {} },
+        performance: { now: () => 1000 }, requestAnimationFrame: fn => frames.push(fn),
+        MutationObserver: class { constructor(fn) { observers.push(fn); } observe() {} } };
+    const mocks = {
+        'src/core/state.ts': { state },
+        'src/core/utils.ts': { utils: { getLang: () => 'EN' } },
+        'src/core/coreSettings.ts': { coreSettings: {} },
+    };
+    const { garageButtons } = loadModule('src/modules/garageButtons.ts', globals, mocks);
+    const noop = Object.assign(() => {}, { onTick() {}, sync() {}, setup() {} });
+    mocks['src/modules.ts'] = { modules: new Proxy({}, { get: (_target, name) => name === 'garageButtons' ? garageButtons : noop }) };
+    loadModule('src/boot.ts', globals, mocks).startBoot();
+    const update = () => { observers[0](); frames.splice(0).forEach(fn => fn()); };
+    update();
+    assert.equal(state.currentScreen, 'battle');
+    garageOpen = true;
+    update();
+    assert.equal(state.currentScreen, 'garage');
+    assert.ok(classes.has('kasp-disabled-btn'), 'completed actions receive their disabled styling');
+    assert.ok(iconStyles.get('mask-image').includes('max_level'), 'the upgrade icon is restored');
+    garageOpen = false;
+    update();
+    assert.equal(state.currentScreen, 'battle');
+});

@@ -6504,10 +6504,10 @@
         newScreen = "match_results";
       } else if (document.querySelector(".ApplicationLoaderComponentStyle-container")) {
         newScreen = "loading";
+      } else if (document.querySelector(gameDOM.screens.garage)) {
+        newScreen = "garage";
       } else if (document.querySelector(gameDOM.screens.battleHud)) {
         newScreen = "battle";
-      } else if (document.querySelector(".GarageCommonStyle-positionContent, .GarageItemComponent-container, .ContainerInfoComponentStyle-lootBoxContainer")) {
-        newScreen = "garage";
       } else if (document.querySelector(".MainScreenComponentStyle-blockMainMenu")) {
         newScreen = "lobby";
       }

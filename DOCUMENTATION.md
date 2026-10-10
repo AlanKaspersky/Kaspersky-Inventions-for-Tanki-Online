@@ -2,7 +2,7 @@
 
 ## Complete Implementation Reference
 
-**Extension version:** 2.9.0 (`manifest.json`)
+**Extension version:** 2.9.1 (`manifest.json`)
 
 **Documentation updated:** October 6, 2026
 
@@ -1505,7 +1505,7 @@ The build does not invoke regression tests automatically. Reload the extension a
 
 ### Dependency Metadata
 
-The current manifest, package, and lockfile package versions are 2.9.0. Package and lockfile-root dependency ranges agree: `@types/chrome` `^0.3.0`, esbuild `^0.28.2`, and TypeScript `^7.0.2`.
+The current manifest, package, and lockfile package versions are 2.9.1. Package and lockfile-root dependency ranges agree: `@types/chrome` `^0.3.0`, esbuild `^0.28.2`, and TypeScript `^7.0.2`.
 
 Use `npm ci` to install the locked dependency graph. Dependency changes should update the manifest and lockfile together; `npm install` can rewrite the lockfile. The project does not declare a Node `engines` field; tooling requires APIs such as `fs.cpSync` and the built-in Node test runner.
 
@@ -1524,7 +1524,7 @@ Use `npm ci` to install the locked dependency graph. Dependency changes should u
 
 Configured directories are `dist`, `styles`, `assets`, `database`, `_locales`, and `templates`. Configured root files are `manifest.json` and `LICENSE.txt`.
 
-For 2.9.0, the folder and archive names are `release/Kaspersky's Inventions 2.9.0/` and `release/Kaspersky's Inventions 2.9.0.zip`. The ZIP contains that outer versioned folder.
+For 2.9.1, the folder and archive names are `release/Kaspersky's Inventions 2.9.1/` and `release/Kaspersky's Inventions 2.9.1.zip`. The ZIP contains that outer versioned folder.
 
 The script removes the existing same-version output before recreating it. It throws if no directory or no root file was copied, but does not require every configured input to exist. `build:zip` can package stale bundles or partial resources if invoked without appropriate preparation.
 
@@ -1628,4 +1628,4 @@ Project use and distribution are governed by [LICENSE.txt](LICENSE.txt), which c
 
 ---
 
-Technical documentation aligned with the source implementation and manifest version **2.9.0**, updated **October 5, 2026**.
+Technical documentation aligned with the source implementation and manifest version **2.9.1**, updated **October 5, 2026**.
