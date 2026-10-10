@@ -174,8 +174,37 @@ test('RPC sends battle countdown and party and clears them on leaving a battle',
     assert.deepEqual(activity.party, { size: [12, 24] });
     client.update(presence); f.tick(15000);
     activity = readFrame(socket.writes[2]).data.args.activity;
-    assert.equal(activity.party, undefined); assert.equal(activity.timestamps, undefined);
+    assert.equal(activity.party, undefined); assert.deepEqual(activity.timestamps, { start: 100 });
     client.dispose();
+});
+
+test('session timer survives garage, battle, activity clear and Discord reconnect; a new client starts anew', () => {
+    const f = fixture(), client = new f.DiscordPresence('1558302320163291306');
+    client.update(presence);
+    const socket = f.sockets[0];
+    socket.emit('connect'); socket.emit('data', f.rpcFrame(1, { evt: 'READY' }));
+    const activity = () => readFrame(socket.writes.at(-1)).data.args.activity;
+    assert.deepEqual(activity().timestamps, { start: 100 });
+    client.update({ ...presence, details: 'In the garage' }); f.tick(15000);
+    assert.deepEqual(activity().timestamps, { start: 100 });
+    client.update({ ...presence, details: 'Osa CP', timestamps: { end: 300 } }); f.tick(15000);
+    assert.deepEqual(activity().timestamps, { end: 300 });
+    client.update(presence); f.tick(15000);
+    assert.deepEqual(activity().timestamps, { start: 100 });
+    client.update(null); assert.equal(activity(), null);
+    f.tick(15000); client.update(presence);
+    assert.deepEqual(activity().timestamps, { start: 100 });
+    socket.destroy(); f.tick(15000);
+    const reconnected = f.sockets.at(-1);
+    reconnected.emit('connect'); reconnected.emit('data', f.rpcFrame(1, { evt: 'READY' }));
+    assert.deepEqual(readFrame(reconnected.writes.at(-1)).data.args.activity.timestamps, { start: 100 });
+    client.dispose();
+    const restarted = new f.DiscordPresence('1558302320163291306');
+    restarted.update(presence);
+    const fresh = f.sockets.at(-1);
+    fresh.emit('connect'); fresh.emit('data', f.rpcFrame(1, { evt: 'READY' }));
+    assert.deepEqual(readFrame(fresh.writes.at(-1)).data.args.activity.timestamps, { start: 175 });
+    restarted.dispose();
 });
 
 test('battle store reader uses current battle limits and excludes spectators', () => {

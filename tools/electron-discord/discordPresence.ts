@@ -38,6 +38,8 @@ export class DiscordPresence {
     private desired: Presence | null = null;
     private sent: string | null = null;
     private lastSent = 0;
+    // Reuse one session start across section changes, navigation and RPC reconnects.
+    private readonly sessionStartedAt = Math.floor(Date.now() / 1000);
     private reconnect?: NodeJS.Timeout;
     private sendTimer?: NodeJS.Timeout;
     constructor(private applicationId: string, private report: (message: string) => void = console.warn) {}
@@ -106,7 +108,7 @@ export class DiscordPresence {
         }
         clearTimeout(this.sendTimer); this.sendTimer = undefined;
         const activity = this.desired ? { type: 0, details: this.desired.details, state: this.desired.state,
-            ...(this.desired.timestamps ? { timestamps: this.desired.timestamps } : {}),
+            timestamps: this.desired.timestamps ?? { start: this.sessionStartedAt },
             ...(this.desired.party ? { party: this.desired.party } : {}), instance: false } : null;
         this.socket.write(rpcFrame(1, { cmd: 'SET_ACTIVITY', args: { pid: process.pid, activity }, nonce: randomUUID() }));
         this.sent = key; this.lastSent = Date.now();

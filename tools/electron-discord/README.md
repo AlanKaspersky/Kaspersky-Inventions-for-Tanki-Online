@@ -8,6 +8,8 @@ Russian map names are translated through `database/maps.json`. Outside a battle 
 
 The Electron client receives these messages through a restricted preload bridge and sends the activity to the locally running Discord desktop application through Discord IPC. It does not need an account token, Client Secret, additional npm package or a local HTTP server.
 
+Outside a timed battle, the client supplies a fixed `timestamps.start` for its session. Returning to the lobby, changing sections, restoring presence after a cleared heartbeat or reconnecting Discord reuses that start time. A timed battle uses only `timestamps.end`; restarting the client starts a new session timer.
+
 ## Client files
 
 These files have also been applied to `C:/Project/tanki-online-with-ki`:
