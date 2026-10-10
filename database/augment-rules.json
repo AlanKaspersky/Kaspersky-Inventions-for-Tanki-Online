@@ -1,0 +1,1331 @@
+{
+  "instructions": {
+    "editing": "Copy example entries into rules. The example itself is not applied.",
+    "objectId": "Device objectId from window.__kaspAugmentsDebug.exportPage(). Keep it as a string.",
+    "property": "Use the protocol property ID, for example HULL_MASS. An unambiguous Russian or English label is also accepted.",
+    "status": "better places the parameter in Advantages; lower places it in Disadvantages. These are direct assignments, not comparison directions.",
+    "reload": "After saving, reload the extension and game. Editing this JSON does not require rebuilding JavaScript."
+  },
+  "rules": [
+    {
+      "objectId": "920005770320",
+      "property": "CONE_ANGLE",
+      "status": "lower"
+    },
+    {
+      "objectId": "920005132721",
+      "property": "CONE_ANGLE",
+      "status": "lower"
+    },
+    {
+      "objectId": "921009729063",
+      "property": "ISIS_VAMPIRING_PERCENT",
+      "status": "better"
+    },
+    {
+      "objectId": "921009729063",
+      "property": "ISIS_DISCHARGE_SPEED_IDLE",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009802587",
+      "property": "CONE_ANGLE",
+      "status": "lower"
+    },
+    {
+      "objectId": "920005132722",
+      "property": "CONE_ANGLE",
+      "status": "better"
+    },
+    {
+      "objectId": "920009599080",
+      "property": "DEVICE_BONUS_ENERGY_ON_KILL",
+      "status": "better"
+    },
+    {
+      "objectId": "1931010009999",
+      "property": "SPLASH_DAMAGE_RADIUS",
+      "status": "better"
+    },
+    {
+      "objectId": "1931010009999",
+      "property": "RADIUS_OF_MAX_SPLASH_DAMAGE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931010009999",
+      "property": "RADIUS_OF_FIRST_DIMINUTION_SPLASH_DAMAGE",
+      "status": "better"
+    },
+    {
+      "objectId": "921009747972",
+      "property": "TESLA_GLOBE_DISTANCE",
+      "status": "better"
+    },
+    {
+      "objectId": "921009747972",
+      "property": "TESLA_GLOBE_SPEED",
+      "status": "better"
+    },
+    {
+      "objectId": "1931010007553",
+      "property": "TESLA_CASCADE_ALLY_TANK_RADIUS",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931010007553",
+      "property": "TESLA_CASCADE_ENEMY_TANK_RADIUS",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931010007553",
+      "property": "TESLA_CASCADE_GLOBE_RADIUS",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009774507",
+      "property": "TESLA_CASCADE_GLOBE_RADIUS",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931010009999",
+      "property": "TESLA_CASCADE_GLOBE_RADIUS",
+      "status": "lower"
+    },
+    {
+      "objectId": "921009747974",
+      "property": "MAX_RICOCHET_COUNT",
+      "status": "better"
+    },
+    {
+      "objectId": "921009747974",
+      "property": "TESLA_CASCADE_GLOBE_RADIUS",
+      "status": "lower"
+    },
+    {
+      "objectId": "921009747973",
+      "property": "MAX_RICOCHET_COUNT",
+      "status": "better"
+    },
+    {
+      "objectId": "921009747973",
+      "property": "TESLA_CASCADE_GLOBE_RADIUS",
+      "status": "lower"
+    },
+    {
+      "objectId": "921009747978",
+      "property": "MAX_RICOCHET_COUNT",
+      "status": "better"
+    },
+    {
+      "objectId": "921009747978",
+      "property": "TESLA_CASCADE_GLOBE_RADIUS",
+      "status": "lower"
+    },
+    {
+      "objectId": "921009747977",
+      "property": "MAX_RICOCHET_COUNT",
+      "status": "better"
+    },
+    {
+      "objectId": "921009747977",
+      "property": "TESLA_CASCADE_GLOBE_RADIUS",
+      "status": "lower"
+    },
+    {
+      "objectId": "921009747970",
+      "property": "MAX_RICOCHET_COUNT",
+      "status": "better"
+    },
+    {
+      "objectId": "921009747970",
+      "property": "TESLA_CASCADE_GLOBE_RADIUS",
+      "status": "lower"
+    },
+    {
+      "objectId": "921009747975",
+      "property": "MAX_RICOCHET_COUNT",
+      "status": "better"
+    },
+    {
+      "objectId": "921009747976",
+      "property": "MAX_RICOCHET_COUNT",
+      "status": "better"
+    },
+    {
+      "objectId": "921009747971",
+      "property": "TESLA_GLOBE_SPEED",
+      "status": "lower"
+    },
+    {
+      "objectId": "920009599090",
+      "property": "DEVICE_BONUS_ENERGY_ON_KILL",
+      "status": "better"
+    },
+    {
+      "objectId": "921009729062",
+      "property": "ELLIPTIC_CONE_HORIZONTAL_ANGLE",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009779362",
+      "property": "WEAPON_KICKBACK",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009801262",
+      "property": "ELLIPTIC_CONE_HORIZONTAL_ANGLE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009801262",
+      "property": "ELLIPTIC_CONE_VERTICAL_ANGLE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009801684",
+      "property": "ELLIPTIC_CONE_HORIZONTAL_ANGLE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009803197",
+      "property": "START_CRITICAL_HIT_CHANCE",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009803197",
+      "property": "AFTER_CRIT_CRITICAL_HIT_CHANCE",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931010007892",
+      "property": "WEAPON_KICKBACK",
+      "status": "better"
+    },
+    {
+      "objectId": "1931010009565",
+      "property": "ELLIPTIC_CONE_HORIZONTAL_ANGLE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931010009565",
+      "property": "ELLIPTIC_CONE_VERTICAL_ANGLE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931010009565",
+      "property": "WEAPON_KICKBACK",
+      "status": "better"
+    },
+    {
+      "objectId": "920005132727",
+      "property": "ELLIPTIC_CONE_HORIZONTAL_ANGLE",
+      "status": "better"
+    },
+    {
+      "objectId": "920005132727",
+      "property": "ELLIPTIC_CONE_VERTICAL_ANGLE",
+      "status": "better"
+    },
+    {
+      "objectId": "931009760716",
+      "property": "WEAPON_KICKBACK",
+      "status": "better"
+    },
+    {
+      "objectId": "920009599300",
+      "property": "SHELL_BOOST_PHASE_DURATION",
+      "status": "lower"
+    },
+    {
+      "objectId": "920006113430",
+      "property": "RADIUS_OF_MAX_SPLASH_DAMAGE",
+      "status": "lower"
+    },
+    {
+      "objectId": "920006113430",
+      "property": "SPLASH_DAMAGE_RADIUS",
+      "status": "lower"
+    },
+    {
+      "objectId": "920006113430",
+      "property": "CRITICAL_SPLASH_DAMAGE_RADIUS",
+      "status": "lower"
+    },
+    {
+      "objectId": "920009599125",
+      "property": "DEVICE_BONUS_ENERGY_ON_KILL",
+      "status": "better"
+    },
+    {
+      "objectId": "931009771097",
+      "property": "MAX_RICOCHET_COUNT",
+      "status": "lower"
+    },
+    {
+      "objectId": "931009771097",
+      "property": "WEAPON_KICKBACK",
+      "status": "better"
+    },
+    {
+      "objectId": "1931010008783",
+      "property": "SHELL_BOOST_PHASE_DURATION",
+      "status": "lower"
+    },
+    {
+      "objectId": "920006113432",
+      "property": "RADIUS_OF_MAX_SPLASH_DAMAGE",
+      "status": "better"
+    },
+    {
+      "objectId": "920006113432",
+      "property": "RADIUS_OF_FIRST_DIMINUTION_SPLASH_DAMAGE",
+      "status": "better"
+    },
+    {
+      "objectId": "920006113432",
+      "property": "SPLASH_DAMAGE_RADIUS",
+      "status": "better"
+    },
+    {
+      "objectId": "920006113432",
+      "property": "CRITICAL_SPLASH_DAMAGE_RADIUS",
+      "status": "better"
+    },
+    {
+      "objectId": "920006113432",
+      "property": "MAX_RICOCHET_COUNT",
+      "status": "lower"
+    },
+    {
+      "objectId": "920009599277",
+      "property": "MAX_RICOCHET_COUNT",
+      "status": "lower"
+    },
+    {
+      "objectId": "920009599277",
+      "property": "WEAPON_KICKBACK",
+      "status": "better"
+    },
+    {
+      "objectId": "920009658953",
+      "property": "MAX_RICOCHET_COUNT",
+      "status": "better"
+    },
+    {
+      "objectId": "920009658953",
+      "property": "SHELL_MAX_RICOCHET_ANGLE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009801931",
+      "property": "SHELL_MAX_RICOCHET_ANGLE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009801931",
+      "property": "MAX_RICOCHET_COUNT",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009801931",
+      "property": "RADIUS_OF_MAX_SPLASH_DAMAGE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009801931",
+      "property": "RADIUS_OF_FIRST_DIMINUTION_SPLASH_DAMAGE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009801931",
+      "property": "SPLASH_DAMAGE_RADIUS",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009801931",
+      "property": "CRITICAL_SPLASH_DAMAGE_RADIUS",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009801929",
+      "property": "MACHINE_GUN_SPIN_DOWN_TIME_SECOND",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009802903",
+      "property": "MACHINE_GUN_SPIN_DOWN_TIME_SECOND",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009802903",
+      "property": "WEAPON_KICKBACK",
+      "status": "lower"
+    },
+    {
+      "objectId": "920005770326",
+      "property": "MACHINE_GUN_SPIN_DOWN_TIME_SECOND",
+      "status": "better"
+    },
+    {
+      "objectId": "920005770326",
+      "property": "MACHINE_GUN_TEMPERATURE_HITTING_TIME_SECOND",
+      "status": "better"
+    },
+    {
+      "objectId": "920009599170",
+      "property": "DEVICE_TARGET_HEAT_DELTA_ON_SELF_OVERHEAT",
+      "status": "better"
+    },
+    {
+      "objectId": "920009599170",
+      "property": "MACHINE_GUN_TEMPERATURE_HITTING_TIME_SECOND",
+      "status": "better"
+    },
+    {
+      "objectId": "920009599265",
+      "property": "WEAPON_KICKBACK",
+      "status": "better"
+    },
+    {
+      "objectId": "921009712830",
+      "property": "SHELL_MAX_RICOCHET_ANGLE",
+      "status": "better"
+    },
+    {
+      "objectId": "921009712830",
+      "property": "MAX_RICOCHET_COUNT",
+      "status": "better"
+    },
+    {
+      "objectId": "921009712831",
+      "property": "RADIUS_OF_MAX_SPLASH_DAMAGE",
+      "status": "better"
+    },
+    {
+      "objectId": "921009712831",
+      "property": "RADIUS_OF_FIRST_DIMINUTION_SPLASH_DAMAGE",
+      "status": "better"
+    },
+    {
+      "objectId": "921009712831",
+      "property": "SPLASH_DAMAGE_RADIUS",
+      "status": "better"
+    },
+    {
+      "objectId": "921009712831",
+      "property": "FIRST_DIMINUTION_SPLASH_DAMAGE_PERCENT",
+      "status": "better"
+    },
+    {
+      "objectId": "921009712831",
+      "property": "MIN_SPLASH_DAMAGE_PERCENT",
+      "status": "better"
+    },
+    {
+      "objectId": "921009712831",
+      "property": "CRITICAL_SPLASH_DAMAGE_RADIUS",
+      "status": "better"
+    },
+    {
+      "objectId": "921009712831",
+      "property": "SHELL_MAX_RICOCHET_ANGLE",
+      "status": "lower"
+    },
+    {
+      "objectId": "921009712832",
+      "property": "AFTER_CRIT_CRITICAL_HIT_CHANCE",
+      "status": "lower"
+    },
+    {
+      "objectId": "920009599269",
+      "property": "SHELL_BOOST_PHASE_DURATION",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009779252",
+      "property": "SALVO_SIZE",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009801640",
+      "property": "SHOT_RANGE",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009801110",
+      "property": "SALVO_SIZE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009801110",
+      "property": "WEAPON_KICKBACK",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009801110",
+      "property": "ROCKET_MIN_ANGULAR_SPEED",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009801110",
+      "property": "ROCKET_MAX_ANGULAR_SPEED",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009802120",
+      "property": "FIRST_DIMINUTION_SPLASH_DAMAGE_PERCENT",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009802120",
+      "property": "MIN_SPLASH_DAMAGE_PERCENT",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009802120",
+      "property": "RADIUS_OF_MAX_SPLASH_DAMAGE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009802120",
+      "property": "RADIUS_OF_FIRST_DIMINUTION_SPLASH_DAMAGE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009802120",
+      "property": "SPLASH_DAMAGE_RADIUS",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009802120",
+      "property": "SHELL_BOOST_PHASE_DURATION",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009802159",
+      "property": "RADIUS_OF_MAX_SPLASH_DAMAGE",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009802159",
+      "property": "RADIUS_OF_FIRST_DIMINUTION_SPLASH_DAMAGE",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009802159",
+      "property": "SPLASH_DAMAGE_RADIUS",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009802159",
+      "property": "CRITICAL_SPLASH_DAMAGE_RADIUS",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009802159",
+      "property": "TIME_BETWEEN_SHOTS_OF_SALVO",
+      "status": "better"
+    },
+    {
+      "objectId": "1931010007884",
+      "property": "SHELL_BOOST_PHASE_DURATION",
+      "status": "lower"
+    },
+    {
+      "objectId": "920009599267",
+      "property": "SALVO_SIZE",
+      "status": "lower"
+    },
+    {
+      "objectId": "920009599268",
+      "property": "SALVO_SIZE",
+      "status": "better"
+    },
+    {
+      "objectId": "920009599268",
+      "property": "TIME_BETWEEN_SHOTS_OF_SALVO",
+      "status": "better"
+    },
+    {
+      "objectId": "920009599055",
+      "property": "SHELL_BOOST_PHASE_DURATION",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009774128",
+      "property": "SPLASH_DAMAGE_RADIUS",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009774128",
+      "property": "RADIUS_OF_FIRST_DIMINUTION_SPLASH_DAMAGE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009774128",
+      "property": "FIRST_DIMINUTION_SPLASH_DAMAGE_PERCENT",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009774128",
+      "property": "MIN_SPLASH_DAMAGE_PERCENT",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009774129",
+      "property": "AFTER_CRIT_CRITICAL_HIT_CHANCE",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009774130",
+      "property": "ALLY_HEALING_MODE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009774131",
+      "property": "DEVICE_BONUS_ENERGY_ON_DAMAGE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009774133",
+      "property": "CRITICAL_SPLASH_DAMAGE_RADIUS",
+      "status": "better"
+    },
+    {
+      "objectId": "1931010007149",
+      "property": "SHELL_BOOST_PHASE_DURATION",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931010007149",
+      "property": "WEAPON_KICKBACK",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009774122",
+      "property": "CRITICAL_SPLASH_DAMAGE_RADIUS",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009774123",
+      "property": "CRITICAL_SPLASH_DAMAGE_RADIUS",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009774124",
+      "property": "CRITICAL_SPLASH_DAMAGE_RADIUS",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009774125",
+      "property": "CRITICAL_SPLASH_DAMAGE_RADIUS",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009774127",
+      "property": "CRITICAL_SPLASH_DAMAGE_RADIUS",
+      "status": "better"
+    },
+    {
+      "objectId": "920005770338",
+      "property": "SPLASH_DAMAGE_RADIUS",
+      "status": "lower"
+    },
+    {
+      "objectId": "920005770338",
+      "property": "CRITICAL_SPLASH_DAMAGE_RADIUS",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009780286",
+      "property": "WEAPON_KICKBACK",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009780287",
+      "property": "CRITICAL_SPLASH_DAMAGE_RADIUS",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009780287",
+      "property": "RADIUS_OF_MAX_SPLASH_DAMAGE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009780287",
+      "property": "RADIUS_OF_FIRST_DIMINUTION_SPLASH_DAMAGE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009780287",
+      "property": "SPLASH_DAMAGE_RADIUS",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009780287",
+      "property": "SHELL_MAX_RICOCHET_ANGLE",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009780288",
+      "property": "SALVO_SIZE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009780288",
+      "property": "WEAPON_KICKBACK",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009780288",
+      "property": "CASSETTE_COMBO_ADDITIONAL_DAMAGE",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009780289",
+      "property": "SALVO_SIZE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009780289",
+      "property": "WEAPON_KICKBACK",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009780264",
+      "property": "CASSETTE_COMBO_ADDITIONAL_DAMAGE",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009780264",
+      "property": "CASSETTE_HOLD",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009780264",
+      "property": "SALVO_SIZE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009780292",
+      "property": "SALVO_SIZE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009780292",
+      "property": "WEAPON_KICKBACK",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009780293",
+      "property": "CRITICAL_SPLASH_DAMAGE_RADIUS",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009780293",
+      "property": "RADIUS_OF_MAX_SPLASH_DAMAGE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009780293",
+      "property": "RADIUS_OF_FIRST_DIMINUTION_SPLASH_DAMAGE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009780293",
+      "property": "SPLASH_DAMAGE_RADIUS",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009780293",
+      "property": "SHELL_MAX_RICOCHET_ANGLE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009780293",
+      "property": "MAX_RICOCHET_COUNT",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009780294",
+      "property": "DEVICE_BONUS_ENERGY_ON_DAMAGE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009780294",
+      "property": "WEAPON_KICKBACK",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009780294",
+      "property": "CASSETTE_COMBO_ADDITIONAL_DAMAGE",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009780275",
+      "property": "CASSETTE_COMBO_ADDITIONAL_DAMAGE",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009780275",
+      "property": "SALVO_SIZE",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009780276",
+      "property": "CRITICAL_SPLASH_DAMAGE_RADIUS",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009780276",
+      "property": "RADIUS_OF_MAX_SPLASH_DAMAGE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009780276",
+      "property": "RADIUS_OF_FIRST_DIMINUTION_SPLASH_DAMAGE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009780276",
+      "property": "SPLASH_DAMAGE_RADIUS",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009780276",
+      "property": "SHELL_MAX_RICOCHET_ANGLE",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009780277",
+      "property": "SHELL_MAX_RICOCHET_ANGLE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009780277",
+      "property": "MAX_RICOCHET_COUNT",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009773525",
+      "property": "MAX_RICOCHET_COUNT",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009773525",
+      "property": "SHELL_MAX_RICOCHET_ANGLE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009773525",
+      "property": "RADIUS_OF_FIRST_DIMINUTION_SPLASH_DAMAGE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009773525",
+      "property": "SPLASH_DAMAGE_RADIUS",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009773525",
+      "property": "AFTER_CRIT_CRITICAL_HIT_CHANCE",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009773526",
+      "property": "SALVO_SIZE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009773526",
+      "property": "AIMED_SPLASH_DAMAGE_RADIUS",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009773526",
+      "property": "AIMED_RADIUS_OF_FIRST_DIMINUTION_SPLASH_DAMAGE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009773526",
+      "property": "ROCKET_MAX_ANGULAR_SPEED",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009773526",
+      "property": "ROCKET_MIN_ANGULAR_SPEED",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009773528",
+      "property": "SALVO_SIZE",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009773528",
+      "property": "ROCKET_MIN_ANGULAR_SPEED",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009773528",
+      "property": "ROCKET_MAX_ANGULAR_SPEED",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009773528",
+      "property": "SECONDARY_SHELL_BOOST_PHASE_DURATION",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009773527",
+      "property": "SALVO_SIZE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009773527",
+      "property": "ROCKET_MAX_ANGULAR_SPEED",
+      "status": "better"
+    },
+    {
+      "objectId": "1931010007887",
+      "property": "SHELL_MAX_RICOCHET_ANGLE",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931010007887",
+      "property": "SPLASH_DAMAGE_RADIUS",
+      "status": "better"
+    },
+    {
+      "objectId": "1931010007887",
+      "property": "RADIUS_OF_FIRST_DIMINUTION_SPLASH_DAMAGE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931010007887",
+      "property": "FIRST_DIMINUTION_SPLASH_DAMAGE_PERCENT",
+      "status": "better"
+    },
+    {
+      "objectId": "1931010007887",
+      "property": "MIN_SPLASH_DAMAGE_PERCENT",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009773515",
+      "property": "RADIUS_OF_FIRST_DIMINUTION_SPLASH_DAMAGE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009773515",
+      "property": "SPLASH_DAMAGE_RADIUS",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009773515",
+      "property": "MAX_RICOCHET_COUNT",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009773516",
+      "property": "AIMED_RADIUS_OF_FIRST_DIMINUTION_SPLASH_DAMAGE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009773516",
+      "property": "AIMED_SPLASH_DAMAGE_RADIUS",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009801523",
+      "property": "SPLASH_DAMAGE_RADIUS",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009801523",
+      "property": "RADIUS_OF_FIRST_DIMINUTION_SPLASH_DAMAGE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009801523",
+      "property": "FIRST_DIMINUTION_SPLASH_DAMAGE_PERCENT",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009803176",
+      "property": "INITIAL_TURRET_ANGLE",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009803176",
+      "property": "SHELL_GRAVITY_COEF",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009803319",
+      "property": "SHELL_GRAVITY_COEF",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009803319",
+      "property": "INITIAL_TURRET_ANGLE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009803319",
+      "property": "WEAPON_KICKBACK",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931010008892",
+      "property": "WEAPON_KICKBACK",
+      "status": "lower"
+    },
+    {
+      "objectId": "921009697173",
+      "property": "INITIAL_TURRET_ANGLE",
+      "status": "better"
+    },
+    {
+      "objectId": "921009697173",
+      "property": "SHELL_GRAVITY_COEF",
+      "status": "better"
+    },
+    {
+      "objectId": "921009697173",
+      "property": "SHELL_SPEEDS_COUNT",
+      "status": "better"
+    },
+    {
+      "objectId": "920009599180",
+      "property": "DEVICE_BONUS_ENERGY_ON_KILL",
+      "status": "better"
+    },
+    {
+      "objectId": "920009599230",
+      "property": "WEAPON_WEAKENING_COEFF",
+      "status": "better"
+    },
+    {
+      "objectId": "1931010007889",
+      "property": "RADIUS_OF_FIRST_DIMINUTION_SPLASH_DAMAGE",
+      "status": "better"
+    },
+    {
+      "objectId": "920005132724",
+      "property": "WEAPON_WEAKENING_COEFF",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009779387",
+      "property": "AIMED_RADIUS_OF_FIRST_DIMINUTION_SPLASH_DAMAGE",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009801096",
+      "property": "SECONDARY_WEAPON_KICKBACK",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931010007893",
+      "property": "AIMED_SHOT_IMPACT",
+      "status": "better"
+    },
+    {
+      "objectId": "1931010007070",
+      "property": "WEAPON_DISCHARGE_RATE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931010007886",
+      "property": "WEAPON_DISCHARGE_RATE",
+      "status": "better"
+    },
+    {
+      "objectId": "920005132726",
+      "property": "WEAPON_DISCHARGE_RATE",
+      "status": "lower"
+    },
+    {
+      "objectId": "920009599275",
+      "property": "WEAPON_DISCHARGE_RATE",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009801899",
+      "property": "HULL_MASS",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009801962",
+      "property": "HULL_MASS",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009801961",
+      "property": "HULL_MASS",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009801943",
+      "property": "HULL_MASS",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009801964",
+      "property": "HULL_MASS",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009801947",
+      "property": "HULL_MASS",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009801945",
+      "property": "HULL_MASS",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009801963",
+      "property": "HULL_MASS",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009801944",
+      "property": "HULL_MASS",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009801971",
+      "property": "HULL_MASS",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009801946",
+      "property": "HULL_MASS",
+      "status": "lower"
+    },
+    {
+      "objectId": "920009663756",
+      "property": "HULL_MASS",
+      "status": "lower"
+    },
+    {
+      "objectId": "921009691481",
+      "property": "HULL_MASS",
+      "status": "lower"
+    },
+    {
+      "objectId": "920009663716",
+      "property": "HULL_MASS",
+      "status": "lower"
+    },
+    {
+      "objectId": "920009663746",
+      "property": "HULL_MASS",
+      "status": "lower"
+    },
+    {
+      "objectId": "921009707507",
+      "property": "HULL_MASS",
+      "status": "lower"
+    },
+    {
+      "objectId": "920009663848",
+      "property": "HULL_MASS",
+      "status": "lower"
+    },
+    {
+      "objectId": "921009754731",
+      "property": "HULL_MASS",
+      "status": "lower"
+    },
+    {
+      "objectId": "920009663706",
+      "property": "HULL_MASS",
+      "status": "lower"
+    },
+    {
+      "objectId": "920009663736",
+      "property": "HULL_MASS",
+      "status": "lower"
+    },
+    {
+      "objectId": "921009682488",
+      "property": "HULL_MASS",
+      "status": "lower"
+    },
+    {
+      "objectId": "920009663726",
+      "property": "HULL_MASS",
+      "status": "lower"
+    },
+    {
+      "objectId": "920009663757",
+      "property": "HULL_MASS",
+      "status": "better"
+    },
+    {
+      "objectId": "921009691474",
+      "property": "HULL_MASS",
+      "status": "better"
+    },
+    {
+      "objectId": "920009663717",
+      "property": "HULL_MASS",
+      "status": "better"
+    },
+    {
+      "objectId": "920009663747",
+      "property": "HULL_MASS",
+      "status": "better"
+    },
+    {
+      "objectId": "921009707515",
+      "property": "HULL_MASS",
+      "status": "better"
+    },
+    {
+      "objectId": "920009663847",
+      "property": "HULL_MASS",
+      "status": "better"
+    },
+    {
+      "objectId": "921009754730",
+      "property": "HULL_MASS",
+      "status": "better"
+    },
+    {
+      "objectId": "920009663707",
+      "property": "HULL_MASS",
+      "status": "better"
+    },
+    {
+      "objectId": "920009663737",
+      "property": "HULL_MASS",
+      "status": "better"
+    },
+    {
+      "objectId": "921009682495",
+      "property": "HULL_MASS",
+      "status": "better"
+    },
+    {
+      "objectId": "920009663727",
+      "property": "HULL_MASS",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009779365",
+      "property": "ULTIMATE_CHARGE_PER_SEC",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009779365",
+      "property": "ULTIMATE_CHARGE_PER_SCORE_POINT",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009779368",
+      "property": "ULTIMATE_CHARGE_PER_SEC",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009779368",
+      "property": "ULTIMATE_CHARGE_PER_SCORE_POINT",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009779369",
+      "property": "ULTIMATE_CHARGE_PER_SEC",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009779369",
+      "property": "ULTIMATE_CHARGE_PER_SCORE_POINT",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009779375",
+      "property": "ULTIMATE_CHARGE_PER_SEC",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009779375",
+      "property": "ULTIMATE_CHARGE_PER_SCORE_POINT",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009779366",
+      "property": "ULTIMATE_CHARGE_PER_SEC",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009779366",
+      "property": "ULTIMATE_CHARGE_PER_SCORE_POINT",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009779370",
+      "property": "ULTIMATE_CHARGE_PER_SEC",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009779370",
+      "property": "ULTIMATE_CHARGE_PER_SCORE_POINT",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009779373",
+      "property": "ULTIMATE_CHARGE_PER_SEC",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009779373",
+      "property": "ULTIMATE_CHARGE_PER_SCORE_POINT",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009779367",
+      "property": "ULTIMATE_CHARGE_PER_SEC",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009779367",
+      "property": "ULTIMATE_CHARGE_PER_SCORE_POINT",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009779374",
+      "property": "ULTIMATE_CHARGE_PER_SEC",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009779374",
+      "property": "ULTIMATE_CHARGE_PER_SCORE_POINT",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009779364",
+      "property": "ULTIMATE_CHARGE_PER_SEC",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009779364",
+      "property": "ULTIMATE_CHARGE_PER_SCORE_POINT",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009779372",
+      "property": "ULTIMATE_CHARGE_PER_SEC",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009779372",
+      "property": "ULTIMATE_CHARGE_PER_SCORE_POINT",
+      "status": "lower"
+    }
+  ]
+}

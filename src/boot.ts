@@ -1,4 +1,5 @@
 import { state } from './core/state';
+import { gameDOM } from './core/gameDOM';
 import { utils } from './core/utils';
 import { coreSettings } from './core/coreSettings';
 import { modules } from './modules';
@@ -91,10 +92,14 @@ export function startBoot() {
             applyLanguageChange();
         let newScreen = state.currentScreen;
 
-        if (document.querySelector('.ApplicationLoaderComponentStyle-container')) {
+        // The battle canvas can remain mounted behind the final results overlay.
+        if (document.querySelector(gameDOM.results.status)) {
+            newScreen = 'match_results';
+        }
+        else if (document.querySelector('.ApplicationLoaderComponentStyle-container')) {
             newScreen = 'loading';
         }
-        else if (document.querySelector('.BattleHudComponentStyle-container')) {
+        else if (document.querySelector(gameDOM.screens.battleHud)) {
             newScreen = 'battle';
         }
         else if (document.querySelector('.GarageCommonStyle-positionContent, .GarageItemComponent-container, .ContainerInfoComponentStyle-lootBoxContainer')) {
@@ -102,9 +107,6 @@ export function startBoot() {
         }
         else if (document.querySelector('.MainScreenComponentStyle-blockMainMenu')) {
             newScreen = 'lobby';
-        }
-        else if (document.querySelector('.BattleResultHeaderComponentStyle-resultText')) {
-            newScreen = 'match_results';
         }
 
         const screenChanged = newScreen !== state.currentScreen;
@@ -163,8 +165,9 @@ export function startBoot() {
         if (state.currentScreen === 'garage') {
             modules.garageButtons();
         }
+        // Capture also needs to see results disappear, including a direct next-battle transition.
+        modules.battleHistory();
         if (state.currentScreen === 'match_results' || state.currentScreen === 'lobby') {
-            modules.battleHistory();
             syncKillBoardDoubleHeader();
         }
     };

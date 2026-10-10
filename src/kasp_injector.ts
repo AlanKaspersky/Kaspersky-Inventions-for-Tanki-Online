@@ -1,7 +1,13 @@
 import { BONUS_PICKUP_MESSAGE, createBonusDiagnostics, createBonusPickupBridge, patchBonusPickups } from './core/bonusPickup';
+import { installGameAugments, patchGameAugments } from './core/gameAugments';
+import { patchUnavailableGarageDetails } from './core/garageDetails';
+import { installBattlePresence, patchBattlePresence, patchBattleCapacity } from './core/battlePresence';
 
 (function (): void {
     'use strict';
+
+    installGameAugments(window);
+    installBattlePresence(window);
 
     const debugKey = 'kasp_bonus_debug';
     let debugEnabled = false;
@@ -156,6 +162,14 @@ import { BONUS_PICKUP_MESSAGE, createBonusDiagnostics, createBonusPickupBridge, 
                             return res.text();
                         })
                         .then(code => {
+                            if (navigator.userAgent.includes('Electron')) {
+                                code = patchBattleCapacity(code);
+                                code = patchBattlePresence(code, matches => {
+                                    if (!matches) console.warn('[KI Presence] No game store getters found');
+                                });
+                            }
+                            code = patchGameAugments(code);
+                            code = patchUnavailableGarageDetails(code);
                             code = patchBonusPickups(code, status => {
                                 hookStatus = status;
                                 diagnostics.record(status);

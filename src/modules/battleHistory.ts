@@ -114,6 +114,14 @@ export const battleHistory = (() => {
 
     return () => {
         if (!utils.getSetting('k_history', false)) return;
+        const inResults = document.querySelector(gameDOM.results.status);
+        if (document.querySelector(gameDOM.results.selfRow) && inResults) {
+            void results.capture();
+        } else if (!inResults) {
+            results.reset();
+        }
+        // Keep capture/reset independent of UI preloading and navigation.
+        if (!inResults && ['battle', 'loading', 'garage'].includes(state.currentScreen)) return;
         if (!initialized) {
             initialized = true;
             navigation.bindShortcuts();
@@ -122,11 +130,5 @@ export const battleHistory = (() => {
         navigation.injectFooterButton();
         void ensureHistoryPage();
 
-        const inResults = document.querySelector(gameDOM.results.status);
-        if (document.querySelector(gameDOM.results.selfRow) && inResults) {
-            void results.capture();
-        } else if (!inResults) {
-            results.reset();
-        }
     };
 })();

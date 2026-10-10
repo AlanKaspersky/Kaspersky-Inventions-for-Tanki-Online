@@ -11,7 +11,8 @@ div:is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatist
     backdrop-filter: blur(6px) !important;
 }
 
-div[class*="SkinsAndAlterationsStyle"] div[class$="-flexCenterAlignCenterColumn"] {
+div[class*="SkinsAndAlterationsStyle"] div[class$="-flexCenterAlignCenterColumn"],
+div:has(> img.SkinCellStyle-iconCell) {
     width: clamp(125px, 9vw, 240px) !important;
     height: clamp(165px, 12vw, 240px) !important;
 }

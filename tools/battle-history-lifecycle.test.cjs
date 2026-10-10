@@ -910,3 +910,46 @@ test('module preloads once, retries failed pages and replaces the overlay on acc
     assert.equal(requests, 3);
     assert.notEqual(f.document.querySelector('.custom-history-overlay'), first);
 });
+
+test('boot saves results over a retained canvas and resets capture before a direct next battle', async () => {
+    const screen = resultScreen();
+    let showingResults = false;
+    const frames = [], observers = [], saved = [];
+    const state = { lang: 'EN', currentScreen: 'loading', friendsMenuOpen: false, settingsOpen: false };
+    const document = { documentElement: { lang: 'en' }, getElementById: () => null, addEventListener() {},
+        querySelector(selector) {
+            if (selector.includes('BattleComponentStyle-canvasContainer')) return {};
+            return showingResults ? screen.document.querySelector(selector) : null;
+        } };
+    const globals = { document, window: { addEventListener() {}, setInterval() {}, setTimeout() {} },
+        localStorage: { getItem: () => 'Player', setItem() {} },
+        setTimeout() {}, fetch: () => new Promise(() => {}),
+        performance: { now: () => 1000 }, requestAnimationFrame: fn => frames.push(fn),
+        MutationObserver: class { constructor(fn) { observers.push(fn); } observe() {} } };
+    const mocks = {
+        'src/core/state.ts': { state },
+        'src/core/utils.ts': { utils: { getLang: () => 'EN', getSetting: () => true } },
+        'src/core/coreSettings.ts': { coreSettings: {} },
+        'src/core/accountIdentity.ts': { getAccountIdentity: () => ({ nickname: 'Player' }) },
+        'src/modules/equipmentTracker.ts': { equipmentTracker: { get: () => null } },
+        [directory + 'repository.ts']: { addBattle: async battle => { saved.push(battle); } },
+        [directory + 'views.ts']: { createHistoryViews: () => ({ reset() {}, renderBattleList() {}, playPendingBattleListAnimation() {} }) },
+        [directory + 'actions.ts']: { createHistoryActions: () => ({}) },
+        [directory + 'navigation.ts']: { createHistoryNavigation: () => ({ bindShortcuts() {}, injectFooterButton() {} }) },
+    };
+    const { battleHistory } = loadModule('src/modules/battleHistory.ts', globals, mocks);
+    const noop = Object.assign(() => {}, { onTick() {}, sync() {}, setup() {} });
+    mocks['src/modules.ts'] = { modules: new Proxy({}, { get: (_target, name) => name === 'battleHistory' ? battleHistory : noop }) };
+    const { startBoot } = loadModule('src/boot.ts', globals, mocks);
+    startBoot();
+    const update = async () => { observers[0](); frames.splice(0).forEach(fn => fn()); await tick(); };
+    await update(); assert.equal(state.currentScreen, 'battle');
+    showingResults = true; await update();
+    assert.equal(state.currentScreen, 'match_results', 'results take priority over the retained canvas');
+    assert.equal(saved.length, 1);
+    await update(); assert.equal(saved.length, 1, 'repeated DOM updates do not duplicate a result');
+    showingResults = false; await update();
+    assert.equal(state.currentScreen, 'battle');
+    showingResults = true; await update();
+    assert.equal(saved.length, 2, 'the next battle saves without a lobby visit');
+});

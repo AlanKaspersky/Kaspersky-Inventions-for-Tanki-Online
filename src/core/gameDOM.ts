@@ -1,4 +1,8 @@
 export const gameDOM = {
+    presence: {
+        battleRoot: '.BattleHudComponentStyle-hudContainer, .BattleHudComponentStyle-container, .BattleComponentStyle-canvasContainer, .BattleTabStatisticComponentStyle-container',
+        timer: '[class*="BattleTimerComponentStyle-battleTimer"]',
+    },
     common: {
         appContainer: "#app-root > .-container",
         container: ".-container",
@@ -17,6 +21,7 @@ export const gameDOM = {
         currencyValues: ".UserScoreComponentStyle-coinBlock span, .HeaderCommonStyle-icons span",
     },
     screens: {
+        battleHud: '.BattleHudComponentStyle-hudContainer, .BattleHudComponentStyle-container, .BattleComponentStyle-canvasContainer',
         loadingBackground: ".ApplicationLoaderComponentStyle-container.-background",
         battleCanvas: ".BattleComponentStyle-canvasContainer",
         tankPreview: ".GarageComponentStyle-tankPreview",

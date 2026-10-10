@@ -264,6 +264,7 @@ test('battle overlay ignores foreign messages, resets between battles and remove
     const elements = [];
     const state = { lang: 'EN' };
     let intervalCount = 0;
+    let stoppedIntervals = 0, observerDisconnects = 0, observerStarts = 0;
     let previewCallback;
     class Element {
         isConnected = false;
@@ -276,7 +277,8 @@ test('battle overlay ignores foreign messages, resets between battles and remove
     }
     const window = {
         addEventListener: (name, handler) => { listeners[name] = handler; },
-        setInterval: () => { intervalCount++; },
+        setInterval: () => ++intervalCount,
+        clearInterval: () => { stoppedIntervals++; },
     };
     const document = {
         querySelectorAll: () => sectionContainer ? [sectionContainer] : [],
@@ -298,7 +300,7 @@ test('battle overlay ignores foreign messages, resets between battles and remove
         '../core/state': { state },
         '../core/utils': { utils: { getSetting: () => enabled } },
     }, { window, document, Date: { now: () => now }, getComputedStyle: element => element.style,
-        MutationObserver: class { constructor(callback) { previewCallback = callback; } observe() {} } });
+        MutationObserver: class { constructor(callback) { previewCallback = callback; } observe() { observerStarts++; } disconnect() { observerDisconnects++; } } });
     const send = (detail, source = window) => listeners.message({ source, data: { type: bonus.BONUS_PICKUP_MESSAGE, detail } });
     const activePanel = (id = 'kasp-overdrive-timer') => elements.find(element => element.isConnected && element.id === id);
     const displayed = (id) => activePanel(id)?.children[0].textContent;
@@ -372,10 +374,17 @@ test('battle overlay ignores foreign messages, resets between battles and remove
     send(bonus.OVERDRIVE_BOX_MODEL);
     listeners['kasp:battle:id']();
     assert.equal(displayed(), '0:00');
-    enabled = false; overdriveTimer.sync();
+    enabled = false; listeners['kasp:settings-changed']();
     assert.equal(displayed(), undefined);
+    assert.equal(stoppedIntervals, 1);
+    assert.ok(observerDisconnects > 0);
+    const startedWhileDisabled = intervalCount;
+    overdriveTimer.sync();
+    assert.equal(intervalCount, startedWhileDisabled);
     send(bonus.OVERDRIVE_BOX_MODEL);
-    enabled = true; overdriveTimer.sync();
+    enabled = true; listeners['kasp:settings-changed']();
+    assert.equal(intervalCount, 2);
+    assert.equal(observerStarts, 2);
     assert.equal(displayed(), '0:00');
     send(bonus.OVERDRIVE_BOX_MODEL);
     results = true; overdriveTimer.sync();

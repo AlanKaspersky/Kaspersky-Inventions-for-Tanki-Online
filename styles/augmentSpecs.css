@@ -1,3 +1,12 @@
+/* Hide the native placeholder from the first paint, preserving the icon's space. */
+html[data-kasp-augments-enabled] .SkinsAndAlterationsStyle-SkinsVerticalComponent img.SkinCellStyle-iconCell[src*="/unavailable."]:not([data-kasp-preview-failed]) {
+    visibility: hidden !important;
+}
+
+img.SkinCellStyle-iconCell.kasp-unavailable-device-preview {
+    filter: brightness(1) saturate(0) !important;
+}
+
 .custom-card-specs-btn {
     position: absolute;
     bottom: 0.5em;
@@ -79,8 +88,10 @@
     color: white;
     font-family: BaseFontMedium, FallbackFontMedium, sans-serif;
     font-size: max(min(1.48148vh, 1vw), 3px);
-    min-width: 30em;
-    max-width: 48em;
+    box-sizing: border-box;
+    min-width: min(30em, calc(100vw - 20px));
+    max-width: min(48em, calc(100vw - 20px));
+    overflow-wrap: anywhere;
 }
 
 #kasp-specs-tooltip .device-stats-wrapper {
@@ -90,6 +101,7 @@
 }
 
 #kasp-specs-tooltip .device-stats {
+    min-width: 0;
     flex: 1;
     flex-basis: 50%;
     padding: 0 1.5rem;
@@ -163,8 +175,89 @@
     color: #f33;
 }
 
+#kasp-specs-tooltip .device-stats.neutral {
+    margin-top: 1em;
+}
+
+#kasp-specs-tooltip .device-stats.neutral .heading {
+    color: white;
+}
+
+#kasp-specs-tooltip .device-stats.neutral .heading::before {
+    display: none;
+}
+
+#kasp-specs-tooltip .device-stats.neutral ul li::before {
+    color: #bfc6cc;
+}
+
 #kasp-specs-tooltip .device-stats ul ul {
     margin-top: 0.4rem !important;
     margin-bottom: 0.2rem !important;
     margin-left: 0.5rem !important;
+}
+.kasp-unavailable-device-card,
+div:has(> .kasp-unavailable-device-name) {
+    position: relative;
+    isolation: isolate;
+    background-image: radial-gradient(100% 100% at 0% 0%, rgb(112 112 112) 0%, rgba(255, 238, 0, 0) 100%) !important;
+}
+
+.kasp-unavailable-device-gradient,
+.kasp-unavailable-device-rarity,
+.kasp-unavailable-device-name,
+.kasp-unavailable-cosmetic-name {
+    position: absolute;
+    top: 0;
+    pointer-events: none;
+}
+
+.kasp-unavailable-device-gradient {
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-position: center;
+    border-radius: inherit;
+    opacity: 0.25;
+    z-index: 1;
+}
+
+.kasp-unavailable-device-rarity {
+    left: 0;
+    width: 1em;
+    height: 1em;
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-position: center;
+    filter: grayscale(1) brightness(0.6);
+    z-index: 2;
+}
+
+.kasp-unavailable-device-name,
+.kasp-unavailable-cosmetic-name {
+    left: 0;
+    right: 0;
+    font-family: BaseFontMedium, FallbackFontMedium;
+    font-style: normal;
+    font-weight: 500;
+    text-transform: uppercase;
+    font-size: 0.9rem;
+    margin: 0;
+    padding: 1.125em;
+    color: rgb(206 206 206);
+    text-align: center;
+    overflow-wrap: anywhere;
+    z-index: 2;
+}
+
+.kasp-unavailable-cosmetic-card {
+    position: relative;
+}
+
+.kasp-unavailable-device-card > img.SkinCellStyle-iconCell,
+.kasp-unavailable-cosmetic-card > img.SkinCellStyle-iconCell {
+    position: relative;
+    z-index: 2;
 }

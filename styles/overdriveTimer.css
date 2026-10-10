@@ -1,6 +1,6 @@
 .kasp-overdrive-timer {
     position: fixed;
-    top: 1em;
+    top: 2.5em;
     z-index: 1;
     display: flex;
     align-items: center;
@@ -22,8 +22,8 @@
     text-transform: none;
     pointer-events: none;
 }
-#kasp-overdrive-timer { left: 62%; }
-#kasp-overdrive-timer-secondary { left: 36%; }
+#kasp-overdrive-timer { left: 55%; }
+#kasp-overdrive-timer-secondary { left: 43.1%; }
 .kasp-overdrive-timer strong { font: inherit; color: inherit; }
 .kasp-overdrive-timer strong { font-variant-numeric: tabular-nums; text-align: center; }
 .kasp-overdrive-timer.kasp-overdrive-soon { background-color: rgb(255, 104, 104); }

@@ -1,45 +1,28 @@
+import { AugmentCatalog } from './augmentCatalog';
+
 export const DataLoader = (() => {
     const state = {
         paints: null,
-        augments: null,
         maps: null,
         skins: null,
-        shared: null,
         ready: false,
         error: null,
     };
 
     const readyPromise = (async () => {
         try {
-            const [paintsRes, augmentsRes, mapsRes, skinsRes] = await Promise.all([
+            const [paintsRes, mapsRes, skinsRes] = await Promise.all([
                 fetch(chrome.runtime.getURL('database/paints.json')),
-                fetch(chrome.runtime.getURL('database/augments.json')),
                 fetch(chrome.runtime.getURL('database/maps.json')),
                 fetch(chrome.runtime.getURL('database/skins.json')),
             ]);
             if (!paintsRes.ok)
                 throw new Error('paints.json: HTTP ' + paintsRes.status);
-            if (!augmentsRes.ok)
-                throw new Error('augments.json: HTTP ' + augmentsRes.status);
             if (!mapsRes.ok)
                 throw new Error('maps.json: HTTP ' + mapsRes.status);
             if (!skinsRes.ok)
                 throw new Error('skins.json: HTTP ' + skinsRes.status);
-
-
             state.paints = await paintsRes.json();
-
-            const augRaw = await augmentsRes.json();
-            state.shared = augRaw._shared || {};
-            const devices = augRaw.devices || {};
-            for (const url in devices) {
-                const entry = devices[url];
-                if (entry && typeof entry === 'object' && entry.$shared) {
-                    devices[url] = state.shared[entry.$shared] || entry;
-                }
-            }
-            state.augments = devices;
-
             const mapsRaw = await mapsRes.json();
             const byRu = new Map();
             const byEn = new Map();
@@ -52,7 +35,6 @@ export const DataLoader = (() => {
             state.ready = true;
             console.log(
                 `[KI] DB loaded: paints=${Object.keys(state.paints).length}, ` +
-                `augments=${Object.keys(state.augments).length}, ` +
                 `maps=${mapsRaw.length}, ` +
                 `skins=${Object.keys(state.skins?.names ?? {}).length}`
             );
@@ -61,14 +43,14 @@ export const DataLoader = (() => {
             state.error = e;
             console.error('[KI] DB load failed:', e);
         }
-    })();;
+    })();
 
     return {
         readyPromise,
         isReady: () => state.ready,
         getPaint: (url) => state.paints ? state.paints[url] : undefined,
-        getDevice: (url) => state.augments ? state.augments[url] : undefined,
-        hasDevice: (url) => !!state.augments && url in state.augments,
+        getDevice: (url: string, element?: Element | null) => AugmentCatalog.getDevice(url, element),
+        hasDevice: (url: string, element?: Element | null) => !!AugmentCatalog.getDevice(url, element),
 
         translateMap: (rawName, targetLang) => {
             if (!state.maps || !rawName) return rawName;

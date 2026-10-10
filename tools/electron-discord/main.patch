@@ -1,0 +1,105 @@
+diff --git a/src/main.ts b/src/main.ts
+index 88e6974..e03619b 100644
+--- a/src/main.ts
++++ b/src/main.ts
+@@ -3,7 +3,7 @@ import FS from "fs";
+ import Path from "path";
+ import { spawn } from "child_process";
+ import parseArgs from "minimist";
+-import { BrowserWindow, app as application, dialog, session, shell } from "electron";
++import { BrowserWindow, app as application, dialog, session, shell, ipcMain } from "electron";
+ import log from "electron-log/main";
+ import { updateElectronApp, UpdateSourceType } from "update-electron-app";
+ import { createHash } from "crypto";
+@@ -12,6 +12,8 @@ import { Downloader as FileDownloader } from "nodejs-file-downloader";
+ import extractZip from "extract-zip";
+ import { Entry as ZipEntry } from "yauzl";
+ 
++import { DiscordPresence, validPresence, copyPresence } from "./discordPresence";
++
+ const TANKI_ONLINE_URL = "https://tankionline.com/play/";
+ 
+ const EXTERNAL_BROWSER_URLS = [
+@@ -100,6 +102,7 @@ function createMainWindow() {
+         title: "Tanki Online with KI",
+         titleBarStyle: OS.platform() === "darwin" ?
+             "customButtonsOnHover" : "default",
++        webPreferences: { preload: Path.join(__dirname, "preload.js"), contextIsolation: true, nodeIntegration: false },
+         show: false
+     });
+     if (OS.platform() === "win32")
+@@ -109,6 +112,47 @@ function createMainWindow() {
+         window.setIcon(Path.join(application.getAppPath(),
+             "resources/icons/icon.png"));
+     window.setMenuBarVisibility(false);
++    // The extension supplies game state; this process only transports it to Discord.
++    let discordApplicationId = String(options["discord-application-id"] || process.env.KI_DISCORD_APPLICATION_ID || "");
++    if (!discordApplicationId) {
++        try {
++            const config = JSON.parse(FS.readFileSync(Path.join(application.getAppPath(), "discord-presence.json"), "utf8"));
++            discordApplicationId = String(config.applicationId || "");
++        } catch { }
++    }
++    if (!/^\d{17,20}$/.test(discordApplicationId)) log.info("[KI Discord] Set applicationId in discord-presence.json to enable Rich Presence.");
++    const discord = new DiscordPresence(discordApplicationId, message => log.warn(message));
++    let lastPresenceAt = 0;
++    const receivePresence = (event: Electron.IpcMainEvent, value: unknown) => {
++        if (event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame) return;
++        try {
++            const url = new URL(event.senderFrame.url);
++            if (url.protocol !== "https:" || !/(^|\.)tankionline\.com$/.test(url.hostname) || !(url.pathname === "/play" || url.pathname.startsWith("/play/"))) return;
++        } catch { return; }
++        if (value === null) {
++            lastPresenceAt = 0;
++            discord.update(null);
++            return;
++        }
++        if (!validPresence(value)) return;
++        lastPresenceAt = Date.now();
++        discord.update(copyPresence(value));
++    };
++    ipcMain.on("ki:discord-presence", receivePresence);
++    const presenceLease = setInterval(() => {
++        if (lastPresenceAt && Date.now() - lastPresenceAt > 30000) {
++            lastPresenceAt = 0;
++            discord.update(null);
++        }
++    }, 5000);
++    window.webContents.on("did-start-navigation", (_event, _url, _inPlace, mainFrame) => {
++        if (mainFrame) { lastPresenceAt = 0; discord.update(null); }
++    });
++    window.once("closed", () => {
++        clearInterval(presenceLease);
++        ipcMain.removeListener("ki:discord-presence", receivePresence);
++        discord.dispose();
++    });
+ 
+     window.webContents.setWindowOpenHandler(
+         ({ url }) => {
+@@ -146,8 +190,13 @@ async function updateAndLoadExtensions(userDataPath: string) {
+         }
+     }
+ 
+-    if (!extensions.some((extension) =>
+-        extension.manifest.key === KASPERSKY_EXTENSION_KEY)) {
++    const isKI = (extension: { manifest: any }) =>
++        extension.manifest.key === KASPERSKY_EXTENSION_KEY ||
++        extension.manifest.name === "Tanki Online: Kaspersky's Inventions";
++    const kiCandidates = extensions.filter(isKI);
++    // A manually installed development copy takes precedence over the store copy.
++    const preferredKI = kiCandidates.find(extension => !extension.manifest.key) || kiCandidates[0];
++    if (!preferredKI) {
+         const kiExtension = {
+             path: Path.join(extensionsPath, "kaspersky-inventions"),
+             manifest: {
+@@ -158,6 +207,10 @@ async function updateAndLoadExtensions(userDataPath: string) {
+     }
+ 
+     for (const extension of extensions) {
++        if (preferredKI && isKI(extension) && extension !== preferredKI) {
++            log.info(`[KI] Skipping duplicate extension: ${extension.path}; using ${preferredKI.path}`);
++            continue;
++        }
+         try {
+             await updateExtension(extension);
+             await session.defaultSession

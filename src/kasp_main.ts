@@ -3,6 +3,7 @@ import { state } from './core/state';
 import { utils } from './core/utils';
 import { startBoot } from './boot';
 import { setupNicknamePrivacy } from './modules/hideNickname';
+import { setupDiscordPresence } from './modules/discordPresence';
 
 if (window === window.top) {
   setupElectronZKey();
@@ -14,4 +15,5 @@ if (window === window.top) {
   setupNicknamePrivacy();
 
   startBoot();
+  setupDiscordPresence();
 }

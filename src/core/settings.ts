@@ -41,4 +41,5 @@ export function getSettingRaw(id: string, def: boolean) {
 export function setSettingRaw(id: string, value: boolean) {
   localStorage.setItem(id, value ? 'true' : 'false');
   settingsCache.set(id, value);
+  window.dispatchEvent(new Event('kasp:settings-changed'));
 }

@@ -2,9 +2,9 @@
 
 ## Complete Implementation Reference
 
-**Extension version:** 2.8.1 (`manifest.json`)
+**Extension version:** 2.9.0 (`manifest.json`)
 
-**Documentation updated:** October 5, 2026
+**Documentation updated:** October 6, 2026
 
 **Interface languages:** English and Russian
 
@@ -136,6 +136,7 @@ For the top-level window, `kasp_main.ts` performs the following sequence:
 3. Resolves the initial language through `utils.getLang()`.
 4. Calls `setupNicknamePrivacy()` synchronously, allowing supported privacy CSS to be active before ordinary feature updates.
 5. Calls `startBoot()`.
+6. Calls `setupDiscordPresence()` to send the nickname and screen to a compatible Electron preload bridge.
 
 This ordering matters for privacy: masking does not wait for the 150 ms heavy-update path. Module imports can already have initialized their own closures or started resource requests before this entry-point body runs.
 
@@ -291,7 +292,7 @@ Source: [src/core/utils.ts](src/core/utils.ts).
 
 Source: [src/core/dataLoader.ts](src/core/dataLoader.ts).
 
-An import-time `readyPromise` concurrently fetches paints, augments, maps, and skins from packaged URLs. Every response is checked before parsing. The loader resolves augment `$shared` references against `_shared` and creates lowercase Russian/English lookup maps for map entries.
+An import-time `readyPromise` concurrently fetches paints, maps, and skins from packaged URLs. Every response is checked before parsing. The loader creates lowercase Russian/English lookup maps for map entries. Augment lookups delegate to the independent current-session catalog; `database/augments.json` is not fetched or resolved.
 
 `state.ready` becomes true only after the complete sequence succeeds. Errors are recorded in private `state.error` and logged. The catch consumes the rejection, so awaiting `readyPromise` is not equivalent to asserting success: callers should check `isReady()` or the relevant lookup result.
 
@@ -299,13 +300,110 @@ An import-time `readyPromise` concurrently fetches paints, augments, maps, and s
 | --- | --- |
 | `isReady()` | Whether the whole shared load completed successfully |
 | `getPaint(url)` | Paint entry by exact artwork URL, or `undefined` |
-| `getDevice(url)` | Resolved augment entry by exact artwork URL, or `undefined` |
-| `hasDevice(url)` | Presence in the resolved augment dictionary |
+| `getDevice(url, element?)` | Current-session augment presentation by bound object ID, or unambiguous artwork fallback |
+| `hasDevice(url, element?)` | Whether that runtime lookup succeeds |
 | `translateMap(rawName, targetLang)` | Localized name, retaining the original when unmatched |
 | `getMapInfo(rawName)` | Matched RU/EN map entry, or `null` |
 | `getSkinsData()` | Parsed skins data, if available |
 
 The shared loader does not automatically retry a failed full load. Individual feature modules also load skins and trophies independently; they do not all share this promise or readiness boundary.
+
+### Game Augment Catalog
+
+Sources: [src/core/gameAugments.ts](src/core/gameAugments.ts), [src/core/augmentCatalog.ts](src/core/augmentCatalog.ts), and [src/core/augmentLabels.ts](src/core/augmentLabels.ts).
+
+#### Decoded Model Observation
+
+`installGameAugments(window)` runs in the injector's MAIN world before the game bundle starts. `patchGameAugments(code)` discovers generated fields using the semantic diagnostic labels `DevicePropertiesCC`, `DevicePropertyEntity`, `DescriptionModelCC`, and `GarageDeviceObject`. It avoids identifying a model solely by an obfuscated constructor name, since names can repeat across bundle scopes.
+
+The supported cache-writer shape is `<prototype>.<method> = function(object, data) { this.<field>.<field>.set(object, data) }`. Its generated method name is discovered from the object-context stack's stable “No objects in stack” diagnostic and the adjacent model-ID getter on the same prototype. Exactly one matching model writer is required; unrelated map writers are excluded. An older-bundle fallback recognizes the previous `r7i` signature when this context is unavailable. The original write executes first; an appended guarded callback observes the resulting constructor data. A matching GarageDeviceObject constructor receives a second guarded callback associating device ID and base equipment ID. Unsupported schemas or ambiguous writer matches leave the bundle unchanged. Callback failures are caught so they do not replace the original game operation.
+
+The collector calls the object-ID method discovered with the model writer (`x57` in the inspected October 10 bundle; legacy fallback `p57`). IDs are converted to decimal strings to preserve 64-bit identity. Description and property models may arrive in either order and are joined by that ID. Kotlin collections are read through `t()`, `u()`, and `v()` into detached records containing `operation`, `property`, and finite numeric `value`. An empty list is valid; a malformed list is rejected. Description-only objects are retained privately for joining and excluded from exported device lists until a property list arrives.
+
+This observes the game's normal model initialization rather than decoding WebSocket bytes independently. The `devicesLoaded` list is not assumed to contain the actual property values. No additional server requests or periodic downloads are made by this feature.
+
+The same cache observer captures `UpgradeParamsCC` independently of device entries. Optional discovered fields identify its current level and item data, `UpgradeParamsData` groups and level count, `GaragePropertyParams` nested raw properties, and `PropertyData` initial/final values. `readEquipmentProperties()` applies the inspected game's raw calculator: `initial + (final - initial) / upgradeLevelsCount × currentLevel`; a zero level count retains the initial value. This calculation precedes GUI aggregation, unit multipliers, and rounding. Invalid levels or non-finite values reject the base; conflicting duplicate raw properties are excluded. An invalid replacement clears a previously captured base rather than reusing stale values.
+
+#### Identity and Presentation
+
+The MAIN-world binder scans native device/card images and eligible reward backgrounds every second. `findAugmentIdentity()` examines the nearest React fibers and their props with bounded traversal, avoids property getters, and accepts only one known device ID. It writes `data-kasp-augment-id` only when the binding changes and removes a stale binding when identity becomes unavailable. Seen artwork and available base-item IDs are added to the device record.
+
+The isolated-world catalog indexes exact device/equipment IDs and normalized artwork paths. EU/RU asset host changes can share a path. When a bound ID exists, a known artwork mismatch is rejected to avoid displaying old values on a recycled card. URL-only lookup succeeds only when all candidates have identical modifiers, metadata, and equipment baselines; equal empty numeric lists do not justify merging different conditional effects. Names are never used as unique keys.
+
+`presentGameAugment()` derives RU/EN labels, advantages, disadvantages, internally unclassified parameters, and supported live multipliers. The dictionary covers the 227 protocol enum entries in the inspected game bundle. Separate higher-is-better and lower-is-better rules classify critical chances, heat/freeze strength, reloads, salvo intervals, Tesla and Shaft mechanics, projectile speeds, resistances, and other recognized properties. Tactical or unknown directions are not inferred solely from their sign.
+
+`DELTA_PERCENT` remains a signed percentage and converts to `1 + delta / 100` only for recognized numerical rows. Conflicting composite values, incomplete damage ranges, duplicate parameter entries, and absolute overrides do not produce a live multiplier. An `OVERRIDE_VALUE` can be classified only when `baseItemId` resolves to that equipment's raw baseline for the same property. Its comparison is displayed as `base → replacement`, using percentage notation for ordinary critical probabilities. Negative probability sentinels are excluded from arithmetic classification, and a small relative tolerance prevents Float32 noise from creating false changes.
+
+Server descriptions and names remain in captured metadata for inspection and collision checks. The description's first paragraph is rendered above the comparison columns when its locale matches the UI; a mismatch shows a localized reload prompt. It remains available even when the device has no numeric modifiers. RU/EN parameter labels switch locally. Unknown directions, unavailable baselines, and special sentinels enter the internal `neutral` array and appear under “Other parameters” only when that array is nonempty. Zero percentage deltas and confirmed unchanged replacements are excluded from presentation, including the neutral section. All raw properties remain in the JSON.
+
+#### Bridge and Session JSON
+
+Updates are coalesced over 100 ms and sent as `kasp:game-augments` messages. A `kasp:game-augments-request` message obtains the current snapshot for a listener that started later. `validateAugmentSnapshot()` checks the format, revision, IDs, locale, property shapes, finite values, artwork schemes, and field limits before indexing or writing. The isolated catalog accepts increasing revisions from its first accepted session and emits `kasp:augments-updated` for the UI.
+
+`AugmentSnapshot` uses this contract:
+
+```ts
+{
+    format: 'kasp-augments-v1';
+    session: string;
+    revision: number;
+    updatedAt: number;
+    hooked: boolean;
+    devices: Array<{
+        id: string;
+        baseItemId?: string;
+        name?: string;
+        description?: string;
+        locale: 'RU' | 'EN';
+        icons: string[];
+        properties: Array<{
+            operation: 'DELTA_PERCENT' | 'OVERRIDE_VALUE';
+            property: string;
+            value: number;
+        }>;
+    }>;
+    equipment?: Array<{
+        id: string;
+        currentLevel: number;
+        properties: Record<string, number>;
+    }>;
+}
+```
+
+On each page load, the isolated catalog starts empty and writes an empty reset JSON without loading any earlier file. Accepted snapshots replace `kasp-augments.json` through OPFS and are also serialized under `kasp_augments_session_json` in `sessionStorage`. The write loop orders writes and coalesces pending updates to the latest content. An unavailable file API, denied storage, or failed write does not prevent the in-memory catalog from working; session storage is independently attempted. The OPFS file belongs to the game origin, not the extension's installation directory. Across multiple tabs, the origin-wide file contains the last successful writer's snapshot while each tab maintains its own catalog.
+
+`window.__kaspAugmentsDebug.status()` reports hook recognition, device count, equipment-baseline count, and revision. `export()` returns the current MAIN-world snapshot as formatted JSON for inspection or `copy(...)`. The source-side isolated catalog also exposes `AugmentCatalog.storageStatus()` with the latest file error. A recognized hook and populated cache do not prove that all card structures resolve correctly in the live game. Older snapshots without `equipment` remain structurally readable but cannot classify absolute replacements.
+
+#### Manual Classification Rules
+
+For unavailable cards, `findAugmentPreview()` resolves the exact device's React `icon`/`iconUrl` or `GarageDevice.previewImage` resource. The URL method and generated DTO fields are discovered from the bundle. Only HTTPS game-host URLs and corresponding blob URLs are accepted, and conflicting candidates are rejected. The collector publishes an optional `previewIcon`; Augment Specifications replaces only native `unavailable` images with a grayscale preview. Original URLs are retained for catalog lookups and restoration. Image errors restore the question mark and suppress repeated retries of that URL for the module lifetime. Native card changes remove the grayscale class, and disabling the module restores its replacements.
+
+Source: [src/core/augmentRules.ts](src/core/augmentRules.ts). Configuration: [database/augment-rules.json](database/augment-rules.json).
+
+The isolated catalog fetches this packaged JSON once per page, checks the HTTP response, and parses its `rules` array independently of session observations. `parseAugmentRules()` accepts up to 10,000 entries. A rule requires a decimal device `objectId` string of 1–20 digits, a `property`, and a `status` equal to `better` or `lower`. `properity` is accepted as an alias when `property` is absent. Protocol identifiers are preferred; `resolveAugmentProperty()` also resolves an exact, case-insensitive, whitespace-normalized RU/EN label only when it identifies one property. Ambiguous labels and invalid entries produce warnings and are skipped. Duplicate device/property keys use the last valid entry. The separate `example` object is never applied.
+
+```json
+{
+  "rules": [
+    { "objectId": "123", "property": "HULL_MASS", "status": "better" },
+    { "objectId": "123", "property": "SHOT_RANGE", "status": "lower" }
+  ]
+}
+```
+
+Rules are indexed by device ID and protocol property. `better` forces Advantages and `lower` forces Disadvantages, regardless of the numeric sign or availability of a baseline. An explicitly assigned zero delta or unchanged absolute value is retained in the chosen column. Raw session JSON, description text, and live numeric multipliers are unchanged. Rules cannot create a property missing from the captured device. Shared-artwork fallback also compares manual statuses, preventing a rule for one device from being applied to another candidate. Rule loading emits the existing `kasp:augments-updated` event so a tooltip can refresh even when no new game snapshot arrives. A failed fetch or invalid JSON leaves automatic classification available; an empty rules array uses automatic classification throughout.
+
+Changes to this file require reloading the installed extension and game page. JSON-only edits do not require a JavaScript rebuild. The file is separate from the automatically replaced OPFS session snapshot and is never overwritten by the collector.
+
+#### Current Device Page Export
+
+```js
+copy(window.__kaspAugmentsDebug.exportPage())
+```
+
+`page()` returns a detached object; `exportPage()` returns its formatted JSON. Before exporting, the MAIN-world collector refreshes exact React card associations and scans the current augment card images. Cards without layout are excluded, repeated device IDs are deduplicated, and unconfirmed cards are listed under `unmatchedCards` rather than guessed from artwork. Every exported device includes its `objectId`, available `baseItemId`, captured metadata, and properties with canonical IDs, RU/EN labels, operations, raw values, and available base values/current equipment level. The format is `kasp-augment-page-v1` with a capture timestamp.
+
+The export covers rendered cards on the currently open page. Virtualized cards absent from the DOM require scrolling and another export. It does not request additional server data. Use device `objectId` plus property identifier when preparing a manual rule; `baseItemId` identifies equipment and is not the rule's device key. `export()` remains the separate whole-session diagnostic export.
 
 ### Account Identity
 
@@ -332,6 +430,12 @@ The controller supports Escape, Z outside input/textarea/select controls, the mo
 `close()` is idempotent. It removes global listeners immediately, changes the opening/closing classes, invokes close subscribers, and removes the overlay on the dialog's animation end or after a 260 ms fallback. Closing twice does not rerun subscriber actions.
 
 Pending IDs are released in `finally`, including template failure. Resource errors are propagated to the caller. The controller supplies ARIA dialog semantics but does not implement a complete focus-trapping or focus-restoration system.
+
+### Discord Rich Presence
+
+Discord presence is handled separately by `src/modules/discordPresence.ts`. It uses the shared Electron detector, account identity and screen state, sends a versioned `kasp:discord-presence` message every three seconds, and stops in a regular browser. `pagehide` clears the activity; `pageshow` resumes the heartbeat if the page is restored. Discord section labels are always English. In a battle, `src/core/battlePresence.ts` reads the current game store and native HUD clock in the MAIN world and publishes `kasp:battle-presence` once per second. The extension translates the map through `database/maps.json`, supplies the nickname in `state`, and adds `timestamps.end` and `party.size`. Stale snapshots older than five seconds are ignored; leaving a battle removes these fields. Spectators are excluded and team capacity includes both teams. Missing data is omitted. `window.__kaspPresenceBattleDebug()` exposes the latest raw snapshot for diagnosis.
+
+The companion client bridge in `tools/electron-discord` accepts messages only from the main HTTPS Tanki Online game page. The main process validates the payload and communicates with Discord through native IPC. Activity updates are coalesced over fifteen seconds, reconnection is automatic, and navigation, window closure or a thirty-second heartbeat timeout clears the activity. The public Discord Application ID belongs to client configuration; no account token is used. See [client integration instructions](tools/electron-discord/README.md) for installation and verification.
 
 ### Electron Mouse Adapter
 
@@ -421,23 +525,23 @@ The main artwork is sliced from `assets/playButton.png` using shared dimensions 
 
 Source: [src/modules/augmentSpecs.ts](src/modules/augmentSpecs.ts).
 
-**Activation:** `k_augments`; supported garage and loot-box contexts. The feature combines reference descriptions with numeric adjustments to visible equipment parameters.
+**Activation:** `k_augments`; supported garage and loot-box contexts. The feature combines current-session device properties and equipment baselines with supported numeric adjustments to visible equipment parameters. The collector initializes independently of the display setting.
 
-#### Description Controls
+#### Specification Controls
 
-`injectButtons()` creates a single `kasp-specs-tooltip` and scans skin-cell images and eligible reward-card backgrounds. `applyButtonToCard()` removes a control when the represented artwork changes and adds a control only when `DataLoader.hasDevice(url)` succeeds.
+`injectButtons()` creates a single `kasp-specs-tooltip` and scans skin-cell images and eligible reward-card backgrounds. `applyButtonToCard()` removes a control when the represented artwork changes or its lookup becomes unavailable, and adds a control only when `DataLoader.hasDevice(url, card)` succeeds.
 
-Hover builds advantages/disadvantages through `renderList()`, including optional nested `subItems`. `updateTooltipPos()` offsets the tooltip from the cursor and flips placement near viewport edges. Clicking its control prevents selection of the underlying card.
+Hover builds advantages/disadvantages through `renderList()` and adds “Other parameters” below the columns only when unresolved parameters exist. `updateTooltipPos()` offsets the tooltip from the cursor and flips placement near viewport edges. Clicking its control prevents selection of the underlying card.
 
-Descriptions are bundled reference text rendered as markup. They are not imported history records and do not pass through `escapeHistoryHtml`; reference-data authors must preserve the expected trusted-content boundary.
+Parameter-list text and the first paragraph of the server description are escaped before entering tooltip markup. A description-language mismatch displays a localized reload instruction. Empty comparison columns use “No confirmed changes,” which does not assert that no conditional or unclassified effects exist. Unchanged values cannot create an empty or misleading “Other parameters” section.
 
 #### Numerical Adjustment
 
 `updateLiveStats()` reads the current device icon and resolves its `modifiers`. It scans parameter-name spans outside generated replacements and matches exact normalized RU/EN labels from `STAT_DICT`.
 
-The original value is the span immediately after the name container. Parsing removes whitespace and replaces a decimal comma with a period. Standard adjustment is `original × multiplier`; `WEIGHT` with a modifier at least 10 treats that modifier as an absolute value. Results are rounded to two decimals when necessary and formatted with spaced thousands.
+The original value is the span immediately after the name container. Parsing removes whitespace and replaces a decimal comma with a period. Adjustment is `original × multiplier`, including percentage changes to mass. Absolute overrides do not enter this multiplier path. Results are rounded to two decimals when necessary and formatted with spaced thousands. A shared translated label is matched against tags available in the current device's modifiers.
 
-Color classification is rule-based: larger multipliers normally indicate a buff, lower reload multipliers indicate a buff, and weight has an additional comparison rule. This classification describes the current presentation logic, not a general assessment of every game mechanic.
+Color classification is rule-based: larger multipliers normally indicate a buff and lower reload multipliers indicate a buff. Mass and unchanged values use a neutral color. This classification describes the current presentation logic, not a general assessment of every game mechanic.
 
 `liveStats` maps original nodes to a replacement wrapper, its inner value span, and the original inline display. Original nodes are retained, hidden, and followed by a generated `custom-live-stat` node.
 
@@ -447,7 +551,7 @@ When an original node is no longer active, its replacement is removed, `hidden-b
 
 #### Scheduling and Closure
 
-`scheduleUpdate()` coalesces work into one animation frame, rechecks the setting/context, then runs description and statistic updates. Initialization installs Escape/Z and mouse-back tooltip hiding. Screen changes or a recognized loader also hide the tooltip.
+`scheduleUpdate()` coalesces work into one animation frame, rechecks the setting/context, then runs description and statistic updates. Initialization listens for `kasp:augments-updated` and installs Escape/Z and mouse-back tooltip hiding. Screen changes or a recognized loader also hide the tooltip.
 
 Turning the setting off makes update functions return; it is not a dedicated immediate restoration pass for all existing nodes. The normal settings-close reload establishes the disabled state.
 
@@ -1187,11 +1291,11 @@ The in-game module labels live mainly in TypeScript dictionaries and are selecte
 
 ### Augments
 
-`database/augments.json` provides `_shared` entries and a `devices` map keyed by exact artwork URL. Entries can refer to a shared description through `$shared`; DataLoader resolves it to the shared entry when found.
+`database/augments.json` is retained as a legacy packaged file. Augment Specifications no longer fetches it, resolves its `$shared` entries, or uses it as a fallback. The current source reads the session catalog described under [Game Augment Catalog](#game-augment-catalog).
 
-Descriptions contain RU/EN names, advantages/disadvantages, and optional nested `subItems`. Numeric `modifiers` use `STAT_DICT` identifiers. A narrative conditional effect is not automatically converted into a numeric modifier.
+Numeric protocol properties, localized server descriptions, IDs, equipment associations, and observed artwork are saved in the session JSON. Presentation arrays and supported live multipliers are derived at lookup time. A narrative conditional effect is not automatically converted into a numeric modifier.
 
-Stat recognition and modifiers must agree: adding a modifier under an unknown tag does not make the UI parser recognize it. Augment Specifications and Weapon Reload Indicator have separate calculation data; updating one does not update the other automatically.
+Augment Specifications and Weapon Reload Indicator still have separate calculation data. Capturing device properties does not update the reload indicator's fixed turret/augment tables automatically.
 
 ### Maps
 
@@ -1237,6 +1341,8 @@ All entries below belong to the game origin in the current browser/profile. No a
 | `kasp_last_version` | Manifest-version string | Origin-wide welcome acknowledgement |
 | `kasp_last_nickname` | Nickname string | History's last recognized identity fallback |
 | `kasp_player_changes_cache` | Session-storage JSON object: nickname to count | Session/battle observations |
+| `kasp_augments_session_json` | Session-storage fallback for the device snapshot | Replaced on each page load; never restored as a data source |
+| OPFS `kasp-augments.json` | Current serialized device snapshot | Game-origin private file; reset on page load, last writer across tabs |
 | `TankiBattlesDB` / `battles` | IndexedDB records | Shared database, logical ownership through `nickname` |
 
 ### Ownership Consequences
@@ -1264,6 +1370,9 @@ There is no all-state export, encryption layer, centralized cache reset, or univ
 | `storage` for recognized setting key | Other same-origin contexts | Settings-cache invalidation |
 | `storage` for `language_store_key` | Other same-origin contexts | Language/master-check scheduling |
 | `message`, `kasp:useraction` | Injector action hook | Change Counter nickname/count extraction |
+| `message`, `kasp:game-augments` | MAIN-world model collector | Isolated catalog validation, indexing, and JSON persistence |
+| `message`, `kasp:game-augments-request` | Isolated catalog startup | Current snapshot response for a late listener |
+| Window `kasp:augments-updated` | Isolated catalog | Augment tooltip and numerical-update scheduling |
 | `message`, `kasp:battle-kind` | Injector statistics hook | Content-script `__kaspBattleKind` |
 | `message`, `kasp:battle-mode` | Injector statistics hook | No current source listener |
 | Document `kasp:battle:id` | Not produced by current source files | Change Counter reset listener |
@@ -1280,6 +1389,7 @@ Injector messages use `postMessage(..., '*')`. Current consumers classify payloa
 | --- | --- |
 | Account Identity → Friends/History/Equipment/Privacy | Original nickname text must remain readable. |
 | DataLoader → Paint Search/Augment Specs/History Presentation | Reference readiness or matching controls the available output. |
+| Game model observer → Augment Catalog → Augment Specs | Current-session properties and exact card identity control device output independently of packaged reference readiness. |
 | Injector → Change Counter/Battle Kind | Native fallback can load the game with incomplete tracking. |
 | Equipment Tracker → History Capture | Recorded loadout quality depends on prior observation. |
 | Shared Modal → Auto Upgrade/Clear/Link | Common back-input and closing behavior applies to these dialogs. |
@@ -1387,7 +1497,7 @@ For a source change, the ordinary verification/build sequence is:
 
 ```powershell
 npm run typecheck
-node --test tools/augment-specs.test.cjs tools/battle-history.test.cjs tools/battle-history-lifecycle.test.cjs tools/nickname-privacy.test.cjs tools/injector-auto-upgrade.test.cjs
+node --test tools/augment-specs.test.cjs tools/game-augments.test.cjs tools/battle-history.test.cjs tools/battle-history-lifecycle.test.cjs tools/nickname-privacy.test.cjs tools/injector-auto-upgrade.test.cjs tools/overdrive-timer.test.cjs
 npm run build
 ```
 
@@ -1395,9 +1505,9 @@ The build does not invoke regression tests automatically. Reload the extension a
 
 ### Dependency Metadata
 
-The current manifest, package, and lockfile package versions are 2.8.1. Dependency ranges still differ between the package manifest and lockfile root: `@types/chrome` `^0.0.260` versus `^0.3.0`, esbuild `^0.21.0` versus `^0.28.2`, and TypeScript `^5.4.0` versus `^7.0.2`.
+The current manifest, package, and lockfile package versions are 2.9.0. Package and lockfile-root dependency ranges agree: `@types/chrome` `^0.3.0`, esbuild `^0.28.2`, and TypeScript `^7.0.2`.
 
-`npm ci` can reject an inconsistent lockfile, and `npm install` can rewrite it. Review/reconcile dependency declarations when establishing a reproducible installation. The project does not declare a Node `engines` field; tooling requires APIs such as `fs.cpSync` and the built-in Node test runner.
+Use `npm ci` to install the locked dependency graph. Dependency changes should update the manifest and lockfile together; `npm install` can rewrite the lockfile. The project does not declare a Node `engines` field; tooling requires APIs such as `fs.cpSync` and the built-in Node test runner.
 
 ### Release Script Functions
 
@@ -1414,7 +1524,7 @@ The current manifest, package, and lockfile package versions are 2.8.1. Dependen
 
 Configured directories are `dist`, `styles`, `assets`, `database`, `_locales`, and `templates`. Configured root files are `manifest.json` and `LICENSE.txt`.
 
-For 2.8.1, the folder and archive names are `release/Kaspersky's Inventions 2.8.1/` and `release/Kaspersky's Inventions 2.8.1.zip`. The ZIP contains that outer versioned folder.
+For 2.9.0, the folder and archive names are `release/Kaspersky's Inventions 2.9.0/` and `release/Kaspersky's Inventions 2.9.0.zip`. The ZIP contains that outer versioned folder.
 
 The script removes the existing same-version output before recreating it. It throws if no directory or no root file was copied, but does not require every configured input to exist. `build:zip` can package stale bundles or partial resources if invoked without appropriate preparation.
 
@@ -1430,7 +1540,7 @@ Documentation changes alone do not require bundling or packaging. Their checks c
 
 ### Harness
 
-The five `.test.cjs` files use Node's built-in test/assert APIs, esbuild TypeScript transformation, and VM contexts. Fixtures supply targeted DOM/browser/storage/database behavior rather than running the live game.
+The `.test.cjs` files use Node's built-in test/assert APIs, esbuild TypeScript transformation, and VM contexts. Fixtures supply targeted DOM/browser/storage/database behavior rather than running the live game.
 
 This approach can verify deterministic state transitions and race handling without needing a real purchase or network-loaded game. It cannot prove every current native selector, stylesheet, browser policy, or server behavior matches the fixtures.
 
@@ -1439,10 +1549,12 @@ This approach can verify deterministic state transitions and race handling witho
 | Test file | Important scenarios |
 | --- | --- |
 | `tools/augment-specs.test.cjs` | Observer feedback settles; unchanged values reuse nodes; updated native values/devices do not compound multipliers; original display is restored; replaced/invalid/translated rows are handled. |
+| `tools/game-augments.test.cjs` | Semantic schema discovery, guarded instrumentation, native collection snapshots, exact large IDs, React ambiguity, empty conditional effects, RU/EN escaping, modifier safety, artwork collisions, and ordered JSON replacement with storage fallback. |
 | `tools/battle-history.test.cjs` | Single-pass escaping; literal placeholder-like names; safe/spoofed image hosts; imported URL sanitization; stored card/detail markup; localized valid records; invalid shapes. |
 | `tools/battle-history-lifecycle.test.cjs` | Account-scoped reads/clear/link; ID preservation; commit timing and rollback; capture completeness/retry/generation; sorting/pagination; stale accounts/views; back labels; animations; native and standalone opening; visibility/cleanup/return handling; dialogs; import/export; overlay retry/account switch. |
 | `tools/nickname-privacy.test.cjs` | Original text/children/clan/XP remain; startup masking is synchronous; UID coverage preserves public parameters; account/language changes; identity fallbacks; friend/history ownership; disable/re-enable behavior. |
 | `tools/injector-auto-upgrade.test.cjs` | HTTP/network/body failure fallback; original attributes; both hook patterns; same-batch interception guard; unknown-dialog stop; Ruby cancellation; normal count; disappearing confirmation. |
+| `tools/overdrive-timer.test.cjs` | Bonus instrumentation, model/sound association, bounded diagnostics, independent learned spawn positions, 85-second countdowns, and overlay lifecycle. |
 
 There is no `npm test` command. The explicit `node --test` invocation above runs the current files together. Tests target source code, so a passing source test does not demonstrate that a stale installed `dist/` has been rebuilt.
 
@@ -1516,4 +1628,4 @@ Project use and distribution are governed by [LICENSE.txt](LICENSE.txt), which c
 
 ---
 
-Technical documentation aligned with the source implementation and manifest version **2.8.1**, updated **October 5, 2026**.
+Technical documentation aligned with the source implementation and manifest version **2.9.0**, updated **October 5, 2026**.

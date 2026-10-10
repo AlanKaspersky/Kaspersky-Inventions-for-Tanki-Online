@@ -71,6 +71,8 @@ export const overdriveTimer = (() => {
     let battleCanvas: Element | null = null;
     let sectionOpen = false;
     let resumeUntil = 0;
+    let renderInterval: number | undefined;
+    let previewObserver: MutationObserver | undefined;
 
     function reset(): void {
         locations.reset();
@@ -109,9 +111,26 @@ export const overdriveTimer = (() => {
     }
 
     function render(): void {
+        const enabled = utils.getSetting('k_overdrive_timer', false);
+        if (!enabled) {
+            if (renderInterval !== undefined) window.clearInterval(renderInterval);
+            renderInterval = undefined;
+            previewObserver?.disconnect();
+            battleCanvas = null; sectionOpen = false; resumeUntil = 0;
+            reset();
+            for (const timer of timers) {
+                timer.panel?.remove(); timer.panel = timer.time = null;
+            }
+            return;
+        }
+        if (initialized && renderInterval === undefined) {
+            previewObserver?.observe(document.documentElement, {
+                childList: true, attributes: true, attributeFilter: ['class', 'style', 'hidden'], subtree: true,
+            });
+            renderInterval = window.setInterval(render, 250);
+        }
         const inBattle = syncBattle();
         if (!inBattle) reset();
-        const enabled = utils.getSetting('k_overdrive_timer', false);
         const sectionVisible = isSectionVisible();
         for (const timer of timers) renderTimer(timer, inBattle && enabled && !sectionVisible);
     }
@@ -160,18 +179,17 @@ export const overdriveTimer = (() => {
             if (locations.pickup(pickup.model, pickup.position)) render();
         });
         document.addEventListener('kasp:battle:id', () => { reset(); render(); });
+        window.addEventListener('kasp:settings-changed', render);
+        window.addEventListener('storage', render);
         // Sections can mount containers or toggle their visibility without replacing the battle.
-        const previewObserver = new MutationObserver(records => {
+        previewObserver = new MutationObserver(records => {
+            if (!utils.getSetting('k_overdrive_timer', false)) return;
             const selector = `${gameDOM.screens.tankPreview}, ${gameDOM.common.container}`;
             if (records.some(record => record.type === 'childList'
                 ? [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)].some(node =>
                     (node as Element).matches?.(selector) || (node as Element).querySelector?.(selector))
                 : (record.target as Element).matches(selector))) render();
         });
-        previewObserver.observe(document.documentElement, {
-            childList: true, attributes: true, attributeFilter: ['class', 'style', 'hidden'], subtree: true,
-        });
-        window.setInterval(render, 250);
         render();
     }
     return { setup, sync: render };

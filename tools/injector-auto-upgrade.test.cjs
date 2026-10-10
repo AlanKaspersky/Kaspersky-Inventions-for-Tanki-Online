@@ -44,9 +44,13 @@ function injectorFixture(fetch) {
     const context = {
         require: id => {
             if (id === './core/bonusPickup') return bonusPickupModule.exports;
+            if (id === './core/gameAugments') return { installGameAugments() {}, patchGameAugments: code => code };
+            if (id === './core/garageDetails') return { patchUnavailableGarageDetails: code => code };
+            if (id === './core/battlePresence') return { installBattlePresence() {}, patchBattlePresence: code => code, patchBattleCapacity: code => code };
             throw new Error(`Unexpected injector import: ${id}`);
         },
         window: { postMessage() {} },
+        navigator: { userAgent: 'Chrome' },
         document: { head, documentElement: head, createElement: () => {
             const script = new Script();
             script.src = '';

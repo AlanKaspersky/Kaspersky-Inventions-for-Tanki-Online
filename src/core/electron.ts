@@ -1,13 +1,11 @@
-export function setupElectronZKey() {
-    const isElectronClient = (() => {
-        try {
-            if (navigator.userAgent && navigator.userAgent.indexOf('Electron') !== -1) return true;
-            if ((window as any).process?.type) return true;
-        } catch { }
-        return false;
-    })();;
+export function isElectronClient(): boolean {
+    try {
+        return navigator.userAgent.includes('Electron') || !!(window as Window & { process?: { type?: string } }).process?.type;
+    } catch { return false; }
+}
 
-    if (!isElectronClient) return;
+export function setupElectronZKey() {
+    if (!isElectronClient()) return;
     const dispatchZKey = (type) => {
         const event = new KeyboardEvent(type, {
             key: 'z',

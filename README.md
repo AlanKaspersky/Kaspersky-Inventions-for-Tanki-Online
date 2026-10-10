@@ -2,7 +2,7 @@
 
 ## Complete Documentation
 
-**Extension version:** 2.8.1 (`manifest.json`)
+**Extension version:** 2.9.0 (`manifest.json`)
 
 **Documentation updated:** October 5, 2026
 
@@ -77,7 +77,7 @@ The project is an independent interface modification. Its relationship to Tanki 
 | Area | Current functionality |
 |------|-----------------------|
 | Battle navigation | Enhanced Play interface, seven mode shortcuts, quick battle, PRO battles, and festive mode |
-| Equipment information | Augment descriptions and supported numerical stat adjustments |
+| Equipment information | Augment advantages/disadvantages and supported numerical stat adjustments |
 | Collection navigation | Russian/English paint-name search with multiword matching |
 | Friends | Online, offline, clan, and three color-category filters |
 | Trophy progress | Favorites for up to two turrets and two hulls |
@@ -100,6 +100,8 @@ The project targets Chromium-based browsers capable of loading Manifest V3 exten
 The JavaScript build targets `chrome100` syntax. This target is not a statement that every browser version has been tested. Firefox and mobile-browser installations are not documented or validated by this repository.
 
 An Electron-specific mouse-navigation adapter is included. Its presence does not provide a standalone desktop installer or guarantee that every Electron client can load this extension.
+
+Discord Rich Presence is available in a compatible Electron client with the KI preload bridge. The extension supplies English section labels and the nickname; in a battle it also supplies the English map name, remaining time and player count/capacity. The client sends this activity to the locally running Discord desktop application. Ordinary browser sessions do not activate this module. Client integration files, configuration and build instructions are provided in [tools/electron-discord](tools/electron-discord/README.md). An existing client must be rebuilt to include the bridge or changes to its supported payload fields.
 
 ### Runtime Resources and Access
 
@@ -249,15 +251,50 @@ Shortcuts are ignored while typing in text inputs, textareas, select controls, o
 
 ### Augment Specifications Module
 
-**Purpose:** Displays bundled augment descriptions and recalculates supported visible equipment statistics.
+**Purpose:** Displays augment properties received by the game and recalculates supported visible equipment statistics.
 
-Recognized device cards receive a specifications control. Hovering displays advantages and disadvantages in a tooltip positioned within the viewport. Its click is prevented from selecting the underlying card. Descriptions come from `database/augments.json`.
+The injector observes decoded device model data as the game stores it during the current page session. Properties, names, and descriptions are joined by the exact game object ID. This feature no longer loads `database/augments.json` and does not issue additional requests for device data.
 
-Supported parameter recognition includes damage, DPS, charge/reload values, turning speed, range, critical damage, healing, impact force, aimed and normal-shot damage, armor, mass, maximum speed, and power. Numerical adjustment requires a database modifier for the recognized parameter.
+Recognized device cards receive a specifications control. Hovering displays the first paragraph of the device description above two columns: advantages and disadvantages. “Other parameters” appears below them only when at least one property cannot be classified. Its click is prevented from selecting the underlying card. The parameter dictionary covers all 227 protocol properties in the inspected game bundle, including weapon-specific mechanics, hulls, resistances, drones, and overdrives; RU/EN labels switch locally. Server descriptions retain their captured language; a locale mismatch displays a localized reload instruction.
+
+Card matching uses IDs read from the native React properties. Artwork is used as a fallback only when all matching entries have identical properties, metadata, and equipment baselines. Shared names and ambiguous artwork are not treated as reliable device identifiers.
+
+Supported numerical adjustments include damage, DPS, charge/reload values, turning speed, range, critical damage, healing, impact force, aimed and normal-shot damage, armor, mass, and maximum speed. Only unambiguous `DELTA_PERCENT` values are converted into live multipliers. Parameter-specific rules distinguish beneficial changes from drawbacks: increasing critical chance is beneficial, while increasing time between salvo shots is a drawback.
+
+The collector also observes `UpgradeParamsCC` and derives raw equipment values at the current upgrade level using the game's linear property calculation. An absolute `OVERRIDE_VALUE` is compared with the matching property of the exact base equipment ID and displayed as `base → replacement`. Critical probabilities use percentage notation. These replacements are not converted into guessed live multipliers.
 
 Live statistics retain the game's original value node and render a separate adjusted value. Calculations use original text rather than repeatedly multiplying adjusted output. Replacement nodes are reused when values are unchanged, and original display state is restored when a modifier no longer applies.
 
-Conditional effects in descriptions do not imply that every effect can be represented as a permanent numerical adjustment. Bundled descriptions and modifiers may require maintenance after balance updates.
+An empty numeric property list does not mean that a device has no effect; its description remains visible. Unknown effect direction, missing equipment baselines, and special negative probability sentinels are displayed under “Other parameters” rather than assigned an invented advantage or drawback. Zero deltas and confirmed unchanged replacements are omitted from automatic presentation and do not create that section. All raw properties remain in the JSON. Empty comparison columns say “No confirmed changes”; the extension does not claim that unavailable data proves the absence of an effect.
+
+#### Manual Parameter Classification
+
+Unavailable device cards can display a grayscale preview instead of the question mark when their exact device ID and a native icon resource are available. Purchased cards keep their normal artwork. Failed image loads retain the native placeholder; disabling Augment Specifications restores replaced images.
+
+[database/augment-rules.json](database/augment-rules.json) provides an editable `rules` array. Each entry applies to one device and one protocol property:
+
+```json
+{
+  "rules": [
+    { "objectId": "123", "property": "HULL_MASS", "status": "better" },
+    { "objectId": "123", "property": "SHOT_RANGE", "status": "lower" }
+  ]
+}
+```
+
+`better` assigns the parameter directly to Advantages; `lower` assigns it directly to Disadvantages. These statuses do not specify a comparison direction. A manual entry takes priority over automatic classification, including missing baselines, special values, and unchanged values. It changes presentation only; raw observations and numerical equipment calculations remain intact. An empty array retains automatic classification. The packaged `example` entry is informational and is not applied.
+
+Keep `objectId` as a string and use the device's ID, not its equipment `baseItemId`. Prefer the exact protocol identifier in `property`. An unambiguous Russian or English parameter name is also accepted; the spelling `properity` is supported as an alias. Invalid entries are skipped with a console warning; the last duplicate device/property entry wins. The file loads once per page. After editing the JSON in the installed extension directory, reload the extension and game; rebuilding JavaScript is unnecessary for subsequent JSON-only edits.
+
+Open the required weapon's Augments page and run this in the game page's DevTools Console:
+
+```js
+copy(window.__kaspAugmentsDebug.exportPage())
+```
+
+The clipboard JSON contains device IDs, equipment associations, names, descriptions, protocol property identifiers, RU/EN labels, operations, raw values, and available equipment baselines. To inspect the same data without copying, use `window.__kaspAugmentsDebug.page()`. Only rendered cards with layout on the current page are included; scroll virtualized lists and export again for additional cards. Cards without a confirmed identity or captured properties are reported under `unmatchedCards`. The existing `export()` method still exports the entire captured session.
+
+The current snapshot is saved as `kasp-augments.json` in the game's browser-local private file storage (OPFS), with `kasp_augments_session_json` in `sessionStorage` as a fallback. Reload replaces the snapshot; the extension never restores device properties from the preceding page session. This is not a file in the extension directory or an automatic download. See [Session data](#session-data) for inspection commands and storage behavior.
 
 ### Smart Paint Search Module
 
@@ -477,7 +514,7 @@ Closing the Auto Upgrade setup dialog prevents a sequence from starting. Do not 
 
 ## Data Storage and Account Scope
 
-The extension uses the game's origin-scoped `localStorage`, `sessionStorage`, and IndexedDB. It does not use `chrome.storage` for these records.
+The extension uses the game's origin-scoped `localStorage`, `sessionStorage`, IndexedDB, and private file storage (OPFS). It does not use `chrome.storage` for these records.
 
 An origin includes scheme, hostname, and port. Different game origins, browser profiles, or host applications can therefore have separate settings and histories. Logging into another account on the same origin does not necessarily create a separate storage area.
 
@@ -507,6 +544,17 @@ The game's `language_store_key` can influence language selection but is not an e
 ### Session data
 
 `kasp_player_changes_cache` is stored in `sessionStorage` for observed equipment changes. Its lifetime follows the browsing session, and the module also resets it when leaving battle or receiving a battle-ID change event.
+
+The augment catalog starts empty on each page load and replaces `kasp-augments.json` and the `kasp_augments_session_json` fallback with the new session's observations. Writes are ordered and coalesced as descriptions, properties, equipment associations, and artwork become available. File-storage failure does not prevent in-memory lookups or session-storage writes. Multiple tabs have separate in-memory catalogs; the origin-wide file reflects whichever tab wrote it last.
+
+After rebuilding and reloading the game, inspect the collector from the page's DevTools console:
+
+```js
+window.__kaspAugmentsDebug.status();
+copy(window.__kaspAugmentsDebug.export());
+```
+
+`hooked: true` reports that the expected model-cache pattern was instrumented. `devices` counts captured numeric property lists, including empty lists; `equipment` counts captured equipment baselines. These checks do not guarantee that every visible card has been matched. If `hooked` is false, the current game bundle was not recognized; previous-session data is not substituted.
 
 ### Battle database
 
@@ -656,7 +704,7 @@ The extension manifest targets Tanki Online pages. It does not declare a backgro
 
 A shared DOM observer schedules work through animation frames. Heavy module updates are throttled to approximately 150 ms, with screen changes able to trigger immediate updates. Garage and battle-statistics changes also have targeted processing paths.
 
-Some modules maintain their own observation or timing loops, including skin observation and currency presentation. These are local UI updates rather than recurring requests for authoritative game state. Avoid adding repeated writes to already-correct DOM nodes: mutations produced by a module can otherwise trigger its own observer again.
+Some modules maintain their own observation or timing loops, including skin observation, currency presentation, and a one-second augment card identity scan. These are local UI updates rather than recurring requests for authoritative game state. Avoid adding repeated writes to already-correct DOM nodes: mutations produced by a module can otherwise trigger its own observer again.
 
 ### Injector failure handling
 
@@ -666,7 +714,7 @@ Recovery can allow the game to load without the instrumentation. Features relyin
 
 ### Reference data
 
-Bundled databases supply augment modifiers, paint names, trophy metadata, and map information. They are reference snapshots, not a live server inventory. Unknown artwork or changed identifiers can prevent matching until the relevant data is updated.
+Bundled databases supply paint names, skin data, trophy metadata, and map information. They are reference snapshots, not a live server inventory. Augment Specifications instead uses decoded data from the current game session; its injector and native card bindings can require maintenance after a game update. The separate Weapon Reload Indicator retains its own calculation tables.
 
 ## Build and Release Procedures
 
@@ -718,7 +766,7 @@ After rebuilding, reload the unpacked extension and then reload the game page. A
 
 ### Version metadata
 
-The current `manifest.json` version is **2.8.1**; `package.json` and the lockfile package version remain **2.8.1**. The browser, welcome window, and release-folder naming use the manifest version. These metadata values should be aligned as part of release maintenance.
+The current `manifest.json` version is **2.9.0**; `package.json` and the lockfile package version remain **2.9.0**. The browser, welcome window, and release-folder naming use the manifest version. These metadata values should be aligned as part of release maintenance.
 
 ### Release output
 
@@ -728,11 +776,11 @@ For the current manifest version, output is:
 
 ```text
 release/
-├── Kaspersky's Inventions 2.8.1/
+├── Kaspersky's Inventions 2.9.0/
 │   ├── manifest.json
 │   ├── LICENSE.txt
 │   └── ... runtime directories
-└── Kaspersky's Inventions 2.8.1.zip
+└── Kaspersky's Inventions 2.9.0.zip
 ```
 
 The archive contains the versioned outer folder. Extract it and select the folder containing `manifest.json` when loading the extension. Source files, tests, `node_modules`, and this README are not included by the current packaging script.
@@ -752,16 +800,18 @@ The repository includes focused Node regression tests under `tools/`:
 | Test file | Coverage area |
 | --- | --- |
 | `augment-specs.test.cjs` | Augment presentation and repeat-update behavior |
+| `game-augments.test.cjs` | Device-data instrumentation, exact identity, RU/EN tooltips, collision handling, and session JSON replacement |
 | `battle-history.test.cjs` | Imported data, validation, and safe history markup |
 | `battle-history-lifecycle.test.cjs` | Database transactions, account changes, async views, and navigation lifecycle |
 | `nickname-privacy.test.cjs` | Privacy presentation and preservation of account identity |
 | `injector-auto-upgrade.test.cjs` | Bundle-fetch recovery and recognized/unknown upgrade dialogs |
+| `overdrive-timer.test.cjs` | Bonus hooks, independent spawn locations, countdowns, and timer visibility |
 
 Run the type check and the regression suite explicitly:
 
 ```powershell
 npm run typecheck
-node --test tools/augment-specs.test.cjs tools/battle-history.test.cjs tools/battle-history-lifecycle.test.cjs tools/nickname-privacy.test.cjs tools/injector-auto-upgrade.test.cjs
+node --test tools/augment-specs.test.cjs tools/game-augments.test.cjs tools/battle-history.test.cjs tools/battle-history-lifecycle.test.cjs tools/nickname-privacy.test.cjs tools/injector-auto-upgrade.test.cjs tools/overdrive-timer.test.cjs
 ```
 
 There is no `npm test` script, and the full build does not invoke these tests. The tests use controlled fixtures and mocks; they do not replace verification against the current live game interface.
@@ -854,4 +904,4 @@ For the in-game presentation of release information and credits, see [the welcom
 
 ---
 
-Documentation aligned with extension manifest version **2.8.1*, updated **October 5, 2026**.
+Documentation aligned with extension manifest version **2.9.0*, updated **October 5, 2026**.

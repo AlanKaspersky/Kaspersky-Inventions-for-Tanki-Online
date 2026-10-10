@@ -2,6 +2,10 @@ export { };
 
 declare global {
     interface Window {
+        __kaspAugmentConfigure: (schema: import('../core/gameAugments').AugmentSchema) => void;
+        __kaspAugmentData: (object: unknown, data: unknown) => void;
+        __kaspAugmentLink: (id: unknown, baseItemId: unknown) => void;
+        __kaspAugmentsDebug: { export(): string; page(): unknown; exportPage(): string; status(): { hooked: boolean; devices: number; equipment: number; revision: number } };
         __kaspBonusPickup: <T>(data: T) => T;
         __kaspBonusPrepare: (data: unknown, field: string) => unknown;
         __kaspBonusRegister: (data: unknown, instanceId?: unknown, x?: unknown, y?: unknown, z?: unknown) => void;
