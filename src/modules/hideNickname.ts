@@ -21,8 +21,6 @@ export function hideNickname() {
         root.style.setProperty('--kasp-hidden-label', label);
     }
 
-    // CSS masks known locations before painting. Preserve the game's text and
-    // children so identity, history and friend categories remain accurate.
     document.querySelectorAll(gameDOM.account.privateHeaderFields).forEach(element => {
         setTooltip(element, element.textContent?.trim() || '');
     });

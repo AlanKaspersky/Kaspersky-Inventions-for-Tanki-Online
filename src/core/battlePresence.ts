@@ -38,13 +38,17 @@ function children(object: object): object[] {
         .map(descriptor => descriptor.value);
 }
 
-/** Reads current store data, not whichever lobby battle happens to be selected. */
+export function readBattleKind(stats: object): 'MM' | 'PRO' | null {
+    if (field(stats, 'battleLoaded') === false) return null;
+    const matchmaking = field(stats, 'isMMBattle');
+    return typeof matchmaking === 'boolean' ? matchmaking ? 'MM' : 'PRO' : null;
+}
+
 export function readBattlePresence(store: object, capacities?: ReadonlyMap<string, number>): BattlePresence | null {
     const seen = new Set<object>(), objects: object[] = [];
     const pending: Array<[object, number]> = [[store, 0]];
     let stats: object | undefined, users: object | undefined;
     while (pending.length && seen.size < 1000) {
-        // Visit reducer states before their deep resource graphs exhaust the budget.
         const [object, depth] = pending.shift()!;
         if (seen.has(object)) continue;
         seen.add(object); objects.push(object);
@@ -77,12 +81,11 @@ export function readBattlePresence(store: object, capacities?: ReadonlyMap<strin
             if (!params || typeof params !== 'object' || !type(params, 'BattleParams')) continue;
             const limit = field(params, 'maxPeopleCount');
             const mode = field(params, 'battleMode') as { k3_1?: number } | undefined;
-            // The game's lobby uses modes 0/1 as single-player tables; other modes have two teams.
             if (typeof limit === 'number' && Number.isInteger(limit) && limit > 0 && typeof mode?.k3_1 === 'number') {
                 result.maxPlayers = limit * (mode.k3_1 <= 1 ? 1 : 2);
             }
             break;
-        } catch { /* Some collections use a different key type. */ }
+        } catch {}
     }
     if (users) {
         const online = field(users, 'onlineUsers') as { t?: () => { u(): boolean; v(): unknown } } | undefined;
@@ -100,25 +103,21 @@ export function readBattlePresence(store: object, capacities?: ReadonlyMap<strin
     return result;
 }
 
-/** Observe the server's total capacity together with the battle ID that it belongs to. */
 export function patchBattleCapacity(code: string): string {
     const capacity = /this\.([\w$]+)=new [\w$]+\(["']maxPeople["']\)/.exec(code)?.[1];
     const id = /this\.([\w$]+)=new [\w$]+\(["']battleId["']\)/.exec(code)?.[1];
     if (!capacity || !id) return code;
     const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    // Both assignments must use the same settings object; never mix lobby/map limits.
     const assignments = new RegExp(`([\\w$]+\\([\\w$]+\\))\\.${escape(id)}\\.[\\w$]+\\(([\\w$]+\\(\\)\\.[\\w$]+\\(\\)\\.[\\w$]+\\(\\))\\),\\1\\.${escape(capacity)}\\.[\\w$]+\\(([\\w$]+\\.[\\w$]+)\\)`, 'g');
     return code.replace(assignments, (whole, _settings, battleId, limit) =>
         `${whole},(function(){try{window.__kaspPresenceCapacity(${battleId},${limit})}catch(__kaspIgnored){}})()`);
 }
 
-/** Observe resolved DI store getters by their semantic label, regardless of minified names. */
 export function patchBattlePresence(code: string, report?: (matches: number) => void): string {
     let matches = 0;
     const getter = /function\(\)\{var ([\w$]+)=([\w$]+);return (this\.[\w$]+\.[\w$]+\(this,[\w$]+\(["']store["'],1,\1,function\(([\w$]+)\)\{return \4\.[\w$]+\(\)\},null\)\))\}/g;
     const patched = code.replace(getter, (_whole, variable, scope, expression) => {
         matches++;
-        // Preserve the original return value and exceptions; observation cannot break a getter.
         return `function(){var ${variable}=${scope};var __kaspStore=${expression};try{window.__kaspPresenceStore(__kaspStore)}catch(__kaspIgnored){}return __kaspStore}`;
     });
     report?.(matches);
@@ -154,7 +153,6 @@ export function installBattlePresence(page: Window): void {
             const timer = document.querySelector(gameDOM.presence.timer);
             if (timer) latest.remaining = parseBattleClock(timer.textContent || '');
             else {
-                // BattleStatistics may retain the initial duration between server updates.
                 if (latest.map !== lastMap || latest.remaining !== lastRemaining) {
                     deadline = latest.remaining === undefined ? undefined : Date.now() + latest.remaining * 1000;
                 }

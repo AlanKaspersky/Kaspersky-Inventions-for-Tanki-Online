@@ -67,7 +67,6 @@ export const validateImportedBattle = (value: unknown): BattleData | null => {
     };
 };
 
-/** Validate every record before starting the single import transaction. */
 export function parseHistoryImport(text: string): BattleData[] {
     const data: unknown = JSON.parse(text);
     if (!Array.isArray(data) || data.length === 0) throw new Error('empty-or-invalid-list');

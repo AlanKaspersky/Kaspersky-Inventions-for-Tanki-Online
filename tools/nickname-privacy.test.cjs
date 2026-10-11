@@ -122,8 +122,6 @@ test('privacy is enabled synchronously before nickname elements are inserted', (
     assert.equal(f.html.classList.contains('kasp-hide-nickname'), true);
     assert.equal(f.observers.length, 1);
     assert.equal(f.observers[0].options.characterData, true);
-    // The CSS mask is already active; the mutation callback updates metadata
-    // directly, without a timeout or requestAnimationFrame in this sandbox.
     f.document.header = f.header;
     f.observers[0].callback();
     assert.equal(f.identity.getAccountIdentity().nickname, 'Kaspersky');

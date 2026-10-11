@@ -12,6 +12,10 @@ const gameDOMModule = { exports: {} };
 vm.runInNewContext(compile(read('src/core/gameDOM.ts')), { module: gameDOMModule });
 const bonusPickupModule = { exports: {} };
 vm.runInNewContext(compile(read('src/core/bonusPickup.ts')), { module: bonusPickupModule });
+const presenceModule = { exports: {} };
+vm.runInNewContext(compile(read('src/core/battlePresence.ts')), {
+    module: presenceModule, require: () => gameDOMModule.exports,
+});
 const tick = () => new Promise(resolve => setImmediate(resolve));
 
 function injectorFixture(fetch) {
@@ -46,10 +50,13 @@ function injectorFixture(fetch) {
             if (id === './core/bonusPickup') return bonusPickupModule.exports;
             if (id === './core/gameAugments') return { installGameAugments() {}, patchGameAugments: code => code };
             if (id === './core/garageDetails') return { patchUnavailableGarageDetails: code => code };
-            if (id === './core/battlePresence') return { installBattlePresence() {}, patchBattlePresence: code => code, patchBattleCapacity: code => code };
+            if (id === './core/garageItems') return { patchUnavailableGarageItems: code => code };
+            if (id === './core/garageInventory') return { installGarageInventoryDiagnostics() {}, patchGarageInventoryDiagnostics: code => code };
+            if (id === './core/battlePresence') return { installBattlePresence() {}, patchBattlePresence: code => code, patchBattleCapacity: code => code,
+                readBattleKind: presenceModule.exports.readBattleKind };
             throw new Error(`Unexpected injector import: ${id}`);
         },
-        window: { postMessage() {} },
+        window: { messages: [], postMessage(value) { this.messages.push(value); } },
         navigator: { userAgent: 'Chrome' },
         document: { head, documentElement: head, createElement: () => {
             const script = new Script();
@@ -58,7 +65,7 @@ function injectorFixture(fetch) {
             script.attributes = [];
             return script;
         } },
-        console: { error: (...values) => errors.push(values) },
+        console: { error: (...values) => errors.push(values), warn() {} },
         HTMLScriptElement: Script,
         MutationObserver: class {
             constructor(callback) { this.callback = callback; observers.push(this); }
@@ -69,13 +76,30 @@ function injectorFixture(fetch) {
     };
     vm.runInNewContext(compile(read('src/kasp_injector.ts')), context);
     return {
-        Script, appended, errors, observers,
+        Script, appended, errors, observers, page: context.window,
         async intercept(...scripts) {
             observers[0].callback([{ addedNodes: scripts }]);
             await tick();
         },
     };
 }
+
+test('injected statistics use the native matchmaking flag and ignore unloaded defaults and misleading titles', async () => {
+    const source = 'function Stats(id,map,mode,mm,loaded,a,b,c,d,e,f){this.id=id,this.map=map,this.mode=mode,this.mm=mm,this.loaded=loaded,this.a=a,this.b=b,this.c=c,this.d=d,this.e=e,this.f=f}' +
+        'proto(Stats).toString=function(){return"BattleStatistics(battleId="+this.id+", mapName="+this.map+", mode="+this.mode+", isMMBattle="+this.mm+", battleLoaded="+this.loaded+")"};';
+    const f = injectorFixture(async () => ({ ok: true, text: async () => source }));
+    await f.intercept(new f.Script());
+    const context = { window: f.page, proto: type => type.prototype };
+    vm.runInNewContext(f.appended[0].textContent, context);
+    const kinds = () => f.page.messages.filter(message => message.type === 'kasp:battle-kind').map(message => message.detail);
+    new context.Stats('1', 'Sandbox DM', 'DM', false, true, 0, 0, 0, 0, 0, 0);
+    assert.deepEqual(kinds(), ['PRO']);
+    new context.Stats('2', 'PRO in the map title', 'CTF', true, true, 0, 0, 0, 0, 0, 0);
+    assert.deepEqual(kinds(), ['PRO', 'MM']);
+    new context.Stats('0', '', '', false, false, 0, 0, 0, 0, 0, 0);
+    f.page.__kaspBattleStats({ name: 'Unknown map', loaded: true });
+    assert.deepEqual(kinds(), ['PRO', 'MM'], 'unknown or unloaded state must not overwrite the recorded kind');
+});
 
 test('HTTP errors reject the response body and restore one original script with its attributes', async () => {
     let bodyReads = 0;
@@ -145,16 +169,20 @@ function upgradeFixture() {
         appendChild(child) { this.children.push(child); }
         append(...children) { this.children.push(...children); }
         addEventListener(name, handler) { this.listeners.set(name, handler); }
-        click() { this.listeners.get('click')?.(); }
+        click() { this.listeners.get('click')?.({ type: 'click', isTrusted: false, target: this }); }
     }
     const timers = new Map();
+    const frames = new Map();
+    const listeners = new Map();
+    let gamepads = [];
     let nextTimer = 0;
     let dialog = null;
     let enters = 0;
     let confirms = 0;
     let cancels = 0;
     let confirmReads = 0;
-    const normalButton = { textContent: 'Улучшить', querySelector: () => null, click() { confirms++; } };
+    const normalButton = { textContent: 'Улучшить', querySelector: () => null,
+        click() { confirms++; document.dispatchEvent({ type: 'click', isTrusted: false, target: this }); } };
     const rubyButton = { ...normalButton, textContent: 'Купить за 100 рубинов' };
     const garageButton = {
         closest: () => null,
@@ -167,8 +195,16 @@ function upgradeFixture() {
     };
     const document = {
         createElement: () => new Element(),
-        addEventListener() {}, removeEventListener() {}, getElementById: () => null,
-        dispatchEvent() { enters++; },
+        addEventListener(type, handler) {
+            const handlers = listeners.get(type) || new Set();
+            handlers.add(handler); listeners.set(type, handlers);
+        },
+        removeEventListener(type, handler) { listeners.get(type)?.delete(handler); },
+        getElementById: () => null,
+        dispatchEvent(event) {
+            if (event.type === 'keydown' && event.key === 'Enter' && !event.isTrusted) enters++;
+            for (const handler of [...listeners.get(event.type) || []]) handler(event);
+        },
         querySelectorAll(selector) {
             return selector === '.SquarePriceButtonComponentStyle-commonBlockButton' ? [garageButton] : [];
         },
@@ -201,8 +237,11 @@ function upgradeFixture() {
             getComputedStyle: () => ({ backgroundImage: 'url(crystals.svg)' }),
             setTimeout(callback, delay) { timers.set(++nextTimer, { callback, delay }); return nextTimer; },
             clearTimeout: id => timers.delete(id),
+            requestAnimationFrame(callback) { frames.set(++nextTimer, callback); return nextTimer; },
+            cancelAnimationFrame: id => frames.delete(id),
         },
-        KeyboardEvent: class {},
+        navigator: { getGamepads: () => gamepads },
+        KeyboardEvent: class { constructor(type, options) { Object.assign(this, options, { type, isTrusted: false }); } },
         require(name) {
             if (name === '../core/state') return { state: { lang: 'EN' } };
             if (name === '../core/utils') return { utils: { getSetting: () => true } };
@@ -213,10 +252,13 @@ function upgradeFixture() {
     };
     vm.runInNewContext(compile(source), context);
     return {
-        async start(count = 5) {
+        async start(count = 5, keyboard = false) {
             context.review.performAction(count);
             await tick();
-            modal.actions.children.at(-1).click();
+            if (keyboard) {
+                document.dispatchEvent({ type: 'keydown', key: 'Enter', isTrusted: true,
+                    preventDefault() {}, stopPropagation() {}, stopImmediatePropagation() {} });
+            } else modal.actions.children.at(-1).click();
         },
         step() {
             const pending = [...timers].find(([, timer]) => timer.delay === 30);
@@ -225,6 +267,21 @@ function upgradeFixture() {
             pending[1].callback();
         },
         setDialog(value) { dialog = value; confirmReads = 0; },
+        input(type, options = {}) {
+            const event = { type, key: 'a', isTrusted: true, ...options };
+            document.dispatchEvent(event);
+            return event;
+        },
+        setGamepads(value) { gamepads = value; },
+        frame() {
+            const pending = [...frames];
+            frames.clear();
+            for (const [, callback] of pending) callback();
+        },
+        get frames() { return frames.size; },
+        get cancellationListeners() {
+            return ['keydown', 'pointerdown', 'mousedown', 'click'].map(type => listeners.get(type)?.size || 0).reduce((a, b) => a + b, 0);
+        },
         get state() { return context.review.getState(); },
         get enters() { return enters; }, get confirms() { return confirms; }, get cancels() { return cancels; },
         get steps() { return [...timers.values()].filter(timer => timer.delay === 30).length; },
@@ -270,6 +327,8 @@ test('ruby dialogs are cancelled and normal confirmations retain the requested u
     normal.step();
     assert.equal(normal.state.isRunning, false);
     assert.equal(normal.steps, 0);
+    assert.equal(normal.frames, 0);
+    assert.equal(normal.cancellationListeners, 0);
 });
 
 test('a confirmation button that disappears before clicking stops without incrementing the upgrade count', async () => {
@@ -280,6 +339,93 @@ test('a confirmation button that disappears before clicking stops without increm
     assert.equal(f.confirms, 0);
     assert.equal(f.enters, 0);
     assert.equal(f.state.upgraded, 0);
+    assert.equal(f.state.isRunning, false);
+    assert.equal(f.steps, 0);
+});
+
+test('any trusted keyboard or mouse press stops pending upgrades without blocking the user action', async () => {
+    for (const [type, options] of [
+        ['keydown', { key: 'ArrowRight' }], ['keydown', { key: 'Enter' }], ['keydown', { key: 'Shift' }],
+        ['keydown', { key: 'a', repeat: true }], ['pointerdown', {}], ['mousedown', { button: 0 }],
+        ['mousedown', { button: 2 }], ['click', {}]
+    ]) {
+        const f = upgradeFixture();
+        await f.start();
+        f.step();
+        f.setDialog({ normal: true });
+        let prevented = false;
+        f.input(type, { ...options, preventDefault() { prevented = true; } });
+        assert.equal(f.state.isRunning, false, type);
+        assert.equal(f.steps, 0);
+        assert.equal(f.frames, 0);
+        assert.equal(f.confirms, 0);
+        assert.equal(prevented, false);
+    }
+});
+
+test('synthetic Enter and confirmation clicks continue the sequence; new user input also stops it while waiting for dialog close', async () => {
+    const f = upgradeFixture();
+    await f.start();
+    f.step();
+    assert.equal(f.enters, 1);
+    assert.equal(f.state.isRunning, true);
+    f.setDialog({ normal: true });
+    f.step();
+    assert.equal(f.confirms, 1);
+    assert.equal(f.state.isRunning, true);
+    f.input('keydown', { key: 'ArrowLeft' });
+    assert.equal(f.state.isRunning, false);
+    assert.equal(f.steps, 0);
+    assert.equal(f.frames, 0);
+    assert.equal(f.state.upgraded, 1);
+    assert.equal(f.cancellationListeners, 0);
+    f.setDialog(null);
+    await f.start();
+    assert.equal(f.cancellationListeners, 4);
+    f.input('mousedown');
+    assert.equal(f.cancellationListeners, 0);
+});
+
+test('new gamepad button presses stop upgrades on either a frame or the next purchase step', async () => {
+    const pad = pressed => ({ index: 0, connected: true, buttons: [{ pressed: false }, { pressed }] });
+    for (const viaFrame of [true, false]) {
+        const f = upgradeFixture();
+        f.setGamepads([null, pad(false)]);
+        await f.start();
+        f.setDialog({ normal: true });
+        f.setGamepads([null, pad(true)]);
+        if (viaFrame) f.frame(); else f.step();
+        assert.equal(f.state.isRunning, false);
+        assert.equal(f.steps, 0);
+        assert.equal(f.frames, 0);
+        assert.equal(f.confirms, 0);
+    }
+});
+
+test('a gamepad button held during confirmation does not abort start; releasing and pressing it again stops the queue', async () => {
+    const f = upgradeFixture();
+    const pad = { index: 3, connected: true, buttons: [{ pressed: true }] };
+    f.setGamepads([pad]);
+    await f.start();
+    f.frame();
+    assert.equal(f.state.isRunning, true);
+    pad.buttons[0].pressed = false;
+    f.frame();
+    assert.equal(f.state.isRunning, true);
+    pad.buttons[0].pressed = true;
+    f.frame();
+    assert.equal(f.state.isRunning, false);
+    assert.equal(f.frames, 0);
+    assert.equal(f.steps, 0);
+});
+
+test('Enter can start the setup confirmation and the next Enter press stops upgrading', async () => {
+    const f = upgradeFixture();
+    await f.start(5, true);
+    assert.equal(f.state.isRunning, true);
+    f.step();
+    assert.equal(f.enters, 1);
+    f.input('keydown', { key: 'Enter' });
     assert.equal(f.state.isRunning, false);
     assert.equal(f.steps, 0);
 });

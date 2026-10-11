@@ -137,6 +137,7 @@
   }
   function createBonusPickupBridge(emit, diagnose, diagnosticEnabled = () => !!diagnose) {
     const soundModels = /* @__PURE__ */ new Map();
+    const registrations = /* @__PURE__ */ new WeakMap();
     const pending = /* @__PURE__ */ new Map();
     function log(record) {
       try {
@@ -149,14 +150,18 @@
       return candidate && (soundModels.has(candidate) ? soundModels.get(candidate) || null : candidate);
     }
     return {
-      register(data, instanceId, x, y, z) {
+      register(data, instanceId, x, y, z, instance) {
         const [box, sound] = bonusModels(data);
+        const position = readBonusPosition(x) || readBonusPosition({ x, y, z });
+        if (instance && typeof instance === "object") {
+          registrations.delete(instance);
+          if (box && position) registrations.set(instance, { model: box, position });
+        }
         if (box && sound) {
           if (!soundModels.has(sound)) soundModels.set(sound, box);
           else if (soundModels.get(sound) !== box) soundModels.set(sound, null);
         }
         if (diagnosticEnabled()) {
-          const position = [x, y, z].every((value) => typeof value === "number" && Number.isFinite(value)) ? { x, y, z } : null;
           log({
             kind: "register",
             model: box,
@@ -176,10 +181,12 @@
         }
         return data;
       },
-      prepare(data, field2) {
+      prepare(data, field2, instance) {
         const sound = data[field2];
         try {
-          const entry = { model: resolve(data, field2) };
+          const model = resolve(data, field2);
+          const registration = instance && typeof instance === "object" ? registrations.get(instance) : null;
+          const entry = { model, position: registration?.model === model ? registration.position : null };
           const entries = pending.get(sound) || [];
           entries.push(entry);
           pending.set(sound, entries);
@@ -201,11 +208,14 @@
           const entry = entries?.pop();
           if (entries && !entries.length) pending.delete(first);
           const model = entry?.model || null;
-          const position = readBonusPosition(second);
+          const pickupPosition = readBonusPosition(second);
+          const position = entry?.position || pickupPosition;
           if (diagnosticEnabled()) log({
             kind: "pickup-context",
             model,
             position,
+            pickupPosition,
+            positionSource: entry?.position ? "registration" : "pickup",
             paired: !!entry,
             argument1: snapshotBonusArgument(first),
             argument2: snapshotBonusArgument(second)
@@ -227,15 +237,23 @@
       const observed = original.slice(0, openingEnd) + "try{window.__kaspBonusContext&&window.__kaspBonusContext(" + pickup[2] + "," + pickup[3] + ")}catch(_kaspBonusError){};" + original.slice(openingEnd);
       code = code.replace(original, () => observed);
       contextHook = true;
-      const call = new RegExp("\\." + pickup[1] + "\\(([\\w$]+\\([\\w$]+\\))\\.([\\w$]+),");
+      const call = new RegExp("\\." + pickup[1] + "\\(([\\w$]+\\(([\\w$]+)\\))\\.([\\w$]+),");
       pickupHook = call.test(code);
-      code = code.replace(call, "." + pickup[1] + '(window.__kaspBonusPrepare($1,"$2"),');
+      code = code.replace(call, "." + pickup[1] + '(window.__kaspBonusPrepare($1,"$3",$2),');
     }
+    const pooledRegistration = /([\w$]+\([\w$]+\)\.\w+=function\(([\w$]+),([\w$]+),([\w$]+),[\w$]+,[\w$]+\)\{var ([\w$]+)=this\.\w+\.\w+\(\);\5\.\w+\(\2,\3\);)/g;
+    code = code.replace(pooledRegistration, (match, opening, id, data, position, instance, offset) => {
+      const body = code.slice(offset, offset + 900);
+      if (!body.includes("onBonusCollision") || body.includes("__kaspBonusRegister")) return match;
+      registrationHooks++;
+      return opening + "try{window.__kaspBonusRegister&&window.__kaspBonusRegister(" + [data, id, position, "undefined", "undefined", instance].join(",") + ")}catch(_kaspBonusError){};";
+    });
     const registration = /([\w$]+\([\w$]+\)\.\w+=function\(([\w$]+),([\w$]+),([\w$]+),([\w$]+),([\w$]+),[\w$]+\)\{)(var \w+,\w+,\w+=this\.\w+\.\w+\(\);)/g;
     code = code.replace(registration, (match, opening, id, data, x, y, z, locals, offset) => {
-      if (!code.slice(offset, offset + 900).includes("onBonusCollision")) return match;
+      const body = code.slice(offset, offset + 900);
+      if (!body.includes("onBonusCollision") || body.includes("__kaspBonusRegister")) return match;
       registrationHooks++;
-      return opening + "window.__kaspBonusRegister(" + [data, id, x, y, z].join(",") + ");" + locals;
+      return opening + "try{window.__kaspBonusRegister&&window.__kaspBonusRegister(" + [data, id, x, y, z].join(",") + ")}catch(_kaspBonusError){};" + locals;
     });
     try {
       report?.({ kind: "hooks", pickupHook, contextHook, registrationHooks });
@@ -333,9 +351,7 @@
           submenu: ".GarageCommonStyle-subMenu"
         },
         augments: {
-          cardImage: "img.SkinCellStyle-iconCell",
-          rewardImageBlock: ".RewardCardComponentStyle-imageBlock",
-          possibleRewards: ".ContainersComponentStyle-possibleRewardsBlock"
+          cardImage: "img.SkinCellStyle-iconCell"
         },
         skins: {
           cards: ".SkinsAndAlterationsStyle-SkinsVerticalComponent",
@@ -1205,7 +1221,7 @@ ${patched.slice(directive.length)}`;
       if (!enabled && !force || !schema || !document.body) return;
       const section = activeGarageCardSection(document);
       const ids = new Set([...entries.values()].filter((entry) => entry.properties !== void 0).map((entry) => entry.id));
-      const elements = document.querySelectorAll(`${gameDOM.augments.cardImage}, ${gameDOM.garage.deviceIcon}, ${gameDOM.augments.rewardImageBlock} ${gameDOM.common.backgroundDiv}`);
+      const elements = document.querySelectorAll(`${gameDOM.augments.cardImage}, ${gameDOM.garage.deviceIcon}`);
       for (const element of Array.from(elements)) {
         const cosmetic = (section === "skins" || section === "shot-color") && element.closest?.(".SkinsAndAlterationsStyle-SkinsVerticalComponent") ? findUnavailableCosmetic(element, schema) : void 0;
         for (const [attribute, value] of [
@@ -1399,10 +1415,10 @@ ${patched.slice(directive.length)}`;
         const end = patched.indexOf(tail, match.index);
         if (end >= 0 && end - match.index < 1500) {
           const block = patched.slice(match.index, end + tail.length);
-          const unknown = new RegExp(`t\\.([\\w$]+)\\.${skin}\\.${unknownMethod}\\(\\)`);
-          const state = unknown.exec(block)?.[1];
-          if (state) {
-            const replacement = block.replace(unknown, `$&&&!${enabled}`).replace(tail, `t.${state}.${skin}.${unknownMethod}()&&${enabled}&&${filter}(${match[5]}.tuv(),"grayscale(1)"),${tail}`);
+          const unavailable = new RegExp(`if\\((t\\.[\\w$]+\\.${skin}\\.${unknownMethod}\\(\\)(?:&&![\\w$]+\\(t\\))?)\\)`);
+          const condition = unavailable.exec(block)?.[1];
+          if (condition) {
+            const replacement = block.replace(unavailable, `if((${condition})&&!${enabled})`).replace(tail, `(${condition})&&${enabled}&&${filter}(${match[5]}.tuv(),"grayscale(1)"),${tail}`);
             patched = patched.slice(0, match.index) + replacement + patched.slice(end + tail.length);
           }
         }
@@ -1414,6 +1430,127 @@ ${patched}`;
   }
   var init_garageDetails = __esm({
     "src/core/garageDetails.ts"() {
+    }
+  });
+
+  // src/core/garageItems.ts
+  function patchUnavailableGarageItems(code) {
+    if (code.includes("function __kaspShowUnavailableGarageItems()")) return code;
+    const styleClass = /[\w$]+\(([\w$]+),"GarageItemComponentStyle",/.exec(code)?.[1];
+    if (!styleClass) return code;
+    const imageStyle = new RegExp(`[\\w$]+\\(${styleClass}\\)\\.([\\w$]+)=function\\(\\)\\{[^{}]{0,250}"mainImg"`).exec(code)?.[1];
+    const filterSetter = /\.([\w$]+)\("filter",/.exec(code)?.[1];
+    if (!imageStyle || !filterSetter) return code;
+    const enabled = "__kaspShowUnavailableGarageItems()";
+    let unknownMethod;
+    let changed = false;
+    let patched = code.replace(/function [\w$]+\(t,n\)\{var [\s\S]{0,2200}?n\.cap\([\w$]+\.c9l\(\)\)\}/g, (block) => {
+      const image = new RegExp(`([\\w$]+)\\.jp8\\([\\w$]+\\(\\)\\.${imageStyle}\\(\\)\\)`).exec(block);
+      if (!image) return block;
+      const placeholder = /(([\w$]+)\.([\w$]+)\(\)&&!t\.[\w$]+\.[\w$]+\.[\w$]+\.equals\([\w$]+\(\)\))\?([\w$]+):\2\.[\w$]+\.[\w$]+\(\)/.exec(block);
+      if (!placeholder) return block;
+      unknownMethod = placeholder[3];
+      changed = true;
+      return block.split(placeholder[1]).join(`(${placeholder[1]})&&!${enabled}`).replace(image[0], `${image[0]},${placeholder[2]}.${placeholder[3]}()&&${enabled}&&${image[1]}.${filterSetter}("filter","grayscale(1)")`);
+    });
+    if (!changed || !unknownMethod) return code;
+    const marker = patched.indexOf('setAttribute("garage_item_id"');
+    if (marker >= 0) {
+      const headers = [...patched.slice(Math.max(0, marker - 1600), marker).matchAll(/([\w$]+)\(([\w$]+)\)\.[\w$]+=function\(t\)\{/g)];
+      const header = headers[headers.length - 1];
+      if (header) {
+        const start = Math.max(0, marker - 1600) + header.index;
+        const end = patched.indexOf(`},${header[1]}(`, marker);
+        if (end > start && end - start < 14e3) {
+          const block = patched.slice(start, end);
+          const label = new RegExp(`([\\w$]+)\\.${unknownMethod}\\(\\)\\|\\|t\\.([\\w$]+)\\(\\1\\.([\\w$]+)\\)`, "g");
+          const replacement = block.replace(label, `(!$1.${unknownMethod}()||${enabled})&&t.$2($1.$3)`);
+          patched = patched.slice(0, start) + replacement + patched.slice(end);
+        }
+      }
+    }
+    return `function __kaspShowUnavailableGarageItems(){try{return localStorage.getItem('k_augments')==='true'}catch(e){return false}}
+${patched}`;
+  }
+  var init_garageItems = __esm({
+    "src/core/garageItems.ts"() {
+    }
+  });
+
+  // src/core/garageInventory.ts
+  function patchGarageInventoryDiagnostics(code) {
+    if (code.includes("window.__kaspGarageInventoryCapture(")) return code;
+    const state = /([\w$]+)\(([\w$]+)\)\.toString=function\(\)\{return\s*"GarageItemsState\(/.exec(code);
+    const item = /[\w$]+\(([\w$]+)\)\.toString=function\(\)\{return\s*"GarageItem\(/.exec(code);
+    if (!state || !item) return code;
+    const statePrefix = `${escapePattern(state[1])}\\(${escapePattern(state[2])}\\)`;
+    const flat = new RegExp(`${statePrefix}\\.[\\w$]+=function\\(\\)\\{return this\\.([\\w$]+)\\.b3\\(\\)\\}`).exec(code)?.[1];
+    if (!flat) return code;
+    const body = code.slice(item.index, code.indexOf("}", item.index));
+    const schema = {};
+    for (const label of ["id", "name", "category", "viewCategory", "description", "preview", "owned", "buyable", "visible", "secret"]) {
+      const field2 = new RegExp(`"[^"\\r\\n]*\\b${label}="\\+\\s*(?:[\\w$]+\\()?this\\.([\\w$]+)`).exec(body)?.[1];
+      if (field2) schema[label] = field2;
+    }
+    if (!["id", "name", "owned", "visible", "secret"].every((label) => schema[label])) return code;
+    if (schema.preview) {
+      const imageMethod = new RegExp(`:[\\w$]+\\.${escapePattern(schema.preview)}\\.([\\w$]+)\\(\\)`).exec(code)?.[1];
+      if (imageMethod) schema.imageMethod = imageMethod;
+    }
+    const constructor = new RegExp(`function ${escapePattern(state[2])}\\(t\\)\\{[\\s\\S]{0,6000}?\\}function `).exec(code);
+    if (!constructor) return code;
+    const assignment = new RegExp(`this\\.${escapePattern(flat)}=[\\w$]+;`).exec(constructor[0]);
+    if (!assignment) return code;
+    const offset = constructor.index + assignment.index + assignment[0].length;
+    const hook = `try{window.__kaspGarageInventoryCapture(this.${flat},${JSON.stringify(schema)})}catch(__kaspIgnored){};`;
+    return code.slice(0, offset) + hook + code.slice(offset);
+  }
+  function installGarageInventoryDiagnostics(target) {
+    let inventory = null;
+    let schema = {};
+    const bridge = target;
+    bridge.__kaspGarageInventoryCapture = (value, fields) => {
+      inventory = value;
+      schema = fields;
+    };
+    bridge.__kaspGarageInventoryDebug = () => {
+      if (!inventory) return { captured: false, reason: "Native garage inventory has not been captured." };
+      const items = [];
+      try {
+        const rendered = new Set(Array.from(target.document.querySelectorAll("[garage_item_id]")).map((element) => element.getAttribute("garage_item_id")));
+        const iterator = inventory.b3().t();
+        while (iterator.u()) {
+          if (items.length >= 2e4) throw new Error("Inventory exceeds diagnostic limit.");
+          const source = iterator.v();
+          const row = {};
+          for (const label of ["id", "name", "category", "viewCategory", "description", "owned", "buyable", "visible", "secret"]) {
+            const value = source[schema[label]];
+            row[label] = value == null ? null : typeof value === "object" ? String(value) : value;
+          }
+          const preview = source[schema.preview];
+          const getter = preview?.[schema.imageMethod];
+          row.preview = typeof getter === "function" ? getter.call(preview) : null;
+          row.renderedInDOM = rendered.has(String(row.id));
+          items.push(row);
+        }
+        return {
+          captured: true,
+          total: items.length,
+          hidden: items.filter((item) => item.visible === false).length,
+          secret: items.filter((item) => item.secret === true).length,
+          unowned: items.filter((item) => item.owned === false).length,
+          note: "renderedInDOM describes mounted cards only; scrolling and category selection can change it.",
+          items
+        };
+      } catch (error) {
+        return { captured: true, error: String(error), partial: true, items };
+      }
+    };
+  }
+  var escapePattern;
+  var init_garageInventory = __esm({
+    "src/core/garageInventory.ts"() {
+      escapePattern = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     }
   });
 
@@ -1441,6 +1578,11 @@ ${patched}`;
   }
   function children(object) {
     return Object.values(Object.getOwnPropertyDescriptors(object)).slice(0, 100).filter((descriptor) => "value" in descriptor && descriptor.value && typeof descriptor.value === "object").map((descriptor) => descriptor.value);
+  }
+  function readBattleKind(stats) {
+    if (field(stats, "battleLoaded") === false) return null;
+    const matchmaking = field(stats, "isMMBattle");
+    return typeof matchmaking === "boolean" ? matchmaking ? "MM" : "PRO" : null;
   }
   function readBattlePresence(store, capacities) {
     const seen = /* @__PURE__ */ new Set(), objects = [];
@@ -1582,11 +1724,14 @@ ${patched}`;
       init_bonusPickup();
       init_gameAugments();
       init_garageDetails();
+      init_garageItems();
+      init_garageInventory();
       init_battlePresence();
       (function() {
         "use strict";
         installGameAugments(window);
         installBattlePresence(window);
+        installGarageInventoryDiagnostics(window);
         const debugKey = "kasp_bonus_debug";
         let debugEnabled = false;
         try {
@@ -1606,7 +1751,8 @@ ${patched}`;
             if (value && hookStatus) diagnostics.record(hookStatus);
           },
           clear: diagnostics.clear,
-          export: diagnostics.export
+          export: diagnostics.export,
+          status: () => hookStatus ? { ...hookStatus } : { kind: "hooks", pending: true }
         };
         const bonusBridge = createBonusPickupBridge((model, position) => {
           window.postMessage({ type: BONUS_PICKUP_MESSAGE, detail: { model, position: position || null } }, "*");
@@ -1675,7 +1821,7 @@ ${patched}`;
               return;
             }
             let mode = null;
-            let isPro = null;
+            const kind = readBattleKind(obj);
             for (let i = 0; i < keys.length; i++) {
               let v;
               try {
@@ -1695,23 +1841,14 @@ ${patched}`;
                   if (m && KNOWN_MODES.has(m[1])) mode = m[1];
                 }
               }
-              if (isPro === null) {
-                if (/(^|[\s\-])PRO([\s\-]|$)/.test(trimmed) || /(^|[\s\-])ПРО([\s\-]|$)/.test(trimmed)) {
-                  isPro = true;
-                }
-              }
             }
-            if (isPro === null) isPro = false;
             if (mode) {
               window.postMessage(
                 { type: "kasp:battle-mode", detail: mode },
                 "*"
               );
             }
-            window.postMessage(
-              { type: "kasp:battle-kind", detail: isPro ? "PRO" : "MM" },
-              "*"
-            );
+            if (kind) window.postMessage({ type: "kasp:battle-kind", detail: kind }, "*");
           } catch (e) {
           }
         };
@@ -1742,9 +1879,14 @@ ${patched}`;
                   }
                   code = patchGameAugments(code);
                   code = patchUnavailableGarageDetails(code);
+                  code = patchUnavailableGarageItems(code);
+                  code = patchGarageInventoryDiagnostics(code);
                   code = patchBonusPickups(code, (status) => {
                     hookStatus = status;
                     diagnostics.record(status);
+                    if (!status.pickupHook || !status.contextHook || !status.registrationHooks) {
+                      console.warn("[KI Overdrive] Bonus hooks incomplete:", status);
+                    }
                   });
                   const match = /return"TankUserActionLog\(\w+="\+(?:\w+\()?this\.(\w+)/.exec(code);
                   if (match) {

@@ -5,10 +5,8 @@ export const AUGMENTS_MESSAGE = 'kasp:game-augments';
 export const AUGMENTS_REQUEST = 'kasp:game-augments-request';
 export type GarageCardSection = 'augments' | 'skins' | 'shot-color';
 
-/** The menu order is the same in Russian and English; generated ksc classes are irrelevant. */
 export function activeGarageCardSection(root: Pick<Document, 'querySelectorAll'>): GarageCardSection | null {
     const tabs = Array.from(root.querySelectorAll('.MenuComponentStyle-blockButtonsQECommunity .MenuComponentStyle-mainMenuItem'));
-    // Some turrets and hulls have no shot-color tab.
     if (tabs.length < 2 || tabs.length > 3) return null;
     const active = tabs.findIndex(tab => tab.classList.contains('-activeMenu'));
     return (['augments', 'skins', 'shot-color'] as GarageCardSection[])[active] || null;
@@ -64,7 +62,6 @@ export interface AugmentSchema {
     baseFinal?: string;
 }
 
-/** The model cache follows the object-context stack and its model-ID getter. */
 function discoverModelCache(code: string) {
     const writer = /([\w$]+)\(([\w$]+)\)\.([\w$]+)\s*=\s*function\s*\(\s*([\w$]+)\s*,\s*([\w$]+)\s*\)\s*\{\s*this\.([\w$]+)\.([\w$]+)\.set\(\s*\4\s*,\s*\5\s*\)\s*;?\s*\}/g;
     const candidates = [...code.matchAll(writer)];
@@ -76,12 +73,10 @@ function discoverModelCache(code: string) {
         return [{ match, objectIdMethod: getter[3] }];
     });
     if (semantic.length) return semantic.length === 1 ? semantic[0] : null;
-    // Compatibility with older bundles lacking the context-stack signature.
     const legacy = candidates.filter(match => match[3] === 'r7i');
     return legacy.length === 1 ? { match: legacy[0], objectIdMethod: 'p57' } : null;
 }
 
-/** Discover generated fields by their stable diagnostic labels, never by obfuscated class names. */
 export function discoverAugmentSchema(code: string): AugmentSchema | null {
     function field(type: string, label: string): string | undefined {
         const marker = code.indexOf(`"${type}`);
@@ -128,7 +123,6 @@ export function discoverAugmentSchema(code: string): AugmentSchema | null {
 export function patchGameAugments(code: string): string {
     const schema = discoverAugmentSchema(code);
     if (!schema) return code;
-    // The original cache write executes first. Observer errors cannot alter model loading.
     const cache = discoverModelCache(code);
     if (!cache) return code;
     const { match } = cache;
@@ -171,7 +165,6 @@ export function readGameProperties(value: unknown, schema: AugmentSchema): GameA
     } catch { return null; }
 }
 
-/** The game's raw-property calculator is initial + (final - initial) / levels * currentLevel. */
 export function readEquipmentProperties(raw: unknown, schema: AugmentSchema): Omit<GameEquipmentProperties, 'id'> | null {
     if (!['upgradeLevel', 'upgradeData', 'upgradeGroups', 'upgradeLevels', 'groupProperties', 'baseProperty', 'baseInitial', 'baseFinal'].every(key => !!schema[key])) return null;
     try {
@@ -215,7 +208,6 @@ interface CardFiber {
 }
 const committedTrees = new WeakMap<object, { root: CardFiber; parents: Map<CardFiber, CardFiber | null> }>();
 
-/** A host DOM node can retain its old fiber after React switches to the alternate tree. */
 function closestReactProps(node: Element): unknown[] {
     const key = Object.keys(node).find(name => name.startsWith('__reactFiber$') || name.startsWith('__reactInternalInstance$'));
     let fiber = key ? node[key] as CardFiber : undefined;
@@ -251,7 +243,6 @@ function closestReactProps(node: Element): unknown[] {
     return props;
 }
 
-/** Resolve only unambiguous identities from the closest React props; names are never identity keys. */
 export function findAugmentIdentity(element: Element, knownIds: Set<string>, schema: AugmentSchema): { id: string; baseItemId?: string } | null {
     for (let node: Element | null = element, level = 0; node && level < 6; node = node.parentElement, level++) {
         for (const props of closestReactProps(node)) {
@@ -291,12 +282,10 @@ export function isAugmentPreviewUrl(value: unknown): value is string {
     } catch { return false; }
 }
 
-/** Read only icon resources belonging to the exact device, never adjacent card artwork. */
 export function findAugmentPreview(element: Element, id: string, schema: AugmentSchema): string | undefined {
     return findAugmentCardAppearance(element, id, schema).previewIcon;
 }
 
-/** Skins and shot colors use the same cell props, but have no device modifiers. */
 export function findUnavailableCosmetic(element: Element, schema: AugmentSchema): { id: string; name: string; previewIcon: string } | undefined {
     const candidates = new Map<string, { id: string; name: string; previewIcon: string }>();
     for (let node: Element | null = element, level = 0; node && level < 3; node = node.parentElement, level++) {
@@ -314,7 +303,6 @@ export function findUnavailableCosmetic(element: Element, schema: AugmentSchema)
     return candidates.size === 1 ? [...candidates.values()][0] : undefined;
 }
 
-/** Appearance metadata is accepted only from props with the same exact device ID. */
 export function findAugmentCardAppearance(element: Element, id: string, schema: AugmentSchema): { previewIcon?: string; rarity?: string } {
     const urls = new Set<string>();
     const rarities = new Set<string>();
@@ -333,7 +321,7 @@ export function findAugmentCardAppearance(element: Element, id: string, schema: 
                 const url = method.call(value);
                 if (isAugmentPreviewUrl(url)) urls.add(url);
             }
-        } catch { /* An unavailable resource leaves the native placeholder intact. */ }
+        } catch {}
     }
     function visit(value: unknown, depth: number): void {
         if (!value || typeof value !== 'object' || seen.has(value) || depth > 4 || --budget < 0) return;
@@ -347,7 +335,7 @@ export function findAugmentCardAppearance(element: Element, id: string, schema: 
             try {
                 const name = rarity == null ? '' : String(rarity);
                 if (/^(COMMON|RARE|EPIC|LEGENDARY)$/.test(name)) rarities.add(name);
-            } catch { /* Missing rarity must not prevent icon binding. */ }
+            } catch {}
         }
         if (directId === id) { resource(fields.icon?.value); resource(fields.iconUrl?.value); }
         if (viewId === id && schema.viewPreview) {
@@ -442,14 +430,13 @@ export function installGameAugments(page: Window): void {
             }
             entries.set(id, entry);
             if (before !== JSON.stringify(entry)) { revision++; schedule(); }
-        } catch { /* A diagnostic bridge must never interrupt the game. */ }
+        } catch {}
     };
-    // MAIN-world React properties cannot be read from the extension's isolated world.
     function bindCards(force = false): void {
         if ((!enabled && !force) || !schema || !document.body) return;
         const section = activeGarageCardSection(document);
         const ids = new Set([...entries.values()].filter(entry => entry.properties !== undefined).map(entry => entry.id));
-        const elements = document.querySelectorAll<HTMLElement>(`${gameDOM.augments.cardImage}, ${gameDOM.garage.deviceIcon}, ${gameDOM.augments.rewardImageBlock} ${gameDOM.common.backgroundDiv}`);
+        const elements = document.querySelectorAll<HTMLElement>(`${gameDOM.augments.cardImage}, ${gameDOM.garage.deviceIcon}`);
         for (const element of Array.from(elements)) {
             const cosmetic = (section === 'skins' || section === 'shot-color') && element.closest?.('.SkinsAndAlterationsStyle-SkinsVerticalComponent')
                 ? findUnavailableCosmetic(element, schema) : undefined;
@@ -487,7 +474,6 @@ export function installGameAugments(page: Window): void {
             if (changed) { revision++; schedule(); }
         }
     }
-    // Bind newly rendered cards before waiting for the periodic recovery scan.
     const observer = typeof MutationObserver === 'undefined' ? null : new MutationObserver(records => {
             if (!enabled) return;
             const relevant = records.some(record => record.type === 'attributes'

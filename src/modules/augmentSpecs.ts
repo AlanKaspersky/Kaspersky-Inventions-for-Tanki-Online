@@ -36,7 +36,6 @@ export const augmentSpecs = (() => {
             entry = { card, nodes, badge: cosmetic ? undefined : nodes[1], title: nodes[nodes.length - 1], cosmetic };
             emptyCards.set(image, entry);
         }
-        // React can replace the card's className when selection changes.
         const cardClass = `kasp-unavailable-${cosmetic ? 'cosmetic' : 'device'}-card`;
         if (!card.classList.contains(cardClass)) card.classList.add(cardClass);
         if (entry.title.textContent !== data.name) entry.title.textContent = data.name;
@@ -134,8 +133,6 @@ export const augmentSpecs = (() => {
                 return;
             }
 
-            // React and the preview replacement can change src without changing the device.
-            // Keep the button and its listeners, rebinding lookup data in place.
             if (existingBtn) {
                 if (existingBtn.dataset.url !== url || existingBtn.dataset.deviceId !== device.id) {
                     existingBtn.dataset.url = url;
@@ -240,20 +237,6 @@ export const augmentSpecs = (() => {
         for (const img of previewImages.keys()) if (!img.isConnected) previewImages.delete(img);
         for (const img of emptyCards.keys()) if (!img.isConnected) restoreEmptyCard(img);
 
-        const containerImageBlocks = document.querySelectorAll(gameDOM.augments.rewardImageBlock);
-        containerImageBlocks.forEach(block => {
-            if (block.closest(gameDOM.augments.possibleRewards)) return;
-
-            const card = block.parentElement;
-            const imageDiv = block.querySelector(gameDOM.common.backgroundDiv);
-            if (!imageDiv || !card) return;
-
-            const bgImage = window.getComputedStyle(imageDiv).backgroundImage;
-            const match = bgImage.match(/url\(['"]?(.*?)['"]?\)/);
-            if (match && match[1]) {
-                applyButtonToCard(card, match[1]);
-            }
-        });
     };
 
     const liveStats = new Map<HTMLElement, {
@@ -330,14 +313,13 @@ export const augmentSpecs = (() => {
     const scheduleUpdate = () => {
         if (updateQueued) return;
         updateQueued = true;
-        // DOM observers and catalog messages can finish decoration before the next paint.
         queueMicrotask(() => {
             updateQueued = false;
             if (!utils.getSetting('k_augments', false)) return;
 
             const isGarage = state.currentScreen === 'garage';
             const isContainers = !!document.querySelector(gameDOM.screens.lootBox);
-            if (!isGarage && !isContainers) return;
+            if (!isGarage || isContainers) return;
 
             injectButtons();
             updateLiveStats();
@@ -389,12 +371,12 @@ export const augmentSpecs = (() => {
         const isContainers = !!document.querySelector(gameDOM.screens.lootBox);
         const loadingScreen = document.querySelector(gameDOM.screens.loadingBackground);
 
-        if (loadingScreen || (!isGarage && !isContainers)) {
+        if (loadingScreen || !isGarage || isContainers) {
             const hoverTooltip = document.getElementById('kasp-specs-tooltip');
             if (hoverTooltip) hoverTooltip.style.display = 'none';
         }
 
-        if (isGarage || isContainers) {
+        if (isGarage && !isContainers) {
             scheduleUpdate();
         }
     };

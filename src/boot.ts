@@ -92,14 +92,12 @@ export function startBoot() {
             applyLanguageChange();
         let newScreen = state.currentScreen;
 
-        // The battle canvas can remain mounted behind the final results overlay.
         if (document.querySelector(gameDOM.results.status)) {
             newScreen = 'match_results';
         }
         else if (document.querySelector('.ApplicationLoaderComponentStyle-container')) {
             newScreen = 'loading';
         }
-        // The client retains the battle canvas while the garage is open over it.
         else if (document.querySelector(gameDOM.screens.garage)) {
             newScreen = 'garage';
         }
@@ -166,7 +164,6 @@ export function startBoot() {
         if (state.currentScreen === 'garage') {
             modules.garageButtons();
         }
-        // Capture also needs to see results disappear, including a direct next-battle transition.
         modules.battleHistory();
         if (state.currentScreen === 'match_results' || state.currentScreen === 'lobby') {
             syncKillBoardDoubleHeader();

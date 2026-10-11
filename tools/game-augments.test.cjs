@@ -23,7 +23,6 @@ const labels = load('src/core/augmentLabels.ts');
 const rules = load('src/core/augmentRules.ts');
 const tick = () => new Promise(resolve => setImmediate(resolve));
 
-// Actual formatter/cache-write structures from the supplied game bundle, with unrelated scopes.
 const fixture = `
 function fake() { function jh(){return other} }
 function ke(ctor){return ctor.prototype}
@@ -399,7 +398,7 @@ test('binding a recycled card triggers UI updates even when its shared artwork i
     flush();
     assert.equal(image.getAttribute('data-kasp-augment-id'), '1');
     image.__reactFiber$test.memoizedProps.id = long('2');
-    scan(); flush(); // Both device records have now observed this same artwork.
+    scan(); flush();
     image.__reactFiber$test.memoizedProps.id = long('1');
     const before = messages.at(-1).detail.revision;
     scan(); flush();

@@ -25,7 +25,6 @@ function fixture() {
         clearTimeout(timer) { timers.delete(timer); },
         require(name) { return name === 'node:net' ? { Socket } : require(name); },
     };
-    // esbuild assigns module.exports rather than mutating the original exports object.
     const compiled = { exports: {} };
     vm.runInNewContext(transformSync(fs.readFileSync(path.join(__dirname, 'discordPresence.ts'), 'utf8'), {
         loader: 'ts', format: 'cjs', target: 'es2022',
@@ -42,6 +41,63 @@ function fixture() {
 }
 const readFrame = frame => ({ opcode: frame.readUInt32LE(), data: JSON.parse(frame.subarray(8).toString()) });
 const presence = { details: 'В лобби', state: 'Kaspersky' };
+
+function heartbeatFixture() {
+    const additions = fs.readFileSync(path.join(__dirname, 'main.patch'), 'utf8')
+        .split(/\r?\n/).filter(line => line.startsWith('+') && !line.startsWith('+++'))
+        .map(line => line.slice(1)).join('\n');
+    const code = additions.slice(additions.indexOf('    let lastPresenceAt = 0;'), additions.indexOf('    const isKI ='));
+    const window = new EventEmitter(), ipcMain = new EventEmitter();
+    window.webContents = new EventEmitter();
+    window.webContents.mainFrame = { url: 'https://tankionline.com/play/' };
+    let now = 100000, check;
+    window.isMinimized = () => window.minimized === true;
+    window.isVisible = () => window.visible !== false;
+    const updates = [], discord = { update(value) { updates.push(value); }, dispose() { this.disposed = true; } };
+    vm.runInNewContext(transformSync(code, { loader: 'ts' }).code, {
+        window, ipcMain, discord, URL, validPresence: fixture().validPresence,
+        copyPresence: fixture().copyPresence,
+        Date: { now: () => now }, setInterval(fn) { check = fn; return 1; },
+        clearInterval() { check = undefined; },
+    });
+    return { window, discord, updates,
+        send(value = presence) { ipcMain.emit('ki:discord-presence', {
+            sender: window.webContents, senderFrame: window.webContents.mainFrame,
+        }, value); },
+        tick(delta) { now += delta; if (check) check(); },
+    };
+}
+
+test('minimized and hidden windows retain presence and restore gives a heartbeat grace period', () => {
+    for (const background of ['minimized', 'hidden']) {
+        const f = heartbeatFixture(); f.send();
+        if (background === 'minimized') f.window.minimized = true;
+        else f.window.visible = false;
+        f.tick(30 * 60 * 1000);
+        assert.equal(f.updates.length, 1);
+        f.window.minimized = false; f.window.visible = true;
+        f.window.emit(background === 'minimized' ? 'restore' : 'show');
+        f.tick(25000); assert.equal(f.updates.length, 1);
+        f.send({ ...presence, details: 'In the garage' });
+        f.tick(25000); assert.equal(f.updates.at(-1).details, 'In the garage');
+        f.tick(10000); assert.equal(f.updates.at(-1), null);
+    }
+});
+
+test('explicit clear, navigation, renderer crash and close still clear minimized presence', () => {
+    for (const action of ['clear', 'navigation', 'crash', 'close']) {
+        const f = heartbeatFixture(); f.send(); f.window.minimized = true;
+        if (action === 'clear') f.send(null);
+        if (action === 'navigation') f.window.webContents.emit('did-start-navigation', {}, '', false, true);
+        if (action === 'crash') f.window.webContents.emit('render-process-gone', {}, { reason: 'crashed' });
+        if (action === 'close') f.window.emit('closed');
+        f.tick(60 * 60 * 1000);
+        if (action === 'close') {
+            assert.equal(f.discord.disposed, true);
+            assert.equal(f.window.listenerCount('restore'), 0);
+        } else assert.equal(f.updates.at(-1), null);
+    }
+});
 
 test('validates incoming activity and Windows pipe path', () => {
     const f = fixture();
@@ -113,10 +169,11 @@ test('preload accepts game messages only and exposes no Node API', () => {
     assert.equal(window.ipcRenderer, undefined);
 });
 
-test('extension keeps labels English, translates battle maps and resumes after page restore', () => {
-    function load(electron) {
+function extensionFixture(electron, hidden = false) {
         const events = {}, messages = [], intervals = new Map();
         const state = { lang: 'RU', currentScreen: 'lobby' };
+        const settings = { k_hideNicknameXP: hidden };
+        const account = { nickname: 'Kaspersky' };
         let serial = 0;
         const window = { location: { origin: 'https://tankionline.com' },
             postMessage(message) { messages.push(message); },
@@ -128,17 +185,20 @@ test('extension keeps labels English, translates battle maps and resumes after p
             loader: 'ts', format: 'cjs',
         }).code, { module: compiled, window, require(name) {
             if (name.endsWith('/electron')) return { isElectronClient: () => electron };
-            if (name.endsWith('/accountIdentity')) return { getAccountIdentity: () => ({ nickname: 'Kaspersky' }) };
+            if (name.endsWith('/accountIdentity')) return { getAccountIdentity: () => account };
             if (name.endsWith('/state')) return { state };
+            if (name.endsWith('/utils')) return { utils: { getSetting: (key, fallback) => settings[key] ?? fallback } };
             if (name.endsWith('/dataLoader')) return { DataLoader: { translateMap: name => name === 'Молотов' ? 'Molotov' : name } };
             if (name.endsWith('/battlePresence')) return { BATTLE_PRESENCE_MESSAGE: 'kasp:battle-presence' };
             throw new Error(name);
         } });
         compiled.exports.setupDiscordPresence();
-        return { events, messages, intervals, state, window };
-    }
-    assert.equal(load(false).messages.length, 0);
-    const f = load(true);
+        return { events, messages, intervals, state, window, settings, account };
+}
+
+test('extension keeps labels English, translates battle maps and resumes after page restore', () => {
+    assert.equal(extensionFixture(false).messages.length, 0);
+    const f = extensionFixture(true);
     assert.equal(f.messages[0].presence.details, 'In the lobby');
     assert.equal(f.messages[0].presence.state, 'Kaspersky');
     f.state.lang = 'EN'; f.state.currentScreen = 'battle';
@@ -159,6 +219,39 @@ test('extension keeps labels English, translates battle maps and resumes after p
     assert.equal(f.messages[5].presence.details, 'In the lobby');
     assert.equal(f.messages[5].presence.party, undefined);
     assert.equal(f.messages[5].presence.timestamps, undefined);
+});
+
+test('nickname privacy applies to the first activity and updates live without losing battle data', () => {
+    const f = extensionFixture(true, true);
+    assert.equal(f.messages[0].presence.state, 'Hidden');
+    f.account.nickname = 'ActualPlayer';
+    f.state.currentScreen = 'battle';
+    f.events.message({ source: f.window, origin: f.window.location.origin, data: {
+        type: 'kasp:battle-presence', battle: { map: 'Молотов', mode: 'CP', remaining: 120, players: 12, maxPlayers: 24 },
+    } });
+    [...f.intervals.values()][0]();
+    const hiddenBattle = f.messages.at(-1).presence;
+    assert.equal(hiddenBattle.state, 'Hidden');
+    assert.equal(hiddenBattle.details, 'Molotov CP');
+    assert.deepEqual(Array.from(hiddenBattle.party.size), [12, 24]);
+    f.settings.k_hideNicknameXP = false;
+    f.events['kasp:settings-changed']();
+    assert.equal(f.messages.at(-1).presence.state, 'ActualPlayer');
+    assert.equal(f.messages.at(-1).presence.timestamps.end, hiddenBattle.timestamps.end);
+    f.settings.k_hideNicknameXP = true;
+    f.events.storage({ key: 'k_hideNicknameXP' });
+    assert.equal(f.messages.at(-1).presence.state, 'Hidden');
+    const count = f.messages.length;
+    f.events.storage({ key: 'unrelated' });
+    assert.equal(f.messages.length, count);
+    f.events.pagehide();
+    const clearedCount = f.messages.length;
+    f.events['kasp:settings-changed']();
+    f.events.storage({ key: 'k_hideNicknameXP' });
+    assert.equal(f.messages.length, clearedCount);
+    assert.equal(f.messages.at(-1).presence, null);
+    f.events.pageshow();
+    assert.equal(f.messages.at(-1).presence.state, 'Hidden');
 });
 
 test('RPC sends battle countdown and party and clears them on leaving a battle', () => {

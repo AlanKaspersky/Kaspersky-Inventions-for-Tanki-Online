@@ -8,14 +8,13 @@ vm.runInNewContext(transformSync(fs.readFileSync('src/core/garageDetails.ts', 'u
     { module: moduleUnderTest, exports: moduleUnderTest.exports });
 const { patchUnavailableGarageDetails } = moduleUnderTest.exports;
 
-// Native render structure: the details branch precedes the separate mount/purchase branch.
 const fixture = `
 function diagnostic(){return "State("+", selectedDevice="+this.device.toString()+", selectedSkin="+this.skin.toString()}
 function deviceRender(t){var n=this.state.device,i=X,r=Dq.xut(i),s=Dq.xut(X),_=Dq.xut(X),f=Dq.xut(X),v=f.tuv();if(v.jp8(style.n1p9(false,defaultIcon,(c=this).state.device.lrf()?missing:c.state.device.preview.w93())),n.lrf()&&RE(v,"invert(0.25)"),_.cap(f.c9l()),!n.lrf()){var p=Mq(Description);_.iap(p,describe(this,n))}s.cap(_.c9l()),function(t,n){if(t.state.device.lrf())denied.push('device')}(this,s);var c}
 function skinPreview(t,n){var i=X,r=Dq.xut(i);r.tuv().jp8(style.n1p9(false,defaultIcon,function(t){var n;if(t.state.skin.lrf()&&!standard(t))n=missing;else if(t.props.skinType.equals(AH()))n=t.state.skin.preview.w93();else{var i=t.state.skin.large,r=null==i?null:i.w93();n=null==r?defaultIcon:r}return n}(t))),n.cap(r.c9l())}
 function skinRender(t){var n=this.state.skin,i=X,r=Dq.xut(i),s=Dq.xut(X),_=Dq.xut(X),h=_.tuv();if(h.jp8('layout'),!standard(this)&&n.lrf()){var a=X,c=Dq.xut(a),l=c.tuv();RE(l,"invert(0.25)"),skinPreview(this,c),_.cap(c.c9l())}else{skinPreview(this,_);var f=Mq(Description);_.iap(f,describe(this,n))}s.cap(_.c9l()),function(t,n){if(t.state.skin.lrf())denied.push('skin')}(this,s)}
 `;
-function run(source, enabled, unknown, section) {
+function run(source, enabled, unknown, section, isStandard = false) {
     const images = [], filters = [], descriptions = [], denied = [];
     const builder = () => {
         const node = { jp8: value => images.push(value) };
@@ -24,7 +23,7 @@ function run(source, enabled, unknown, section) {
     const context = { localStorage: { getItem: () => String(enabled) }, denied,
         X: {}, Dq: { xut: builder }, style: { n1p9: (standard, fallback, image) => image },
         RE: (node, filter) => filters.push(filter), Mq: value => value, Description: {},
-        defaultIcon: 'default', missing: 'unavailable', standard: () => false,
+        defaultIcon: 'default', missing: 'unavailable', standard: () => isStandard,
         AH: () => 'shot-color', describe: (component, item) => ({ name: item.name, description: item.description }) };
     vm.runInNewContext(source, context);
     const item = { lrf: () => unknown, name: 'Название / Name', description: 'Описание / Description',
@@ -50,4 +49,15 @@ test('native unavailable details show real resources and descriptions without ch
 });
 test('unknown render structures are preserved', () => {
     assert.equal(patchUnavailableGarageDetails('const untouched = 1;'), 'const untouched = 1;');
+});
+
+test('standard skins and shot colors keep native previews even if the unknown flag is true', () => {
+    const patched = patchUnavailableGarageDetails(fixture);
+    for (const section of ['skin', 'shot-color']) {
+        for (const unknown of [true, false]) {
+            const result = run(patched, true, unknown, section, true);
+            assert.deepEqual(result, run(fixture, true, unknown, section, true));
+            assert.equal(result.filters.includes('grayscale(1)'), false);
+        }
+    }
 });

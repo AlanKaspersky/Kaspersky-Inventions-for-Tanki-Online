@@ -4,7 +4,7 @@ import { state } from '../core/state';
 import { utils } from '../core/utils';
 
 export const OVERDRIVE_COOLDOWN_MS = 85_000;
-export const OVERDRIVE_POINT_RADIUS = 250;
+export const OVERDRIVE_POINT_RADIUS = 1000;
 
 export function createOverdriveCountdown(now: () => number = Date.now, boxModel = OVERDRIVE_BOX_MODEL) {
     let readyAt: number | null = null;
@@ -21,7 +21,6 @@ export function createOverdriveCountdown(now: () => number = Date.now, boxModel 
     };
 }
 
-/** Locations are learned only from this battle's pickups, never from a map coordinate table. */
 export function createOverdriveLocations(now: () => number = Date.now) {
     const timers = [0, 1].map(index => ({
         id: index === 0 ? 'kasp-overdrive-timer' : 'kasp-overdrive-timer-secondary',
@@ -35,18 +34,15 @@ export function createOverdriveLocations(now: () => number = Date.now) {
             if (model !== OVERDRIVE_BOX_MODEL) return false;
             const position = readBonusPosition(rawPosition);
             if (!position) {
-                // Once two points exist, an unlocated pickup cannot safely restart either one.
                 if (timers.every(timer => timer.position)) return false;
                 return timers[0].countdown.pickup(model);
             }
             const nearest = timers.filter(timer => timer.position).map(timer => ({
                 timer,
-                distance: Math.hypot(position.x - timer.position!.x, position.y - timer.position!.y,
-                    position.z - timer.position!.z),
+                distance: Math.hypot(position.x - timer.position!.x, position.y - timer.position!.y),
             })).sort((a, b) => a.distance - b.distance)[0];
             const selected = nearest && nearest.distance <= OVERDRIVE_POINT_RADIUS
                 ? nearest.timer : timers.find(timer => !timer.position);
-            // Do not assign a third, distant point to an unrelated existing deadline.
             if (!selected) return false;
             if (!selected.position) selected.position = position;
             return selected.countdown.pickup(model);
@@ -100,7 +96,6 @@ export const overdriveTimer = (() => {
             resumeUntil = Date.now() + 1000;
             return true;
         }
-        // The battle canvas can be remounted when closing an in-battle section.
         if (sectionOpen && !current && Date.now() < resumeUntil) return true;
         if (current !== battleCanvas) {
             battleCanvas = current;
@@ -155,7 +150,6 @@ export const overdriveTimer = (() => {
         const ru = state.lang === 'RU';
         const value = seconds === null ? '0:00'
             : `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
-        // Avoid triggering the master DOM observer when the displayed second has not changed.
         if (time!.textContent !== value) time!.textContent = value;
         panel.classList.toggle('kasp-overdrive-soon', seconds !== null && seconds > 0 && seconds <= 10);
         panel.classList.toggle('kasp-overdrive-ready', seconds === 0);
@@ -181,7 +175,6 @@ export const overdriveTimer = (() => {
         document.addEventListener('kasp:battle:id', () => { reset(); render(); });
         window.addEventListener('kasp:settings-changed', render);
         window.addEventListener('storage', render);
-        // Sections can mount containers or toggle their visibility without replacing the battle.
         previewObserver = new MutationObserver(records => {
             if (!utils.getSetting('k_overdrive_timer', false)) return;
             const selector = `${gameDOM.screens.tankPreview}, ${gameDOM.common.container}`;

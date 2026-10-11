@@ -13,18 +13,18 @@ div:is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatist
 
 div[class*="SkinsAndAlterationsStyle"] div[class$="-flexCenterAlignCenterColumn"],
 div:has(> img.SkinCellStyle-iconCell) {
-    width: clamp(125px, 9vw, 240px) !important;
-    height: clamp(165px, 12vw, 240px) !important;
+    width: clamp(12em, 9vw, 240px) !important;
+    height: clamp(16em, 12vw, 240px) !important;
 }
 
 div:has(> .SkinsAndAlterationsStyle-nameDevices):active,
 div:has(> .SkinsAndAlterationsStyle-nameDevices).-active {
-    width: clamp(125px, 9vw, 240px) !important;
-    height: clamp(165px, 12vw, 240px) !important;
+    width: clamp(12em, 9vw, 240px) !important;
+    height: clamp(16em, 12vw, 240px) !important;
 }
 
 .SkinsAndAlterationsStyle-SkinsVerticalComponent {
-    grid-template-columns: repeat(auto-fill, clamp(125px, 9vw, 240px)) !important;
+    grid-template-columns: repeat(auto-fill, clamp(12em, 9vw, 240px)) !important;
 }
 
 div.BattleTabStatisticComponentStyle-containerInsideResults {

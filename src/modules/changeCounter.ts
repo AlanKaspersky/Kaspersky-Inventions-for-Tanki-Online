@@ -29,8 +29,9 @@ export const changeCounter = (() => {
 
     window.addEventListener('message', (e) => {
         const data = e.data as { type?: string; detail?: unknown } | null;
+        if (e.source !== window) return;
         if (!data || data.type !== 'kasp:battle-kind') return;
-        window.__kaspBattleKind = String(data.detail || '').toUpperCase();
+        if (data.detail === 'MM' || data.detail === 'PRO') window.__kaspBattleKind = data.detail;
     });
 
     window.addEventListener('message', (e) => {

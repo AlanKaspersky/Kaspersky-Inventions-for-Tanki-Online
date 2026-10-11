@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2020", "DOM"],
+    "types": [],
+    "strict": true,
+    "noEmit": true
+  },
+  "files": ["preload.ts", "preload-electron.d.ts"]
+}

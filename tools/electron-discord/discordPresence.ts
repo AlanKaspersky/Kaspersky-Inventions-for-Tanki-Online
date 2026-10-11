@@ -30,7 +30,6 @@ export function rpcFrame(opcode: number, data: unknown): Buffer {
     return Buffer.concat([header, payload]);
 }
 
-/** Local Discord IPC only: no account tokens, HTTP server or extra dependencies. */
 export class DiscordPresence {
     private socket: Socket | null = null;
     private ready = false;
@@ -38,7 +37,6 @@ export class DiscordPresence {
     private desired: Presence | null = null;
     private sent: string | null = null;
     private lastSent = 0;
-    // Reuse one session start across section changes, navigation and RPC reconnects.
     private readonly sessionStartedAt = Math.floor(Date.now() / 1000);
     private reconnect?: NodeJS.Timeout;
     private sendTimer?: NodeJS.Timeout;
@@ -70,7 +68,7 @@ export class DiscordPresence {
         socket.on('connect', () => socket.write(rpcFrame(0, { v: 1, client_id: this.applicationId })));
         socket.on('data', chunk => {
             if (this.socket !== socket) return;
-            input = Buffer.concat([input, chunk]);
+            input = Buffer.concat([input, typeof chunk === 'string' ? Buffer.from(chunk) : chunk]);
             while (input.length >= 8) {
                 const opcode = input.readUInt32LE(), length = input.readUInt32LE(4);
                 if (length > 1024 * 1024) { socket.destroy(); return; }
@@ -89,7 +87,6 @@ export class DiscordPresence {
                         clearTimeout(timeout); this.ready = true; this.lastSent = 0; this.flush();
                     } else if (message.evt === 'ERROR') {
                         this.report(`[KI Discord] ${message.data?.message || 'RPC error'}`);
-                        // Retry a rejected activity only after the normal throttle interval.
                         this.sent = null;
                     }
                 } catch { socket.destroy(); return; }

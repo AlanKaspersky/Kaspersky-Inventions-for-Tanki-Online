@@ -78,8 +78,6 @@ export const gameDOM = {
     },
     augments: {
         cardImage: "img.SkinCellStyle-iconCell",
-        rewardImageBlock: ".RewardCardComponentStyle-imageBlock",
-        possibleRewards: ".ContainersComponentStyle-possibleRewardsBlock",
     },
     skins: {
         cards: ".SkinsAndAlterationsStyle-SkinsVerticalComponent",

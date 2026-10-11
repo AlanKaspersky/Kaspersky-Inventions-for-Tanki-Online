@@ -1,13 +1,16 @@
 import { BONUS_PICKUP_MESSAGE, createBonusDiagnostics, createBonusPickupBridge, patchBonusPickups } from './core/bonusPickup';
 import { installGameAugments, patchGameAugments } from './core/gameAugments';
 import { patchUnavailableGarageDetails } from './core/garageDetails';
-import { installBattlePresence, patchBattlePresence, patchBattleCapacity } from './core/battlePresence';
+import { patchUnavailableGarageItems } from './core/garageItems';
+import { installGarageInventoryDiagnostics, patchGarageInventoryDiagnostics } from './core/garageInventory';
+import { installBattlePresence, patchBattlePresence, patchBattleCapacity, readBattleKind } from './core/battlePresence';
 
 (function (): void {
     'use strict';
 
     installGameAugments(window);
     installBattlePresence(window);
+    installGarageInventoryDiagnostics(window);
 
     const debugKey = 'kasp_bonus_debug';
     let debugEnabled = false;
@@ -23,6 +26,7 @@ import { installBattlePresence, patchBattlePresence, patchBattleCapacity } from 
         },
         clear: diagnostics.clear,
         export: diagnostics.export,
+        status: () => hookStatus ? { ...hookStatus } : { kind: 'hooks', pending: true },
     };
     const bonusBridge = createBonusPickupBridge((model, position) => {
         window.postMessage({ type: BONUS_PICKUP_MESSAGE, detail: { model, position: position || null } }, '*');
@@ -92,7 +96,7 @@ import { installBattlePresence, patchBattlePresence, patchBattleCapacity } from 
             }
 
             let mode: string | null = null;
-            let isPro: boolean | null = null;
+            const kind = readBattleKind(obj);
 
             for (let i = 0; i < keys.length; i++) {
                 let v: any;
@@ -116,15 +120,8 @@ import { installBattlePresence, patchBattlePresence, patchBattleCapacity } from 
                     }
                 }
 
-                if (isPro === null) {
-                    if (/(^|[\s\-])PRO([\s\-]|$)/.test(trimmed) ||
-                        /(^|[\s\-])ПРО([\s\-]|$)/.test(trimmed)) {
-                        isPro = true;
-                    }
-                }
             }
 
-            if (isPro === null) isPro = false;
 
             if (mode) {
                 window.postMessage(
@@ -132,10 +129,7 @@ import { installBattlePresence, patchBattlePresence, patchBattleCapacity } from 
                     '*'
                 );
             }
-            window.postMessage(
-                { type: 'kasp:battle-kind', detail: isPro ? 'PRO' : 'MM' },
-                '*'
-            );
+            if (kind) window.postMessage({ type: 'kasp:battle-kind', detail: kind }, '*');
         } catch (e) { }
     };
 
@@ -145,7 +139,6 @@ import { installBattlePresence, patchBattlePresence, patchBattleCapacity } from 
             for (const node of Array.from(m.addedNodes)) {
                 if (!bundleIntercepted && node instanceof HTMLScriptElement && node.src.includes('/static/js/main.')) {
                     bundleIntercepted = true;
-                    // Keep the original URL and attributes for a single native-load fallback.
                     const originalScript = document.createElement('script');
                     for (const attribute of Array.from(node.attributes)) {
                         originalScript.setAttribute(attribute.name, attribute.value);
@@ -170,9 +163,14 @@ import { installBattlePresence, patchBattlePresence, patchBattleCapacity } from 
                             }
                             code = patchGameAugments(code);
                             code = patchUnavailableGarageDetails(code);
+                            code = patchUnavailableGarageItems(code);
+                            code = patchGarageInventoryDiagnostics(code);
                             code = patchBonusPickups(code, status => {
                                 hookStatus = status;
                                 diagnostics.record(status);
+                                if (!status.pickupHook || !status.contextHook || !status.registrationHooks) {
+                                    console.warn('[KI Overdrive] Bonus hooks incomplete:', status);
+                                }
                             });
                             const match = /return"TankUserActionLog\(\w+="\+(?:\w+\()?this\.(\w+)/.exec(code);
                             if (match) {

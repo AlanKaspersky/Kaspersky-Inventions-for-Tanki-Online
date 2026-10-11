@@ -8,7 +8,6 @@ export const AUGMENTS_JSON_FILE = 'kasp-augments.json';
 export const AUGMENTS_JSON_KEY = 'kasp_augments_session_json';
 export const AUGMENTS_UPDATED = 'kasp:augments-updated';
 
-/** Reject malformed bridge data before indexing or saving it. */
 export function validateAugmentSnapshot(value: unknown): AugmentSnapshot | null {
     if (!value || typeof value !== 'object') return null;
     const source = value as AugmentSnapshot;
@@ -50,7 +49,7 @@ export function validateAugmentSnapshot(value: unknown): AugmentSnapshot | null 
 export function normalizeAugmentIcon(url: string): string {
     try {
         const parsed = new URL(url);
-        return parsed.pathname; // EU/RU asset hosts share the same hashed artwork paths.
+        return parsed.pathname;
     } catch { return url; }
 }
 
@@ -64,7 +63,6 @@ const liveTags: Record<string, string[]> = {
     WEIGHT: ['HULL_MASS'], TOP_SPEED: ['HULL_SPEED'],
 };
 
-/** Absolute protocol values can have different units; only unambiguous percentage changes adjust native rows. */
 export function liveAugmentModifiers(device: GameAugment): Record<string, number> {
     const result: Record<string, number> = {};
     for (const [tag, names] of Object.entries(liveTags)) {
@@ -140,7 +138,6 @@ export function createAugmentCatalog() {
         get(url: string, id?: string) {
             if (id) {
                 const device = byId.get(id);
-                // Recycled cards can change their image before the next MAIN-world binding pass.
                 if (!device || device.icons.length && !device.icons.some(icon => normalizeAugmentIcon(icon) === normalizeAugmentIcon(url))) return undefined;
                 return present(device);
             }
@@ -149,7 +146,6 @@ export function createAugmentCatalog() {
             const fingerprint = (device: GameAugment) => JSON.stringify([device.properties, device.name, device.description, device.locale,
                 device.baseItemId ? equipment.get(device.baseItemId) : undefined,
                 device.properties.map(property => rules.get(`${device.id}:${property.property}`))]);
-            // Empty numeric lists can still describe different conditional effects.
             if (candidates.some(device => fingerprint(device) !== fingerprint(candidates[0]))) return undefined;
             return present(candidates[0]);
         },
@@ -163,7 +159,7 @@ let writing = false;
 let fileError: string | null = null;
 
 async function persist(json: string): Promise<void> {
-    try { sessionStorage.setItem(AUGMENTS_JSON_KEY, json); } catch { /* In-memory lookup still works. */ }
+    try { sessionStorage.setItem(AUGMENTS_JSON_KEY, json); } catch {}
     pendingJson = json;
     if (writing) return;
     writing = true;
@@ -186,7 +182,6 @@ async function persist(json: string): Promise<void> {
 }
 
 if (typeof window !== 'undefined' && window === window.top) {
-    // Manual classifications are independent of raw session JSON and are loaded once per page.
     if (typeof chrome !== 'undefined' && chrome.runtime?.getURL) {
         void (async () => {
             try {
@@ -200,7 +195,6 @@ if (typeof window !== 'undefined' && window === window.top) {
             }
         })();
     }
-    // Never hydrate the previous page/account snapshot. Start by replacing its JSON.
     void persist(catalog.export());
     window.addEventListener('message', event => {
         if (event.source !== window || event.data?.type !== AUGMENTS_MESSAGE || !catalog.accept(event.data.detail)) return;

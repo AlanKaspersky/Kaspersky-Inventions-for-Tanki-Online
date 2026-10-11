@@ -29,7 +29,6 @@ function loadModule(file, globals = {}, mocks = {}, cache = new Map()) {
 const tick = () => new Promise(resolve => setImmediate(resolve));
 const plain = value => JSON.parse(JSON.stringify(value));
 
-// A controlled IndexedDB adapter: requests and commit are separate, and abort discards writes.
 function database(initial = [], { failAddAt = 0, manualCommit = false } = {}) {
     let records = plain(initial);
     const connections = [];

@@ -2,7 +2,7 @@ import { gameDOM } from '../core/gameDOM';
 import { state } from '../core/state';
 
 export const customTrophies = (() => {
-    let initialized = false;
+    let initialization: Promise<void> | null = null;
     const STORAGE_KEY = 'kasp_trophies_favorites';
     const ICON_UNFAV = 'https://s.eu.tankionline.com/static/images/unfavoriteStar.0e39d67a.svg';
     const ICON_FAV = 'https://s.eu.tankionline.com/static/images/favoriteStar.1ce58570.svg';
@@ -186,7 +186,7 @@ export const customTrophies = (() => {
         const panel = document.createElement('div');
         panel.id = 'custom-trophy-panel';
         panel.className = 'custom-trophy-panel';
-        const trophies = getFavs();
+        const trophies = [...getFavs()];
 
         trophies.sort((a, b) => {
             if (a.type === 'turret' && b.type === 'hull') return -1;
@@ -220,8 +220,13 @@ export const customTrophies = (() => {
         const panel = document.getElementById('custom-trophy-panel');
 
         if (challengesBlock) {
-            if (!panel && getFavs().length > 0 && challengesBlock.parentElement) {
-                challengesBlock.parentElement.appendChild(createPanel());
+            const key = JSON.stringify([state.lang, getFavs()]);
+            if (getFavs().length === 0) panel?.remove();
+            else if (challengesBlock.parentElement && (!panel || panel.dataset.trophiesKey !== key)) {
+                const replacement = createPanel();
+                replacement.dataset.trophiesKey = key;
+                if (panel) panel.replaceWith(replacement);
+                else challengesBlock.parentElement.appendChild(replacement);
             }
         } else {
             if (panel) panel.remove();
@@ -232,10 +237,9 @@ export const customTrophies = (() => {
     }
 
     return async () => {
-        if (!initialized) {
-            initialized = true;
-            await loadTrophyDictionary();
-        }
+        if (!initialization) initialization = loadTrophyDictionary();
+        await initialization;
+        if (!trophyDictionaryLoaded) return;
 
         if (state.currentScreen === 'lobby' || state.currentScreen === 'garage') {
             updateInterface();

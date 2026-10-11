@@ -1,6 +1,5 @@
 import { ipcRenderer } from 'electron';
 
-// A narrow message bridge works with extension content scripts in their isolated world.
 const isGame = () => window.location.protocol === 'https:' &&
     /(^|\.)tankionline\.com$/.test(window.location.hostname) &&
     (window.location.pathname === '/play' || window.location.pathname.startsWith('/play/'));

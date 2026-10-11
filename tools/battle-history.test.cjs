@@ -192,7 +192,6 @@ test('DM detail merges self and opponents into one centered table without changi
     assert.ok(panels[0][2].indexOf('TestPlayer') < panels[0][2].indexOf('Opponent'));
     assert.ok(panels[1][2].includes('<tbody></tbody>'));
     assert.equal(JSON.stringify(input), before);
-    // The same players still form separate teams in team modes.
     await f.renderDetailedMatch(battle({ players }), f.t.EN, 'EN');
     const teamHtml = f.content.detail.innerHTML;
     assert.ok(!teamHtml.includes('stats-wrapper solo-mode'));

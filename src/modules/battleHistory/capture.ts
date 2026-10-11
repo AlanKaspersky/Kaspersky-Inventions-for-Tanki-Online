@@ -89,7 +89,6 @@ function readPlacement(selfRow: Element): { top: string; firstTeam: boolean } {
     return { top: topVal, firstTeam };
 }
 
-/** Reads a complete result without writing or changing capture state. */
 export function readBattleResult(selfRow: Element, nickname: string): BattleData | null {
     const scoreEl = selfRow.querySelector(gameDOM.results.score);
     const killsEl = selfRow.querySelector(gameDOM.results.kills);

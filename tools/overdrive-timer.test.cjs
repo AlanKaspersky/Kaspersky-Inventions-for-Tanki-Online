@@ -20,12 +20,130 @@ const bonus = load('src/core/bonusPickup.ts');
 const timer = load('src/modules/overdriveTimer.ts', {
     '../core/bonusPickup': bonus, '../core/gameDOM': {}, '../core/state': {}, '../core/utils': {},
 });
-// Kotlin Long IDs expose two numeric fields; toString belongs to the prototype.
 function gameId(id) {
     const result = { low: 123, high: 456 };
     Object.setPrototypeOf(result, { toString() { return id; } });
     return result;
 }
+
+const vectorPrototype = {
+    toString() { return "Vector3 (" + this.f20_1 + ", " + this.g20_1 + ", " + this.h20_1 + ")"; }
+};
+function gameVector(x, y, z) {
+    return Object.assign(Object.create(vectorPrototype), { f20_1: x, g20_1: y, h20_1: z });
+}
+
+test('coordinates follow Vector3 semantics after renaming and field reordering without executing diagnostics or getters', () => {
+    const prototype = {
+        toString() { throw Error('must not execute'); return 'Vector3 (' + this.$east + ', ' + this['north'] + ', ' + this["altitude"] + ')'; }
+    };
+    const position = Object.assign(Object.create(prototype), { altitude: 3, unrelated: 123, north: 2, $east: 1 });
+    assert.deepEqual({ ...bonus.readBonusPosition(position) }, { x: 1, y: 2, z: 3 });
+    position.$east = 4;
+    assert.equal(bonus.readBonusPosition(position).x, 4);
+    assert.deepEqual({ ...bonus.readBonusPosition(gameVector(5, 6, 7)) }, { x: 5, y: 6, z: 7 });
+    assert.equal(bonus.readBonusPosition({ a: 1, b: 2, c: 3 }), null);
+    assert.equal(bonus.readBonusPosition({ f20_1: 1, g20_1: 2, h20_1: 3 }), null);
+    position.north = Infinity;
+    assert.equal(bonus.readBonusPosition(position), null);
+    Object.defineProperty(position, 'north', { get() { throw Error('must not execute'); } });
+    assert.equal(bonus.readBonusPosition(position), null);
+    const duplicate = Object.assign(Object.create({ toString() { return 'Vector3 (' + this.a + ', ' + this.a + ', ' + this.c + ')'; } }), { a: 1, c: 3 });
+    assert.equal(bonus.readBonusPosition(duplicate), null);
+});
+
+test('renamed BattleBonusData fields identify the box independently of resource order and shared sounds', () => {
+    const events = [];
+    const bridge = bonus.createBonusPickupBridge((model, position) => events.push({ model, position }));
+    const prototype = {
+        toString() { throw Error('must not execute'); return 'BattleBonusData(box=' + this['$mesh'] + ', pickupSound=' + this.$audio + ', dropSound=' + this.other + ')'; }
+    };
+    const sound = { id: gameId('118254') };
+    const resource = model => Object.assign(Object.create(prototype), {
+        metadata: gameId('9876543210'), other: { id: gameId('1111111111') }, $audio: sound, $mesh: { id: gameId(model) }
+    });
+    const overdrive = resource(bonus.OVERDRIVE_BOX_MODEL);
+    const speed = resource('1647333199408');
+    const instance = {};
+    bridge.register(overdrive, 'first', gameVector(1, 2, 3), undefined, undefined, instance);
+    bridge.register(speed, 'second', gameVector(4, 5, 6), undefined, undefined, {});
+    assert.equal(bridge.prepare(overdrive, '$audio', instance), sound);
+    bridge.context(sound, gameVector(7000, 8000, 9));
+    assert.equal(events[0].model, bonus.OVERDRIVE_BOX_MODEL);
+    assert.deepEqual({ ...events[0].position }, { x: 1, y: 2, z: 3 });
+    bridge.prepare(speed, '$audio');
+    bridge.context(sound, gameVector(4, 5, 6));
+    assert.equal(events[1].model, '1647333199408');
+    bridge.context(sound, gameVector(1, 2, 3));
+    assert.equal(events.length, 2);
+});
+
+test('bundle hooks adapt to renamed symbols and formatting at every pickup call while preserving native returns', () => {
+    const source = `
+        X$.prototype.take$ = function (audio$, position$) {
+            return play$(this, this.audio$, audio$, position$, 'bonus pickup');
+        };
+        X$.prototype.spawn$ = function (id$, data$, position$, rotation$, falling$) {
+            var instance$ = this.pool$.get$();
+            instance$.init$(id$, data$);
+            var callback$ = 'onBonusCollision'; instance$.place$(position$, rotation$, falling$);
+        };
+        function picked$(instance$, position$) {
+            return receiver.take$(get$(instance$).sound$, position$);
+        }
+        function otherPlayer$(instance$, position$) {
+            return receiver.take$(get$(instance$).sound$, position$);
+        }
+    `;
+    const events = [], order = [], reports = [];
+    const bridge = bonus.createBonusPickupBridge((model, position) => events.push({ model, position }));
+    function X$() {}
+    const instance = { init$(_id, data) { this.data = data; order.push('init'); }, place$() { order.push('place'); } };
+    const receiver = new X$();
+    receiver.pool$ = { get$: () => instance };
+    const context = { X$, receiver, window: {
+        __kaspBonusRegister: (...args) => { order.push('observe'); bridge.register(...args); },
+        __kaspBonusPrepare: bridge.prepare, __kaspBonusContext: bridge.context
+    }, get$: item => { order.push('resource'); return item.data; },
+    play$: (...args) => { order.push('play'); assert.equal(args[2], 42); return 123; } };
+    const patched = bonus.patchBonusPickups(source, record => reports.push(record));
+    assert.equal(reports[0].pickupCalls, 2);
+    assert.equal(reports[0].registrationHooks, 1);
+    assert.equal(reports[0].issues.length, 0);
+    vm.runInNewContext(patched, context);
+    const resource = { box: { id: gameId(bonus.OVERDRIVE_BOX_MODEL) }, sound$: 42 };
+    const origin = gameVector(1, 2, 3);
+    receiver.spawn$('one', resource, origin, 0, false);
+    origin.f20_1 = 999;
+    assert.equal(context.picked$(instance, gameVector(10000, 20000, 3)), 123);
+    assert.equal(context.otherPlayer$(instance, gameVector(30000, 40000, 3)), 123);
+    assert.deepEqual(order, ['init', 'observe', 'place', 'resource', 'play', 'resource', 'play']);
+    assert.equal(events.length, 2);
+    assert.equal(events[0].position.x, 1);
+    assert.equal(events[1].position.x, 1);
+    assert.equal(bonus.patchBonusPickups(patched), patched);
+});
+
+test('unsupported or ambiguous pickup methods are diagnosed instead of guessed; partial patching is idempotent', () => {
+    const method = 'proto(X).take=function(a,b){play(this,this.sound,a,b,"bonus pickup")};';
+    const check = source => {
+        let report;
+        const code = bonus.patchBonusPickups(source, value => { report = value; });
+        return { code, report };
+    };
+    const absent = check('console.log("hello")');
+    assert.equal(absent.code, 'console.log("hello")');
+    assert.ok(absent.report.issues.includes('pickup-method-missing'));
+    const ambiguous = check(method + method.replace('take=', 'other='));
+    assert.ok(ambiguous.report.issues.includes('pickup-method-ambiguous'));
+    assert.equal(ambiguous.code.includes('__kaspBonusContext'), false);
+    const partial = check(method);
+    assert.ok(partial.report.issues.includes('pickup-call-missing'));
+    assert.ok(partial.report.issues.includes('registration-missing'));
+    const repeated = check(partial.code);
+    assert.equal(repeated.code, partial.code);
+    assert.deepEqual([...repeated.report.issues], [...partial.report.issues]);
+});
 
 test('matching pickups start and restart exactly 85 seconds; other bonuses do not change the deadline', () => {
     let now = 1_000;
@@ -104,6 +222,67 @@ test('registration patch selects the collision constructor, and unrelated bundle
     assert.equal(bonus.patchBonusPickups('console.log("hello");'), 'console.log("hello");');
 });
 
+test('pooled game bonuses use their registered origin when another player picks up a displaced box', () => {
+    let now = 0;
+    const locations = timer.createOverdriveLocations(() => now);
+    const events = [];
+    const bridge = bonus.createBonusPickupBridge((model, position) => {
+        events.push({ model, position });
+        locations.pickup(model, position);
+    });
+    const resource = { box: { id: gameId(bonus.OVERDRIVE_BOX_MODEL) }, sound: { id: gameId('118254') } };
+    const spawn = gameVector(2000, -4000, 5000);
+    const landing = gameVector(2100, -4050, 75);
+    const plays = [];
+    const instance = { init(id, data) { this.id = id; this.data = data; }, place(...args) { this.placement = args; } };
+    const manager = { pool: { get: () => instance }, light: {}, sound: {}, items: { put() {} } };
+    const source = 'proto(X).register=function(a,b,c,d,e){var u=this.pool.get();u.init(a,b);' +
+        'var s,o,_=this.light;u.place(c,d,_,(s=this,o=function(t,n){return t},o.callableName="onBonusCollision",o),e),this.items.put(a,u)};' +
+        'proto(X).take=function(a,b){play(this,this.sound,a,b,"bonus pickup")};' +
+        'function picked(t,n){manager.take(getBonus(t).sound,n)}';
+    const hooks = [];
+    const patched = bonus.patchBonusPickups(source, record => hooks.push(record));
+    const context = { window: { __kaspBonusRegister: bridge.register, __kaspBonusPrepare: bridge.prepare,
+        __kaspBonusContext: bridge.context }, X: {}, proto: () => manager, manager,
+        getBonus: object => object.data, play: (...args) => plays.push(args) };
+    vm.runInNewContext(patched, context);
+    assert.equal(hooks[0].registrationHooks, 1);
+    assert.equal(bonus.patchBonusPickups(patched), patched);
+    manager.register('box-1', resource, spawn, 0, false);
+    context.picked(instance, landing);
+    assert.equal(events[0].position.x, 2000);
+    assert.equal(plays[0][2], resource.sound);
+    assert.equal(plays[0][3], landing);
+    spawn.f20_1 = 90000;
+    assert.equal(events[0].position.x, 2000);
+    now += 85000;
+    manager.register('box-2', resource, gameVector(2000, -4000, 5000), 0, false);
+    context.picked(instance, gameVector(5000, -6500, 75));
+    assert.equal(locations.timers[0].countdown.remaining(), 85);
+    assert.equal(locations.timers[1].countdown.remaining(), null);
+    now += 20000;
+    manager.register('box-3', resource, gameVector(-1600, -7500, 5000), 0, false);
+    context.picked(instance, landing);
+    assert.equal(locations.timers[0].countdown.remaining(), 65);
+    assert.equal(locations.timers[1].countdown.remaining(), 85);
+    manager.register('box-4', resource, {}, 0, false);
+    context.picked(instance, landing);
+    assert.equal(events.at(-1).position.x, landing.f20_1);
+});
+
+test('registration observation failures leave native initialization and placement intact', () => {
+    const instance = { init() { this.initialized = true; }, place() { this.placed = true; } };
+    const receiver = { pool: { get: () => instance } };
+    const source = 'proto(X).register=function(a,b,c,d,e){var u=this.pool.get();u.init(a,b);' +
+        'var handler="onBonusCollision";u.place(c,d,e)};receiver.register(1,{}, {},0,false);';
+    for (const window of [{}, { __kaspBonusRegister() { throw Error('observer failure'); } }]) {
+        instance.initialized = instance.placed = false;
+        vm.runInNewContext(bonus.patchBonusPickups(source), { window, X: {}, proto: () => receiver, receiver });
+        assert.equal(instance.initialized, true);
+        assert.equal(instance.placed, true);
+    }
+});
+
 test('diagnostics capture registration IDs and coordinates plus actual pickup arguments without changing game execution', () => {
     const records = [];
     const events = [];
@@ -111,7 +290,7 @@ test('diagnostics capture registration IDs and coordinates plus actual pickup ar
     const bridge = bonus.createBonusPickupBridge(id => events.push(id), debug.record);
     const data = { model: { id: gameId(bonus.OVERDRIVE_BOX_MODEL) }, sound: { id: gameId('1234567890') } };
     const receiver = { pool: { get() {} } };
-    const position = { f20_1: 100, g20_1: 200, h20_1: 300 };
+    const position = gameVector(100, 200, 300);
     const original = { ...data, sound: gameId('1234567890') };
     let reads = 0;
     const calls = [];
@@ -138,7 +317,7 @@ test('diagnostics capture registration IDs and coordinates plus actual pickup ar
     assert.deepEqual(registration.position, { x: 100, y: 200, z: 300 });
     const context = journal.find(record => record.kind === 'pickup-context');
     assert.equal(context.model, bonus.OVERDRIVE_BOX_MODEL);
-    assert.deepEqual(context.argument2, position);
+    assert.deepEqual(context.argument2, { ...position });
     position.f20_1 = 999;
     assert.equal(context.argument2.f20_1, 100);
 });
@@ -174,8 +353,8 @@ test('shared sounds cannot change the paired pickup model; a sound without a pai
     const speed = { box: { id: gameId('1647333199408') }, sound };
     bridge.register(overdrive);
     bridge.register(speed);
-    const first = { f20_1: 2041.02294921875, g20_1: -3980.24560546875, h20_1: 74.99999670411762 };
-    const second = { f20_1: -1525.3227160330612, g20_1: -7486.826622686282, h20_1: 205.0628024940404 };
+    const first = gameVector(2041.02294921875, -3980.24560546875, 74.99999670411762);
+    const second = gameVector(-1525.3227160330612, -7486.826622686282, 205.0628024940404);
     bridge.prepare(overdrive, 'sound');
     bridge.context(sound, first);
     bridge.prepare(overdrive, 'sound');
@@ -190,7 +369,6 @@ test('shared sounds cannot change the paired pickup model; a sound without a pai
     bridge.prepare(speed, 'sound');
     bridge.context(sound, first);
     assert.equal(events[2].model, '1647333199408');
-    // Nested calls sharing one sound must consume their own prepared resource in order.
     bridge.prepare(overdrive, 'sound');
     bridge.prepare(speed, 'sound');
     bridge.context(sound, first);
@@ -252,6 +430,20 @@ test('locations are learned from current pickups, stay independent and are relea
     assert.equal(bonus.readBonusPosition({ x: Infinity, y: 0, z: 0 }), null);
 });
 
+test('landing drift and vertical offsets at one overdrive point do not create a second timer', () => {
+    let now = 0;
+    const points = timer.createOverdriveLocations(() => now);
+    points.pickup(bonus.OVERDRIVE_BOX_MODEL, { x: 2000, y: -4000, z: 75 });
+    now += 85000;
+    points.pickup(bonus.OVERDRIVE_BOX_MODEL, { x: 2600, y: -4500, z: 2000 });
+    assert.equal(points.timers[0].countdown.remaining(), 85);
+    assert.equal(points.timers[1].countdown.remaining(), null);
+    now += 20000;
+    points.pickup(bonus.OVERDRIVE_BOX_MODEL, { x: -1600, y: -7500, z: 205 });
+    assert.equal(points.timers[0].countdown.remaining(), 65);
+    assert.equal(points.timers[1].countdown.remaining(), 85);
+});
+
 test('battle overlay ignores foreign messages, resets between battles and removes itself when disabled', () => {
     let now = 1000;
     let enabled = true;
@@ -310,7 +502,7 @@ test('battle overlay ignores foreign messages, resets between battles and remove
     send(bonus.OVERDRIVE_BOX_MODEL, {});
     send({ malicious: true });
     send('123456789');
-    send('1647333199408'); // Speed boost is not an overdrive box.
+    send('1647333199408');
     assert.equal(displayed(), '0:00');
     send(bonus.OVERDRIVE_BOX_MODEL);
     assert.equal(displayed(), '1:25');
@@ -360,7 +552,6 @@ test('battle overlay ignores foreign messages, resets between battles and remove
     assert.equal(displayed(secondaryId), undefined);
     canvas = null;
     now += 10_000; overdriveTimer.sync();
-    // Pickup handling remains active while an in-battle section is open.
     at({ x: -1525, y: -7487, z: 205 });
     assert.equal(displayed(secondaryId), undefined);
     previewVisible = false; overdriveTimer.sync();

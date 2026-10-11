@@ -1,4 +1,3 @@
-/** Bridge between obfuscated game bonus models and extension modules. */
 export const OVERDRIVE_BOX_MODEL = '1647333199409';
 export const BONUS_PICKUP_MESSAGE = 'kasp:bonus-pickup';
 
@@ -22,7 +21,6 @@ export interface BonusDiagnosticRecord {
     [key: string]: unknown;
 }
 
-/** Bounded, detached snapshots: no resource meshes or live game references in the log. */
 export function snapshotBonusArgument(value: unknown): unknown {
     const visited = new Set<object>();
     let budget = 120;
@@ -64,7 +62,7 @@ export function createBonusDiagnostics(
                 records.push(snapshot);
                 if (records.length > 200) records.shift();
                 output(snapshot);
-            } catch { /* Debugging must not interrupt the game. */ }
+            } catch { }
         },
         enable(value = true): void { enabled = value; },
         clear(): void { records.length = 0; },
@@ -96,7 +94,7 @@ function findModel(value: unknown, depth = 0, visited = new Set<object>()): stri
             const found = findModel(child, depth + 1, visited);
             if (found) return found;
         }
-    } catch { /* Game objects may contain inaccessible properties. */ }
+    } catch { }
     return null;
 }
 
@@ -110,7 +108,7 @@ function bonusModels(value: unknown, excludedField?: string): Array<string | nul
             try { child = (value as Record<string, unknown>)[key]; } catch { continue; }
             if (child && typeof child === 'object') models.push(findModel(child));
         }
-    } catch { /* Ignore incomplete bonus data. */ }
+    } catch { }
     return models;
 }
 
@@ -120,47 +118,52 @@ export function createBonusPickupBridge(
     diagnosticEnabled: () => boolean = () => !!diagnose,
 ) {
     const soundModels = new Map<string, string | null>();
-    const pending = new Map<unknown, Array<{ model: string | null }>>();
+    const registrations = new WeakMap<object, { model: string; position: BonusPosition }>();
+    const pending = new Map<unknown, Array<{ model: string | null; position: BonusPosition | null }>>();
     function log(record: BonusDiagnosticRecord): void {
-        try { diagnose?.(record); } catch { /* Keep the original game path alive. */ }
+        try { diagnose?.(record); } catch { }
     }
     function resolve(data: unknown, excludedField?: string): string | null {
         const candidate = bonusModels(data, excludedField)[0] || (excludedField ? null : findModel(data));
         return candidate && (soundModels.has(candidate) ? soundModels.get(candidate) || null : candidate);
     }
     return {
-        register(data: unknown, instanceId?: unknown, x?: unknown, y?: unknown, z?: unknown): void {
+        register(data: unknown, instanceId?: unknown, x?: unknown, y?: unknown, z?: unknown, instance?: unknown): void {
             const [box, sound] = bonusModels(data);
+            const position = readBonusPosition(x) || readBonusPosition({ x, y, z });
+            if (instance && typeof instance === 'object') {
+                registrations.delete(instance);
+                if (box && position) registrations.set(instance, { model: box, position });
+            }
             if (box && sound) {
                 if (!soundModels.has(sound)) soundModels.set(sound, box);
                 else if (soundModels.get(sound) !== box) soundModels.set(sound, null);
             }
             if (diagnosticEnabled()) {
-                const position = [x, y, z].every(value => typeof value === 'number' && Number.isFinite(value))
-                    ? { x, y, z } : null;
-                log({ kind: 'register', model: box, sound, instanceId: snapshotBonusArgument(instanceId), position,
-                    coordinateArguments: position ? undefined : [x, y, z].map(snapshotBonusArgument) });
+                log({
+                    kind: 'register', model: box, sound, instanceId: snapshotBonusArgument(instanceId), position,
+                    coordinateArguments: position ? undefined : [x, y, z].map(snapshotBonusArgument)
+                });
             }
         },
         pickup<T>(data: T): T {
-            // Always return the exact input; the inserted expression must preserve game behavior.
             try {
                 const box = resolve(data);
                 log({ kind: 'pickup-model', model: box });
                 if (box) emit(box);
-            } catch { /* Extension failures must never interrupt a game pickup. */ }
+            } catch { }
             return data;
         },
-        prepare(data: unknown, field: string): unknown {
-            // Read the original first argument exactly once, before the caller evaluates the second.
+        prepare(data: unknown, field: string, instance?: unknown): unknown {
             const sound = (data as Record<string, unknown>)[field];
             try {
-                const entry = { model: resolve(data, field) };
+                const model = resolve(data, field);
+                const registration = instance && typeof instance === 'object' ? registrations.get(instance) : null;
+                const entry = { model, position: registration?.model === model ? registration.position : null };
                 const entries = pending.get(sound) || [];
                 entries.push(entry);
                 pending.set(sound, entries);
                 log({ kind: 'pickup-model', model: entry.model });
-                // Aborted calls must not leak a model into a future, unrelated sound event.
                 Promise.resolve().then(() => {
                     const stack = pending.get(sound);
                     if (!stack) return;
@@ -168,7 +171,7 @@ export function createBonusPickupBridge(
                     if (index >= 0) stack.splice(index, 1);
                     if (!stack.length) pending.delete(sound);
                 });
-            } catch { /* Keep the original argument even if observation fails. */ }
+            } catch { }
             return sound;
         },
         context(first: unknown, second: unknown): void {
@@ -177,17 +180,20 @@ export function createBonusPickupBridge(
                 const entry = entries?.pop();
                 if (entries && !entries.length) pending.delete(first);
                 const model = entry?.model || null;
-                const position = readBonusPosition(second);
+                const pickupPosition = readBonusPosition(second);
+                const position = entry?.position || pickupPosition;
                 if (diagnosticEnabled()) log({
                     kind: 'pickup-context',
                     model,
                     position,
+                    pickupPosition,
+                    positionSource: entry?.position ? 'registration' : 'pickup',
                     paired: !!entry,
                     argument1: snapshotBonusArgument(first),
                     argument2: snapshotBonusArgument(second),
                 });
                 if (model) emit(model, position);
-            } catch { /* Optional observations must not affect sound playback. */ }
+            } catch { }
         },
     };
 }
@@ -198,7 +204,6 @@ export function patchBonusPickups(code: string, report?: (record: BonusDiagnosti
     let registrationHooks = 0;
     const pickup = /[\w$]+\([\w$]+\)\.(\w+)=function\((\w+),(\w+)\)\{\w+\(this,this\.\w+,\2,\3,"bonus pickup"\)\}/.exec(code);
     if (pickup) {
-        // Observe actual method arguments once, after the caller has evaluated them.
         const original = pickup[0];
         const openingEnd = original.indexOf('{') + 1;
         const observed = original.slice(0, openingEnd) +
@@ -206,16 +211,25 @@ export function patchBonusPickups(code: string, report?: (record: BonusDiagnosti
             original.slice(openingEnd);
         code = code.replace(original, () => observed);
         contextHook = true;
-        const call = new RegExp('\\.' + pickup[1] + '\\(([\\w$]+\\([\\w$]+\\))\\.([\\w$]+),');
+        const call = new RegExp('\\.' + pickup[1] + '\\(([\\w$]+\\(([\\w$]+)\\))\\.([\\w$]+),');
         pickupHook = call.test(code);
-        code = code.replace(call, '.' + pickup[1] + '(window.__kaspBonusPrepare($1,"$2"),');
+        code = code.replace(call, '.' + pickup[1] + '(window.__kaspBonusPrepare($1,"$3",$2),');
     }
-    // Match the registration constructor only when its body contains the collision handler.
+    const pooledRegistration = /([\w$]+\([\w$]+\)\.\w+=function\(([\w$]+),([\w$]+),([\w$]+),[\w$]+,[\w$]+\)\{var ([\w$]+)=this\.\w+\.\w+\(\);\5\.\w+\(\2,\3\);)/g;
+    code = code.replace(pooledRegistration, (match, opening: string, id: string, data: string, position: string, instance: string, offset: number) => {
+        const body = code.slice(offset, offset + 900);
+        if (!body.includes('onBonusCollision') || body.includes('__kaspBonusRegister')) return match;
+        registrationHooks++;
+        return opening + 'try{window.__kaspBonusRegister&&window.__kaspBonusRegister(' +
+            [data, id, position, 'undefined', 'undefined', instance].join(',') + ')}catch(_kaspBonusError){};';
+    });
     const registration = /([\w$]+\([\w$]+\)\.\w+=function\(([\w$]+),([\w$]+),([\w$]+),([\w$]+),([\w$]+),[\w$]+\)\{)(var \w+,\w+,\w+=this\.\w+\.\w+\(\);)/g;
     code = code.replace(registration, (match, opening: string, id: string, data: string, x: string, y: string, z: string, locals: string, offset: number) => {
-        if (!code.slice(offset, offset + 900).includes('onBonusCollision')) return match;
+        const body = code.slice(offset, offset + 900);
+        if (!body.includes('onBonusCollision') || body.includes('__kaspBonusRegister')) return match;
         registrationHooks++;
-        return opening + 'window.__kaspBonusRegister(' + [data, id, x, y, z].join(',') + ');' + locals;
+        return opening + 'try{window.__kaspBonusRegister&&window.__kaspBonusRegister(' +
+            [data, id, x, y, z].join(',') + ')}catch(_kaspBonusError){};' + locals;
     });
     try { report?.({ kind: 'hooks', pickupHook, contextHook, registrationHooks }); } catch { }
     return code;

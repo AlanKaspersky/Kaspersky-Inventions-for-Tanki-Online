@@ -10,7 +10,6 @@ import { createHistoryNavigation } from './battleHistory/navigation';
 import { createResultCapture } from './battleHistory/capture';
 import type { HistoryAccount } from './battleHistory/types';
 
-/** Called by the extension's update loop; component state stays private to this module. */
 export const battleHistory = (() => {
     const NICK_KEY = 'kasp_last_nickname';
     let initialized = false;
@@ -120,7 +119,6 @@ export const battleHistory = (() => {
         } else if (!inResults) {
             results.reset();
         }
-        // Keep capture/reset independent of UI preloading and navigation.
         if (!inResults && ['battle', 'loading', 'garage'].includes(state.currentScreen)) return;
         if (!initialized) {
             initialized = true;

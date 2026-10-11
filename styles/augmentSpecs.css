@@ -1,4 +1,3 @@
-/* Hide the native placeholder from the first paint, preserving the icon's space. */
 html[data-kasp-augments-enabled] .SkinsAndAlterationsStyle-SkinsVerticalComponent img.SkinCellStyle-iconCell[src*="/unavailable."]:not([data-kasp-preview-failed]) {
     visibility: hidden !important;
 }

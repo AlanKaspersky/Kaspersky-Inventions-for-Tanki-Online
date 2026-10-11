@@ -241,9 +241,7 @@
           submenu: ".GarageCommonStyle-subMenu"
         },
         augments: {
-          cardImage: "img.SkinCellStyle-iconCell",
-          rewardImageBlock: ".RewardCardComponentStyle-imageBlock",
-          possibleRewards: ".ContainersComponentStyle-possibleRewardsBlock"
+          cardImage: "img.SkinCellStyle-iconCell"
         },
         skins: {
           cards: ".SkinsAndAlterationsStyle-SkinsVerticalComponent",
@@ -1617,18 +1615,6 @@
           });
           for (const img of previewImages.keys()) if (!img.isConnected) previewImages.delete(img);
           for (const img of emptyCards.keys()) if (!img.isConnected) restoreEmptyCard(img);
-          const containerImageBlocks = document.querySelectorAll(gameDOM.augments.rewardImageBlock);
-          containerImageBlocks.forEach((block) => {
-            if (block.closest(gameDOM.augments.possibleRewards)) return;
-            const card = block.parentElement;
-            const imageDiv = block.querySelector(gameDOM.common.backgroundDiv);
-            if (!imageDiv || !card) return;
-            const bgImage = window.getComputedStyle(imageDiv).backgroundImage;
-            const match = bgImage.match(/url\(['"]?(.*?)['"]?\)/);
-            if (match && match[1]) {
-              applyButtonToCard(card, match[1]);
-            }
-          });
         };
         const liveStats = /* @__PURE__ */ new Map();
         function updateLiveStats() {
@@ -1701,7 +1687,7 @@
             if (!utils.getSetting("k_augments", false)) return;
             const isGarage = state.currentScreen === "garage";
             const isContainers = !!document.querySelector(gameDOM.screens.lootBox);
-            if (!isGarage && !isContainers) return;
+            if (!isGarage || isContainers) return;
             injectButtons();
             updateLiveStats();
           });
@@ -1745,11 +1731,11 @@
           const isGarage = state.currentScreen === "garage";
           const isContainers = !!document.querySelector(gameDOM.screens.lootBox);
           const loadingScreen = document.querySelector(gameDOM.screens.loadingBackground);
-          if (loadingScreen || !isGarage && !isContainers) {
+          if (loadingScreen || !isGarage || isContainers) {
             const hoverTooltip = document.getElementById("kasp-specs-tooltip");
             if (hoverTooltip) hoverTooltip.style.display = "none";
           }
-          if (isGarage || isContainers) {
+          if (isGarage && !isContainers) {
             scheduleUpdate();
           }
         };
@@ -2629,7 +2615,7 @@
       init_gameDOM();
       init_state();
       customTrophies = /* @__PURE__ */ (() => {
-        let initialized = false;
+        let initialization = null;
         const STORAGE_KEY = "kasp_trophies_favorites";
         const ICON_UNFAV = "https://s.eu.tankionline.com/static/images/unfavoriteStar.0e39d67a.svg";
         const ICON_FAV = "https://s.eu.tankionline.com/static/images/favoriteStar.1ce58570.svg";
@@ -2791,7 +2777,7 @@
           const panel = document.createElement("div");
           panel.id = "custom-trophy-panel";
           panel.className = "custom-trophy-panel";
-          const trophies = getFavs();
+          const trophies = [...getFavs()];
           trophies.sort((a, b) => {
             if (a.type === "turret" && b.type === "hull") return -1;
             if (a.type === "hull" && b.type === "turret") return 1;
@@ -2821,8 +2807,13 @@
           const challengesBlock = document.querySelector(gameDOM.trophies.lobbyAnchor);
           const panel = document.getElementById("custom-trophy-panel");
           if (challengesBlock) {
-            if (!panel && getFavs().length > 0 && challengesBlock.parentElement) {
-              challengesBlock.parentElement.appendChild(createPanel());
+            const key = JSON.stringify([state.lang, getFavs()]);
+            if (getFavs().length === 0) panel?.remove();
+            else if (challengesBlock.parentElement && (!panel || panel.dataset.trophiesKey !== key)) {
+              const replacement = createPanel();
+              replacement.dataset.trophiesKey = key;
+              if (panel) panel.replaceWith(replacement);
+              else challengesBlock.parentElement.appendChild(replacement);
             }
           } else {
             if (panel) panel.remove();
@@ -2831,10 +2822,9 @@
           if (cards.length > 0) processGarageMissions(Array.from(cards));
         }
         return async () => {
-          if (!initialized) {
-            initialized = true;
-            await loadTrophyDictionary();
-          }
+          if (!initialization) initialization = loadTrophyDictionary();
+          await initialization;
+          if (!trophyDictionaryLoaded) return;
           if (state.currentScreen === "lobby" || state.currentScreen === "garage") {
             updateInterface();
           } else if (state.currentScreen === "match_results") {
@@ -2991,10 +2981,67 @@
         const RETRY_DELAY = 100;
         let upgraded = 0;
         let timer = null;
+        let inputFrame = null;
+        let pressedGamepadButtons = /* @__PURE__ */ new Set();
+        let activationEvent;
         let lastItemSignature = "";
         let isCategorySwitch = true;
         let categorySwitchTimeout = null;
         const DELAY = 30;
+        function stopOnInput(event) {
+          if (isRunning && event.isTrusted && event !== activationEvent) finish();
+        }
+        function gamepadButtons() {
+          const pressed = /* @__PURE__ */ new Set();
+          try {
+            for (const pad of navigator.getGamepads()) {
+              if (!pad || !pad.connected) continue;
+              pad.buttons.forEach((button, index) => {
+                if (button.pressed) pressed.add(`${pad.index}:${index}`);
+              });
+            }
+          } catch {
+          }
+          return pressed;
+        }
+        function checkGamepadInput() {
+          const current = gamepadButtons();
+          const newlyPressed = [...current].some((button) => !pressedGamepadButtons.has(button));
+          pressedGamepadButtons = current;
+          if (isRunning && newlyPressed) finish();
+        }
+        function watchInput(event) {
+          activationEvent = event;
+          pressedGamepadButtons = gamepadButtons();
+          for (const type of ["keydown", "pointerdown", "mousedown", "click"]) {
+            document.addEventListener(type, stopOnInput, true);
+          }
+          const poll = () => {
+            inputFrame = null;
+            if (!isRunning) return;
+            checkGamepadInput();
+            if (isRunning) inputFrame = window.requestAnimationFrame(poll);
+          };
+          inputFrame = window.requestAnimationFrame(poll);
+        }
+        function finish() {
+          isRunning = false;
+          upgradeQueue = 0;
+          unavailableRetries = 0;
+          if (timer !== null) {
+            window.clearTimeout(timer);
+            timer = null;
+          }
+          if (inputFrame !== null) {
+            window.cancelAnimationFrame(inputFrame);
+            inputFrame = null;
+          }
+          for (const type of ["keydown", "pointerdown", "mousedown", "click"]) {
+            document.removeEventListener(type, stopOnInput, true);
+          }
+          activationEvent = void 0;
+          pressedGamepadButtons.clear();
+        }
         function pressEnter() {
           const event = new KeyboardEvent("keydown", {
             key: "Enter",
@@ -3166,7 +3213,7 @@
             event.stopPropagation();
             event.stopImmediatePropagation();
             closeDialog();
-            callback();
+            callback(event);
           };
           const onKeyUp = (event) => {
             if (event.key === "Enter" || event.key === "Escape" || event.code === "KeyZ" || event.key?.toLowerCase() === "z") {
@@ -3175,10 +3222,10 @@
               event.stopImmediatePropagation();
             }
           };
-          confirmBtn.addEventListener("click", () => {
+          confirmBtn.addEventListener("click", (event) => {
             if (isClosing) return;
             closeDialog();
-            callback();
+            callback(event);
           });
           cancelBtn.addEventListener("click", closeDialog);
           document.addEventListener("keydown", onKeyDown, true);
@@ -3187,12 +3234,14 @@
         function performAction(count) {
           if (isRunning) return;
           if (!shouldShowQuickButtons()) return;
-          showConfirmDialog(count, () => {
+          showConfirmDialog(count, (event) => {
             isRunning = true;
             upgradeQueue = count;
             upgraded = 0;
+            watchInput(event);
             let isWaitingForDialogClose = false;
             function doStep() {
+              if (isRunning) checkGamepadInput();
               if (!isRunning) {
                 finish();
                 return;
@@ -3247,15 +3296,6 @@
               }
               pressEnter();
               timer = window.setTimeout(doStep, DELAY);
-            }
-            function finish() {
-              isRunning = false;
-              upgradeQueue = 0;
-              unavailableRetries = 0;
-              if (timer) {
-                window.clearTimeout(timer);
-                timer = null;
-              }
             }
             timer = window.setTimeout(doStep, DELAY);
           });
@@ -3341,13 +3381,7 @@
                 if (categorySwitchTimeout) window.clearTimeout(categorySwitchTimeout);
               }
               if (menuCategory || mainGarageBlock || itemElement || backButton) {
-                if (isRunning) {
-                  isRunning = false;
-                  if (timer) {
-                    window.clearTimeout(timer);
-                    timer = null;
-                  }
-                }
+                if (isRunning) finish();
                 lastItemSignature = "";
                 const existing = document.getElementById("quick-buttons");
                 if (existing) existing.remove();
@@ -3441,8 +3475,9 @@
         };
         window.addEventListener("message", (e) => {
           const data = e.data;
+          if (e.source !== window) return;
           if (!data || data.type !== "kasp:battle-kind") return;
-          window.__kaspBattleKind = String(data.detail || "").toUpperCase();
+          if (data.detail === "MM" || data.detail === "PRO") window.__kaspBattleKind = data.detail;
         });
         window.addEventListener("message", (e) => {
           const data = e.data;
@@ -6224,11 +6259,7 @@
         }
         const nearest = timers.filter((timer) => timer.position).map((timer) => ({
           timer,
-          distance: Math.hypot(
-            position.x - timer.position.x,
-            position.y - timer.position.y,
-            position.z - timer.position.z
-          )
+          distance: Math.hypot(position.x - timer.position.x, position.y - timer.position.y)
         })).sort((a, b) => a.distance - b.distance)[0];
         const selected = nearest && nearest.distance <= OVERDRIVE_POINT_RADIUS ? nearest.timer : timers.find((timer) => !timer.position);
         if (!selected) return false;
@@ -6251,7 +6282,7 @@
       init_state();
       init_utils();
       OVERDRIVE_COOLDOWN_MS = 85e3;
-      OVERDRIVE_POINT_RADIUS = 250;
+      OVERDRIVE_POINT_RADIUS = 1e3;
       overdriveTimer = (() => {
         const locations = createOverdriveLocations();
         const timers = locations.timers.map((location) => ({
@@ -6670,7 +6701,8 @@
       receivedAt = now;
     });
     const send = () => {
-      const account = getAccountIdentity();
+      const hidden = utils.getSetting("k_hideNicknameXP", false);
+      const account = hidden ? null : getAccountIdentity();
       const active = state.currentScreen === "battle" && battle && Date.now() - receivedAt < 5e3 ? battle : null;
       const rawMap = active?.map.replace(/\s+(?:TDM|DM|CTF|CP|SGE|RGB|JGR|TJR|ASL|AR|AS|RUGBY|SUR|HOLIDAY|TAR|TUTORIAL)$/i, "").trim();
       const translated = rawMap ? DataLoader.translateMap(rawMap, "EN") : null;
@@ -6681,7 +6713,7 @@
         version: 1,
         presence: {
           details,
-          state: account?.nickname || "Signing in",
+          state: hidden ? "Hidden" : account?.nickname || "Signing in",
           ...active && end !== void 0 ? { timestamps: { end } } : {},
           ...active && active.players !== void 0 && active.maxPlayers !== void 0 && active.players <= active.maxPlayers ? { party: { size: [active.players, active.maxPlayers] } } : {}
         }
@@ -6694,6 +6726,13 @@
       timer = window.setInterval(send, 3e3);
     };
     start();
+    const refreshPrivacy = () => {
+      if (timer !== void 0) send();
+    };
+    window.addEventListener("kasp:settings-changed", refreshPrivacy);
+    window.addEventListener("storage", (event) => {
+      if (event.key === "k_hideNicknameXP") refreshPrivacy();
+    });
     window.addEventListener("pageshow", start);
     window.addEventListener("pagehide", () => {
       window.clearInterval(timer);
@@ -6706,6 +6745,7 @@
       init_electron();
       init_accountIdentity();
       init_state();
+      init_utils();
       init_dataLoader();
       init_battlePresence();
     }

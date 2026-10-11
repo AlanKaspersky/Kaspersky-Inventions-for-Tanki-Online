@@ -28,11 +28,10 @@ index 88e6974..e03619b 100644
          show: false
      });
      if (OS.platform() === "win32")
-@@ -109,6 +112,47 @@ function createMainWindow() {
+@@ -109,6 +112,58 @@ function createMainWindow() {
          window.setIcon(Path.join(application.getAppPath(),
              "resources/icons/icon.png"));
      window.setMenuBarVisibility(false);
-+    // The extension supplies game state; this process only transports it to Discord.
 +    let discordApplicationId = String(options["discord-application-id"] || process.env.KI_DISCORD_APPLICATION_ID || "");
 +    if (!discordApplicationId) {
 +        try {
@@ -59,7 +58,11 @@ index 88e6974..e03619b 100644
 +        discord.update(copyPresence(value));
 +    };
 +    ipcMain.on("ki:discord-presence", receivePresence);
++    const resumePresence = () => { if (lastPresenceAt) lastPresenceAt = Date.now(); };
++    window.on("restore", resumePresence);
++    window.on("show", resumePresence);
 +    const presenceLease = setInterval(() => {
++        if (window.isMinimized() || !window.isVisible()) { resumePresence(); return; }
 +        if (lastPresenceAt && Date.now() - lastPresenceAt > 30000) {
 +            lastPresenceAt = 0;
 +            discord.update(null);
@@ -68,15 +71,21 @@ index 88e6974..e03619b 100644
 +    window.webContents.on("did-start-navigation", (_event, _url, _inPlace, mainFrame) => {
 +        if (mainFrame) { lastPresenceAt = 0; discord.update(null); }
 +    });
++    window.webContents.on("render-process-gone", () => {
++        lastPresenceAt = 0;
++        discord.update(null);
++    });
 +    window.once("closed", () => {
 +        clearInterval(presenceLease);
++        window.removeListener("restore", resumePresence);
++        window.removeListener("show", resumePresence);
 +        ipcMain.removeListener("ki:discord-presence", receivePresence);
 +        discord.dispose();
 +    });
  
      window.webContents.setWindowOpenHandler(
          ({ url }) => {
-@@ -146,8 +190,13 @@ async function updateAndLoadExtensions(userDataPath: string) {
+@@ -146,8 +201,13 @@ async function updateAndLoadExtensions(userDataPath: string) {
          }
      }
  
@@ -86,13 +95,12 @@ index 88e6974..e03619b 100644
 +        extension.manifest.key === KASPERSKY_EXTENSION_KEY ||
 +        extension.manifest.name === "Tanki Online: Kaspersky's Inventions";
 +    const kiCandidates = extensions.filter(isKI);
-+    // A manually installed development copy takes precedence over the store copy.
 +    const preferredKI = kiCandidates.find(extension => !extension.manifest.key) || kiCandidates[0];
 +    if (!preferredKI) {
          const kiExtension = {
              path: Path.join(extensionsPath, "kaspersky-inventions"),
              manifest: {
-@@ -158,6 +207,10 @@ async function updateAndLoadExtensions(userDataPath: string) {
+@@ -158,6 +218,10 @@ async function updateAndLoadExtensions(userDataPath: string) {
      }
  
      for (const extension of extensions) {

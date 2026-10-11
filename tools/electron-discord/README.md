@@ -18,7 +18,7 @@ These files have also been applied to `C:/Project/tanki-online-with-ki`:
 - `discordPresence.ts` → `src/discordPresence.ts`: connects to Discord, handles framing and handshake, retries connections and clears the activity.
 - `discord-presence.json` → the client root: contains the public Application ID `1558302320163291306`.
 
-The client's `src/main.ts` imports `ipcMain`, `DiscordPresence` and `validPresence`, specifies `preload: Path.join(__dirname, "preload.js")` in `BrowserWindow.webPreferences`, and registers the `ki:discord-presence` handler. `contextIsolation` remains enabled and `nodeIntegration` remains disabled. The handler checks the sender, main frame, game URL and payload. Navigation, window closure or thirty seconds without a heartbeat clears the activity.
+The client's `src/main.ts` imports `ipcMain`, `DiscordPresence` and `validPresence`, specifies `preload: Path.join(__dirname, "preload.js")` in `BrowserWindow.webPreferences`, and registers the `ki:discord-presence` handler. `contextIsolation` remains enabled and `nodeIntegration` remains disabled. The handler checks the sender, main frame, game URL and payload. Navigation, renderer failure, an explicit clear or window closure clears the activity. Thirty seconds without a heartbeat clears it only while the window is visible and not minimized. A minimized or hidden window retains the last activity because Electron can throttle renderer timers; restoring or showing the window starts a fresh thirty-second heartbeat grace period without resetting the Discord session timer.
 
 `main.patch` records the exact changes to `src/main.ts` for review or applying to another checkout of the same client version. The local client already contains these changes; do not apply the patch to it again.
 
@@ -62,7 +62,10 @@ Start the Discord desktop application, enable activity sharing in Discord and op
 From the extension repository:
 
 ```powershell
+npx tsc --project tools/electron-discord/tsconfig.json
 node --test tools/electron-discord/discord-presence.test.cjs
 ```
+
+The local `tsconfig.json` and `preload-electron.d.ts` let the editor check the preload template without installing Electron in the extension repository. The declaration covers only the IPC method this template uses; it supplies no runtime implementation. Keep these two files here when copying `preload.ts` into the client, where Electron's own type declarations validate it.
 
 Tests use a simulated Discord socket to verify validation, handshake, partial messages, ping/pong, activity changes, reconnect and cleanup. They do not confirm acceptance by a real Discord account or the configured application; that requires running the rebuilt client with Discord open.

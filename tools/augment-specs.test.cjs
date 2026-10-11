@@ -93,11 +93,14 @@ function fixture(withCard = false) {
     image.src = 'https://s.eu.tankionline.com/static/images/unavailable.5c3ecd75.svg';
     if (withCard) { root.appendChild(card); card.appendChild(image); }
     const frames = [];
+    let rewardsOpen = false;
+    const tooltip = { style: {} };
     const descendants = el => el.children.flatMap(child => [child, ...descendants(child)]);
     const document = {
         body: root,
-        getElementById: () => ({ style: {} }),
-        querySelector: selector => selector === '.DeviceButtonComponentStyle-deviceIcon' ? { src: 'device.svg' } : null,
+        getElementById: () => tooltip,
+        querySelector: selector => selector === gameDOMModule.exports.gameDOM.screens.lootBox && rewardsOpen ? root
+            : selector === '.DeviceButtonComponentStyle-deviceIcon' ? { src: 'device.svg' } : null,
         querySelectorAll: selector => selector === 'span' ? descendants(root).filter(el => el.tagName === 'SPAN')
             : selector === 'img.SkinCellStyle-iconCell' && withCard ? [image] : [],
         createElement: tag => new Element(tag),
@@ -131,6 +134,7 @@ function fixture(withCard = false) {
     }
     return {
         root, label, card, image, settle,
+        tooltip, setRewardsOpen(value) { rewardsOpen = value; },
         get original() { return original; },
         get replacement() { return root.children.find(el => el.classList.contains('custom-live-stat')); },
         get mutations() { return mutations; },
@@ -254,3 +258,18 @@ test('card icon changes preserve the specs button and reuse its event listeners'
     f.settle();
     assert.equal(f.card.querySelector('.custom-card-specs-btn'), null);
 });
+
+test('possible rewards suppress specs even when the screen is classified as garage', () => {
+    const f = fixture(true);
+    f.setDevice({ id: '123', modifiers: { DAMAGE: 1.5 } });
+    f.setRewardsOpen(true);
+    f.tooltip.style.display = 'block';
+    f.settle();
+    assert.equal(f.card.querySelector('.custom-card-specs-btn'), null);
+    assert.equal(f.replacement, undefined);
+    assert.equal(f.tooltip.style.display, 'none');
+    f.setRewardsOpen(false); f.settle();
+    assert.ok(f.card.querySelector('.custom-card-specs-btn'), 'garage specs still work after leaving rewards');
+    assert.equal(f.replacement.textContent, '150');
+});
+

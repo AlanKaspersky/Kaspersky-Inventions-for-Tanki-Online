@@ -2,7 +2,7 @@
 
 ## Complete Documentation
 
-**Extension version:** 2.9.1 (`manifest.json`)
+**Extension version:** 2.9.2 (`manifest.json`)
 
 **Documentation updated:** October 5, 2026
 
@@ -207,11 +207,11 @@ Enable **Overdrive box timer** in the KASPERSKY settings tab. A compact yellow i
 
 The indicator tracks overdrive model `1647333199409`. Model `1647333199408` is a speed boost and is ignored by this timer. The first observed pickup position is assigned to the indicator at `left: 60%`. When an overdrive pickup occurs at a distinct position, a second indicator appears at `left: 38%` with its own 85-second countdown. Picking up a box near either learned position restarts only that position's timer. Both indicators use the same presentation with `z-index: 1` and reset on battle changes. Both indicators retain their left anchors; completion keeps the numeric `0:00` display. Opening an in-battle section hides both indicators while their countdowns continue. A visible native tank preview (`TankPreviewComponentStyle-visible`) or a visible `.-container` section hides both indicators.
 
-Positions are learned afresh in each battle, so there is no table of map-specific coordinates. Pickup positions within 250 game-world units of a learned position are grouped together to accommodate small shifts. This is a proximity heuristic based on the client's pickup vector; points closer than that tolerance or unusually large position changes may be grouped incorrectly. At most two positions are tracked. Once both positions are known, a pickup without valid coordinates or at a third distant position leaves both deadlines unchanged. Debugging can help adjust the tolerance if a map's behavior differs.
+Positions are learned afresh in each battle, so there is no table of map-specific coordinates. The native bonus instance supplies a detached registered spawn origin; if unavailable, the pickup vector is used. Positions within 1,000 horizontal game-world units of a learned position are grouped together to accommodate small shifts, ignoring height differences. This is a proximity heuristic; points closer than that tolerance or unusually large position changes may be grouped incorrectly. At most two positions are tracked. Once both positions are known, a pickup without valid coordinates or at a third distant position leaves both deadlines unchanged. Debugging can help adjust the tolerance if a map's behavior differs.
 
 To collect diagnostics with a build containing the current injector, open the game page console, run `window.__kaspBonusDebug.enable()`, and reload the page before entering the battle. After observing box appearances and pickups at both locations, run `copy(window.__kaspBonusDebug.export())` to copy the journal. Disable collection with `window.__kaspBonusDebug.enable(false)`. Debug mode persists across reloads until disabled; up to 200 records are retained in memory per page. This journal observes the client; it does not establish a server respawn deadline.
 
-Detection uses a hook in the game bundle's bonus pickup path, rather than screen-image recognition. The hook identifies the overdrive bonus model and sends a message to the extension module. The countdown does not depend on which player picked up the box; any matching pickup reported by the client restarts it. Other bonus types do not affect it.
+Detection discovers the game bundle's bonus pickup path from semantic strings and structure. Coordinate and box/sound fields are discovered from native `Vector3` and `BattleBonusData` diagnostic methods, so renaming obfuscated symbols does not require a field-name update. This is not a guarantee against changes to the underlying game structure. Run `window.__kaspBonusDebug.status()` to inspect hook detection without enabling logging. The hook identifies the overdrive bonus model and sends a message to the extension module. The countdown does not depend on which player picked up the box; any matching pickup reported by the client restarts it. Other bonus types do not affect it.
 
 The timer estimates the next appearance from the configured game interval. It does not receive a server respawn deadline or establish whether an uncollected box is currently present. Entering a battle alone does not start a countdown. Leaving the battle or replacing its canvas outside an in-battle section clears both countdowns and learned positions; deadlines are not saved across page reloads. The second indicator appears only after a pickup at its position has been observed.
 
@@ -510,7 +510,7 @@ This acknowledgement belongs to the current game origin and browser profile. It 
 
 Enhanced Play ignores editable controls, repeated key events, Ctrl/Alt/Meta combinations, recognized dialogs, and active searching/queue states. History blocks play shortcuts while its own view is open. A key's behavior therefore depends on the active screen and dialog.
 
-Closing the Auto Upgrade setup dialog prevents a sequence from starting. Do not treat Escape as a universal emergency-stop binding for an already running upgrade sequence; item/category/back navigation is handled separately by the module.
+Closing the Auto Upgrade setup dialog prevents a sequence from starting. During a running sequence, any keyboard key, new gamepad button press, or mouse press/click cancels the remaining upgrades. Programmatic Enter and confirmation clicks from the module do not cancel it.
 
 ## Data Storage and Account Scope
 
@@ -766,7 +766,7 @@ After rebuilding, reload the unpacked extension and then reload the game page. A
 
 ### Version metadata
 
-The current `manifest.json` version is **2.9.1**; `package.json` and the lockfile package version remain **2.9.1**. The browser, welcome window, and release-folder naming use the manifest version. These metadata values should be aligned as part of release maintenance.
+The current `manifest.json` version is **2.9.2**; `package.json` and the lockfile package version remain **2.9.2**. The browser, welcome window, and release-folder naming use the manifest version. These metadata values should be aligned as part of release maintenance.
 
 ### Release output
 
@@ -776,11 +776,11 @@ For the current manifest version, output is:
 
 ```text
 release/
-├── Kaspersky's Inventions 2.9.1/
+├── Kaspersky's Inventions 2.9.2/
 │   ├── manifest.json
 │   ├── LICENSE.txt
 │   └── ... runtime directories
-└── Kaspersky's Inventions 2.9.1.zip
+└── Kaspersky's Inventions 2.9.2.zip
 ```
 
 The archive contains the versioned outer folder. Extract it and select the folder containing `manifest.json` when loading the extension. Source files, tests, `node_modules`, and this README are not included by the current packaging script.
@@ -904,4 +904,4 @@ For the in-game presentation of release information and credits, see [the welcom
 
 ---
 
-Documentation aligned with extension manifest version **2.9.1*, updated **October 5, 2026**.
+Documentation aligned with extension manifest version **2.9.2*, updated **October 5, 2026**.

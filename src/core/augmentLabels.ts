@@ -1,6 +1,3 @@
-/** Semantic protocol names stay stable even when generated JavaScript fields change. */
-// RU terminology: https://ru.tankiwiki.com/Ustroystva (weapon and hull tabs).
-// Keep protocol distinctions when the wiki groups several fields under one heading.
 const russian: Record<string, string> = {
     HULL_ARMOR: 'Броня', HULL_SPEED: 'Максимальная скорость корпуса', HULL_MASS: 'Масса корпуса',
     HULL_ACCELERATION: 'Ускорение корпуса', HULL_TURN_ACCELERATION: 'Ускорение поворота корпуса',
@@ -134,7 +131,6 @@ export function augmentPropertyLabel(property: string, language: 'RU' | 'EN'): s
     return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-/** Localized names are accepted only when they resolve to exactly one protocol property. */
 export function resolveAugmentProperty(input: string): string | null {
     const text = input.trim();
     if (/^[A-Z][A-Z0-9_]{0,100}$/.test(text)) return text;

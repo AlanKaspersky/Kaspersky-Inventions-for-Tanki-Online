@@ -11,8 +11,6 @@ export function parseAccountIdentity(text: string): AccountIdentity | null {
     return nickname ? { nickname, clanTag, displayName } : null;
 }
 
-// Privacy only changes presentation. Read the game's original text, never a
-// translated masking label or a nickname cached from another account.
 export function getAccountIdentity(): AccountIdentity | null {
     const header = document.querySelector('.UserInfoContainerStyle-userNameRank');
     const identity = parseAccountIdentity(header?.textContent || '');

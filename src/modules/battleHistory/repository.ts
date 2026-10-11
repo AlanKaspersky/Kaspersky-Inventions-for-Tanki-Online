@@ -26,7 +26,6 @@ function openDatabase(): Promise<IDBDatabase> {
     });
 }
 
-/** Requests run synchronously inside a transaction; results become visible only after commit. */
 async function transaction<T>(
     mode: IDBTransactionMode,
     enqueue: (store: IDBObjectStore, setResult: (result: T) => void) => void,

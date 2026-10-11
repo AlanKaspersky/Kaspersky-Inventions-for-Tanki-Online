@@ -12,10 +12,71 @@ export const autoUpgrade = (() => {
     const RETRY_DELAY = 100;
     let upgraded = 0;
     let timer: number | null = null;
+    let inputFrame: number | null = null;
+    let pressedGamepadButtons = new Set<string>();
+    let activationEvent: Event | undefined;
     let lastItemSignature = '';
     let isCategorySwitch = true;
     let categorySwitchTimeout: number | null = null;
     const DELAY = 30;
+
+    function stopOnInput(event: Event): void {
+        if (isRunning && event.isTrusted && event !== activationEvent) finish();
+    }
+
+    function gamepadButtons(): Set<string> {
+        const pressed = new Set<string>();
+        try {
+            for (const pad of navigator.getGamepads()) {
+                if (!pad || !pad.connected) continue;
+                pad.buttons.forEach((button, index) => {
+                    if (button.pressed) pressed.add(`${pad.index}:${index}`);
+                });
+            }
+        } catch {}
+        return pressed;
+    }
+
+    function checkGamepadInput(): void {
+        const current = gamepadButtons();
+        const newlyPressed = [...current].some(button => !pressedGamepadButtons.has(button));
+        pressedGamepadButtons = current;
+        if (isRunning && newlyPressed) finish();
+    }
+
+    function watchInput(event?: Event): void {
+        activationEvent = event;
+        pressedGamepadButtons = gamepadButtons();
+        for (const type of ['keydown', 'pointerdown', 'mousedown', 'click']) {
+            document.addEventListener(type, stopOnInput, true);
+        }
+        const poll = () => {
+            inputFrame = null;
+            if (!isRunning) return;
+            checkGamepadInput();
+            if (isRunning) inputFrame = window.requestAnimationFrame(poll);
+        };
+        inputFrame = window.requestAnimationFrame(poll);
+    }
+
+    function finish(): void {
+        isRunning = false;
+        upgradeQueue = 0;
+        unavailableRetries = 0;
+        if (timer !== null) {
+            window.clearTimeout(timer);
+            timer = null;
+        }
+        if (inputFrame !== null) {
+            window.cancelAnimationFrame(inputFrame);
+            inputFrame = null;
+        }
+        for (const type of ['keydown', 'pointerdown', 'mousedown', 'click']) {
+            document.removeEventListener(type, stopOnInput, true);
+        }
+        activationEvent = undefined;
+        pressedGamepadButtons.clear();
+    }
 
     function pressEnter() {
         const event = new KeyboardEvent('keydown', {
@@ -138,7 +199,7 @@ export const autoUpgrade = (() => {
         return false;
     }
 
-    async function showConfirmDialog(count: number, callback: () => void) {
+    async function showConfirmDialog(count: number, callback: (event: Event) => void) {
         const lang = state.lang;
         const t: any = {
             RU: { title: 'БЫСТРАЯ ПРОКАЧКА', textPre: 'Вы собираетесь купить улучшение на\u00A0', steps: ' шагов', maxSteps: 'максимум шагов', cancel: 'Отмена', buy: 'КУПИТЬ' },
@@ -194,7 +255,7 @@ export const autoUpgrade = (() => {
             event.stopPropagation();
             event.stopImmediatePropagation();
             closeDialog();
-            callback();
+            callback(event);
         };
         const onKeyUp = (event: KeyboardEvent) => {
             if (event.key === 'Enter' || event.key === 'Escape' || event.code === 'KeyZ' || event.key?.toLowerCase() === 'z') {
@@ -204,10 +265,10 @@ export const autoUpgrade = (() => {
             }
         };
 
-        confirmBtn.addEventListener('click', () => {
+        confirmBtn.addEventListener('click', (event) => {
             if (isClosing) return;
             closeDialog();
-            callback();
+            callback(event);
         });
         cancelBtn.addEventListener('click', closeDialog);
         document.addEventListener('keydown', onKeyDown, true);
@@ -218,13 +279,15 @@ export const autoUpgrade = (() => {
         if (isRunning) return;
         if (!shouldShowQuickButtons()) return;
 
-        showConfirmDialog(count, () => {
+        showConfirmDialog(count, (event) => {
             isRunning = true;
             upgradeQueue = count;
             upgraded = 0;
+            watchInput(event);
             let isWaitingForDialogClose = false;
 
             function doStep() {
+                if (isRunning) checkGamepadInput();
                 if (!isRunning) { finish(); return; }
 
                 if (isWaitingForDialogClose) {
@@ -268,23 +331,12 @@ export const autoUpgrade = (() => {
                         timer = window.setTimeout(doStep, DELAY);
                         return;
                     }
-                    // An unknown dialog must remain under the user's control.
                     finish();
                     return;
                 }
 
                 pressEnter();
                 timer = window.setTimeout(doStep, DELAY);
-            }
-
-            function finish() {
-                isRunning = false;
-                upgradeQueue = 0;
-                unavailableRetries = 0;
-                if (timer) {
-                    window.clearTimeout(timer);
-                    timer = null;
-                }
             }
 
             timer = window.setTimeout(doStep, DELAY);
@@ -391,10 +443,7 @@ export const autoUpgrade = (() => {
                 }
 
                 if (menuCategory || mainGarageBlock || itemElement || backButton) {
-                    if (isRunning) {
-                        isRunning = false;
-                        if (timer) { window.clearTimeout(timer); timer = null; }
-                    }
+                    if (isRunning) finish();
                     lastItemSignature = '';
                     const existing = document.getElementById('quick-buttons');
                     if (existing) existing.remove();

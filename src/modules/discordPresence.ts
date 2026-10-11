@@ -1,6 +1,7 @@
 import { isElectronClient } from '../core/electron';
 import { getAccountIdentity } from '../core/accountIdentity';
 import { state } from '../core/state';
+import { utils } from '../core/utils';
 import { DataLoader } from '../core/dataLoader';
 import { BATTLE_PRESENCE_MESSAGE } from '../core/battlePresence';
 import type { BattlePresence } from '../core/battlePresence';
@@ -25,7 +26,8 @@ export function setupDiscordPresence(): void {
         receivedAt = now;
     });
     const send = () => {
-        const account = getAccountIdentity();
+        const hidden = utils.getSetting('k_hideNicknameXP', false);
+        const account = hidden ? null : getAccountIdentity();
         const active = state.currentScreen === 'battle' && battle && Date.now() - receivedAt < 5000 ? battle : null;
         const rawMap = active?.map.replace(/\s+(?:TDM|DM|CTF|CP|SGE|RGB|JGR|TJR|ASL|AR|AS|RUGBY|SUR|HOLIDAY|TAR|TUTORIAL)$/i, '').trim();
         const translated = rawMap ? DataLoader.translateMap(rawMap, 'EN') : null;
@@ -33,7 +35,7 @@ export function setupDiscordPresence(): void {
         const details = translated && !/[\u0400-\u04ff]/.test(translated)
             ? `${translated}${mode ? ` ${mode}` : ''}` : labels[state.currentScreen] || labels.lobby;
         window.postMessage({ type: 'kasp:discord-presence', version: 1,
-            presence: { details, state: account?.nickname || 'Signing in',
+            presence: { details, state: hidden ? 'Hidden' : account?.nickname || 'Signing in',
                 ...(active && end !== undefined ? { timestamps: { end } } : {}),
                 ...(active && active.players !== undefined && active.maxPlayers !== undefined && active.players <= active.maxPlayers
                     ? { party: { size: [active.players, active.maxPlayers] } } : {}) } }, window.location.origin);
@@ -45,6 +47,11 @@ export function setupDiscordPresence(): void {
         timer = window.setInterval(send, 3000);
     };
     start();
+    const refreshPrivacy = () => { if (timer !== undefined) send(); };
+    window.addEventListener('kasp:settings-changed', refreshPrivacy);
+    window.addEventListener('storage', event => {
+        if (event.key === 'k_hideNicknameXP') refreshPrivacy();
+    });
     window.addEventListener('pageshow', start);
     window.addEventListener('pagehide', () => {
         window.clearInterval(timer);
