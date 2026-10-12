@@ -10,7 +10,6 @@ import { customTrophies } from './customTrophies';
 import { autoUpgrade } from './autoUpgrade';
 import { changeCounter } from './changeCounter';
 import { customGarageSkins } from './customGarageSkins';
-import { weaponAugmentTracker } from './weaponAugmentTracker';
 import { zeroResists } from './zeroResists';
 import { equipmentTracker } from './equipmentTracker';
 import { battleHistory } from './battleHistory';
@@ -29,7 +28,6 @@ export const modules = {
   autoUpgrade,
   changeCounter,
   customGarageSkins,
-  weaponAugmentTracker,
   zeroResists,
   equipmentTracker,
   battleHistory,

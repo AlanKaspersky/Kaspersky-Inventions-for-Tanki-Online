@@ -2,7 +2,7 @@
 
 ## Complete Documentation
 
-**Extension version:** 2.9.2 (`manifest.json`)
+**Extension version:** 2.9.3 (`manifest.json`)
 
 **Documentation updated:** October 5, 2026
 
@@ -397,13 +397,16 @@ Artwork and base-image caches are origin-wide. Coverage depends on database entr
 
 ### Weapon Augment Tracker Module
 
-**Purpose:** Displays an input-driven reload estimate for supported configurations.
+**Purpose:** Adds a third native local-HUD bar for the player's Shaft or Scorpion arcade-shot reload.
 
-Although name recognition includes many turrets, **current base reload tables exist only for Shaft and Scorpion**. Three configured augment multipliers and one timer-disabling augment are defined in `weaponAugmentTracker.ts`.
+The MAIN-world injector discovers the native local HUD factory and layout through semantic game markers. It creates one additional native bar with the original dimensions and scene layer, plus its own native material whose foreground is green (`#08e600`). The original background and border style are preserved. Its draw callback reuses the original bar's final screen rectangle, so centered/tank-following HUD anchors and UI scaling cannot move the extra row sideways. Native resize, visibility and removal govern its lifecycle. The two original health/weapon bars retain their behavior. Other weapons and remote tanks do not receive the extra row.
 
-The module reads an equipped turret, MK level/step, and device icon in the garage and stores the configuration. Under pointer lock, left-button or Space press/release events drive the indicator, with separate handling for longer Shaft holds.
+The extra row has a fixed zero gap. In the centered HUD, the lower native active-effect/supply row moves down by the added bar's height only while the local Shaft or Scorpion arcade bar is visible. The upper status row and other weapons keep their native positions; offsets are recalculated each layout pass.
 
-The bar is hidden when no duration is available or pointer lock is absent. It is not server telemetry or a measurement of every actual shot. Cached equipment, unknown devices, balance changes, interrupted inputs, or unsupported tables can affect the estimate. Visit the equipped turret's garage page to refresh its configuration. There is no settings-panel toggle.
+Scorpion progress comes from its primary-shot recharge state, independently of its secondary missile indicator. Shaft progress comes from its current native cooldown-state instance, deadline and duration (the registered state ID is not a timer object); observed progress is retained while its native stun/pause flags are active. The module uses game data without garage visits, MK tables, device image URLs, input listeners, or a separate animation loop. It does not use the old saved reload configuration. There is no settings-panel toggle.
+
+Run `window.__kaspArcadeReloadDebug.status()` in the game console to inspect hook detection, observed weapon/progress, mesh creation/visibility and the latest runtime error. Obfuscated names are discovered automatically; underlying structural changes can still require adaptation. Missing or ambiguous signatures leave the game bundle unchanged for this feature.
+
 
 ### Change Counter Module
 
@@ -534,7 +537,7 @@ An origin includes scheme, hostname, and port. Different game origins, browser p
 | `kasp_trophies_favorites` | Trophy favorite selections and cached presentation data | Shared across accounts |
 | `kasp_equipped_skins` | Observed custom skin selections | Shared across accounts |
 | `kasp_base_images` | Base artwork used for skin replacement | Shared across accounts |
-| `kasp_weapon_augment_tracker` | Last recognized weapon configuration | Shared across accounts |
+| `kasp_weapon_augment_tracker` | Legacy reload configuration; no longer read or written | Shared across accounts |
 | `kasp_my_equipment` | Latest observed self-equipment icons | Shared across accounts |
 | `kasp_tab_expanded` | Resistance presentation preference | Shared across accounts |
 | `kasp_last_version` | Acknowledged welcome-window version | Shared across accounts |
@@ -714,7 +717,7 @@ Recovery can allow the game to load without the instrumentation. Features relyin
 
 ### Reference data
 
-Bundled databases supply paint names, skin data, trophy metadata, and map information. They are reference snapshots, not a live server inventory. Augment Specifications instead uses decoded data from the current game session; its injector and native card bindings can require maintenance after a game update. The separate Weapon Reload Indicator retains its own calculation tables.
+Bundled databases supply paint names, skin data, trophy metadata, and map information. They are reference snapshots, not a live server inventory. Augment Specifications instead uses decoded data from the current game session; its injector and native card bindings can require maintenance after a game update. The Weapon Reload Indicator reads native weapon cooldown state and reuses the native panel renderer.
 
 ## Build and Release Procedures
 
@@ -766,7 +769,7 @@ After rebuilding, reload the unpacked extension and then reload the game page. A
 
 ### Version metadata
 
-The current `manifest.json` version is **2.9.2**; `package.json` and the lockfile package version remain **2.9.2**. The browser, welcome window, and release-folder naming use the manifest version. These metadata values should be aligned as part of release maintenance.
+The current `manifest.json` version is **2.9.3**; `package.json` and the lockfile package version remain **2.9.3**. The browser, welcome window, and release-folder naming use the manifest version. These metadata values should be aligned as part of release maintenance.
 
 ### Release output
 
@@ -776,11 +779,11 @@ For the current manifest version, output is:
 
 ```text
 release/
-├── Kaspersky's Inventions 2.9.2/
+├── Kaspersky's Inventions 2.9.3/
 │   ├── manifest.json
 │   ├── LICENSE.txt
 │   └── ... runtime directories
-└── Kaspersky's Inventions 2.9.2.zip
+└── Kaspersky's Inventions 2.9.3.zip
 ```
 
 The archive contains the versioned outer folder. Extract it and select the folder containing `manifest.json` when loading the extension. Source files, tests, `node_modules`, and this README are not included by the current packaging script.
@@ -805,13 +808,14 @@ The repository includes focused Node regression tests under `tools/`:
 | `battle-history-lifecycle.test.cjs` | Database transactions, account changes, async views, and navigation lifecycle |
 | `nickname-privacy.test.cjs` | Privacy presentation and preservation of account identity |
 | `injector-auto-upgrade.test.cjs` | Bundle-fetch recovery and recognized/unknown upgrade dialogs |
+| `arcade-reload.test.cjs` | Native bar reuse, independent arcade progress, equipment changes, pause/stun, renamed/minified bundles and failure isolation |
 | `overdrive-timer.test.cjs` | Bonus hooks, independent spawn locations, countdowns, and timer visibility |
 
 Run the type check and the regression suite explicitly:
 
 ```powershell
 npm run typecheck
-node --test tools/augment-specs.test.cjs tools/game-augments.test.cjs tools/battle-history.test.cjs tools/battle-history-lifecycle.test.cjs tools/nickname-privacy.test.cjs tools/injector-auto-upgrade.test.cjs tools/overdrive-timer.test.cjs
+node --test tools/augment-specs.test.cjs tools/game-augments.test.cjs tools/battle-history.test.cjs tools/battle-history-lifecycle.test.cjs tools/nickname-privacy.test.cjs tools/injector-auto-upgrade.test.cjs tools/overdrive-timer.test.cjs tools/arcade-reload.test.cjs
 ```
 
 There is no `npm test` script, and the full build does not invoke these tests. The tests use controlled fixtures and mocks; they do not replace verification against the current live game interface.
@@ -904,4 +908,4 @@ For the in-game presentation of release information and credits, see [the welcom
 
 ---
 
-Documentation aligned with extension manifest version **2.9.2*, updated **October 5, 2026**.
+Documentation aligned with extension manifest version **2.9.3*, updated **October 5, 2026**.

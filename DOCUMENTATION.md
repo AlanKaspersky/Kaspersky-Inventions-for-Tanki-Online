@@ -2,7 +2,7 @@
 
 ## Complete Implementation Reference
 
-**Extension version:** 2.9.2 (`manifest.json`)
+**Extension version:** 2.9.3 (`manifest.json`)
 
 **Documentation updated:** October 6, 2026
 
@@ -743,21 +743,20 @@ This is a garage-artwork replacement mechanism. It does not provide an arbitrary
 
 ### Weapon Reload Indicator
 
-Source: [src/modules/weaponAugmentTracker.ts](src/modules/weaponAugmentTracker.ts).
+Source: [src/core/arcadeReload.ts](src/core/arcadeReload.ts), invoked by [src/kasp_injector.ts](src/kasp_injector.ts).
 
-**Activation:** Automatic. Garage observations configure a pointer-lock input-driven estimate.
+**Activation:** Automatic, for the local tank with Shaft or Scorpion. No garage configuration or settings toggle is needed.
 
-The recognized turret-name list contains 17 names, but `RELOAD_BASE_STEPS` supplies MK1–MK7 step arrays only for Shaft and Scorpion. Three exact augment image URLs apply multipliers of 1.15, 1.70, and 1.15. One exact augment URL disables the timer.
+`patchArcadeReload()` discovers the local HUD weapon-bar renderer through `progressBarMaterial`, the local tank lookup through `LocalTank`, and weapon types through `shaftWeapon` / `scorpioWeapon` semantic getters. It reuses the native bar and material constructors and original scene layer for one additional mesh under `__kaspArcadeReloadBar`. Native progress events update the extra mesh. Its instance-level projection method asks the base mesh for the final screen rectangle, then places the extra row immediately below it with zero extra gap. This preserves the original X coordinate, width and height across centered/tank-following HUD and UI scaling; raw title-bar anchors cannot override the draw position. Native resize, visibility and disposal keep both meshes synchronized. The other tanks' title renderer stays unchanged. These panels are rendered in WebGL; SVG resource selectors alone do not provide their layout or reload telemetry.
 
-`trackGarage()` requires a recognized turret and equipped/unequip label. It reads the augment icon, parses `mk<number>-<step>`, treats MAX as MK7-20, and otherwise defaults to MK7 step zero. The step is capped at the last array entry. Base time multiplied by the matched augment factor is rounded to two decimal places.
+The extra row has a fixed zero gap and an independent native material with foreground `#08e600`, preserving the original renderer, background and border parameters. The base material is never mutated. In the centered HUD, the lower native active-effect/supply row moves down by the added bar's height only while the local Shaft or Scorpion arcade bar is visible. The upper status row and other weapons keep their native positions; offsets are recalculated each layout pass.
 
-An equipment signature prevents redundant saves. The persisted object contains turret, augment, MK, step, reload time, and timestamp. Import-time cache restoration restores a numeric reload duration; it does not restore every other private variable such as `currentTurret`.
+Scorpion's arcade progress is the primary recharge field identified by its native shot-readiness calculation, rather than its secondary missile-charge field used by the original weapon bar. Shaft uses the current state object when it is an instance of the dedicated cooldown class discovered in the native state-machine registration. The registration result is an integer state ID, not the cooldown object. Its current state, cooldown deadline, duration, clock and arithmetic helpers are discovered from native functions. Completion outside that cooldown state shows a full bar. During native stun/pause flags, the last observed progress for the same weapon instance is retained until the native state and deadline resume. Missing or nonfinite telemetry hides the extra row. Original health and weapon progress updates remain intact.
 
-Initialization starts a permanent animation-frame `renderLoop()` and installs pointer/keyboard listeners. Primary non-touch pointer input and non-repeated Space begin timing only under pointer lock. Release starts a reload estimate if one is available and none is already active. Holds longer than 200 ms are accepted only when the current turret is Shaft.
+No independent timers, keyboard/mouse listeners, reload tables, augment artwork multipliers, or storage entries are used. Native panel removal also removes the visible extra row; the patch retains no separate scene references. A native bar is reused across updates and hidden for other weapons or nonlocal tanks.
 
-`createBar()` creates the fixed overlay lazily. `renderLoop()` displays progress as elapsed time divided by duration and hides it at completion, without pointer lock, or when there is no duration. It schedules the next frame even when hidden.
 
-The model measures input timing, not confirmed projectile firing, reload telemetry, or server state. Cache-only startup, changed equipment, unsupported tables, and missed releases can affect accuracy.
+All necessary signatures must match uniquely before modification. Identifier renaming, dollar signs, whitespace, quote styles and tested minification variants are supported. Unsupported structures leave this feature's source unchanged and produce a diagnostic. This is an adapter to the current game structure, not a guarantee against arbitrary engine rewrites. Runtime errors hide the extra row, disable further attempts for that native HUD component and preserve the original panel update. `window.__kaspArcadeReloadDebug.status()` reports `hooked`, `panel`, `issues`, update count, the latest weapon/progress/mesh sample and `error`.
 
 ### Overdrive Box Timer
 
@@ -1295,7 +1294,7 @@ The in-game module labels live mainly in TypeScript dictionaries and are selecte
 
 Numeric protocol properties, localized server descriptions, IDs, equipment associations, and observed artwork are saved in the session JSON. Presentation arrays and supported live multipliers are derived at lookup time. A narrative conditional effect is not automatically converted into a numeric modifier.
 
-Augment Specifications and Weapon Reload Indicator still have separate calculation data. Capturing device properties does not update the reload indicator's fixed turret/augment tables automatically.
+Augment Specifications reads decoded garage modifiers. Weapon Reload Indicator reads live native weapon cooldown state, including the duration maintained by the game, rather than recalculating a fixed turret/augment table.
 
 ### Maps
 
@@ -1335,7 +1334,7 @@ All entries below belong to the game origin in the current browser/profile. No a
 | `kasp_trophies_favorites` | JSON array of ID/type/icon/current/max entries | Origin-wide favorites with private memory cache |
 | `kasp_equipped_skins` | JSON object: canonical equipment to artwork URL | Origin-wide learned skin overrides |
 | `kasp_base_images` | JSON object: equipment to original URL arrays; older strings supported | Origin-wide skin matching cache |
-| `kasp_weapon_augment_tracker` | JSON configuration object | Origin-wide latest observed weapon/reload model |
+| `kasp_weapon_augment_tracker` | Legacy JSON configuration object | No longer read or written by the native reload indicator |
 | `kasp_my_equipment` | JSON object: turret/augments/hull plus `savedAt` | Origin-wide latest observed self icons |
 | `kasp_tab_expanded` | Boolean string | Origin-wide resistance display preference |
 | `kasp_last_version` | Manifest-version string | Origin-wide welcome acknowledgement |
@@ -1376,7 +1375,7 @@ There is no all-state export, encryption layer, centralized cache reset, or univ
 | `message`, `kasp:battle-kind` | Injector statistics hook | Content-script `__kaspBattleKind` |
 | `message`, `kasp:battle-mode` | Injector statistics hook | No current source listener |
 | Document `kasp:battle:id` | Not produced by current source files | Change Counter reset listener |
-| Pointer/Space press/release | User input | Reload-indicator timing under pointer lock |
+| Native local-HUD progress/position events | Game rendering | Arcade reload row from native weapon state |
 | Keyboard/mouse back controls | User input or Electron adapter | Feature-specific tooltip/modal/history/navigation handling |
 | `resize` | Browser window | History overlay/header geometry refresh |
 | `animationend` | CSS animations | Modal removal and history transitions |
@@ -1441,7 +1440,6 @@ Do not describe a guard as cancellation when it only ignores stale completion. E
 | 100 ms × up to 80 retries | Upgrade unavailable-control handling |
 | 500 ms | Currency update loop |
 | Two matching observations | Skin-learning stabilization; not a fixed time delay |
-| 200 ms input hold threshold | Reload-indicator long-hold handling |
 | 260 ms | Shared modal removal fallback |
 | 700 ms | Temporary trailing back-input suppression in applicable dialogs |
 | 500–3,000 ms | Deliberate history opening transition |
@@ -1472,7 +1470,7 @@ Many DOM misses are ordinary early returns, not exceptions. Missing anchors, unr
 
 Shared modals and history native-page controllers explicitly remove temporary listeners, observers, timers, and presentation changes. View transitions also remove animation listeners and have timeouts.
 
-Boot, Enhanced Play polling, currency polling, reload animation/input listeners, and privacy observation primarily live for the page execution. There is no single disposal registry covering them all. Feature disable/reload and view close are different operations with different cleanup scope.
+Boot, Enhanced Play polling, currency polling, and privacy observation primarily live for the page execution. There is no single disposal registry covering them all. Feature disable/reload and view close are different operations with different cleanup scope.
 
 ## Build and Packaging Implementation
 
@@ -1497,7 +1495,7 @@ For a source change, the ordinary verification/build sequence is:
 
 ```powershell
 npm run typecheck
-node --test tools/augment-specs.test.cjs tools/game-augments.test.cjs tools/battle-history.test.cjs tools/battle-history-lifecycle.test.cjs tools/nickname-privacy.test.cjs tools/injector-auto-upgrade.test.cjs tools/overdrive-timer.test.cjs
+node --test tools/augment-specs.test.cjs tools/game-augments.test.cjs tools/battle-history.test.cjs tools/battle-history-lifecycle.test.cjs tools/nickname-privacy.test.cjs tools/injector-auto-upgrade.test.cjs tools/overdrive-timer.test.cjs tools/arcade-reload.test.cjs
 npm run build
 ```
 
@@ -1505,7 +1503,7 @@ The build does not invoke regression tests automatically. Reload the extension a
 
 ### Dependency Metadata
 
-The current manifest, package, and lockfile package versions are 2.9.2. Package and lockfile-root dependency ranges agree: `@types/chrome` `^0.3.0`, esbuild `^0.28.2`, and TypeScript `^7.0.2`.
+The current manifest, package, and lockfile package versions are 2.9.3. Package and lockfile-root dependency ranges agree: `@types/chrome` `^0.3.0`, esbuild `^0.28.2`, and TypeScript `^7.0.2`.
 
 Use `npm ci` to install the locked dependency graph. Dependency changes should update the manifest and lockfile together; `npm install` can rewrite the lockfile. The project does not declare a Node `engines` field; tooling requires APIs such as `fs.cpSync` and the built-in Node test runner.
 
@@ -1524,7 +1522,7 @@ Use `npm ci` to install the locked dependency graph. Dependency changes should u
 
 Configured directories are `dist`, `styles`, `assets`, `database`, `_locales`, and `templates`. Configured root files are `manifest.json` and `LICENSE.txt`.
 
-For 2.9.2, the folder and archive names are `release/Kaspersky's Inventions 2.9.2/` and `release/Kaspersky's Inventions 2.9.2.zip`. The ZIP contains that outer versioned folder.
+For 2.9.3, the folder and archive names are `release/Kaspersky's Inventions 2.9.3/` and `release/Kaspersky's Inventions 2.9.3.zip`. The ZIP contains that outer versioned folder.
 
 The script removes the existing same-version output before recreating it. It throws if no directory or no root file was copied, but does not require every configured input to exist. `build:zip` can package stale bundles or partial resources if invoked without appropriate preparation.
 
@@ -1554,6 +1552,7 @@ This approach can verify deterministic state transitions and race handling witho
 | `tools/battle-history-lifecycle.test.cjs` | Account-scoped reads/clear/link; ID preservation; commit timing and rollback; capture completeness/retry/generation; sorting/pagination; stale accounts/views; back labels; animations; native and standalone opening; visibility/cleanup/return handling; dialogs; import/export; overlay retry/account switch. |
 | `tools/nickname-privacy.test.cjs` | Original text/children/clan/XP remain; startup masking is synchronous; UID coverage preserves public parameters; account/language changes; identity fallbacks; friend/history ownership; disable/re-enable behavior. |
 | `tools/injector-auto-upgrade.test.cjs` | HTTP/network/body failure fallback; original attributes; both hook patterns; same-batch interception guard; unknown-dialog stop; Ruby cancellation; normal count; disappearing confirmation. |
+| `tools/arcade-reload.test.cjs` | Native local-HUD factory/viewport projection/visibility/disposal reuse, centered and tank-following HUD across UI scales, numeric state IDs vs actual Shaft cooldown instances, primary vs secondary progress, local weapon changes, Shaft stun/pause, renamed/minified bundles, idempotence and failures. |
 | `tools/overdrive-timer.test.cjs` | Bonus instrumentation, model/sound association, bounded diagnostics, independent learned spawn positions, 85-second countdowns, and overlay lifecycle. |
 
 There is no `npm test` command. The explicit `node --test` invocation above runs the current files together. Tests target source code, so a passing source test does not demonstrate that a stale installed `dist/` has been rebuilt.
@@ -1618,7 +1617,7 @@ Update technical documentation when dispatch conditions, storage keys, schemas, 
 
 The implementation depends on observed native DOM, generated bundle patterns, known labels, exact artwork identifiers, and packaged reference snapshots. It cannot reconstruct unobserved events or guarantee compatibility with future game changes.
 
-History stores local observations rather than server-certified records. Equipment and trophy data can be cached; reload estimates are input-based. Privacy masks presentation while original account information remains available to the page and local exports.
+History stores local observations rather than server-certified records. Equipment and trophy data can be cached; arcade reload presentation uses client-native weapon state. Privacy masks presentation while original account information remains available to the page and local exports.
 
 Origin storage is accessible to appropriately situated same-origin code and is not an encrypted account vault. Injector message payloads are client-side signals, not authenticated audit events. Safe history rendering is a targeted boundary and should not be interpreted as a universal sanitizer for every module's storage or markup.
 
@@ -1628,4 +1627,4 @@ Project use and distribution are governed by [LICENSE.txt](LICENSE.txt), which c
 
 ---
 
-Technical documentation aligned with the source implementation and manifest version **2.9.2**, updated **October 5, 2026**.
+Technical documentation aligned with the source implementation and manifest version **2.9.3**, updated **October 5, 2026**.

@@ -31,7 +31,6 @@ export function startBoot() {
         modules.welcomeModal();
         modules.hideNickname();
         modules.hideCurrency();
-        modules.weaponAugmentTracker();
         modules.customGarageSkins();
 
         try {

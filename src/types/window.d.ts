@@ -2,6 +2,12 @@ export { };
 
 declare global {
     interface Window {
+        __kaspArcadeReloadDebug: {
+            status(): import('../core/arcadeReload').ArcadeReloadHookStatus & { error: string | null; updates: number;
+                sample: import('../core/arcadeReload').ArcadeReloadSample | null };
+            observe(sample: import('../core/arcadeReload').ArcadeReloadSample): void;
+            reportError(message: string): void;
+        };
         __kaspAugmentConfigure: (schema: import('../core/gameAugments').AugmentSchema) => void;
         __kaspAugmentData: (object: unknown, data: unknown) => void;
         __kaspAugmentLink: (id: unknown, baseItemId: unknown) => void;

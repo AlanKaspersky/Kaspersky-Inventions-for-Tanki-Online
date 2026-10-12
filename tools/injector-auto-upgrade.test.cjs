@@ -12,6 +12,8 @@ const gameDOMModule = { exports: {} };
 vm.runInNewContext(compile(read('src/core/gameDOM.ts')), { module: gameDOMModule });
 const bonusPickupModule = { exports: {} };
 vm.runInNewContext(compile(read('src/core/bonusPickup.ts')), { module: bonusPickupModule });
+const arcadeReloadModule = { exports: {} };
+vm.runInNewContext(compile(read('src/core/arcadeReload.ts')), { module: arcadeReloadModule });
 const presenceModule = { exports: {} };
 vm.runInNewContext(compile(read('src/core/battlePresence.ts')), {
     module: presenceModule, require: () => gameDOMModule.exports,
@@ -48,6 +50,7 @@ function injectorFixture(fetch) {
     const context = {
         require: id => {
             if (id === './core/bonusPickup') return bonusPickupModule.exports;
+            if (id === './core/arcadeReload') return arcadeReloadModule.exports;
             if (id === './core/gameAugments') return { installGameAugments() {}, patchGameAugments: code => code };
             if (id === './core/garageDetails') return { patchUnavailableGarageDetails: code => code };
             if (id === './core/garageItems') return { patchUnavailableGarageItems: code => code };

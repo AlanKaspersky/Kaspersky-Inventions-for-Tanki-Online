@@ -1,4 +1,5 @@
 import { BONUS_PICKUP_MESSAGE, createBonusDiagnostics, createBonusPickupBridge, patchBonusPickups } from './core/bonusPickup';
+import { ArcadeReloadHookStatus, patchArcadeReload } from './core/arcadeReload';
 import { installGameAugments, patchGameAugments } from './core/gameAugments';
 import { patchUnavailableGarageDetails } from './core/garageDetails';
 import { patchUnavailableGarageItems } from './core/garageItems';
@@ -11,6 +12,23 @@ import { installBattlePresence, patchBattlePresence, patchBattleCapacity, readBa
     installGameAugments(window);
     installBattlePresence(window);
     installGarageInventoryDiagnostics(window);
+
+    let arcadeHookStatus: ArcadeReloadHookStatus = { hooked: false, issues: ['pending'] };
+    let arcadeError: string | null = null;
+    let arcadeSample: import('./core/arcadeReload').ArcadeReloadSample | null = null;
+    let arcadeUpdates = 0;
+    window.__kaspArcadeReloadDebug = {
+        status: () => ({ ...arcadeHookStatus, issues: [...arcadeHookStatus.issues], error: arcadeError,
+            updates: arcadeUpdates, sample: arcadeSample && { ...arcadeSample } }),
+        observe(sample): void {
+            arcadeSample = sample;
+            arcadeUpdates++;
+        },
+        reportError(message): void {
+            arcadeError = message;
+            console.warn('[KI Arcade reload] Native bar update failed:', message);
+        },
+    };
 
     const debugKey = 'kasp_bonus_debug';
     let debugEnabled = false;
@@ -165,6 +183,10 @@ import { installBattlePresence, patchBattlePresence, patchBattleCapacity, readBa
                             code = patchUnavailableGarageDetails(code);
                             code = patchUnavailableGarageItems(code);
                             code = patchGarageInventoryDiagnostics(code);
+                            code = patchArcadeReload(code, status => {
+                                arcadeHookStatus = status;
+                                if (!status.hooked) console.warn('[KI Arcade reload] Native bar hook unavailable:', status);
+                            });
                             code = patchBonusPickups(code, status => {
                                 hookStatus = status;
                                 diagnostics.record(status);
