@@ -1,10 +1,16 @@
 # Discord Rich Presence for the Electron client
 
+Extension integration reference: **2.9.4**, updated **October 13, 2026**. Client executable versioning and automatic updates belong to the separate Electron project.
+
 The extension reads the nickname and current screen and sends a heartbeat every three seconds. In a regular browser the module remains inactive. Discord labels are always in English, regardless of the game's interface language.
 
-During a battle, `details` contains the English map name, `state` contains the player's nickname, `timestamps.end` supplies the battle countdown and `party.size` supplies `[currentPlayers, maximumPlayers]`. The MAIN-world reader locates the game's React store and recognizes `BattleStatistics`, `BattleUsers` and the current battle's `BattleParams` through semantic field names in their `toString` implementations. It excludes spectators and doubles the per-team limit for team modes. The native HUD clock supplies the current remaining time; if it is absent, the initial server duration is counted down locally until another duration arrives. Unsupported or missing data is omitted instead of inventing a map, timer or capacity.
+During a battle, `details` contains the English map name and available mode, `state` contains the player's nickname, `timestamps.end` supplies the countdown, and `party.size` supplies `[currentPlayers, maximumPlayers]`. Nickname hiding (`k_hideNicknameXP`) changes `state` to `Hidden`; missing identity uses `Signing in`. Settings/storage changes request an immediate extension-side refresh, subject to the client's RPC coalescing.
 
-Russian map names are translated through `database/maps.json`. Outside a battle the section label is used, and battle party/countdown fields are removed. `window.__kaspPresenceBattleDebug()` in the game's main console context returns the latest battle snapshot for diagnosis. Data capture depends on the game's React store and semantic model strings; developer changes to those structures may require adapting the reader.
+The MAIN reader captures the native dependency-injection store through prepared AST hooks; it does not need to climb a HUD React component chain. The runtime reader still recognizes `BattleStatistics`, `BattleUsers`, and matching `BattleParams` through semantic fields in diagnostic method source and native collection interfaces. It excludes spectators and accounts for per-team capacity. The HUD clock supplies remaining time; without it the latest server duration is counted down locally. Invalid/missing fields are omitted. Snapshots must be less than five seconds old and the current content-script screen must be `battle` to supply battle fields.
+
+Russian map names are translated through `database/maps.json`; untranslated Cyrillic falls back to an English screen label. Outside battle the section label is used and party/countdown fields are omitted. `window.__kaspPresenceStoreDebug()` reports capture/error; `window.__kaspPresenceBattleDebug()` returns the latest snapshot in the page's MAIN console context. Native model/collection changes may still require adapting the reader, even when the AST hook matches.
+
+Store/capacity plans are embedded from [battle-presence.json](../../src/generated/battle-presence.json). Known bundles use source length/SHA; changed bundles try compatible prepared templates. Refresh with `npm run prepare:battle-presence -- ./main.js` from the extension root, then rebuild JavaScript and reload the extension/game. See the [all-feature preparation workflow](../../README.md#refreshing-all-generated-mappings). No raw plan JSON or AST parser must be installed into the Electron client separately.
 
 The Electron client receives these messages through a restricted preload bridge and sends the activity to the locally running Discord desktop application through Discord IPC. It does not need an account token, Client Secret, additional npm package or a local HTTP server.
 
@@ -12,17 +18,17 @@ Outside a timed battle, the client supplies a fixed `timestamps.start` for its s
 
 ## Client files
 
-These files have also been applied to `C:/Project/tanki-online-with-ki`:
+Copy the reference files into a compatible Electron project (the development checkout used `C:/Project/tanki-online-with-ki`):
 
 - `preload.ts` → `src/preload.ts`: accepts messages from the main Tanki Online game page and forwards validated text, countdown and party fields to Electron.
 - `discordPresence.ts` → `src/discordPresence.ts`: connects to Discord, handles framing and handshake, retries connections and clears the activity.
 - `discord-presence.json` → the client root: contains the public Application ID `1558302320163291306`.
 
-The client's `src/main.ts` imports `ipcMain`, `DiscordPresence` and `validPresence`, specifies `preload: Path.join(__dirname, "preload.js")` in `BrowserWindow.webPreferences`, and registers the `ki:discord-presence` handler. `contextIsolation` remains enabled and `nodeIntegration` remains disabled. The handler checks the sender, main frame, game URL and payload. Navigation, renderer failure, an explicit clear or window closure clears the activity. Thirty seconds without a heartbeat clears it only while the window is visible and not minimized. A minimized or hidden window retains the last activity because Electron can throttle renderer timers; restoring or showing the window starts a fresh thirty-second heartbeat grace period without resetting the Discord session timer.
+The supplied `main.patch` integrates `ipcMain`, `DiscordPresence`, `validPresence`, and `copyPresence`, sets `preload: Path.join(__dirname, "preload.js")` in `BrowserWindow.webPreferences`, and registers `ki:discord-presence`. `contextIsolation` stays enabled and `nodeIntegration` disabled. The handler checks sender, main frame, game URL and payload. Navigation, renderer failure, an explicit clear or closure clears activity. Thirty seconds without a heartbeat clears it only while visible and not minimized. Hidden/minimized windows retain the last activity because renderer timers can be throttled; restore/show grants a fresh grace period without resetting the Discord session timer.
 
-`main.patch` records the exact changes to `src/main.ts` for review or applying to another checkout of the same client version. The local client already contains these changes; do not apply the patch to it again.
+Review `main.patch` against the target client's `src/main.ts` before applying it; it is a reference diff for the original host structure, not a universal installer. A client that already contains the handler/preload must not receive duplicate IPC listeners or another copy of this integration.
 
-The existing `forge.config.ts`, `tsconfig.json` and npm dependencies require no changes. TypeScript compiles both new modules into `build`; the root JSON is packaged with the app and read through `application.getAppPath()`.
+The reference client uses its existing Forge/TypeScript build and needs no additional Discord RPC dependency. Ensure the target host compiles/packages the preload and main-process module and copies the root JSON, which the patch reads through `application.getAppPath()`. Build configuration may differ in another Electron project.
 
 ## Configuration
 

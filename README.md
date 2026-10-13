@@ -4,7 +4,7 @@
 
 **Extension version:** 2.9.4 (`manifest.json`)
 
-**Documentation updated:** October 5, 2026
+**Documentation updated:** October 13, 2026
 
 **Interface languages:** English and Russian
 
@@ -36,6 +36,8 @@ For implementation details, module logic, and workflows, see
    - [Hide Currency Module](#hide-currency-module)
    - [Custom Garage Skins Module](#custom-garage-skins-module)
    - [Weapon Augment Tracker Module](#weapon-augment-tracker-module)
+   - [Critical Shot Indicator](#critical-shot-indicator)
+   - [Discord Rich Presence](#discord-rich-presence)
    - [Change Counter Module](#change-counter-module)
    - [Overdrive Timer Module](#overdrive-timer-module)
    - [Zero Resists Module](#zero-resists-module)
@@ -65,8 +67,8 @@ The implementation consists of TypeScript modules, CSS files, HTML templates, an
 
 There are two categories of functionality:
 
-- **Configurable features:** eight options exposed through the in-game KASPERSKY settings tab. All eight are disabled by default on a fresh storage context.
-- **Automatically integrated features:** garage button styling, trophy favorites, garage skin image handling, equipment tracking, resistance presentation, equipment-change indicators, the reload indicator, and the version welcome window. These do not have individual switches in the current settings panel.
+- **Configurable features:** nine options exposed through the in-game KASPERSKY settings tab. All nine are disabled by default on a fresh storage context.
+- **Automatically integrated features:** garage button styling, trophy favorites, garage skin image handling, equipment tracking, resistance presentation, equipment-change indicators, native arcade reload and critical shot indicators, the version welcome window, and Discord presence in a compatible Electron client. These do not have individual switches in the current settings panel.
 
 Most features affect presentation or maintain local records. The enhanced Play interface and Auto-Upgrade module also initiate ordinary game-interface actions. Auto-Upgrade can perform actual equipment purchases through the game's confirmation controls; its initial confirmation is therefore part of the workflow.
 
@@ -86,7 +88,10 @@ The project is an independent interface modification. Its relationship to Tanki 
 | Garage presentation | Equipped skin artwork learned from the native skins interface |
 | Battle statistics | Equipment-change indicators, resistance summaries, and captured equipment icons |
 | Battle history | Result capture, cards, detailed player statistics, pagination, JSON import/export, linking, and clearing |
-| Reload indication | Input-driven timing indicator with current base tables for Shaft and Scorpion |
+| Arcade reload | An additional native HUD bar for the local Shaft or Scorpio, driven by game cooldown state |
+| Critical shots | Native reload-bar coloring for Thunder/Strict Ammunition Load, Smoky/Sorted Ammunition, and Hammer/Revolver, with Supercharge handling |
+| Overdrive boxes | Automatic pickup-based 85-second countdowns for up to two learned positions |
+| Discord presence | English map/mode, nickname or Hidden, battle countdown, and player capacity in a compatible Electron client |
 | Interface styling | Garage icons, headers, navigation, dialogs, loading visuals, and layout adjustments |
 
 Availability depends on the corresponding game elements being present and recognizable. The extension does not retrieve missing historical battles from the game server.
@@ -101,7 +106,7 @@ The JavaScript build targets `chrome100` syntax. This target is not a statement 
 
 An Electron-specific mouse-navigation adapter is included. Its presence does not provide a standalone desktop installer or guarantee that every Electron client can load this extension.
 
-Discord Rich Presence is available in a compatible Electron client with the KI preload bridge. The extension supplies English section labels and the nickname; in a battle it also supplies the English map name, remaining time and player count/capacity. The client sends this activity to the locally running Discord desktop application. Ordinary browser sessions do not activate this module. Client integration files, configuration and build instructions are provided in [tools/electron-discord](tools/electron-discord/README.md). An existing client must be rebuilt to include the bridge or changes to its supported payload fields.
+Discord Rich Presence is available in a compatible Electron client with the KI preload bridge. The extension supplies the activity data; the client communicates with the locally running Discord desktop application. Ordinary browser sessions do not activate this module. See [Discord Rich Presence](#discord-rich-presence) and the [client integration guide](tools/electron-discord/README.md). Updating the extension alone cannot install a missing preload bridge into an existing client executable.
 
 ### Runtime Resources and Access
 
@@ -118,6 +123,8 @@ Source builds require Node.js, npm, and the development dependencies declared in
 - TypeScript for static type checking.
 - esbuild for bundling and TypeScript transformation in regression tests.
 - `@types/chrome` for browser-extension API types.
+- Acorn and acorn-walk for offline game-bundle parsing and analysis.
+- Astring for generating code used in prepared patch plans.
 
 Tests require a Node.js version providing the built-in `node:test` runner. The repository does not currently declare a minimum Node.js version through an `engines` field.
 
@@ -142,12 +149,12 @@ Keep the extracted directory in place. An unpacked extension loads its resources
 Obtain the repository through an authorized distribution channel, open a terminal in the project root, and run:
 
 ```sh
-npm install
+npm ci
 npm run typecheck
 npm run build:js
 ```
 
-Then load the project root as an unpacked extension. Before relying on `npm ci`, review the package/lockfile discrepancy under [Dependency Installation](#dependency-installation).
+Then load the project root as an unpacked extension. The package manifest and lockfile currently agree; see [Dependency installation](#dependency-installation).
 
 A checkout may already contain `dist/`, but its bundles can be older than the source files. Building JavaScript is required to apply TypeScript changes.
 
@@ -175,7 +182,7 @@ Nickname privacy also updates its root CSS state immediately when switched on or
 | Storage key | Setting | Default | Applies to |
 |-------------|---------|---------|------------|
 | `k_ext_btn` | Enhanced Play button | Disabled | Lobby battle navigation |
-| `k_augments` | Augment specifications | Disabled | Recognized garage and equipment/reward cards |
+| `k_augments` | Augment specifications | Disabled | Recognized garage cards, unavailable item previews, and native unavailable-item descriptions; excludes Possible Rewards |
 | `k_auto_upgrade` | Quick weapon upgrades | Disabled | Supported garage upgrade controls |
 | `k_friends` | Friend tags and categories | Disabled | Friends and supported invitation lists |
 | `k_paints` | Smart paint search | Disabled | Garage paint collection |
@@ -203,15 +210,15 @@ Russian and English are the supported interface languages. Map and paint localiz
 
 **Setting:** `k_overdrive_timer` (disabled by default).
 
-Enable **Overdrive box timer** in the KASPERSKY settings tab. A compact yellow indicator shows only the timer near the top of the battle screen (`top: 1em; left: 60%`). It displays `0:00` until an overdrive box pickup is detected, then counts down from `1:25`. Each subsequent pickup restarts the full 85-second countdown. The background transitions over 0.2 seconds, turns reddish during the final ten seconds and green at zero, while the indicator stays at `0:00`.
+Enable **Overdrive box timer** in the KASPERSKY settings tab. A compact yellow indicator shows only the timer near the top of the battle screen (`top: 2.5em; left: 55%`). It displays `0:00` until an overdrive box pickup is detected, then counts down from `1:25`. Each subsequent pickup restarts the full 85-second countdown. The background transitions over 0.2 seconds, turns reddish during the final ten seconds and green at zero, while the indicator stays at `0:00`.
 
-The indicator tracks overdrive model `1647333199409`. Model `1647333199408` is a speed boost and is ignored by this timer. The first observed pickup position is assigned to the indicator at `left: 60%`. When an overdrive pickup occurs at a distinct position, a second indicator appears at `left: 38%` with its own 85-second countdown. Picking up a box near either learned position restarts only that position's timer. Both indicators use the same presentation with `z-index: 1` and reset on battle changes. Both indicators retain their left anchors; completion keeps the numeric `0:00` display. Opening an in-battle section hides both indicators while their countdowns continue. A visible native tank preview (`TankPreviewComponentStyle-visible`) or a visible `.-container` section hides both indicators.
+The indicator tracks overdrive model `1647333199409`. Model `1647333199408` is a speed boost and is ignored by this timer. The first observed pickup position is assigned to the indicator at `left: 55%`. When an overdrive pickup occurs at a distinct position, a second indicator appears at `left: 42.86%` with its own 85-second countdown. Picking up a box near either learned position restarts only that position's timer. Both indicators use the same presentation with `z-index: 1` and reset on battle changes. Both indicators retain their left anchors; completion keeps the numeric `0:00` display. Opening an in-battle section hides both indicators while their countdowns continue. A visible native tank preview (`TankPreviewComponentStyle-visible`) or a visible `.-container` section hides both indicators.
 
 Positions are learned afresh in each battle, so there is no table of map-specific coordinates. The native bonus instance supplies a detached registered spawn origin; if unavailable, the pickup vector is used. Positions within 1,000 horizontal game-world units of a learned position are grouped together to accommodate small shifts, ignoring height differences. This is a proximity heuristic; points closer than that tolerance or unusually large position changes may be grouped incorrectly. At most two positions are tracked. Once both positions are known, a pickup without valid coordinates or at a third distant position leaves both deadlines unchanged. Debugging can help adjust the tolerance if a map's behavior differs.
 
 To collect diagnostics with a build containing the current injector, open the game page console, run `window.__kaspBonusDebug.enable()`, and reload the page before entering the battle. After observing box appearances and pickups at both locations, run `copy(window.__kaspBonusDebug.export())` to copy the journal. Disable collection with `window.__kaspBonusDebug.enable(false)`. Debug mode persists across reloads until disabled; up to 200 records are retained in memory per page. This journal observes the client; it does not establish a server respawn deadline.
 
-Detection discovers the game bundle's bonus pickup path from semantic strings and structure. Coordinate and box/sound fields are discovered from native `Vector3` and `BattleBonusData` diagnostic methods, so renaming obfuscated symbols does not require a field-name update. This is not a guarantee against changes to the underlying game structure. Run `window.__kaspBonusDebug.status()` to inspect hook detection without enabling logging. The hook identifies the overdrive bonus model and sends a message to the extension module. The countdown does not depend on which player picked up the box; any matching pickup reported by the client restarts it. Other bonus types do not affect it.
+Offline AST tools identify the pickup path, pooled bonus registration, and coordinate/resource fields using semantic strings and native structure. The extension receives prepared plans and compatibility templates; it does not parse the whole bundle into an AST at runtime. Run `window.__kaspBonusDebug.status()` to inspect recognition without enabling logging. Compatible renamed code can use the templates; unsupported structures require new mappings. The countdown does not depend on which player picked up the box; any matching pickup reported by the client restarts it. Other bonus types do not affect it.
 
 The timer estimates the next appearance from the configured game interval. It does not receive a server respawn deadline or establish whether an uncollected box is currently present. Entering a battle alone does not start a countdown. Leaving the battle or replacing its canvas outside an in-battle section clears both countdowns and learned positions; deadlines are not saved across page reloads. The second indicator appears only after a pickup at its position has been observed.
 
@@ -269,7 +276,9 @@ An empty numeric property list does not mean that a device has no effect; its de
 
 #### Manual Parameter Classification
 
-Unavailable device cards can display a grayscale preview instead of the question mark when their exact device ID and a native icon resource are available. Purchased cards keep their normal artwork. Failed image loads retain the native placeholder; disabling Augment Specifications restores replaced images.
+Unavailable device cards can display a grayscale preview and name when their exact device ID and a native icon resource are available. Eligible unavailable skins and shot effects also receive previews. Purchased cards and standard settings keep their normal artwork. Placeholders remain visible until replacement data is available; late data and native image/class resets refresh the open cards without requiring another visit. Failed image loads restore the native placeholder and suppress repeated retries of that URL for the current module lifetime. Disabling Augment Specifications restores its replacements. Possible Rewards is excluded.
+
+The associated garage hooks allow supported unavailable cards to invoke the game's native description panel. They do not create ownership or permit equipping unowned items. Device specification tooltips are mouse-hover controls; they do not provide equivalent keyboard, gamepad, or touch interaction.
 
 [database/augment-rules.json](database/augment-rules.json) provides an editable `rules` array. Each entry applies to one device and one protocol property:
 
@@ -323,6 +332,8 @@ The module reads real identity through the shared helper. Nickname masking there
 Favorite-star controls are added to supported trophy/quest cards. Up to two turret trophies and two hull trophies may be selected. Progress is refreshed from recognized garage cards and result-screen quest progress. The lobby panel displays current points, target points, and an item/reward icon.
 
 Recognition uses `database/trophies.json`. Displayed progress is the latest observed interface value, not a separate live server query. Previously stored progress may remain visible until the relevant card is observed again.
+
+The panel waits for the trophy dictionary before its first render and refreshes when language, favorites, or observed progress change. This prevents an initial panel with untranslated equipment IDs while the dictionary is still loading.
 
 Favorites are saved as one origin-wide list under `kasp_trophies_favorites`; this list is not keyed by nickname. There is no dedicated settings switch.
 
@@ -399,13 +410,43 @@ Artwork and base-image caches are origin-wide. Coverage depends on database entr
 
 **Purpose:** Adds a third native local-HUD bar for the player's Shaft or Scorpion arcade-shot reload.
 
-The MAIN-world injector discovers the native local HUD factory and layout through semantic game markers. It creates one additional native bar with the original dimensions and scene layer, plus its own native material whose foreground is green (`#08e600`). The original background and border style are preserved. Its draw callback reuses the original bar's final screen rectangle, so centered/tank-following HUD anchors and UI scaling cannot move the extra row sideways. Native resize, visibility and removal govern its lifecycle. The two original health/weapon bars retain their behavior. Other weapons and remote tanks do not receive the extra row.
+Prepared AST plans identify the native local HUD factory and layout through semantic game markers. The injector creates one additional native bar with the original dimensions and scene layer, plus its own material whose current foreground is yellow-orange (`#FFBB1C`). The original background and border style are preserved. Its draw callback reuses the original bar's final screen rectangle to align the extra row in centered and tank-following HUD layouts and at different UI scales. Native resize, visibility and removal govern its lifecycle. Other weapons and remote tanks do not receive the extra row; remote nickname/health rendering is not patched by this feature.
 
 The extra row has a fixed zero gap. In the centered HUD, the lower native active-effect/supply row moves down by the added bar's height only while the local Shaft or Scorpion arcade bar is visible. The upper status row and other weapons keep their native positions; offsets are recalculated each layout pass.
 
 Scorpion progress comes from its primary-shot recharge state, independently of its secondary missile indicator. Shaft progress comes from its current native cooldown-state instance, deadline and duration (the registered state ID is not a timer object); observed progress is retained while its native stun/pause flags are active. The module uses game data without garage visits, MK tables, device image URLs, input listeners, or a separate animation loop. It does not use the old saved reload configuration. There is no settings-panel toggle.
 
-Run `window.__kaspArcadeReloadDebug.status()` in the game console to inspect hook detection, observed weapon/progress, mesh creation/visibility and the latest runtime error. Obfuscated names are discovered automatically; underlying structural changes can still require adaptation. Missing or ambiguous signatures leave the game bundle unchanged for this feature.
+Run `window.__kaspArcadeReloadDebug.status()` in the game console to inspect the mapping strategy, observed weapon/progress, mesh creation/visibility and latest runtime error. For diagnosis, `window.__kaspArcadeReloadDebug.setEnabled(false)` persists a separate disable flag; reload the game to apply it. Restore with `setEnabled(true)` and another reload. There is no settings-panel switch or gap-adjustment command in the current implementation.
+
+### Critical Shot Indicator
+
+**Purpose:** Colors the native local reload bar red when a critical shot is expected. This is automatic and does not add another HUD row.
+
+| Weapon | Required augment | Ordinary cycle | First shot after a detected respawn | Expected first critical after Supercharge |
+| --- | --- | --- | --- | --- |
+| Thunder | Strict Ammunition Load | Every third shot | Critical | Fourth shot |
+| Smoky | Sorted Ammunition | Every fourth shot | Critical | Fifth shot |
+| Hammer | Revolver | Every third shot | Third shot is critical | Fourth shot |
+
+These cycles are derived from the inspected augment properties. The indicator observes native shots, including misses, tank lifecycle, equipment identity, critical-readiness messages, and shooter damage acknowledgements. Live augment metadata takes priority; snapshots of the three known augment IDs allow recognition before opening the garage. An unrelated augment with a similar name is not automatically a supported combination: the equipment association and usable critical properties must also match.
+
+Transparent spawn, death, and other inactive tank states suppress the indicator. A detected respawn resets the phase. Joining an already active tank without a known phase waits for native readiness or a confirmed critical hit instead of inventing a shot count. The feature observes tank state; it does not request spawns or change tank visibility.
+
+Hornet/Dictator Supercharge forces critical readiness, including when the ordinary device cycle is unsupported or unknown. After it ends, supported device cycles use the recovery offsets above and can synchronize from the first accepted critical damage acknowledgement. Delayed forced hits are filtered, and shots fired while an acknowledgement is in flight are preserved. The post-effect offsets reflect observed behavior, not a server-side calculation exposed by the game; upstream mechanic changes can require adjustment.
+
+Inspect `window.__kaspCriticalDebug.status()` for equipment IDs, recognized weapon/device, readiness source, shot/lifecycle counters, Supercharge recovery, HUD attachment, mapping status, and errors. Outside forced Supercharge, missing metadata or unsupported devices leave normal reload color in use; incomplete mappings skip this interception. No settings-panel switch is provided.
+
+### Discord Rich Presence
+
+**Activation:** A compatible Electron client, the KI preload/main-process bridge, and the Discord desktop application. Browser sessions remain inactive.
+
+The extension sends English activity labels every three seconds. During a recognized battle, `details` contains the English map and available mode; `state` contains the current nickname, or `Hidden` when `k_hideNicknameXP` is enabled. Missing account identity uses `Signing in`. Untranslated Cyrillic map names fall back to an English screen label.
+
+`timestamps.end` provides the remaining battle countdown. `party.size` provides `[currentPlayers, maximumPlayers]` when both values are valid; spectators are excluded. Outside battle or when the snapshot is more than five seconds old, those battle-specific fields are omitted. The client supplies a fixed session start time for activities without a battle deadline, so returning to the lobby does not start a new session timer.
+
+The MAIN-world reader captures the native dependency-injection store through a prepared hook and polls it once per second. It still recognizes model fields through semantic diagnostic methods and some native collection interfaces; AST migration does not make that reader independent of all game changes.
+
+The companion client validates messages, uses Discord IPC, coalesces changed activities over up to fifteen seconds, and reconnects automatically. Its supplied main-process integration retains the last activity while minimized/hidden and grants a new heartbeat grace period on restore. See [client integration and verification](tools/electron-discord/README.md). Inspect `window.__kaspPresenceStoreDebug()` and `window.__kaspPresenceBattleDebug()` in an Electron game page when battle data is missing.
 
 
 ### Change Counter Module
@@ -509,7 +550,7 @@ This acknowledgement belongs to the current game origin and browser profile. It 
 | Extension dialog | Escape | Close a dialog where its controller provides this binding. |
 | Battle History | Escape or Z | Return from details or close the history view, subject to active dialogs. |
 | Battle History | Mouse back button | Invoke history back navigation. |
-| Weapon/Augment Tracker | Primary mouse button and Space | Supply local firing input for the supported recharge estimate during pointer lock. |
+| Native arcade/critical indicators | No additional key binding | Follow game telemetry; pointer lock and simulated firing input are not their timing source. |
 
 Enhanced Play ignores editable controls, repeated key events, Ctrl/Alt/Meta combinations, recognized dialogs, and active searching/queue states. History blocks play shortcuts while its own view is open. A key's behavior therefore depends on the active screen and dialog.
 
@@ -533,6 +574,10 @@ An origin includes scheme, hostname, and port. Different game origins, browser p
 | `k_hideCurrency` | Hide Currency setting | Shared across accounts |
 | `k_hideNicknameXP` | Hide Nickname/XP setting | Shared across accounts |
 | `k_history` | Battle History setting | Shared across accounts |
+| `k_overdrive_timer` | Overdrive box timer setting | Shared across accounts |
+| `kasp_arcade_reload_enabled` | Diagnostic arcade hook override; absent means enabled | Shared across accounts; requires a page reload |
+| `kasp_bonus_debug` | Opt-in bonus diagnostic collection | Shared across accounts; journal itself is page-local |
+| `kasp_last_nickname` | Battle History identity fallback | Shared across accounts |
 | `tankiCustomCategories_<nickname>` | Friend category assignments | Partitioned by the recognized nickname |
 | `kasp_trophies_favorites` | Trophy favorite selections and cached presentation data | Shared across accounts |
 | `kasp_equipped_skins` | Observed custom skin selections | Shared across accounts |
@@ -656,6 +701,7 @@ The manifest injects the extension's styles at document start. Some rules apply 
 | `header.css` | Header presentation |
 | `battleStats.css` | Battle statistics and equipment presentation |
 | `killBoard.css` | Kill-board presentation |
+| `overdriveTimer.css` | Independent overdrive countdown panels and visibility |
 | `augmentSpecs.css` | Augment parameter comparisons |
 | `customFriends.css` | Friend categories |
 | `customPaints.css` | Paint-search presentation |
@@ -681,9 +727,10 @@ Kaspersky's Inventions/
 │   ├── kasp_main.ts          Main content-script entry point
 │   ├── kasp_injector.ts      Game-bundle interception entry point
 │   ├── core/                 Settings, identity, markup, and shared helpers
+│   ├── generated/            Offline-prepared AST plans and compatibility templates
 │   └── modules/
 │       ├── battleHistory.ts  Battle History integration facade
-│       ├── battleHistory/    History implementation and internal notes
+│       ├── battleHistory/    History implementation
 │       └── ...               Other feature modules
 ├── dist/                     Generated JavaScript loaded by the browser
 ├── styles/                   Manifest-injected stylesheets
@@ -691,7 +738,9 @@ Kaspersky's Inventions/
 ├── database/                 Bundled reference data
 ├── assets/                   Images and other presentation resources
 ├── _locales/                 Extension locale messages
-├── tools/                    Release packaging and regression checks
+├── tools/                    Offline AST preparation, release packaging, and regression checks
+├── main.js                   Optional local game-bundle input; not a runtime dependency
+├── archived/                 Optional backups; not loaded or packaged
 └── release/                  Generated release folders and archives
 ```
 
@@ -715,6 +764,14 @@ The injector checks `res.ok` before reading a fetched game bundle and catches er
 
 Recovery can allow the game to load without the instrumentation. Features relying on intercepted game actions or battle identifiers can consequently have incomplete information. A successful HTTP response also does not guarantee that instrumentation patterns still match a changed game bundle or that every runtime/CSP condition is compatible.
 
+### AST plans and compatibility
+
+Ten JSON plan sets under `src/generated/` are imported into the injector bundle. Known builds are selected by source length and SHA-256. An unknown hash triggers a compatibility attempt using templates generated from native AST evidence, with shared symbol checks, lexical filtering, expected match counts, and edit guards. A renamed `main.<hash>.js` URL does not by itself invalidate a plan.
+
+All accepted plans refer to the original source and are merged once. Stale or conflicting plans are rejected individually. This is compatibility checking before execution, not a guarantee that a later rendering, network, or native runtime error can be recovered automatically.
+
+AST parsing occurs in development tools. The installed extension uses prepared data and lightweight template matching; Acorn, acorn-walk, Astring, the local game bundle, and exported AST files are not runtime dependencies. Temporary source-analysis caching lasts only through patch preparation and is unrelated to persistent garage item caching.
+
 ### Reference data
 
 Bundled databases supply paint names, skin data, trophy metadata, and map information. They are reference snapshots, not a live server inventory. Augment Specifications instead uses decoded data from the current game session; its injector and native card bindings can require maintenance after a game update. The Weapon Reload Indicator reads native weapon cooldown state and reuses the native panel renderer.
@@ -732,12 +789,10 @@ Changes to CSS, templates, locale files, and bundled databases belong in their c
 Use Node.js and npm capable of running the project's tooling. The project does not declare a Node.js `engines` requirement; packaging uses Node filesystem APIs such as `fs.cpSync`.
 
 ```powershell
-npm install
+npm ci
 ```
 
-The current repository has inconsistent dependency ranges between `package.json` and the root entry in `package-lock.json`: the package manifest declares `@types/chrome` `^0.0.260`, esbuild `^0.21.0`, and TypeScript `^5.4.0`, while the lockfile root declares `^0.3.0`, `^0.28.2`, and `^7.0.2`, respectively.
-
-This discrepancy matters for reproducible installation. `npm ci` may reject an inconsistent lockfile; `npm install` can update it to match the package manifest. Maintainers should reconcile and review these declarations before relying on a clean CI installation.
+The package manifest and lockfile root agree on `@types/chrome` `^0.3.0`, esbuild `^0.28.2`, TypeScript `^7.0.2`, Acorn `^8.19.0`, acorn-walk `^8.3.5`, and Astring `^1.9.0`. Use `npm ci` for the locked graph. Use `npm install` when intentionally changing dependencies and review the resulting lockfile changes.
 
 ### Available commands
 
@@ -745,6 +800,7 @@ This discrepancy matters for reproducible installation. `npm ci` may reject an i
 | --- | --- |
 | `npm run typecheck` | Runs `tsc --noEmit` with TypeScript strict checking enabled. |
 | `npm run parse:client -- <main.js>` | Parses a local game bundle with Acorn; optionally exports its AST with `--ast <output.json>`. |
+| `npm run prepare:<feature> -- <main.js>` | Generates or refreshes that feature's AST plan and templates; see the ten feature names below. |
 | `npm run build:js` | Bundles both TypeScript entry points into `dist/`. |
 | `npm run build:zip` | Packages the files currently present into a release archive. |
 | `npm run build` | Runs type checking, JavaScript bundling, and packaging in sequence. |
@@ -759,6 +815,29 @@ npm run parse:client -- "C:/path/to/main.js" --ast "main.ast.json"
 ```
 
 The default input mode is `script`; add `--module` for an ES module. The command reports the absolute input path, parser version, file size, SHA-256 and top-level statement count. AST exports include node offsets and line/column locations; output files must not already exist. Acorn is a development dependency and is not imported by the extension. This step does not migrate interceptors, generate mappings or modify the `archived` backups.
+
+### Refreshing all generated mappings
+
+Save the current, unmodified game bundle as `main.js` in the project root, or provide its real local path. Do not use the extension's `dist/kasp_main.js` as input. An exported `main.ast.json` is optional; preparation commands read JavaScript directly.
+
+From the project root in PowerShell:
+
+```powershell
+$features = @(
+    'overdrive', 'arcade', 'augments', 'garage-details', 'garage-items',
+    'garage-inventory', 'battle-presence', 'battle-statistics', 'user-action', 'critical'
+)
+foreach ($feature in $features) {
+    npm run "prepare:$feature" -- ./main.js
+    if ($LASTEXITCODE -ne 0) { throw "Mapping preparation failed: $feature" }
+}
+npm run typecheck
+npm run build:js
+```
+
+Each command writes its matching `src/generated/<feature>.json` by default. It replaces the plan for the same SHA-256 and preserves plans for other builds. `--out <plans.json>` selects an alternative output. Incomplete/ambiguous analysis or invalid generated syntax causes that command to fail before writing its output. The ten-command sequence is not an atomic transaction: an earlier successful file can already have changed when a later command fails. Review changes and run the tests before publishing.
+
+Neither `build:js` nor `build:zip` regenerates mappings. Changes to `src/generated/` require a JavaScript rebuild because plans are embedded in `dist/kasp_injector.js`. **Do not add `src/generated/` as a separate runtime directory to `build:zip`.** The packager already includes the injector bundle containing those plans. Local `main.js`, AST exports, tools, dependencies, and `archived/` are not copied into the release.
 
 Bundling uses esbuild with IIFE output and the `chrome100` target. Watch mode does not run the separate TypeScript type check or create a release archive.
 
@@ -779,11 +858,11 @@ After rebuilding, reload the unpacked extension and then reload the game page. A
 
 ### Version metadata
 
-The current `manifest.json` version is **2.9.4**; `package.json` and the lockfile package version remain **2.9.4**. The browser, welcome window, and release-folder naming use the manifest version. These metadata values should be aligned as part of release maintenance.
+The current manifest, package, and lockfile package versions are **2.9.4**. The browser, welcome window, and release-folder naming use the manifest version. Keep these metadata values aligned when preparing another version.
 
 ### Release output
 
-The packager copies `dist/`, `styles/`, `assets/`, `database/`, `_locales/`, and `templates/`, together with `manifest.json` and `LICENSE.txt`.
+The packager copies `dist/`, `styles/`, `assets/`, `database/`, `_locales/`, and `templates/`, together with `manifest.json`, `LICENSE.txt`, `README.md`, and `DOCUMENTATION.md`.
 
 For the current manifest version, output is:
 
@@ -792,11 +871,13 @@ release/
 ├── Kaspersky's Inventions 2.9.4/
 │   ├── manifest.json
 │   ├── LICENSE.txt
+│   ├── README.md
+│   ├── DOCUMENTATION.md
 │   └── ... runtime directories
 └── Kaspersky's Inventions 2.9.4.zip
 ```
 
-The archive contains the versioned outer folder. Extract it and select the folder containing `manifest.json` when loading the extension. Source files, tests, `node_modules`, and this README are not included by the current packaging script.
+The archive contains the versioned outer folder. Extract it and select the folder containing `manifest.json` when loading the extension. Source files, tests, `node_modules`, the local game bundle, and raw generated-plan JSON are not separately included. The two root documentation files are included.
 
 Packaging replaces the existing output folder and ZIP for the same version. Preserve any release artifact that must be retained before rebuilding it.
 
@@ -820,12 +901,19 @@ The repository includes focused Node regression tests under `tools/`:
 | `injector-auto-upgrade.test.cjs` | Bundle-fetch recovery and recognized/unknown upgrade dialogs |
 | `arcade-reload.test.cjs` | Native bar reuse, independent arcade progress, equipment changes, pause/stun, renamed/minified bundles and failure isolation |
 | `overdrive-timer.test.cjs` | Bonus hooks, independent spawn locations, countdowns, and timer visibility |
+| `critical-indicator.test.cjs` | Supported devices, shot/lifecycle telemetry, native readiness, Supercharge recovery, and HUD color restoration |
+| `client-patches.test.cjs` | Lexical filtering, shared hashing, strict directives, and compatible header merging |
+| `client-parser.test.cjs` | Non-executing parser CLI, syntax errors, output protection, and AST serialization |
+| `*-ast.test.cjs`, `garage-*.test.cjs` | Exact/adaptive mappings, renamed contracts, ambiguities, native behavior preservation, and preparation CLI failures |
+| `custom-trophies.test.cjs` | Dictionary readiness, initial localized display, favorite/progress changes, and panel refresh |
+| `electron-discord/discord-presence.test.cjs` | Extension payloads, privacy, battle reader, IPC framing, reconnect, and session timestamps |
 
 Run the type check and the regression suite explicitly:
 
 ```powershell
 npm run typecheck
-node --test tools/augment-specs.test.cjs tools/game-augments.test.cjs tools/battle-history.test.cjs tools/battle-history-lifecycle.test.cjs tools/nickname-privacy.test.cjs tools/injector-auto-upgrade.test.cjs tools/overdrive-timer.test.cjs tools/arcade-reload.test.cjs
+$tests = @(Get-ChildItem -Path tools -Recurse -Filter '*.test.cjs' | ForEach-Object { $_.FullName })
+node --test $tests
 ```
 
 There is no `npm test` script, and the full build does not invoke these tests. The tests use controlled fixtures and mocks; they do not replace verification against the current live game interface.
@@ -837,12 +925,16 @@ For changes affecting multiple modules, verify the relevant flows after rebuildi
 1. Open extension settings, change a switch, close settings, and confirm that the expected reload and feature state occur.
 2. Visit the lobby, garage, friends list, and trophy screen. Check native navigation and dialogs as well as extension controls.
 3. With nickname hiding enabled, check the header, supported self rows, history, and client `UID` line. Confirm that identity-dependent features still use the actual nickname.
-4. Compare augment parameters, close the tooltip, reopen it, and observe repeated garage updates for duplicated nodes or update loops.
+4. Repeatedly open devices, skins, and shot colors on different equipment. Check late card filling, gray unavailable previews, standard/owned artwork, native descriptions, tooltip closure, and that Possible Rewards remains untouched.
 5. Check the Auto Upgrade setup dialog and recognized confirmation flow. Use fixtures or a controlled environment for unknown-dialog handling; actual confirmation can spend account resources.
 6. Capture a battle result and inspect both the history list and details. Check pagination and back navigation.
 7. Export a backup, import a valid fixture, and verify account ownership. Check rejection of malformed data and literal rendering of HTML-like names.
 8. Close the native settings window, navigate to another section, and reopen history. Check that stale overlays and async results do not reappear.
 9. Inspect the extension errors and browser console, then inspect the packaged archive before release.
+10. Check Shaft/Scorpio arcade progress in centered and tank-following HUD layouts, after death, stun, pause, resize, and equipment changes. Check lower supply-row placement.
+11. Check the three critical-device combinations, misses, respawn, Supercharge activation/end, and delayed critical acknowledgements. Confirm other players' nameplates retain native behavior.
+12. Pick up overdrive boxes at each available point, including teammate pickups and landing drift; check independent timers and returning from an in-battle section.
+13. In the Electron client, verify Discord map/mode, nickname hiding, countdown, party size, lobby session time, minimization, and reconnect. Browser sessions should not send activity.
 
 ## Compatibility and Known Limitations
 
@@ -854,7 +946,11 @@ For changes affecting multiple modules, verify the relevant flows after rebuildi
 - Nickname and currency masking cover recognized locations. New or unsupported game elements may need additional selectors.
 - Several caches are shared across accounts on the same origin. Their contents can be stale until the relevant module observes fresh data.
 - Custom garage skins affect supported image presentation; they do not unlock items or replace the rendered 3D battle model.
-- Recharge timing tables currently cover Shaft and Scorpion. Recognizing another turret name does not imply an accurate recharge model for it.
+- The extra arcade reload row supports local Shaft and Scorpio using native cooldown state; no timing tables or input-based estimates are used.
+- Ordinary critical-cycle indication supports the three specified weapon/augment pairs. Post-Supercharge phase assumptions require verification if the game changes its mechanics.
+- Device tooltips use mouse hover. Equivalent keyboard, gamepad, and mobile tooltip interaction is not implemented.
+- AST compatibility templates reduce dependence on symbol names but still depend on native structure. A runtime exception is not automatically rolled back by the injector's preparation guards.
+- An intermittent missing local tank after entering a loaded map has been reported. Its cause and relationship to the extension remain unconfirmed; it is not listed as fixed in 2.9.4.
 - Auto Upgrade depends on recognized native dialogs and stops on an unknown confirmation. Its local confirmation count is not an independently verified purchase ledger.
 - Third-party UI modifications can alter the same elements and introduce selector, style, or event conflicts.
 
@@ -871,7 +967,11 @@ For changes affecting multiple modules, verify the relevant flows after rebuildi
 | A paint disappears from filtered results | Clear the query and check whether its artwork URL has an entry in the bundled paint database. |
 | Trophy progress looks old | Open the corresponding native trophy cards so the module can observe fresh values. |
 | Skin artwork does not update | Verify the equipped native card is recognized and its image URL is supported; allow the repeated-observation check to complete. |
-| Recharge bar is unavailable | Check pointer lock, observed equipment, turret support, and augment exclusions. |
+| Arcade reload row is unavailable | Inspect `window.__kaspArcadeReloadDebug.status()`, supported local weapon, mapping readiness, diagnostic disable flag, mesh visibility, and runtime errors; pointer lock is not its timing source. |
+| Critical indicator is unavailable or out of phase | Inspect `window.__kaspCriticalDebug.status()`: required augment/equipment IDs, lifecycle, readiness source, shot counters, and recovery state. |
+| Unavailable cards remain empty | Stay in the section; inspect console errors, `window.__kaspAugmentsDebug.status()` and `.page()`, and whether the installed bundle includes the late-binding/card-reset fix. |
+| Map loads but the local tank does not appear | Preserve the first console error and stack, weapon/augment, browser/client and game build; inspect critical/arcade statuses and compare equivalent entries with the extension disabled. No confirmed fix is currently documented. |
+| Discord lacks battle details | Check the Electron bridge and `__kaspPresenceStoreDebug()` / `__kaspPresenceBattleDebug()`; English map data, valid capacity, and fresh snapshots are required. |
 | Auto Upgrade stops unexpectedly | Inspect whether the current item/dialog is recognized, a ruby-related condition is detected, MAX is reached, or navigation interrupted the sequence. |
 | History is empty after import | Check the current nickname and the imported records' `nickname` values; use linking if a transfer is intended. |
 | History contains duplicates | Repeated import and reload capture do not provide persistent deduplication. Preserve a backup before clearing/reimporting a corrected set. |
@@ -879,7 +979,9 @@ For changes affecting multiple modules, verify the relevant flows after rebuildi
 | Database access fails | Check browser site-storage availability and console errors. Back up accessible records before clearing site data. |
 | Settings/history differ between clients | Compare game origin, browser profile, and host application; storage is not synchronized globally. |
 | Game loads but tracking is incomplete | Inspect injector errors and whether native fallback loaded the game without instrumentation. |
-| `npm ci` rejects installation | Reconcile package-manifest and lockfile dependency declarations. |
+| `npm ci` rejects installation | Inspect the specific npm error and ensure dependency edits updated both package files; the checked-in ranges currently agree. |
+| `[client-parser] ENOENT` | Supply an existing game-bundle path, for example `npm run parse:client -- ./main.js`; placeholder paths are not downloaded automatically. |
+| `prepare:<feature>` fails | Keep/review the existing mapping, inspect the reported missing or ambiguous contract, and adapt the offline analyzer to the current game source before rebuilding. |
 | ZIP contains outdated code | Run the full build or rebuild JavaScript before `build:zip`; inspect the extracted contents. |
 | Packaging command fails | Confirm the platform archiver is installed and on the command path. |
 
@@ -910,12 +1012,12 @@ Kaspersky's Inventions is an independent extension for the Tanki Online interfac
 
 ## Acknowledgements
 
-The current welcome-window credits identify **Kaspersky** as the originator of the project and name **safwan** and **Lukas** among contributors who helped its development.
+The current welcome-window credits identify **Kaspersky** as the originator of the project and list **safwan**, **Lukas**, **Niced**, and **Tenobyte** among contributors.
 
-The same template lists ChatGPT 6 Luna, ChatGPT 6.1 Sol, DeepSeek, Claude Sonnet 5.5, Claude Haiku 4.5, Gemini 3.5 Flash-Lite, Gemini 3.8 Flash, Gemini 3.1 Pro, and Grok 4.6 in its co-creation credits. Quality-review credits list Claude Fable 5.1, Claude Opus 5.5, and ChatGPT 6 Astra. These names reproduce project credits rather than specifying build dependencies.
+The same template lists ChatGPT 6 Luna, ChatGPT 6.1 Sol, DeepSeek V4, Claude Sonnet 5.5, Claude Haiku 4.5, Gemini 3.5 Flash-Lite, Gemini 3.8 Flash, Gemini 3.1 Pro, and Grok 4.6 in its co-creation credits. Quality-review credits list Claude Fable 5.1, Claude Opus 5.5, and ChatGPT 6 Astra. These names reproduce project credits rather than specifying build dependencies.
 
 For the in-game presentation of release information and credits, see [the welcome-window template](templates/welcome-modal.html).
 
 ---
 
-Documentation aligned with extension manifest version **2.9.4*, updated **October 5, 2026**.
+Documentation aligned with extension manifest version **2.9.4**, updated **October 13, 2026**.

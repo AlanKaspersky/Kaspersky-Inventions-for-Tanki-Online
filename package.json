@@ -23,7 +23,7 @@
     "prepare:critical": "node tools/prepare-critical.cjs"
   },
   "author": "Alan Kaspersky",
-  "license": "ISC",
+  "license": "UNLICENSED",
   "type": "commonjs",
   "devDependencies": {
     "@types/chrome": "^0.3.0",
