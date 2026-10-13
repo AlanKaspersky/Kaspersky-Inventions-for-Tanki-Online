@@ -1,0 +1,619 @@
+{
+  "format": "ki-overdrive-plans-v1",
+  "plans": [
+    {
+      "format": "ki-overdrive-ast-v1",
+      "sha256": "bde47282cebdfc82e2977738a2d389837dea0a499f05005a3e548e2c83aaf80c",
+      "sourceLength": 10070637,
+      "status": {
+        "kind": "hooks",
+        "strategy": "ast-plan",
+        "pickupHook": true,
+        "pickupCalls": 1,
+        "contextHook": true,
+        "registrationHooks": 1,
+        "issues": [],
+        "schemaIssues": [],
+        "ready": true
+      },
+      "edits": [
+        {
+          "start": 0,
+          "end": 0,
+          "expected": "",
+          "text": "/*ki-overdrive-ast:v1:{\"kind\":\"hooks\",\"strategy\":\"ast-plan\",\"pickupHook\":true,\"pickupCalls\":1,\"contextHook\":true,\"registrationHooks\":1,\"issues\":[],\"schemaIssues\":[],\"ready\":true}*/\n",
+          "before": "",
+          "after": "!function(t,n){\"object\"="
+        },
+        {
+          "start": 1810137,
+          "end": 1810137,
+          "expected": "",
+          "text": ",(function () {\n  try {\n    window.__kaspBonusType && window.__kaspBonusType(E(Lt), \"vector\", {\n      x: \"f20_1\",\n      y: \"g20_1\",\n      z: \"h20_1\"\n    });\n  } catch (_kaspBonusError) {}\n})()",
+          "before": "0_1+\", \"+this.h20_1+\")\"}",
+          "after": ",E(Lt).m28=function(t){r"
+        },
+        {
+          "start": 8007559,
+          "end": 8007572,
+          "expected": "Tnt(t).k112_1",
+          "text": "window.__kaspBonusPrepare(Tnt(t), \"k112_1\", t)",
+          "before": ").y113_1),t.n110_1.u115(",
+          "after": ",Unt().y113_1),Nnt(this)"
+        },
+        {
+          "start": 8008629,
+          "end": 8008629,
+          "expected": "",
+          "text": ",(function () {\n  try {\n    window.__kaspBonusType && window.__kaspBonusType(Zy(Gnt), \"bonus\", {\n      box: \"j112_1\",\n      pickupSound: \"k112_1\"\n    });\n  } catch (_kaspBonusError) {}\n})()",
+          "before": "t=\"+A$(this.n112_1)+\")\"}",
+          "after": ",Zy(Gnt).hashCode=functi"
+        },
+        {
+          "start": 8009279,
+          "end": 8009279,
+          "expected": "",
+          "text": "try {\n  window.__kaspBonusContext && window.__kaspBonusContext(t, n);\n} catch (_kaspBonusError) {};",
+          "before": "Knt).u115=function(t,n){",
+          "after": "Wnt(this,this.w111_1,t,n"
+        },
+        {
+          "start": 8009512,
+          "end": 8009523,
+          "expected": "u.u117(t,n)",
+          "text": "(function (_kaspBonusResult) {\n  try {\n    window.__kaspBonusRegister && window.__kaspBonusRegister(n, t, i, void 0, void 0, u);\n  } catch (_kaspBonusError) {}\n  return _kaspBonusResult;\n})(u.u117(t, n))",
+          "before": "{var u=this.v111_1.xy();",
+          "after": ";var s,o,_=this.z111_1;u"
+        }
+      ],
+      "templates": [
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*toString\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*(?:\"Vector3 \\(\"|'Vector3 \\(')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:\", \"|', ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:\", \"|', ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:\"\\)\"|'\\)')\\s*\\}(?<e0start>)(?<e0end>)",
+          "roles": {
+            "vectorX": "s2",
+            "vectorY": "s3",
+            "vectorZ": "s4"
+          },
+          "count": 1,
+          "search": {
+            "literal": "Vector3 (",
+            "margin": 984
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                ",(function () {\n  try {\n    window.__kaspBonusType && window.__kaspBonusType(",
+                {
+                  "capture": "s0",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "capture": "s1",
+                  "quoted": false
+                },
+                "), \"vector\", {\n      x: ",
+                {
+                  "capture": "s2",
+                  "quoted": true
+                },
+                ",\n      y: ",
+                {
+                  "capture": "s3",
+                  "quoted": true
+                },
+                ",\n      z: ",
+                {
+                  "capture": "s4",
+                  "quoted": true
+                },
+                "\n    });\n  } catch (_kaspBonusError) {}\n})()"
+              ]
+            }
+          ]
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*toString\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*(?:\"BattleBonusData\\(box=\"|'BattleBonusData\\(box=')\\s*\\+\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\+\\s*(?:\", pickupSound=\"|', pickupSound=')\\s*\\+\\s*\\k<s2>(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\+\\s*(?:\", dropSound=\"|', dropSound=')\\s*\\+\\s*\\k<s2>(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\+\\s*(?:\", spawnSound=\"|', spawnSound=')\\s*\\+\\s*\\k<s2>(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\+\\s*(?:\", bonusLight=\"|', bonusLight=')\\s*\\+\\s*\\k<s2>(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\+\\s*(?:\"\\)\"|'\\)')\\s*\\}(?<e0start>)(?<e0end>)",
+          "roles": {
+            "sound": "s4",
+            "box": "s3"
+          },
+          "count": 1,
+          "search": {
+            "literal": "BattleBonusData(box=",
+            "margin": 1896
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                ",(function () {\n  try {\n    window.__kaspBonusType && window.__kaspBonusType(",
+                {
+                  "capture": "s0",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "capture": "s1",
+                  "quoted": false
+                },
+                "), \"bonus\", {\n      box: ",
+                {
+                  "capture": "s3",
+                  "quoted": true
+                },
+                ",\n      pickupSound: ",
+                {
+                  "capture": "s4",
+                  "quoted": true
+                },
+                "\n    });\n  } catch (_kaspBonusError) {}\n})()"
+              ]
+            }
+          ]
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{(?<e0start>)(?<e0end>)\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*,\\s*(?:\"bonus pickup\"|'bonus pickup')\\s*\\)\\s*\\}",
+          "roles": {
+            "pickup": "s2",
+            "manager": "s1"
+          },
+          "count": 1,
+          "search": {
+            "literal": "bonus pickup",
+            "margin": 800
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                "try {\n  window.__kaspBonusContext && window.__kaspBonusContext(",
+                {
+                  "capture": "s3",
+                  "quoted": false
+                },
+                ", ",
+                {
+                  "capture": "s4",
+                  "quoted": false
+                },
+                ");\n} catch (_kaspBonusError) {};"
+              ]
+            }
+          ]
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*for(?![$\\w])\\s*\\(\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\)\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\(\\s*\\)\\s*;\\s*this(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\((?<e0start>)\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])(?<e0end>)\\s*,\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s13>(?![$\\w])\\s*\\)\\s*,\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*,\\s*function(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\{\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*null(?![$\\w])\\s*\\}\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*,\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*\\}",
+          "roles": {
+            "pickup": "s15",
+            "sound": "s17"
+          },
+          "count": 1,
+          "search": {
+            "margin": 2240
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                "window.__kaspBonusPrepare(",
+                {
+                  "capture": "s16",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "capture": "s3",
+                  "quoted": false
+                },
+                "), ",
+                {
+                  "capture": "s17",
+                  "quoted": true
+                },
+                ", ",
+                {
+                  "capture": "s3",
+                  "quoted": false
+                },
+                ")"
+              ]
+            }
+          ]
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;(?<e0start>)\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*\\)(?<e0end>)\\s*;\\s*var(?![$\\w])\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*,\\s*\\k<s14>(?![$\\w])\\s*,\\s*\\(\\s*\\k<s12>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*,\\s*\\k<s13>(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*\\k<s5>(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*;\\s*return(?![$\\w])\\s*\\k<s5>(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*,\\s*\\k<s12>(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*new(?![$\\w])\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\}\\s*,\\s*\\k<s13>(?![$\\w])\\s*\\.\\s*callableName\\s*=\\s*(?:\"onBonusCollision\"|'onBonusCollision')\\s*,\\s*\\k<s13>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\)\\s*\\}",
+          "roles": {
+            "manager": "s1"
+          },
+          "count": 1,
+          "search": {
+            "literal": "onBonusCollision",
+            "margin": 2168
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                "(function (_kaspBonusResult) {\n  try {\n    window.__kaspBonusRegister && window.__kaspBonusRegister(",
+                {
+                  "capture": "s4",
+                  "quoted": false
+                },
+                ", ",
+                {
+                  "capture": "s3",
+                  "quoted": false
+                },
+                ", ",
+                {
+                  "capture": "s5",
+                  "quoted": false
+                },
+                ", void 0, void 0, ",
+                {
+                  "capture": "s8",
+                  "quoted": false
+                },
+                ");\n  } catch (_kaspBonusError) {}\n  return _kaspBonusResult;\n})(",
+                {
+                  "capture": "s8",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "capture": "s11",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "capture": "s3",
+                  "quoted": false
+                },
+                ", ",
+                {
+                  "capture": "s4",
+                  "quoted": false
+                },
+                "))"
+              ]
+            }
+          ]
+        }
+      ],
+      "schemas": [
+        {
+          "kind": "vector",
+          "fields": {
+            "x": "f20_1",
+            "y": "g20_1",
+            "z": "h20_1"
+          },
+          "prototype": "E(Lt)"
+        },
+        {
+          "kind": "bonus",
+          "fields": {
+            "box": "j112_1",
+            "pickupSound": "k112_1"
+          },
+          "prototype": "Zy(Gnt)"
+        }
+      ],
+      "sourceName": "ki-game-main.756da186.js"
+    },
+    {
+      "format": "ki-overdrive-ast-v1",
+      "sha256": "3bd056e2ee762d486de7fffa07bba1402ee3b69b98a508e135d70d7b248cc612",
+      "sourceLength": 22382225,
+      "status": {
+        "kind": "hooks",
+        "strategy": "ast-plan",
+        "pickupHook": true,
+        "pickupCalls": 1,
+        "contextHook": true,
+        "registrationHooks": 1,
+        "issues": [],
+        "schemaIssues": [],
+        "ready": true
+      },
+      "edits": [
+        {
+          "start": 0,
+          "end": 0,
+          "expected": "",
+          "text": "/*ki-overdrive-ast:v1:{\"kind\":\"hooks\",\"strategy\":\"ast-plan\",\"pickupHook\":true,\"pickupCalls\":1,\"contextHook\":true,\"registrationHooks\":1,\"issues\":[],\"schemaIssues\":[],\"ready\":true}*/\n",
+          "before": "",
+          "after": "! function (t, n) {\r\n   "
+        },
+        {
+          "start": 3846941,
+          "end": 3846941,
+          "expected": "",
+          "text": ",(function () {\n  try {\n    window.__kaspBonusType && window.__kaspBonusType(E(Lt), \"vector\", {\n      x: \"f20_1\",\n      y: \"g20_1\",\n      z: \"h20_1\"\n    });\n  } catch (_kaspBonusError) {}\n})()",
+          "before": "\"\r\n                    }",
+          "after": ", E(Lt).m28 = function ("
+        },
+        {
+          "start": 17971033,
+          "end": 17971046,
+          "expected": "Tnt(t).k112_1",
+          "text": "window.__kaspBonusPrepare(Tnt(t), \"k112_1\", t)",
+          "before": ".y113_1), t.n110_1.u115(",
+          "after": ", Unt().y113_1), Nnt(thi"
+        },
+        {
+          "start": 17973040,
+          "end": 17973040,
+          "expected": "",
+          "text": ",(function () {\n  try {\n    window.__kaspBonusType && window.__kaspBonusType(Zy(Gnt), \"bonus\", {\n      box: \"j112_1\",\n      pickupSound: \"k112_1\"\n    });\n  } catch (_kaspBonusError) {}\n})()",
+          "before": "\"\r\n                    }",
+          "after": ", Zy(Gnt).hashCode = fun"
+        },
+        {
+          "start": 17974020,
+          "end": 17974020,
+          "expected": "",
+          "text": "try {\n  window.__kaspBonusContext && window.__kaspBonusContext(t, n);\n} catch (_kaspBonusError) {};",
+          "before": "u115 = function (t, n) {",
+          "after": "\r\n                      "
+        },
+        {
+          "start": 17974484,
+          "end": 17974496,
+          "expected": "u.u117(t, n)",
+          "text": "(function (_kaspBonusResult) {\n  try {\n    window.__kaspBonusRegister && window.__kaspBonusRegister(n, t, i, void 0, void 0, u);\n  } catch (_kaspBonusError) {}\n  return _kaspBonusResult;\n})(u.u117(t, n))",
+          "before": "                        ",
+          "after": ";\r\n                     "
+        }
+      ],
+      "templates": [
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*toString\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*(?:\"Vector3 \\(\"|'Vector3 \\(')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:\", \"|', ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:\", \"|', ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:\"\\)\"|'\\)')\\s*\\}(?<e0start>)(?<e0end>)",
+          "roles": {
+            "vectorX": "s2",
+            "vectorY": "s3",
+            "vectorZ": "s4"
+          },
+          "count": 1,
+          "search": {
+            "literal": "Vector3 (",
+            "margin": 1504
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                ",(function () {\n  try {\n    window.__kaspBonusType && window.__kaspBonusType(",
+                {
+                  "capture": "s0",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "capture": "s1",
+                  "quoted": false
+                },
+                "), \"vector\", {\n      x: ",
+                {
+                  "capture": "s2",
+                  "quoted": true
+                },
+                ",\n      y: ",
+                {
+                  "capture": "s3",
+                  "quoted": true
+                },
+                ",\n      z: ",
+                {
+                  "capture": "s4",
+                  "quoted": true
+                },
+                "\n    });\n  } catch (_kaspBonusError) {}\n})()"
+              ]
+            }
+          ]
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*toString\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*(?:\"BattleBonusData\\(box=\"|'BattleBonusData\\(box=')\\s*\\+\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\+\\s*(?:\", pickupSound=\"|', pickupSound=')\\s*\\+\\s*\\k<s2>(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\+\\s*(?:\", dropSound=\"|', dropSound=')\\s*\\+\\s*\\k<s2>(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\+\\s*(?:\", spawnSound=\"|', spawnSound=')\\s*\\+\\s*\\k<s2>(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\+\\s*(?:\", bonusLight=\"|', bonusLight=')\\s*\\+\\s*\\k<s2>(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\+\\s*(?:\"\\)\"|'\\)')\\s*\\}(?<e0start>)(?<e0end>)",
+          "roles": {
+            "sound": "s4",
+            "box": "s3"
+          },
+          "count": 1,
+          "search": {
+            "literal": "BattleBonusData(box=",
+            "margin": 2480
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                ",(function () {\n  try {\n    window.__kaspBonusType && window.__kaspBonusType(",
+                {
+                  "capture": "s0",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "capture": "s1",
+                  "quoted": false
+                },
+                "), \"bonus\", {\n      box: ",
+                {
+                  "capture": "s3",
+                  "quoted": true
+                },
+                ",\n      pickupSound: ",
+                {
+                  "capture": "s4",
+                  "quoted": true
+                },
+                "\n    });\n  } catch (_kaspBonusError) {}\n})()"
+              ]
+            }
+          ]
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{(?<e0start>)(?<e0end>)\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*,\\s*(?:\"bonus pickup\"|'bonus pickup')\\s*\\)\\s*\\}",
+          "roles": {
+            "pickup": "s2",
+            "manager": "s1"
+          },
+          "count": 1,
+          "search": {
+            "literal": "bonus pickup",
+            "margin": 1256
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                "try {\n  window.__kaspBonusContext && window.__kaspBonusContext(",
+                {
+                  "capture": "s3",
+                  "quoted": false
+                },
+                ", ",
+                {
+                  "capture": "s4",
+                  "quoted": false
+                },
+                ");\n} catch (_kaspBonusError) {};"
+              ]
+            }
+          ]
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*for(?![$\\w])\\s*\\(\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\)\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\(\\s*\\)\\s*;\\s*this(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\((?<e0start>)\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])(?<e0end>)\\s*,\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s13>(?![$\\w])\\s*\\)\\s*,\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*,\\s*function(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\{\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*null(?![$\\w])\\s*\\}\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*,\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*\\}",
+          "roles": {
+            "pickup": "s15",
+            "sound": "s17"
+          },
+          "count": 1,
+          "search": {
+            "margin": 3768
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                "window.__kaspBonusPrepare(",
+                {
+                  "capture": "s16",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "capture": "s3",
+                  "quoted": false
+                },
+                "), ",
+                {
+                  "capture": "s17",
+                  "quoted": true
+                },
+                ", ",
+                {
+                  "capture": "s3",
+                  "quoted": false
+                },
+                ")"
+              ]
+            }
+          ]
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*(?<e0start>)\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*\\)(?<e0end>)\\s*;\\s*var(?![$\\w])\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*,\\s*\\k<s14>(?![$\\w])\\s*,\\s*\\(\\s*\\k<s12>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*,\\s*\\k<s13>(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*\\k<s5>(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*;\\s*return(?![$\\w])\\s*\\k<s5>(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*,\\s*\\k<s12>(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*new(?![$\\w])\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\}\\s*,\\s*\\k<s13>(?![$\\w])\\s*\\.\\s*callableName\\s*=\\s*(?:\"onBonusCollision\"|'onBonusCollision')\\s*,\\s*\\k<s13>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\)\\s*\\}",
+          "roles": {
+            "manager": "s1"
+          },
+          "count": 1,
+          "search": {
+            "literal": "onBonusCollision",
+            "margin": 4200
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                "(function (_kaspBonusResult) {\n  try {\n    window.__kaspBonusRegister && window.__kaspBonusRegister(",
+                {
+                  "capture": "s4",
+                  "quoted": false
+                },
+                ", ",
+                {
+                  "capture": "s3",
+                  "quoted": false
+                },
+                ", ",
+                {
+                  "capture": "s5",
+                  "quoted": false
+                },
+                ", void 0, void 0, ",
+                {
+                  "capture": "s8",
+                  "quoted": false
+                },
+                ");\n  } catch (_kaspBonusError) {}\n  return _kaspBonusResult;\n})(",
+                {
+                  "capture": "s8",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "capture": "s11",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "capture": "s3",
+                  "quoted": false
+                },
+                ", ",
+                {
+                  "capture": "s4",
+                  "quoted": false
+                },
+                "))"
+              ]
+            }
+          ]
+        }
+      ],
+      "schemas": [
+        {
+          "kind": "vector",
+          "fields": {
+            "x": "f20_1",
+            "y": "g20_1",
+            "z": "h20_1"
+          },
+          "prototype": "E(Lt)"
+        },
+        {
+          "kind": "bonus",
+          "fields": {
+            "box": "j112_1",
+            "pickupSound": "k112_1"
+          },
+          "prototype": "Zy(Gnt)"
+        }
+      ],
+      "sourceName": "main.js"
+    }
+  ]
+}

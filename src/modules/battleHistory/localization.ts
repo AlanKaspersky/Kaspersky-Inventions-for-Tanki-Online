@@ -1,6 +1,7 @@
 export const historyTranslations = {
     RU: {
         title: 'История Битв',
+        loading: 'Загрузка',
         date: 'Дата',
         map: 'Карта',
         status: 'Статус',
@@ -38,6 +39,7 @@ export const historyTranslations = {
     },
     EN: {
         title: 'Battle History',
+        loading: 'Loading',
         date: 'Date',
         map: 'Map',
         status: 'Status',

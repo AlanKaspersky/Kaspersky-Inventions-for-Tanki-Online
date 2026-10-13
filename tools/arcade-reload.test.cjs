@@ -8,11 +8,12 @@ const { transformSync } = require('esbuild');
 const moduleRef = { exports: {} };
 vm.runInNewContext(transformSync(fs.readFileSync(path.join(__dirname, '../src/core/arcadeReload.ts'), 'utf8'), {
     loader: 'ts', format: 'cjs'
-}).code, { module: moduleRef });
-const { patchArcadeReload } = moduleRef.exports;
+}).code, { module: moduleRef, require: () => require('./test-client-patches.cjs') });
+const { analyzeArcade } = require('./arcade-ast.cjs');
+const patchArcadeReload = (source, report, plan) => moduleRef.exports.patchArcadeReload(source, report, plan || analyzeArcade(source));
 
 const source = `
-function Title() {}
+function Title() {this.nicknameAllowed=true;this.counter={toggle(){}}}
 function LocalHud(){this.weaponBar=null;var t=this;this.setVisible=function(n){return function(t,n){var i=t.weaponBar;null==i||i.show(n)}(t,n)}}
 function Shaft() {}
 function Scorpio() {}
@@ -53,6 +54,7 @@ function NativeBar(w,h,material,layer){allocate();this.material=material;this.la
 proto(NativeBar).setWidth=function(t){this.widthValue=Math.max(0,t)};
 proto(NativeBar).setHeight=function(t){this.heightValue=Math.max(0,t)};
 proto(NativeBar).width=function(){return this.widthValue};
+proto(NativeBar).isShown=function(){return this.shown};
 proto(NativeBar).height=function(){return this.heightValue};
 proto(NativeBar).place=function(t,n){move(this,t.x,t.y+n),this.vector.z=t.z,this.anchorX=t.x,this.anchorY=t.y};
 proto(NativeBar).fill=function(t){this.progressValue=t};
@@ -79,10 +81,14 @@ proto(LocalHud).init=function(){
 proto(LocalHud).dispose=function(){var t=this.weaponBar;null==t||hudScene(this).remove(t)};
 proto(LocalHud).resize=function(t,n){t.setWidth(n.width),t.setHeight(n.height),move(t,n.x,n.y)};
 proto(LocalHud).position=function(t,n){var e=this.weaponBar;null==e||move(e,t,n)};
-proto(Title).init=function(){this.healthBar='health';this.weaponBar='weapon';var cb=function(){};cb.callableName='configureBars'};
+function NativeName(){this.shown=true}
+NativeName.prototype=Object.create(NativeBar.prototype);
+function nativeAlive(state){return state==='ACTIVE'}
+proto(Title).init=function(){this.healthBar='health';this.weaponBar='weapon';var cb=function(){};cb.callableName='configureBars';var caption=this.caption;if(caption==null){var mesh=new NativeName;caption=mesh;this.caption=caption}this.onState=function(event){return this.counter.toggle(1,!nativeAlive(event.lifeState)),true}};
+proto(Title).frame=function(time,delta){if(this.caption)this.caption.show(this.nicknameAllowed)};
 `;
 
-function fixture({ renamed = false, minified = false, failExtra = false, initialWeapon = 'Shaft' } = {}) {
+function fixture({ renamed = false, minified = false, failExtra = false, initialWeapon = 'Shaft', preparedPlan, prefix = '' } = {}) {
     const identifiers = ['Title', 'LocalHud', 'Shaft', 'Scorpio', 'Reload', 'Sensor', 'ShaftOwner', 'ScorpioOwner', 'proto', 'token',
         'shaft', 'scorpio', 'reload', 'entity', 'required', 'optional', 'world', 'clock', 'end', 'duration', 'weaponBar',
         'show', 'place', 'height', 'fill', 'nativeProgress', 'reloadGetter', 'ShaftCooldown', 'cooldown', 'deadline', 'weapon',
@@ -93,8 +99,11 @@ function fixture({ renamed = false, minified = false, failExtra = false, initial
     const rename = name => renamed && identifiers.includes(name) ? '$' + name + '$' : name;
     let input = renamed ? source.replace(new RegExp('\\b(' + identifiers.join('|') + ')\\b', 'g'), match => rename(match)) : source;
     if (minified) input = transformSync(input, { loader: 'js', minify: true }).code;
+    // Public diagnostic labels are data, not native identifier names.
+    input = input.replace(/(['"])\$weapon\$\1/g, (_, quote) => quote + 'weapon' + quote);
+    input = prefix + input;
     const reports = [];
-    const patched = patchArcadeReload(input, status => reports.push(status));
+    const patched = patchArcadeReload(input, status => reports.push(status), preparedPlan);
     assert.equal(reports[0].hooked, true, JSON.stringify(reports[0]));
     assert.equal(reports[0].panel, 'local-hud');
     const errors = [], observations = [], children = [];
@@ -158,7 +167,7 @@ test('local HUD clones its native mesh and reads primary cooldown independently 
     assert.equal(f.extra.constructor, f.weapon.constructor);
     assert.notEqual(f.extra.material, f.weapon.material, 'the added row has an independent native material');
     assert.equal(f.extra.material.constructor, f.weapon.material.constructor);
-    assert.equal(f.extra.material.foreground.rgb, 0x08e600);
+    assert.equal(f.extra.material.foreground.rgb, 0xffbb1c);
     assert.equal(f.weapon.material.foreground.rgb, 0xffff00, 'native yellow indicator stays unchanged');
     assert.equal(f.extra.material.background.rgb, f.weapon.material.background.rgb);
     assert.equal(f.extra.material.border, f.weapon.material.border);
@@ -193,7 +202,7 @@ test('renaming and minification retain local HUD discovery and primary cooldown'
     for (const config of [{ renamed: true }, { minified: true }, { renamed: true, minified: true }]) {
         const f = fixture(config); f.equip('Scorpio'); f.tick();
         assert.equal(f.extra.progressValue, .25); assert.equal(f.weapon.progressValue, .65);
-        assert.equal(f.value(f.extra, 'material').foreground.rgb, 0x08e600);
+        assert.equal(f.value(f.extra, 'material').foreground.rgb, 0xffbb1c);
         assert.equal(f.value(f.weapon, 'material').foreground.rgb, 0xffff00);
         f.resize(310, 10, 70, 130);
         assert.equal(f.value(f.extra, 'widthValue'), 310);
@@ -283,5 +292,55 @@ test('missing or ambiguous native contracts remain unchanged with diagnostics', 
         let status;
         assert.equal(patchArcadeReload(input, value => { status = value; }), input);
         assert.equal(status.hooked, false); assert.ok(status.issues.length > 0);
+    }
+});
+
+test('prepared AST templates adapt to renamed game contracts without regenerating the plan', async () => {
+    for (const minified of [false, true]) {
+        const old = fixture({ minified });
+        const updated = fixture({ renamed: true, minified, prefix: '/* another client release */\n' });
+        const adapted = await moduleRef.exports.selectArcadeReloadPlan(updated.input, [analyzeArcade(old.input)]);
+        assert.ok(adapted, 'unknown builds must be tried against the prepared templates');
+        assert.equal(adapted.status.strategy, 'ast-template');
+        const f = fixture({ renamed: true, minified, prefix: '/* another client release */\n', preparedPlan: adapted });
+        f.tick(); assert.equal(f.value(f.extra, 'progressValue'), .25);
+        f.equip('Scorpio'); f.setScorpioProgress(.6); f.tick(); assert.equal(f.value(f.extra, 'progressValue'), .6);
+        f.resize(310, 10, 70, 130);
+        assert.equal(f.project(f.extra, 1.25).top, f.project(f.weapon, 1.25).top + f.project(f.weapon, 1.25).h);
+        f.setCentered(true); f.placeSupplies(45, 100); assert.equal(f.lowerIcons[0].y, 118);
+        f.setVisible(false); assert.equal(f.value(f.extra, 'shown'), false);
+        f.owner.dispose(); assert.equal(f.children.length, 0);
+        assert.equal(f.errors.length, 0);
+    }
+});
+
+test('unsupported adaptive structures and stale edits leave the native game untouched', async () => {
+    const plan = analyzeArcade(source);
+    assert.equal(await moduleRef.exports.selectArcadeReloadPlan(source.replace('progressBarMaterial', 'removedBar'), [plan]), undefined);
+    const bad = { ...plan, edits: plan.edits.map((e,i) => i===2 ? { ...e, before:'stale' } : e) };
+    let status;
+    assert.equal(moduleRef.exports.patchArcadeReload(source,s=>{status=s},bad),source);
+    assert.equal(status.hooked,false);assert.equal(status.issues[0],'arcade-edit-mismatch');
+    const duplicate=source+'\n'+source.slice(source.indexOf("function localTank"),source.indexOf('function nativeProgress'));
+    assert.equal(await moduleRef.exports.selectArcadeReloadPlan(duplicate,[plan]),undefined);
+});
+
+test('remote nickname and health rendering retains the original native code and behavior for every local weapon', () => {
+    const native = {};
+    vm.runInNewContext(source, native);
+    for (const initialWeapon of ['Shaft', 'Scorpio', null]) {
+        const f = fixture({ initialWeapon });
+        const remote = f.title(), original = new native.Title(); original.init();
+        for (const method of ['init', 'frame']) assert.equal(remote.constructor.prototype[method].toString(), native.Title.prototype[method].toString());
+        for (const allowed of [false, true]) for (const state of ['SEMI_ACTIVE', 'ACTIVE', 'TELEPORT', 'DEAD_PHANTOM', 'DEAD']) {
+            remote.nicknameAllowed = original.nicknameAllowed = allowed;
+            remote.onState({ lifeState: state }); original.onState({ lifeState: state });
+            remote.frame(0, 0); original.frame(0, 0);
+            assert.equal(remote.caption.shown, original.caption.shown);
+            assert.equal(remote.healthBar, original.healthBar); assert.equal(remote.weaponBar, original.weaponBar);
+            assert.equal(Object.hasOwn(remote.caption, 'show'), false, 'native sprite visibility setter is not wrapped');
+            assert.equal(Object.hasOwn(remote.caption, '__kaspSpawnNameGuard'), false);
+            assert.equal(Object.hasOwn(remote, '__kaspNameplateGhost'), false);
+        }
     }
 });

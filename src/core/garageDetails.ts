@@ -1,59 +1,50 @@
-export function patchUnavailableGarageDetails(code: string): string {
-    const selected = (label: string) => {
-        const fields = [...code.matchAll(new RegExp(`", ${label}="\\s*\\+\\s*this\\.([\\w$]+)`, 'g'))].map(match => match[1]);
-        const unique = [...new Set(fields)];
-        return unique;
-    };
-    const devices = selected('selectedDevice'), skins = selected('selectedSkin');
-    if (!devices.length || skins.length !== 1) return code;
-    const skin = skins[0];
-    const enabled = '__kaspShowUnavailableDetails()';
+import { clientSourceHash, resolveTemplateEdits, validatePatchEdits } from './clientPatches';
+import type { PreparedPatchPlan } from './clientPatches';
+
+export interface GarageDetailsHookStatus {
+    hooked: boolean;
+    ready: boolean;
+    strategy: 'ast-plan' | 'ast-template';
+    issues: string[];
+    devicePanels?: number;
+    skinPanels?: number;
+    previewPanels?: number;
+}
+export interface GarageDetailsPatchPlan extends PreparedPatchPlan {
+    format: 'ki-garage-details-ast-v1';
+    status: GarageDetailsHookStatus;
+}
+const MARKER = '/*ki-garage-details-ast:v1:';
+const unavailable = (issue: string): GarageDetailsHookStatus => ({ hooked: false, ready: false, strategy: 'ast-plan', issues: [issue] });
+
+/** Native panels are discovered offline. Compatible unknown builds use prepared templates. */
+export async function selectGarageDetailsPlan(code: string, plans: readonly GarageDetailsPatchPlan[]): Promise<GarageDetailsPatchPlan | undefined> {
+    const candidates = plans.filter(plan => plan.format === 'ki-garage-details-ast-v1' && plan.status.ready && plan.sourceLength === code.length);
+    if (candidates.length) try {
+        const hash = await clientSourceHash(code);
+        const exact = candidates.find(plan => plan.sha256 === hash);
+        if (exact) return exact;
+    } catch { }
+    for (const plan of [...plans].reverse()) try {
+        if (plan.format !== 'ki-garage-details-ast-v1' || !plan.status.ready) continue;
+        const adapted = resolveTemplateEdits(code, plan);
+        if (!adapted) continue;
+        const status: GarageDetailsHookStatus = { ...plan.status, strategy: 'ast-template' };
+        const edits = adapted.edits;
+        edits.unshift({ start: 0, end: 0, expected: '', before: '', after: code.slice(0, 24), text: MARKER + JSON.stringify(status) + '*/\n' });
+        return { ...plan, sourceLength: code.length, sha256: '', status, edits };
+    } catch { }
+    return undefined;
+}
+
+/** Validate the complete native contract before modifying any description or preview branch. */
+export function patchUnavailableGarageDetails(code: string, report?: (status: GarageDetailsHookStatus) => void, plan?: GarageDetailsPatchPlan): string {
+    const done = (result: string, status: GarageDetailsHookStatus) => { try { report?.(status); } catch { } return result; };
+    if (code.includes(MARKER)) return done(code, plan?.status || { hooked: true, ready: true, strategy: 'ast-plan', issues: [] });
+    if (!plan) return done(code, unavailable('garage-details-mapping-unavailable'));
+    if (plan.format !== 'ki-garage-details-ast-v1' || !plan.status.ready) return done(code, plan.status);
+    if (!validatePatchEdits(code, plan)) return done(code, unavailable('garage-details-edit-mismatch'));
     let patched = code;
-    let changed = false;
-    let unknownMethod: string | undefined, filter: string | undefined;
-    for (const field of [...devices, skin]) {
-        const start = new RegExp(`var ([\\w$]+)=this\\.[\\w$]+\\.${field},`).exec(patched);
-        if (!start) continue;
-        const end = patched.indexOf(',function(t,n){', start.index);
-        if (end < 0 || end - start.index > 2500) continue;
-        const block = patched.slice(start.index, end);
-        const item = start[1];
-        const unknown = new RegExp(`\\b${item}\\.([\\w$]+)\\(\\)`).exec(block)?.[1];
-        if (!unknown) continue;
-        let replacement = block;
-        if (devices.includes(field)) {
-            const invert = /([\w$]+)\(([\w$]+),"invert\(0\.25\)"\)/.exec(block);
-            if (!invert || !block.includes(`!${item}.${unknown}()`)) continue;
-            filter = invert[1]; unknownMethod = unknown;
-            replacement = replacement.replace(invert[0], `${filter}(${invert[2]},${enabled}?"grayscale(1)":"invert(0.25)")`)
-                .replace(`!${item}.${unknown}()`, `(!${item}.${unknown}()||${enabled})`);
-            replacement = replacement.replace(new RegExp(`(\\.${field}\\.${unknown}\\(\\))\\?`), `$1&&!${enabled}?`);
-        } else {
-            replacement = replacement.replace(new RegExp(`(${item}\\.${unknown}\\(\\))\\)\\{`), `$1&&!${enabled}){`);
-        }
-        if (replacement !== block) {
-            patched = patched.slice(0, start.index) + replacement + patched.slice(end);
-            changed = true;
-        }
-    }
-    if (unknownMethod && filter) {
-        const preview = new RegExp(`function ([\\w$]+)\\((t),(n)\\)\\{var ([\\w$]+)=[\\w$]+,([\\w$]+)=[\\w$]+\\.xut\\(\\4\\);[^{}]{0,200}function\\(t\\)\\{var n;if\\(t\\.[\\w$]+\\.${skin}\\.${unknownMethod}\\(\\)`, 'g');
-        const match = preview.exec(patched);
-        if (match) {
-            const tail = `n.cap(${match[5]}.c9l())}`;
-            const end = patched.indexOf(tail, match.index);
-            if (end >= 0 && end - match.index < 1500) {
-                const block = patched.slice(match.index, end + tail.length);
-                const unavailable = new RegExp(`if\\((t\\.[\\w$]+\\.${skin}\\.${unknownMethod}\\(\\)(?:&&![\\w$]+\\(t\\))?)\\)`);
-                const condition = unavailable.exec(block)?.[1];
-                if (condition) {
-                    const replacement = block.replace(unavailable, `if((${condition})&&!${enabled})`)
-                        .replace(tail, `(${condition})&&${enabled}&&${filter}(${match[5]}.tuv(),"grayscale(1)"),${tail}`);
-                    patched = patched.slice(0, match.index) + replacement + patched.slice(end + tail.length);
-                }
-            }
-        }
-    }
-    if (!changed) return code;
-    return `function __kaspShowUnavailableDetails(){try{return localStorage.getItem('k_augments')==='true'}catch(e){return false}}\n${patched}`;
+    for (const edit of [...plan.edits].reverse()) patched = patched.slice(0, edit.start) + edit.text + patched.slice(edit.end);
+    return done(patched, plan.status);
 }

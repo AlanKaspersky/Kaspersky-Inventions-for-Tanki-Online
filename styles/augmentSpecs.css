@@ -1,7 +1,3 @@
-html[data-kasp-augments-enabled] .SkinsAndAlterationsStyle-SkinsVerticalComponent img.SkinCellStyle-iconCell[src*="/unavailable."]:not([data-kasp-preview-failed]) {
-    visibility: hidden !important;
-}
-
 img.SkinCellStyle-iconCell.kasp-unavailable-device-preview {
     filter: brightness(1) saturate(0) !important;
 }

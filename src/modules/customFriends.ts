@@ -4,7 +4,6 @@ import { utils } from '../core/utils';
 import { getAccountIdentity } from '../core/accountIdentity';
 
 export const customFriends = (() => {
-    let initialized = false;
 
     const filtersConfig = [
         { url: "https://s.eu.tankionline.com/static/images/allPaints.741c65e1.svg", type: "all" },
@@ -223,10 +222,6 @@ export const customFriends = (() => {
         if (!utils.getSetting('k_friends', false)) return;
 
         if (state.currentScreen === 'battle') return;
-
-        if (!initialized) {
-            initialized = true;
-        }
 
         const scrollBlocks = document.querySelectorAll(gameDOM.friends.lists);
         scrollBlocks.forEach(node => {

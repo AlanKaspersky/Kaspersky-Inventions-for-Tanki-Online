@@ -8,7 +8,7 @@ export const garageButtons = (() => {
         BUY: "https://s.eu.tankionline.com/static/images/buyButtonIcon.ca48e861.svg"
     };
 
-    const processedSigs = new WeakMap();
+    const processedSigs = new WeakMap<Element, string>();
 
     function getActiveTabCategory() {
         const activeMenu = document.querySelector(gameDOM.navigation.activeGarageCategory);
@@ -24,7 +24,7 @@ export const garageButtons = (() => {
         return 'default';
     }
 
-    function computeButtonSig(btn, category) {
+    function computeButtonSig(btn: Element, category: ReturnType<typeof getActiveTabCategory>) {
         const text = (btn.textContent || '').trim().slice(0, 80);
         const kidCount = btn.children.length;
         const hasIcon = btn.querySelector(gameDOM.common.icon) ? 1 : 0;
@@ -100,14 +100,14 @@ export const garageButtons = (() => {
                 btn.classList.remove('kasp-active-btn');
             }
 
-            const iconDiv = btn.querySelector(gameDOM.common.icon);
+            const iconDiv = btn.querySelector<HTMLElement>(gameDOM.common.icon);
             if (iconDiv) {
                 applyMask(iconDiv, targetIcon, iconColor);
             }
         });
     }
 
-    function applyMask(element, url, color) {
+    function applyMask(element: HTMLElement, url: string, color: string) {
         element.style.setProperty('background-image', 'none', 'important');
         element.style.setProperty('background-color', color, 'important');
         element.style.setProperty('-webkit-mask-image', `url("${url}")`, 'important');

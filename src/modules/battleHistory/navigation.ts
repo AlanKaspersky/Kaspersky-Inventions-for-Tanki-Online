@@ -64,7 +64,7 @@ export function createHistoryNavigation(options: NavigationOptions) {
         overlay.innerHTML = `
         <div class="kasp-loader-logo"></div>
         <div class="kasp-loader-bar">
-            <span class="kasp-loader-text">Loading</span>
+            <span class="kasp-loader-text">${getHistoryDictionary(state.lang).loading}</span>
             <div class="kasp-loader-progress"></div>
         </div>
     `;

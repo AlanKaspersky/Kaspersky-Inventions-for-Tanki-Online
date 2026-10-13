@@ -1,21 +1,35 @@
 {
   "name": "Kaspersky's Inventions",
-  "version": "2.9.3",
+  "version": "2.9.4",
   "description": "Browser extension for Kaspersky's Inventions",
   "private": true,
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "parse:client": "node tools/client-parser.cjs",
+    "prepare:overdrive": "node tools/prepare-overdrive.cjs",
+    "prepare:arcade": "node tools/prepare-arcade.cjs",
     "build:js": "esbuild src/kasp_main.ts src/kasp_injector.ts --bundle --format=iife --target=chrome100 --outdir=dist",
     "build:zip": "node tools/build-release.js",
     "build": "npm run typecheck && npm run build:js && npm run build:zip",
     "release": "npm run build",
-    "watch": "esbuild src/kasp_main.ts src/kasp_injector.ts --bundle --format=iife --target=chrome100 --outdir=dist --watch"
+    "watch": "esbuild src/kasp_main.ts src/kasp_injector.ts --bundle --format=iife --target=chrome100 --outdir=dist --watch",
+    "prepare:augments": "node tools/prepare-augments.cjs",
+    "prepare:garage-details": "node tools/prepare-garage-details.cjs",
+    "prepare:garage-items": "node tools/prepare-garage-items.cjs",
+    "prepare:garage-inventory": "node tools/prepare-garage-inventory.cjs",
+    "prepare:battle-presence": "node tools/prepare-battle-presence.cjs",
+    "prepare:battle-statistics": "node tools/prepare-battle-statistics.cjs",
+    "prepare:user-action": "node tools/prepare-user-action.cjs",
+    "prepare:critical": "node tools/prepare-critical.cjs"
   },
   "author": "Alan Kaspersky",
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
     "@types/chrome": "^0.3.0",
+    "acorn": "^8.19.0",
+    "acorn-walk": "^8.3.5",
+    "astring": "^1.9.0",
     "esbuild": "^0.28.2",
     "typescript": "^7.0.2"
   }

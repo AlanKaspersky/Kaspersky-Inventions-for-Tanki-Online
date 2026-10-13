@@ -1,41 +1,77 @@
-type InventorySchema = Record<string, string>;
+import { clientSourceHash, resolveTemplateEdits, validatePatchEdits } from './clientPatches';
+import type { PreparedPatchPlan } from './clientPatches';
 
-const escapePattern = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+export interface GarageInventoryHookStatus {
+    hooked: boolean;
+    ready: boolean;
+    strategy: 'ast-plan' | 'ast-template';
+    issues: string[];
+}
+export interface GarageInventoryPatchPlan extends PreparedPatchPlan {
+    format: 'ki-garage-inventory-ast-v1';
+    status: GarageInventoryHookStatus;
+    schema: InventorySchema;
+    schemaToken: string;
+}
+export type InventorySchema = Record<string, string>;
+const SCHEMA_TOKEN = '/*ki-inventory-schema:v1*/null';
+const MARKER = '/*ki-garage-inventory-ast:v1:';
+const unavailable = (issue: string): GarageInventoryHookStatus => ({ hooked: false, ready: false, strategy: 'ast-plan', issues: [issue] });
 
-export function patchGarageInventoryDiagnostics(code: string): string {
-    if (code.includes('window.__kaspGarageInventoryCapture(')) return code;
-    const state = /([\w$]+)\(([\w$]+)\)\.toString=function\(\)\{return\s*"GarageItemsState\(/.exec(code);
-    const item = /[\w$]+\(([\w$]+)\)\.toString=function\(\)\{return\s*"GarageItem\(/.exec(code);
-    if (!state || !item) return code;
-    const statePrefix = `${escapePattern(state[1])}\\(${escapePattern(state[2])}\\)`;
-    const flat = new RegExp(`${statePrefix}\\.[\\w$]+=function\\(\\)\\{return this\\.([\\w$]+)\\.b3\\(\\)\\}`).exec(code)?.[1];
-    if (!flat) return code;
-    const body = code.slice(item.index, code.indexOf('}', item.index));
-    const schema: InventorySchema = {};
-    for (const label of ['id', 'name', 'category', 'viewCategory', 'description', 'preview', 'owned', 'buyable', 'visible', 'secret']) {
-        const field = new RegExp(`"[^"\\r\\n]*\\b${label}="\\+\\s*(?:[\\w$]+\\()?this\\.([\\w$]+)`).exec(body)?.[1];
-        if (field) schema[label] = field;
-    }
-    if (!['id', 'name', 'owned', 'visible', 'secret'].every(label => schema[label])) return code;
-    if (schema.preview) {
-        const imageMethod = new RegExp(`:[\\w$]+\\.${escapePattern(schema.preview)}\\.([\\w$]+)\\(\\)`).exec(code)?.[1];
-        if (imageMethod) schema.imageMethod = imageMethod;
-    }
-    const constructor = new RegExp(`function ${escapePattern(state[2])}\\(t\\)\\{[\\s\\S]{0,6000}?\\}function `).exec(code);
-    if (!constructor) return code;
-    const assignment = new RegExp(`this\\.${escapePattern(flat)}=[\\w$]+;`).exec(constructor[0]);
-    if (!assignment) return code;
-    const offset = constructor.index + assignment.index + assignment[0].length;
-    const hook = `try{window.__kaspGarageInventoryCapture(this.${flat},${JSON.stringify(schema)})}catch(__kaspIgnored){};`;
-    return code.slice(0, offset) + hook + code.slice(offset);
+/** Native inventory fields and collection methods are discovered offline. */
+export async function selectGarageInventoryPlan(code: string, plans: readonly GarageInventoryPatchPlan[]): Promise<GarageInventoryPatchPlan | undefined> {
+    const candidates = plans.filter(plan => plan.format === 'ki-garage-inventory-ast-v1' && plan.status.ready && plan.sourceLength === code.length);
+    if (candidates.length) try {
+        const hash = await clientSourceHash(code);
+        const exact = candidates.find(plan => plan.sha256 === hash);
+        if (exact) return exact;
+    } catch { }
+    for (const plan of [...plans].reverse()) try {
+        if (plan.format !== 'ki-garage-inventory-ast-v1' || !plan.status.ready) continue;
+        const adapted = resolveTemplateEdits(code, plan);
+        if (!adapted) continue;
+        if (plan.schemaToken !== SCHEMA_TOKEN) continue;
+        const schema: InventorySchema = {};
+        let valid = true;
+        for (const key of Object.keys(plan.schema)) {
+            const value = adapted.roles.get(key);
+            if (!value || !/^[$A-Z_a-z][$\w]*$/.test(value)) { valid = false; break; }
+            schema[key] = value;
+        }
+        if (!valid || !['id', 'name', 'owned', 'visible', 'secret', 'valuesMethod', 'iteratorMethod', 'hasNextMethod', 'nextMethod'].every(key => schema[key])) continue;
+        if (adapted.edits.reduce((count, edit) => count + edit.text.split(SCHEMA_TOKEN).length - 1, 0) !== 1) continue;
+        const status: GarageInventoryHookStatus = { ...plan.status, strategy: 'ast-template' };
+        const edits = adapted.edits.map(edit => ({ ...edit, text: edit.text.replace(SCHEMA_TOKEN, JSON.stringify(schema)) }));
+        edits.unshift({ start: 0, end: 0, expected: '', before: '', after: code.slice(0, 24), text: MARKER + JSON.stringify(status) + '*/\n' });
+        return { ...plan, sourceLength: code.length, sha256: '', schema, status, edits };
+    } catch { }
+    return undefined;
+}
+
+/** Validate the complete native contract before modifying any native inventory initialization. */
+export function patchGarageInventoryDiagnostics(code: string, report?: (status: GarageInventoryHookStatus) => void, plan?: GarageInventoryPatchPlan): string {
+    const done = (result: string, status: GarageInventoryHookStatus) => { try { report?.(status); } catch { } return result; };
+    if (code.includes(MARKER)) return done(code, plan?.status || { hooked: true, ready: true, strategy: 'ast-plan', issues: [] });
+    if (!plan) return done(code, unavailable('garage-inventory-mapping-unavailable'));
+    if (plan.format !== 'ki-garage-inventory-ast-v1' || !plan.status.ready) return done(code, plan.status);
+    if (!validatePatchEdits(code, plan)) return done(code, unavailable('garage-inventory-edit-mismatch'));
+    let patched = code;
+    for (const edit of [...plan.edits].reverse()) patched = patched.slice(0, edit.start) + edit.text + patched.slice(edit.end);
+    return done(patched, plan.status);
 }
 
 export function installGarageInventoryDiagnostics(target: Window): void {
-    let inventory: { b3(): { t(): { u(): boolean; v(): Record<string, unknown> } } } | null = null;
+    let inventory: unknown = null;
     let schema: InventorySchema = {};
     const bridge = target as Window & {
         __kaspGarageInventoryCapture?: (value: typeof inventory, fields: InventorySchema) => void;
         __kaspGarageInventoryDebug?: () => object;
+    };
+    const call = (object: unknown, name: string): unknown => {
+        if (!object || typeof object !== 'object' || !name) throw new Error('Native inventory collection is unavailable.');
+        const method = (object as Record<string, unknown>)[name];
+        if (typeof method !== 'function') throw new Error('Native inventory collection method is unavailable: ' + name);
+        return method.call(object);
     };
     bridge.__kaspGarageInventoryCapture = (value, fields) => { inventory = value; schema = fields; };
     bridge.__kaspGarageInventoryDebug = () => {
@@ -44,10 +80,10 @@ export function installGarageInventoryDiagnostics(target: Window): void {
         try {
             const rendered = new Set(Array.from(target.document.querySelectorAll('[garage_item_id]'))
                 .map(element => element.getAttribute('garage_item_id')));
-            const iterator = inventory.b3().t();
-            while (iterator.u()) {
+            const iterator = call(call(inventory, schema.valuesMethod), schema.iteratorMethod);
+            while (call(iterator, schema.hasNextMethod)) {
                 if (items.length >= 20000) throw new Error('Inventory exceeds diagnostic limit.');
-                const source = iterator.v();
+                const source = call(iterator, schema.nextMethod) as Record<string, unknown>;
                 const row: Record<string, unknown> = {};
                 for (const label of ['id', 'name', 'category', 'viewCategory', 'description', 'owned', 'buyable', 'visible', 'secret']) {
                     const value = source[schema[label]];

@@ -275,7 +275,7 @@ export const autoUpgrade = (() => {
         document.addEventListener('keyup', onKeyUp, true);
     }
 
-    function performAction(count) {
+    function performAction(count: number) {
         if (isRunning) return;
         if (!shouldShowQuickButtons()) return;
 

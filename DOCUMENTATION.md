@@ -2,7 +2,7 @@
 
 ## Complete Implementation Reference
 
-**Extension version:** 2.9.3 (`manifest.json`)
+**Extension version:** 2.9.4 (`manifest.json`)
 
 **Documentation updated:** October 6, 2026
 
@@ -1478,18 +1478,21 @@ Sources: [package.json](package.json), [tsconfig.json](tsconfig.json), [manifest
 
 ### Type Checking and Bundling
 
-TypeScript targets ES2020, uses ESNext modules and Bundler resolution, includes browser-extension types, sets `noEmit`, and currently has `strict: false` and `skipLibCheck: true`. Type checking is therefore a useful check, not a guarantee of exhaustive runtime validation.
+TypeScript targets ES2020, uses ESNext modules and Bundler resolution, includes browser-extension types, and sets `noEmit`, `strict: true` and `skipLibCheck: true`. Strict checking covers implicit `any`, nullable values and function compatibility in project sources. Existing explicit `any` annotations and assertions at external-data boundaries still require runtime validation where appropriate.
 
 esbuild consumes `src/kasp_main.ts` and `src/kasp_injector.ts`, bundles imports, outputs IIFEs to `dist/`, and targets `chrome100`. No source maps or declarations are produced through the current configured workflow.
 
 | npm command | Implementation |
 | --- | --- |
 | `typecheck` | `tsc --noEmit` |
+| `parse:client` | Development-only Acorn CLI in `tools/client-parser.cjs`; local JS input, optional JSON AST export |
 | `build:js` | esbuild both entry points with bundle/IIFE/Chrome target flags |
 | `build:zip` | Execute the Node release script |
 | `build` | Type check → bundle → package |
 | `release` | Invoke `build` |
 | `watch` | Watch/rebundle both entries; no separate typecheck/package step |
+
+`npm run parse:client -- <main.js> [--module] [--ast <output.json>]` parses a local file with Acorn (`ecmaVersion: latest`, source locations enabled). It never evaluates the input. The default source type is `script`; modules are opt-in. Syntax and file errors return a nonzero exit code. The summary records byte size and SHA-256 of the original file. JSON AST preserves BigInt literals through the ESTree `bigint`/`raw` fields, using null for non-JSON BigInt values. Existing outputs are not overwritten. No extension module imports the parser; neither tooling, generated root-level AST files nor the `archived` directory is part of the release packager's copied directory list. Existing bundle interceptors remain unchanged at this stage.
 
 For a source change, the ordinary verification/build sequence is:
 
@@ -1503,7 +1506,7 @@ The build does not invoke regression tests automatically. Reload the extension a
 
 ### Dependency Metadata
 
-The current manifest, package, and lockfile package versions are 2.9.3. Package and lockfile-root dependency ranges agree: `@types/chrome` `^0.3.0`, esbuild `^0.28.2`, and TypeScript `^7.0.2`.
+The current manifest, package, and lockfile package versions are 2.9.4. Package and lockfile-root dependency ranges agree: `@types/chrome` `^0.3.0`, esbuild `^0.28.2`, and TypeScript `^7.0.2`.
 
 Use `npm ci` to install the locked dependency graph. Dependency changes should update the manifest and lockfile together; `npm install` can rewrite the lockfile. The project does not declare a Node `engines` field; tooling requires APIs such as `fs.cpSync` and the built-in Node test runner.
 
@@ -1522,7 +1525,7 @@ Use `npm ci` to install the locked dependency graph. Dependency changes should u
 
 Configured directories are `dist`, `styles`, `assets`, `database`, `_locales`, and `templates`. Configured root files are `manifest.json` and `LICENSE.txt`.
 
-For 2.9.3, the folder and archive names are `release/Kaspersky's Inventions 2.9.3/` and `release/Kaspersky's Inventions 2.9.3.zip`. The ZIP contains that outer versioned folder.
+For 2.9.4, the folder and archive names are `release/Kaspersky's Inventions 2.9.4/` and `release/Kaspersky's Inventions 2.9.4.zip`. The ZIP contains that outer versioned folder.
 
 The script removes the existing same-version output before recreating it. It throws if no directory or no root file was copied, but does not require every configured input to exist. `build:zip` can package stale bundles or partial resources if invoked without appropriate preparation.
 
@@ -1627,4 +1630,4 @@ Project use and distribution are governed by [LICENSE.txt](LICENSE.txt), which c
 
 ---
 
-Technical documentation aligned with the source implementation and manifest version **2.9.3**, updated **October 5, 2026**.
+Technical documentation aligned with the source implementation and manifest version **2.9.4**, updated **October 5, 2026**.

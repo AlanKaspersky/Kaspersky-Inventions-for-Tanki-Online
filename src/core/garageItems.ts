@@ -1,38 +1,49 @@
-export function patchUnavailableGarageItems(code: string): string {
-    if (code.includes('function __kaspShowUnavailableGarageItems()')) return code;
-    const styleClass = /[\w$]+\(([\w$]+),"GarageItemComponentStyle",/.exec(code)?.[1];
-    if (!styleClass) return code;
-    const imageStyle = new RegExp(`[\\w$]+\\(${styleClass}\\)\\.([\\w$]+)=function\\(\\)\\{[^{}]{0,250}"mainImg"`).exec(code)?.[1];
-    const filterSetter = /\.([\w$]+)\("filter",/.exec(code)?.[1];
-    if (!imageStyle || !filterSetter) return code;
-    const enabled = '__kaspShowUnavailableGarageItems()';
-    let unknownMethod: string | undefined;
-    let changed = false;
-    let patched = code.replace(/function [\w$]+\(t,n\)\{var [\s\S]{0,2200}?n\.cap\([\w$]+\.c9l\(\)\)\}/g, block => {
-        const image = new RegExp(`([\\w$]+)\\.jp8\\([\\w$]+\\(\\)\\.${imageStyle}\\(\\)\\)`).exec(block);
-        if (!image) return block;
-        const placeholder = /(([\w$]+)\.([\w$]+)\(\)&&!t\.[\w$]+\.[\w$]+\.[\w$]+\.equals\([\w$]+\(\)\))\?([\w$]+):\2\.[\w$]+\.[\w$]+\(\)/.exec(block);
-        if (!placeholder) return block;
-        unknownMethod = placeholder[3]; changed = true;
-        return block.split(placeholder[1]).join(`(${placeholder[1]})&&!${enabled}`)
-            .replace(image[0], `${image[0]},${placeholder[2]}.${placeholder[3]}()&&${enabled}&&${image[1]}.${filterSetter}("filter","grayscale(1)")`);
-    });
-    if (!changed || !unknownMethod) return code;
-    const marker = patched.indexOf('setAttribute("garage_item_id"');
-    if (marker >= 0) {
-        const headers = [...patched.slice(Math.max(0, marker - 1600), marker)
-            .matchAll(/([\w$]+)\(([\w$]+)\)\.[\w$]+=function\(t\)\{/g)];
-        const header = headers[headers.length - 1];
-        if (header) {
-            const start = Math.max(0, marker - 1600) + header.index!;
-            const end = patched.indexOf(`},${header[1]}(`, marker);
-            if (end > start && end - start < 14000) {
-                const block = patched.slice(start, end);
-                const label = new RegExp(`([\\w$]+)\\.${unknownMethod}\\(\\)\\|\\|t\\.([\\w$]+)\\(\\1\\.([\\w$]+)\\)`, 'g');
-                const replacement = block.replace(label, `(!$1.${unknownMethod}()||${enabled})&&t.$2($1.$3)`);
-                patched = patched.slice(0, start) + replacement + patched.slice(end);
-            }
-        }
-    }
-    return `function __kaspShowUnavailableGarageItems(){try{return localStorage.getItem('k_augments')==='true'}catch(e){return false}}\n${patched}`;
+import { clientSourceHash, resolveTemplateEdits, validatePatchEdits } from './clientPatches';
+import type { PreparedPatchPlan } from './clientPatches';
+
+export interface GarageItemsHookStatus {
+    hooked: boolean;
+    ready: boolean;
+    strategy: 'ast-plan' | 'ast-template';
+    issues: string[];
+    imagePanels?: number;
+    labelPanels?: number;
+}
+export interface GarageItemsPatchPlan extends PreparedPatchPlan {
+    format: 'ki-garage-items-ast-v1';
+    status: GarageItemsHookStatus;
+}
+const MARKER = '/*ki-garage-items-ast:v1:';
+const unavailable = (issue: string): GarageItemsHookStatus => ({ hooked: false, ready: false, strategy: 'ast-plan', issues: [issue] });
+
+/** Native panels are discovered offline. Compatible unknown builds use prepared templates. */
+export async function selectGarageItemsPlan(code: string, plans: readonly GarageItemsPatchPlan[]): Promise<GarageItemsPatchPlan | undefined> {
+    const candidates = plans.filter(plan => plan.format === 'ki-garage-items-ast-v1' && plan.status.ready && plan.sourceLength === code.length);
+    if (candidates.length) try {
+        const hash = await clientSourceHash(code);
+        const exact = candidates.find(plan => plan.sha256 === hash);
+        if (exact) return exact;
+    } catch { }
+    for (const plan of [...plans].reverse()) try {
+        if (plan.format !== 'ki-garage-items-ast-v1' || !plan.status.ready) continue;
+        const adapted = resolveTemplateEdits(code, plan);
+        if (!adapted) continue;
+        const status: GarageItemsHookStatus = { ...plan.status, strategy: 'ast-template' };
+        const edits = adapted.edits;
+        edits.unshift({ start: 0, end: 0, expected: '', before: '', after: code.slice(0, 24), text: MARKER + JSON.stringify(status) + '*/\n' });
+        return { ...plan, sourceLength: code.length, sha256: '', status, edits };
+    } catch { }
+    return undefined;
+}
+
+/** Validate the complete native contract before modifying any image or label branch. */
+export function patchUnavailableGarageItems(code: string, report?: (status: GarageItemsHookStatus) => void, plan?: GarageItemsPatchPlan): string {
+    const done = (result: string, status: GarageItemsHookStatus) => { try { report?.(status); } catch { } return result; };
+    if (code.includes(MARKER)) return done(code, plan?.status || { hooked: true, ready: true, strategy: 'ast-plan', issues: [] });
+    if (!plan) return done(code, unavailable('garage-items-mapping-unavailable'));
+    if (plan.format !== 'ki-garage-items-ast-v1' || !plan.status.ready) return done(code, plan.status);
+    if (!validatePatchEdits(code, plan)) return done(code, unavailable('garage-items-edit-mismatch'));
+    let patched = code;
+    for (const edit of [...plan.edits].reverse()) patched = patched.slice(0, edit.start) + edit.text + patched.slice(edit.end);
+    return done(patched, plan.status);
 }

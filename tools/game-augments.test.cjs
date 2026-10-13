@@ -11,13 +11,17 @@ function load(file, globals = {}, cache = new Map()) {
     const module = { exports: {} };
     cache.set(absolute, module.exports);
     vm.runInNewContext(transformSync(fs.readFileSync(absolute, 'utf8'), { loader: 'ts', format: 'cjs' }).code, {
-        module, exports: module.exports, URL, Map, Set, console, ...globals,
+        module, exports: module.exports, URL, Map, Set, Event, console, ...globals,
         require: name => load(path.relative(root, path.resolve(path.dirname(absolute), name + '.ts')), globals, cache),
     });
     cache.set(absolute, module.exports);
     return module.exports;
 }
-const game = load('src/core/gameAugments.ts');
+const { analyzeAugments } = require('./augments-ast.cjs');
+const runtimeGame = load('src/core/gameAugments.ts', { crypto: require('crypto').webcrypto, TextEncoder });
+const game = { ...runtimeGame,
+    discoverAugmentSchema: code => { const plan=analyzeAugments(code); return plan.status.ready ? plan.schema : null; },
+    patchGameAugments: code => runtimeGame.patchGameAugments(code, undefined, analyzeAugments(code)) };
 const catalog = load('src/core/augmentCatalog.ts');
 const labels = load('src/core/augmentLabels.ts');
 const rules = load('src/core/augmentRules.ts');
@@ -33,6 +37,8 @@ ke(jh).toString=function(){var t="DevicePropertyEntity [";return (t=(t=(t=t+"ope
 ke(desc).toString=function(){var t="DescriptionModelCC [";return (t=(t=t+"description = "+this.idd_1+" ")+"name = "+this.jdd_1+" ")+"]"};
 ke(dto).toString=function(){return "GarageDeviceObject(id="+this.urg_1.toString()+", baseItemId="+this.vrg_1.toString()+")"};
 function model(){this.l7j_1={s2a_1:new Map}}
+ke(model).p57=function(){return this.modelId};
+ke(model).read=function(t){var n=this.l7j_1.s2a_1.get(t);if(null==n)throw Error("No data for "+t+" context: ");return n};
 ke(model).r7i=function(t,n){this.l7j_1.s2a_1.set(t,n)};
 function upgrade(){} function upgradeData(){} function group(){} function base(){}
 ke(upgrade).och=function(){var t=this.mch_1;if(t!=null)return t;throw Error('missing')};
@@ -43,7 +49,7 @@ ke(group).ocb=function(){var t=this.tch_1;if(t!=null)return t;throw Error('missi
 ke(group).toString=function(){var t="GaragePropertyParams [";return t+"properties = "+iu(this.ocb())};
 ke(base).toString=function(){var t="PropertyData [";return t+"finalValue = "+this.xch_1+" initialValue = "+this.ych_1+" property = "+this.zch_1.toString()};
 `;
-const schema = { properties: 'ncb_1', operation: 'rcb_1', property: 'scb_1', value: 'tcb_1',
+const schema = { objectIdMethod: 'p57', properties: 'ncb_1', operation: 'rcb_1', property: 'scb_1', value: 'tcb_1',
     name: 'jdd_1', description: 'idd_1', deviceId: 'urg_1', baseItemId: 'vrg_1',
     upgradeLevel: 'lch_1', upgradeData: 'mch_1', upgradeGroups: 'fci_1', upgradeLevels: 'gci_1',
     groupProperties: 'tch_1', baseProperty: 'zch_1', baseInitial: 'ych_1', baseFinal: 'xch_1' };
@@ -172,8 +178,7 @@ test('patch preserves model cache writes and constructor behavior even when brid
     assert.equal(dto.urg_1, 'id');
     assert.equal(dto.vrg_1, 'base');
     assert.equal(game.patchGameAugments('unsupported bundle'), 'unsupported bundle');
-    assert.equal(game.patchGameAugments(fixture + 'ke(other).r7i=function(t,n){this.x.y.set(t,n)}'),
-        fixture + 'ke(other).r7i=function(t,n){this.x.y.set(t,n)}');
+    assert.ok(game.patchGameAugments(fixture + 'ke(other).r7i=function(t,n){this.x.y.set(t,n)}').includes('ke(other).r7i=function(t,n){this.x.y.set(t,n)}'));
 });
 
 test('parses empty and populated native collections without retaining native references', () => {
@@ -187,8 +192,7 @@ test('parses empty and populated native collections without retaining native ref
 });
 
 test('renamed model methods are discovered by context and unrelated map writers stay untouched', () => {
-    const source = fixture.replace('ke(model).r7i=',
-        'ke(model).pop=function(){throw Error("No objects in stack")};ke(model).x57=function(){return this.modelId};ke(model).v7j=') +
+    const source = fixture.replace('ke(model).p57=', 'ke(model).x57=').replace('ke(model).r7i=', 'ke(model).v7j=') +
         'function other(){this.a={b:new Map}};ke(other).z7j=function(t,n){this.a.b.set(t,n)};';
     for (const code of [source, transformSync(source, { minifyWhitespace: true }).code]) {
         assert.equal(game.discoverAugmentSchema(code).objectIdMethod, 'x57');
@@ -204,7 +208,7 @@ test('renamed model methods are discovered by context and unrelated map writers 
         assert.equal(observed.length, 1);
         assert.equal(observed[0][0], object);
     }
-    const ambiguous = source + 'ke(other).pop=function(){throw Error("No objects in stack")};ke(other).x57=function(){return this.id};ke(other).newWriter=function(t,n){this.a.b.set(t,n)}';
+    const ambiguous = source + 'ke(other).read=function(t){throw Error("No data for "+t+" context: ")};ke(other).x57=function(){return this.id};ke(other).newWriter=function(t,n){this.a.b.set(t,n)}';
     assert.equal(game.patchGameAugments(ambiguous), ambiguous);
 });
 
@@ -370,7 +374,7 @@ test('disabled card binding has no DOM observer or polling and restarts without 
     assert.equal(timers.size, 1); assert.equal(starts, 2);
 });
 
-test('binding a recycled card triggers UI updates even when its shared artwork is already known', () => {
+test('late metadata binds mounted cards and native resets refresh the UI without republishing the catalog', () => {
     class Image {
         constructor() { this.attributes = new Map(); this.src = device().icons[0]; }
         getAttribute(key) { return this.attributes.get(key) || null; }
@@ -380,23 +384,30 @@ test('binding a recycled card triggers UI updates even when its shared artwork i
     }
     const image = new Image();
     image.__reactFiber$test = { memoizedProps: { id: long('1') } };
-    const frames = [], messages = [];
+    const frames = [], messages = [], events = [];
     let scan, observeCards;
     const page = { setTimeout: fn => frames.push(fn), setInterval: fn => { scan = fn; },
-        addEventListener() {}, postMessage: message => messages.push(message) };
+        addEventListener() {}, postMessage: message => messages.push(message), dispatchEvent: event => events.push(event.type) };
     const module = load('src/core/gameAugments.ts', { HTMLImageElement: Image,
         MutationObserver: class { constructor(callback) { observeCards = callback; } observe() {} },
         document: { body: {}, documentElement: { lang: 'en' }, querySelectorAll: () => [image] },
         localStorage: { getItem: key => key === 'k_augments' ? 'true' : 'en' } });
     module.installGameAugments(page);
     page.__kaspAugmentConfigure(schema);
+    observeCards([{ type: 'childList', addedNodes: [{ nodeType: 1, matches: () => true }] }]);
+    assert.equal(image.getAttribute('data-kasp-augment-id'), null, 'the game has not sent properties yet');
     for (const id of ['1', '2']) page.__kaspAugmentData({ p57: () => long(id) }, { ncb_1: list([]) });
     const flush = () => frames.splice(0).forEach(fn => fn());
-    observeCards([{ type: 'childList', addedNodes: [{ nodeType: 1, matches: () => true }] }]);
-    assert.equal(image.getAttribute('data-kasp-augment-id'), '1', 'new cards bind without waiting for the interval');
-    assert.equal(messages.at(-1).detail.devices[0].icons[0], image.src, 'appearance is published immediately');
     flush();
-    assert.equal(image.getAttribute('data-kasp-augment-id'), '1');
+    assert.equal(image.getAttribute('data-kasp-augment-id'), '1', 'late properties bind without a new DOM mutation or interval');
+    assert.equal(messages.at(-1).detail.devices[0].icons[0], image.src, 'the same snapshot includes card appearance');
+    const published = messages.length, revision = messages.at(-1).detail.revision;
+    events.length = 0;
+    observeCards([{ type: 'attributes', target: { matches: () => true } }]);
+    assert.deepEqual(events, [module.AUGMENT_CARDS_UPDATED]);
+    assert.equal(messages.length, published, 'an unchanged catalog does not need another full snapshot');
+    assert.equal(page.__kaspAugmentsDebug.status().revision, revision);
+    assert.equal(frames.length, 0);
     image.__reactFiber$test.memoizedProps.id = long('2');
     scan(); flush();
     image.__reactFiber$test.memoizedProps.id = long('1');
@@ -529,6 +540,8 @@ test('unavailable previews restore on native card changes, loading errors and mo
         querySelector(selector) { return this.children.find(node => '.' + node.className === selector); },
         appendChild(node) { node.parentElement = this; this.children.push(node); } };
     const data = { previewIcon: preview, name: 'Swarm launcher', rarity: 'LEGENDARY' };
+    let metadataReady = false;
+    const handlers = {};
     const attributes = { 'data-kasp-augment-id': '1' };
     let activeTab = 0;
     const tabs = [0, 1, 2].map(index => ({ classList: { contains: () => activeTab === index } }));
@@ -547,7 +560,7 @@ test('unavailable previews restore on native card changes, loading errors and mo
     const module = { exports: {} };
     vm.runInNewContext(transformSync(fs.readFileSync(path.join(root, 'src/modules/augmentSpecs.ts'), 'utf8'), { loader: 'ts', format: 'cjs' }).code,
         { module, exports: module.exports, document,
-            window: { getComputedStyle: () => ({ position: 'relative' }), addEventListener() {} },
+            window: { getComputedStyle: () => ({ position: 'relative' }), addEventListener: (name, fn) => { handlers[name] = fn; } },
             requestAnimationFrame: fn => frames.push(fn), queueMicrotask: fn => frames.push(fn), require: name => {
                 if (name.endsWith('/gameDOM')) return { gameDOM: dom };
                 if (name.endsWith('/state')) return { state: { lang: 'EN', currentScreen: 'garage' } };
@@ -556,16 +569,25 @@ test('unavailable previews restore on native card changes, loading errors and mo
                 if (name.endsWith('/gameAugments')) return game;
                 if (name.endsWith('/dataLoader')) return { DataLoader: {
                     hasDevice: () => !!attributes['data-kasp-augment-id'],
-                    getDevice: () => attributes['data-kasp-augment-id'] ? data : undefined } };
+                    getDevice: () => metadataReady && attributes['data-kasp-augment-id'] ? data : undefined } };
                 throw Error(name);
             } });
     const update = () => { module.exports.augmentSpecs(); frames.splice(0).forEach(fn => fn()); };
-    update(); assert.equal(image.src, preview); assert.ok(classes.has('kasp-unavailable-device-preview'));
+    update(); assert.equal(image.src, placeholder, 'unknown metadata keeps the native placeholder');
+    assert.equal(card.children.length, 0);
+    metadataReady = true;
+    handlers.updated(); frames.splice(0).forEach(fn => fn());
+    assert.equal(image.src, preview, 'late metadata fills the open card without another visit');
+    assert.ok(classes.has('kasp-unavailable-device-preview'));
     assert.ok(cardClasses.has('kasp-unavailable-device-card'));
     assert.equal(card.querySelector('.kasp-unavailable-device-name').textContent, data.name);
     assert.match(card.querySelector('.kasp-unavailable-device-rarity').style.backgroundImage, /legendary_icon/);
     const title = card.querySelector('.kasp-unavailable-device-name');
     update(); assert.equal(card.querySelector('.kasp-unavailable-device-name'), title, 'unchanged updates preserve decorations');
+    image.src = placeholder;
+    handlers[game.AUGMENT_CARDS_UPDATED](); frames.splice(0).forEach(fn => fn());
+    assert.equal(image.src, preview, 'a native attribute-only reset restores the same item preview');
+    assert.equal(card.querySelector('.kasp-unavailable-device-name'), title);
     cardClasses.clear(); update();
     assert.ok(cardClasses.has('kasp-unavailable-device-card'), 'selection overwriting className restores unavailable styling');
     assert.equal(card.querySelector('.kasp-unavailable-device-name'), title);
@@ -588,7 +610,8 @@ test('unavailable previews restore on native card changes, loading errors and mo
     activeTab = 1;
     Object.assign(attributes, { 'data-kasp-cosmetic-id': '20', 'data-kasp-cosmetic-name': 'Twins XT skin',
         'data-kasp-cosmetic-preview': preview + '?skin', 'data-kasp-cosmetic-section': 'skins' });
-    update(); assert.equal(image.src, preview + '?skin');
+    handlers[game.AUGMENT_CARDS_UPDATED](); frames.splice(0).forEach(fn => fn());
+    assert.equal(image.src, preview + '?skin', 'a late skin binding fills the current tab without another visit');
     assert.equal(Object.hasOwn(attributes, 'data-kasp-preview-failed'), false, 'a new preview clears the previous failure marker');
     assert.equal(card.querySelector('.kasp-unavailable-cosmetic-name').textContent, 'Twins XT skin');
     assert.equal(card.querySelector('.kasp-unavailable-device-gradient'), undefined);

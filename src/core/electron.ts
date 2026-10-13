@@ -6,7 +6,7 @@ export function isElectronClient(): boolean {
 
 export function setupElectronZKey() {
     if (!isElectronClient()) return;
-    const dispatchZKey = (type) => {
+    const dispatchZKey = (type: 'keydown' | 'keyup') => {
         const event = new KeyboardEvent(type, {
             key: 'z',
             code: 'KeyZ',

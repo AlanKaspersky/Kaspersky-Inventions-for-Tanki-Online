@@ -1,16 +1,44 @@
-import { BONUS_PICKUP_MESSAGE, createBonusDiagnostics, createBonusPickupBridge, patchBonusPickups } from './core/bonusPickup';
-import { ArcadeReloadHookStatus, patchArcadeReload } from './core/arcadeReload';
-import { installGameAugments, patchGameAugments } from './core/gameAugments';
-import { patchUnavailableGarageDetails } from './core/garageDetails';
-import { patchUnavailableGarageItems } from './core/garageItems';
-import { installGarageInventoryDiagnostics, patchGarageInventoryDiagnostics } from './core/garageInventory';
-import { installBattlePresence, patchBattlePresence, patchBattleCapacity, readBattleKind } from './core/battlePresence';
+import { BONUS_PICKUP_MESSAGE, createBonusDiagnostics, createBonusPickupBridge, patchBonusPickups, registerBonusType, selectBonusPatchPlan } from './core/bonusPickup';
+import type { BonusPatchPlan } from './core/bonusPickup';
+import overdrivePlans from './generated/overdrive.json';
+import { ArcadeReloadHookStatus, patchArcadeReload, selectArcadeReloadPlan } from './core/arcadeReload';
+import type { ArcadeReloadPatchPlan } from './core/arcadeReload';
+import { mergeClientPatchPlans, releaseClientPatchContext } from './core/clientPatches';
+import type { PreparedPatchPlan } from './core/clientPatches';
+import arcadePlans from './generated/arcade.json';
+import { installGameAugments, patchGameAugments, selectGameAugmentsPlan } from './core/gameAugments';
+import type { AugmentPatchPlan, AugmentHookStatus } from './core/gameAugments';
+import augmentPlans from './generated/augments.json';
+import { patchUnavailableGarageDetails, selectGarageDetailsPlan } from './core/garageDetails';
+import type { GarageDetailsPatchPlan, GarageDetailsHookStatus } from './core/garageDetails';
+import garageDetailsPlans from './generated/garage-details.json';
+import { patchUnavailableGarageItems, selectGarageItemsPlan } from './core/garageItems';
+import type { GarageItemsPatchPlan, GarageItemsHookStatus } from './core/garageItems';
+import garageItemsPlans from './generated/garage-items.json';
+import { installGarageInventoryDiagnostics, patchGarageInventoryDiagnostics, selectGarageInventoryPlan } from './core/garageInventory';
+import type { GarageInventoryPatchPlan, GarageInventoryHookStatus } from './core/garageInventory';
+import garageInventoryPlans from './generated/garage-inventory.json';
+import { installBattlePresence, patchBattlePresence, selectBattlePresencePlan } from './core/battlePresence';
+import type { BattlePresencePatchPlan, BattlePresenceHookStatus } from './core/battlePresence';
+import battlePresencePlans from './generated/battle-presence.json';
+import { installBattleStatistics, patchBattleStatistics, selectBattleStatisticsPlan } from './core/battleStatistics';
+import type { BattleStatisticsPatchPlan, BattleStatisticsHookStatus } from './core/battleStatistics';
+import battleStatisticsPlans from './generated/battle-statistics.json';
+import { installUserActions, patchUserActions, selectUserActionPlan } from './core/userActions';
+import type { UserActionPatchPlan, UserActionHookStatus } from './core/userActions';
+import userActionPlans from './generated/user-action.json';
+import { installCriticalIndicator, patchCriticalIndicator, selectCriticalPlan } from './core/criticalIndicator';
+import type { CriticalPatchPlan, CriticalHookStatus } from './core/criticalIndicator';
+import criticalPlans from './generated/critical.json';
 
 (function (): void {
     'use strict';
 
     installGameAugments(window);
+    installCriticalIndicator(window);
     installBattlePresence(window);
+    installBattleStatistics(window);
+    installUserActions(window);
     installGarageInventoryDiagnostics(window);
 
     let arcadeHookStatus: ArcadeReloadHookStatus = { hooked: false, issues: ['pending'] };
@@ -18,6 +46,9 @@ import { installBattlePresence, patchBattlePresence, patchBattleCapacity, readBa
     let arcadeSample: import('./core/arcadeReload').ArcadeReloadSample | null = null;
     let arcadeUpdates = 0;
     window.__kaspArcadeReloadDebug = {
+        setEnabled(value): void {
+            try { localStorage.setItem('kasp_arcade_reload_enabled', String(value)); } catch { }
+        },
         status: () => ({ ...arcadeHookStatus, issues: [...arcadeHookStatus.issues], error: arcadeError,
             updates: arcadeUpdates, sample: arcadeSample && { ...arcadeSample } }),
         observe(sample): void {
@@ -53,103 +84,7 @@ import { installBattlePresence, patchBattlePresence, patchBattleCapacity, readBa
     window.__kaspBonusPrepare = bonusBridge.prepare;
     window.__kaspBonusRegister = bonusBridge.register;
     window.__kaspBonusContext = bonusBridge.context;
-
-    const KNOWN_MODES = new Set<string>([
-        'DM', 'TDM', 'CTF', 'CP', 'SGE',
-        'RGB', 'JGR', 'TJR', 'ASL', 'AR'
-    ]);
-
-    (window as any).__kaspSendAction = function (className: string, obj: any): void {
-        try {
-            let res: string[] = [className];
-            let seen = new Set<any>();
-
-            function safeWalk(o: any, depth: number) {
-                if (depth > 2 || !o || typeof o !== 'object' || seen.has(o)) return;
-                seen.add(o);
-
-                let keys: string[] = [];
-                try {
-                    keys = Object.keys(o);
-                } catch (e) {
-                    return;
-                }
-
-                for (let i = 0; i < keys.length; i++) {
-                    let k = keys[i];
-                    let v: any;
-                    try {
-                        v = o[k];
-                    } catch (e) {
-                        continue;
-                    }
-
-                    if (v != null) {
-                        if (typeof v === 'string' || typeof v === 'number') {
-                            let strVal = String(v).trim();
-                            if (strVal && strVal.length >= 2 && strVal.length < 30) {
-                                res.push(strVal);
-                            }
-                        } else if (typeof v === 'object' && depth < 2) {
-                            safeWalk(v, depth + 1);
-                        }
-                    }
-                }
-            }
-
-            safeWalk(obj, 0);
-            window.postMessage({ type: 'kasp:useraction', detail: res }, '*');
-        } catch (e) { }
-    };
-
-    (window as any).__kaspBattleStats = function (obj: any): void {
-        try {
-            if (!obj || typeof obj !== 'object') return;
-
-            let keys: string[];
-            try {
-                keys = Object.keys(obj);
-            } catch (e) {
-                return;
-            }
-
-            let mode: string | null = null;
-            const kind = readBattleKind(obj);
-
-            for (let i = 0; i < keys.length; i++) {
-                let v: any;
-                try {
-                    v = obj[keys[i]];
-                } catch (e) {
-                    continue;
-                }
-                if (typeof v !== 'string') continue;
-
-                const trimmed = v.trim();
-                if (!trimmed) continue;
-                const upper = trimmed.toUpperCase();
-
-                if (!mode) {
-                    if (KNOWN_MODES.has(upper)) {
-                        mode = upper;
-                    } else {
-                        const m = /\s+([A-Z]{2,3})$/.exec(upper);
-                        if (m && KNOWN_MODES.has(m[1])) mode = m[1];
-                    }
-                }
-
-            }
-
-
-            if (mode) {
-                window.postMessage(
-                    { type: 'kasp:battle-mode', detail: mode },
-                    '*'
-                );
-            }
-            if (kind) window.postMessage({ type: 'kasp:battle-kind', detail: kind }, '*');
-        } catch (e) { }
-    };
+    window.__kaspBonusType = registerBonusType;
 
     let bundleIntercepted = false;
     const observer = new MutationObserver((mutations: MutationRecord[]) => {
@@ -167,55 +102,140 @@ import { installBattlePresence, patchBattlePresence, patchBattleCapacity, readBa
                     node.remove();
                     observer.disconnect();
 
+                    let sourceForPatches: string | undefined;
                     fetch(node.src)
                         .then(res => {
                             if (!res.ok) throw new Error(`Game bundle request failed: HTTP ${res.status}`);
                             return res.text();
                         })
-                        .then(code => {
-                            if (navigator.userAgent.includes('Electron')) {
-                                code = patchBattleCapacity(code);
-                                code = patchBattlePresence(code, matches => {
-                                    if (!matches) console.warn('[KI Presence] No game store getters found');
-                                });
-                            }
-                            code = patchGameAugments(code);
-                            code = patchUnavailableGarageDetails(code);
-                            code = patchUnavailableGarageItems(code);
-                            code = patchGarageInventoryDiagnostics(code);
-                            code = patchArcadeReload(code, status => {
-                                arcadeHookStatus = status;
-                                if (!status.hooked) console.warn('[KI Arcade reload] Native bar hook unavailable:', status);
-                            });
-                            code = patchBonusPickups(code, status => {
+                        .then(async code => {
+                            // Exact plans and adaptive AST templates both observe the original response.
+                            const originalCode = code;
+                            sourceForPatches = originalCode;
+                            const prepared: PreparedPatchPlan[] = [];
+                            let bonusPlan: BonusPatchPlan | undefined;
+                            let arcadePlan: ArcadeReloadPatchPlan | undefined;
+                            let augmentPlan: AugmentPatchPlan | undefined;
+                            let garageDetailsPlan: GarageDetailsPatchPlan | undefined;
+                            let garageItemsPlan: GarageItemsPatchPlan | undefined;
+                            let garageInventoryPlan: GarageInventoryPatchPlan | undefined;
+                            let battlePresencePlan: BattlePresencePatchPlan | undefined;
+                            let battleStatisticsPlan: BattleStatisticsPatchPlan | undefined;
+                            let userActionPlan: UserActionPatchPlan | undefined;
+                            let criticalPlan: CriticalPatchPlan | undefined;
+                            const reportBonus = (status: Parameters<typeof diagnostics.record>[0]) => {
                                 hookStatus = status;
                                 diagnostics.record(status);
-                                if (!status.pickupHook || !status.contextHook || !status.registrationHooks) {
-                                    console.warn('[KI Overdrive] Bonus hooks incomplete:', status);
-                                }
-                            });
-                            const match = /return"TankUserActionLog\(\w+="\+(?:\w+\()?this\.(\w+)/.exec(code);
-                            if (match) {
-                                const propName = match[1];
-                                const p = new RegExp(`(function [\\w$]+\\([^)]{1,150}\\)\\{[^{}]{0,800}?this\\.${propName}=[\\w$]+(?:,this\\.[\\w$]+=[\\w$]+){0,30})\\}`);
-                                if (p.test(code)) {
-                                    code = code.replace(p, `$1, window.__kaspSendAction("TankUserActionLog", this)}`);
-                                }
+                                if (!status.ready) console.warn('[KI Overdrive] AST mapping unavailable or incomplete:', status);
+                            };
+                            try {
+                                bonusPlan = await selectBonusPatchPlan(originalCode, overdrivePlans.plans as BonusPatchPlan[]);
+                                if (patchBonusPickups(originalCode, reportBonus, bonusPlan) !== originalCode && bonusPlan) prepared.push(bonusPlan);
+                            } catch (error) {
+                                reportBonus({ kind: 'hooks', ready: false, issues: ['overdrive-patch-error'], error: String(error) });
                             }
-
-                            const bsMatch = /return"BattleStatistics\(\w+="\+(?:\w+\()?this\.(\w+)/.exec(code);
-                            if (bsMatch) {
-                                const firstField = bsMatch[1];
-                                const ctor = new RegExp(
-                                    '(function [\\w$]+\\([^)]{5,400}\\)\\{' +
-                                    '[^{}]{0,1200}?this\\.' + firstField + '=[\\w$]+' +
-                                    '(?:,this\\.[\\w$]+=[\\w$]+){10,60})\\}'
-                                );
-                                if (ctor.test(code)) {
-                                    code = code.replace(ctor, '$1, window.__kaspBattleStats(this)}');
-                                }
+                            const reportArcade = (status: ArcadeReloadHookStatus) => {
+                                arcadeHookStatus = status;
+                                if (!status.hooked) console.warn('[KI Arcade reload] Native bar hook unavailable:', status);
+                            };
+                            try {
+                                let enabled = true;
+                                try { enabled = localStorage.getItem('kasp_arcade_reload_enabled') !== 'false'; } catch { }
+                                if (enabled) {
+                                    arcadePlan = await selectArcadeReloadPlan(originalCode, arcadePlans.plans as ArcadeReloadPatchPlan[]);
+                                    if (patchArcadeReload(originalCode, reportArcade, arcadePlan) !== originalCode && arcadePlan) prepared.push(arcadePlan);
+                                } else reportArcade({ hooked: false, ready: false, issues: ['disabled-for-diagnosis'] });
+                            } catch (error) {
+                                reportArcade({ hooked: false, ready: false, issues: ['arcade-patch-error'] });
+                                arcadeError = String(error);
                             }
+                            const reportAugments = (status: AugmentHookStatus) => {
+                                window.__kaspAugmentsDebug?.reportHook(status);
+                                if (!status.ready) console.warn('[KI Augments] AST mapping unavailable:', status);
+                            };
+                            try {
+                                augmentPlan = await selectGameAugmentsPlan(originalCode, augmentPlans.plans as AugmentPatchPlan[]);
+                                if (patchGameAugments(originalCode, reportAugments, augmentPlan) !== originalCode && augmentPlan) prepared.push(augmentPlan);
+                            } catch {
+                                reportAugments({ hooked: false, ready: false, strategy: 'ast-plan', issues: ['augments-patch-error'] });
+                            }
+                            const reportGarageDetails = (status: GarageDetailsHookStatus) => {
+                                if (!status.ready) console.warn('[KI Garage details] AST mapping unavailable:', status);
+                            };
+                            try {
+                                garageDetailsPlan = await selectGarageDetailsPlan(originalCode, garageDetailsPlans.plans as GarageDetailsPatchPlan[]);
+                                if (patchUnavailableGarageDetails(originalCode, reportGarageDetails, garageDetailsPlan) !== originalCode && garageDetailsPlan) prepared.push(garageDetailsPlan);
+                            } catch {
+                                reportGarageDetails({ hooked: false, ready: false, strategy: 'ast-plan', issues: ['garage-details-patch-error'] });
+                            }
+                            const reportGarageItems = (status: GarageItemsHookStatus) => {
+                                if (!status.ready) console.warn('[KI Garage items] AST mapping unavailable:', status);
+                            };
+                            try {
+                                garageItemsPlan = await selectGarageItemsPlan(originalCode, garageItemsPlans.plans as GarageItemsPatchPlan[]);
+                                if (patchUnavailableGarageItems(originalCode, reportGarageItems, garageItemsPlan) !== originalCode && garageItemsPlan) prepared.push(garageItemsPlan);
+                            } catch {
+                                reportGarageItems({ hooked: false, ready: false, strategy: 'ast-plan', issues: ['garage-items-patch-error'] });
+                            }
+                            const reportGarageInventory = (status: GarageInventoryHookStatus) => {
+                                if (!status.ready) console.warn('[KI Garage inventory] AST mapping unavailable:', status);
+                            };
+                            try {
+                                garageInventoryPlan = await selectGarageInventoryPlan(originalCode, garageInventoryPlans.plans as GarageInventoryPatchPlan[]);
+                                if (patchGarageInventoryDiagnostics(originalCode, reportGarageInventory, garageInventoryPlan) !== originalCode && garageInventoryPlan) prepared.push(garageInventoryPlan);
+                            } catch {
+                                reportGarageInventory({ hooked: false, ready: false, strategy: 'ast-plan', issues: ['garage-inventory-patch-error'] });
+                            }
+                            const reportBattlePresence = (status: BattlePresenceHookStatus) => {
+                                if (!status.ready) console.warn('[KI Presence] AST mapping unavailable:', status);
+                            };
+                            if (navigator.userAgent.includes('Electron')) try {
+                                battlePresencePlan = await selectBattlePresencePlan(originalCode, battlePresencePlans.plans as BattlePresencePatchPlan[]);
+                                if (patchBattlePresence(originalCode, reportBattlePresence, battlePresencePlan) !== originalCode && battlePresencePlan) prepared.push(battlePresencePlan);
+                            } catch {
+                                reportBattlePresence({ hooked: false, ready: false, strategy: 'ast-plan', issues: ['battle-presence-patch-error'] });
+                            }
+                            const reportBattleStatistics = (status: BattleStatisticsHookStatus) => {
+                                if (!status.ready) console.warn('[KI Battle statistics] AST mapping unavailable:', status);
+                            };
+                            try {
+                                battleStatisticsPlan = await selectBattleStatisticsPlan(originalCode, battleStatisticsPlans.plans as BattleStatisticsPatchPlan[]);
+                                if (patchBattleStatistics(originalCode, reportBattleStatistics, battleStatisticsPlan) !== originalCode && battleStatisticsPlan) prepared.push(battleStatisticsPlan);
+                            } catch {
+                                reportBattleStatistics({ hooked: false, ready: false, strategy: 'ast-plan', issues: ['battle-statistics-patch-error'] });
+                            }
+                            const reportUserActions = (status: UserActionHookStatus) => {
+                                if (!status.ready) console.warn('[KI User actions] AST mapping unavailable:', status);
+                            };
+                            try {
+                                userActionPlan = await selectUserActionPlan(originalCode, userActionPlans.plans as UserActionPatchPlan[]);
+                                if (patchUserActions(originalCode, reportUserActions, userActionPlan) !== originalCode && userActionPlan) prepared.push(userActionPlan);
+                            } catch {
+                                reportUserActions({ hooked: false, ready: false, strategy: 'ast-plan', issues: ['user-action-patch-error'] });
+                            }
+                            const reportCritical = (status: CriticalHookStatus) => {
+                                window.__kaspCriticalDebug?.reportHook(status);
+                                if (!status.ready) console.warn('[KI Critical indicator] AST mapping unavailable:', status);
+                            };
+                            try {
+                                criticalPlan = await selectCriticalPlan(originalCode, criticalPlans.plans as CriticalPatchPlan[]);
+                                if (patchCriticalIndicator(originalCode, reportCritical, criticalPlan) !== originalCode && criticalPlan) prepared.push(criticalPlan);
+                            } catch {
+                                reportCritical({ hooked: false, ready: false, strategy: 'ast-plan', issues: ['critical-patch-error'] });
+                            }
+                            const merged = mergeClientPatchPlans(originalCode, prepared);
+                            code = merged.code;
+                            if (bonusPlan && merged.rejected.includes(bonusPlan)) reportBonus({ kind: 'hooks', ready: false, issues: ['overdrive-edit-conflict'] });
+                            if (arcadePlan && merged.rejected.includes(arcadePlan)) reportArcade({ hooked: false, ready: false, issues: ['arcade-edit-conflict'] });
+                            if (augmentPlan && merged.rejected.includes(augmentPlan)) reportAugments({ hooked: false, ready: false, strategy: 'ast-plan', issues: ['augments-edit-conflict'] });
+                            if (garageDetailsPlan && merged.rejected.includes(garageDetailsPlan)) reportGarageDetails({ hooked: false, ready: false, strategy: 'ast-plan', issues: ['garage-details-edit-conflict'] });
+                            if (garageItemsPlan && merged.rejected.includes(garageItemsPlan)) reportGarageItems({ hooked: false, ready: false, strategy: 'ast-plan', issues: ['garage-items-edit-conflict'] });
+                            if (garageInventoryPlan && merged.rejected.includes(garageInventoryPlan)) reportGarageInventory({ hooked: false, ready: false, strategy: 'ast-plan', issues: ['garage-inventory-edit-conflict'] });
+                            if (battlePresencePlan && merged.rejected.includes(battlePresencePlan)) reportBattlePresence({ hooked: false, ready: false, strategy: 'ast-plan', issues: ['battle-presence-edit-conflict'] });
+                            if (battleStatisticsPlan && merged.rejected.includes(battleStatisticsPlan)) reportBattleStatistics({ hooked: false, ready: false, strategy: 'ast-plan', issues: ['battle-statistics-edit-conflict'] });
+                            if (userActionPlan && merged.rejected.includes(userActionPlan)) reportUserActions({ hooked: false, ready: false, strategy: 'ast-plan', issues: ['user-action-edit-conflict'] });
 
+                            if (criticalPlan && merged.rejected.includes(criticalPlan)) reportCritical({ hooked: false, ready: false, strategy: 'ast-plan', issues: ['critical-edit-conflict'] });
                             const script = document.createElement('script');
                             script.type = originalScript.type;
                             script.nonce = originalScript.nonce;
@@ -232,6 +252,9 @@ import { installBattlePresence, patchBattlePresence, patchBattleCapacity, readBa
                             } catch (restoreError) {
                                 console.error('[Kaspersky Inventions] Could not restore the original game script:', restoreError);
                             }
+                        })
+                        .finally(() => {
+                            if (sourceForPatches !== undefined) releaseClientPatchContext(sourceForPatches);
                         });
                 }
             }

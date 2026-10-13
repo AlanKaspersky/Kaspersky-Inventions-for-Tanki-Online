@@ -1,3 +1,4 @@
+"use strict";
 (() => {
   var __getOwnPropNames = Object.getOwnPropertyNames;
   var __esm = (fn, res, err) => function __init() {
@@ -61,6 +62,7 @@
   }
   var init_electron = __esm({
     "src/core/electron.ts"() {
+      "use strict";
     }
   });
 
@@ -68,6 +70,7 @@
   var state;
   var init_state = __esm({
     "src/core/state.ts"() {
+      "use strict";
       state = {
         lang: "EN",
         currentScreen: "loading",
@@ -103,6 +106,7 @@
   var SETTINGS_KEYS, settingsCache;
   var init_settings = __esm({
     "src/core/settings.ts"() {
+      "use strict";
       SETTINGS_KEYS = [
         "k_ext_btn",
         "k_augments",
@@ -129,6 +133,7 @@
   var utils;
   var init_utils = __esm({
     "src/core/utils.ts"() {
+      "use strict";
       init_settings();
       utils = {
         getLang: () => {
@@ -162,6 +167,7 @@
   var gameDOM;
   var init_gameDOM = __esm({
     "src/core/gameDOM.ts"() {
+      "use strict";
       gameDOM = {
         presence: {
           battleRoot: ".BattleHudComponentStyle-hudContainer, .BattleHudComponentStyle-container, .BattleComponentStyle-canvasContainer, .BattleTabStatisticComponentStyle-container",
@@ -361,6 +367,7 @@
   }
   var init_accountIdentity = __esm({
     "src/core/accountIdentity.ts"() {
+      "use strict";
     }
   });
 
@@ -422,6 +429,7 @@
   var privacyObserver;
   var init_hideNickname = __esm({
     "src/modules/hideNickname.ts"() {
+      "use strict";
       init_gameDOM();
       init_state();
       init_utils();
@@ -434,6 +442,7 @@
   var coreSettings;
   var init_coreSettings = __esm({
     "src/core/coreSettings.ts"() {
+      "use strict";
       init_state();
       init_utils();
       init_hideNickname();
@@ -581,6 +590,21 @@
     }
   });
 
+  // src/core/clientLexical.ts
+  var init_clientLexical = __esm({
+    "src/core/clientLexical.ts"() {
+      "use strict";
+    }
+  });
+
+  // src/core/clientPatches.ts
+  var init_clientPatches = __esm({
+    "src/core/clientPatches.ts"() {
+      "use strict";
+      init_clientLexical();
+    }
+  });
+
   // src/core/augmentLabels.ts
   function augmentPropertyLabel(property, language) {
     if (language === "RU" && russian[property]) return russian[property];
@@ -601,6 +625,7 @@
   var russian, higherBetter, lowerBetter;
   var init_augmentLabels = __esm({
     "src/core/augmentLabels.ts"() {
+      "use strict";
       russian = {
         HULL_ARMOR: "\u0411\u0440\u043E\u043D\u044F",
         HULL_SPEED: "\u041C\u0430\u043A\u0441\u0438\u043C\u0430\u043B\u044C\u043D\u0430\u044F \u0441\u043A\u043E\u0440\u043E\u0441\u0442\u044C \u043A\u043E\u0440\u043F\u0443\u0441\u0430",
@@ -966,13 +991,16 @@
       return false;
     }
   }
-  var AUGMENTS_MESSAGE, AUGMENTS_REQUEST;
+  var AUGMENTS_MESSAGE, AUGMENTS_REQUEST, AUGMENT_CARDS_UPDATED;
   var init_gameAugments = __esm({
     "src/core/gameAugments.ts"() {
+      "use strict";
+      init_clientPatches();
       init_gameDOM();
       init_augmentLabels();
       AUGMENTS_MESSAGE = "kasp:game-augments";
       AUGMENTS_REQUEST = "kasp:game-augments-request";
+      AUGMENT_CARDS_UPDATED = "kasp:augment-cards-updated";
     }
   });
 
@@ -998,6 +1026,7 @@
   }
   var init_augmentRules = __esm({
     "src/core/augmentRules.ts"() {
+      "use strict";
       init_augmentLabels();
     }
   });
@@ -1162,6 +1191,7 @@
   var AUGMENTS_JSON_FILE, AUGMENTS_JSON_KEY, AUGMENTS_UPDATED, liveTags, catalog, pendingJson, writing, fileError, AugmentCatalog;
   var init_augmentCatalog = __esm({
     "src/core/augmentCatalog.ts"() {
+      "use strict";
       init_gameAugments();
       init_augmentLabels();
       init_augmentRules();
@@ -1226,6 +1256,7 @@
   var DataLoader;
   var init_dataLoader = __esm({
     "src/core/dataLoader.ts"() {
+      "use strict";
       init_augmentCatalog();
       DataLoader = (() => {
         const state2 = {
@@ -1295,12 +1326,12 @@
   var customPaints;
   var init_customPaints = __esm({
     "src/modules/customPaints.ts"() {
+      "use strict";
       init_gameDOM();
       init_state();
       init_utils();
       init_dataLoader();
       customPaints = /* @__PURE__ */ (() => {
-        let initialized = false;
         function normalizeText(text) {
           if (!text) return "";
           return text.toLowerCase().replace(/ё/g, "\u0435");
@@ -1368,9 +1399,6 @@
         return () => {
           if (!utils.getSetting("k_paints", false)) return;
           if (state.currentScreen !== "garage") return;
-          if (!initialized) {
-            initialized = true;
-          }
           addSearchInput();
           const input = document.querySelector(".kasp-search-wrapper input");
           if (input && input.value.trim() !== "") {
@@ -1385,6 +1413,7 @@
   var augmentSpecs;
   var init_augmentSpecs = __esm({
     "src/modules/augmentSpecs.ts"() {
+      "use strict";
       init_gameDOM();
       init_state();
       init_utils();
@@ -1474,7 +1503,8 @@
           TOP_SPEED: { RU: "\u041C\u0430\u043A\u0441\u0438\u043C\u0430\u043B\u044C\u043D\u0430\u044F \u0441\u043A\u043E\u0440\u043E\u0441\u0442\u044C", EN: "Max speed" },
           POWER: { RU: "\u041C\u043E\u0449\u043D\u043E\u0441\u0442\u044C", EN: "Power" }
         };
-        const escapeText = (value) => String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
+        const textEscapes = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+        const escapeText = (value) => String(value ?? "").replace(/[&<>"']/g, (character) => textEscapes[character]);
         const renderList = (items, lang) => {
           if (!items || items.length === 0) return `<li>${t[lang].empty}</li>`;
           return items.map((item) => {
@@ -1543,7 +1573,8 @@
                 e.preventDefault();
               });
               btn.addEventListener("mouseenter", (e) => {
-                const deviceData = DataLoader.getDevice(btn.dataset.url, card);
+                const deviceUrl = btn.dataset.url;
+                const deviceData = deviceUrl ? DataLoader.getDevice(deviceUrl, card) : void 0;
                 if (!deviceData) {
                   hoverTooltip.style.display = "none";
                   return;
@@ -1622,19 +1653,21 @@
           const activeValues = /* @__PURE__ */ new Set();
           const deviceImg = document.querySelector(gameDOM.garage.deviceIcon);
           const deviceData = deviceImg ? DataLoader.getDevice(deviceImg.src, deviceImg) : void 0;
-          const allSpans = deviceData?.modifiers ? Array.from(document.querySelectorAll("span")).filter((s) => !s.closest(".custom-live-stat")) : [];
+          const modifiers = deviceData?.modifiers;
+          const allSpans = modifiers ? Array.from(document.querySelectorAll("span")).filter((s) => !s.closest(".custom-live-stat")) : [];
           allSpans.forEach((nameSpan) => {
+            if (!modifiers) return;
             const text = nameSpan.textContent?.trim().toLowerCase() || "";
             let matchedTag = null;
             for (const [tag, translations] of Object.entries(STAT_DICT)) {
-              const allVariants = [].concat(translations.RU, translations.EN).filter(Boolean).map((s) => s.toLowerCase());
-              if (tag in deviceData.modifiers && allVariants.includes(text)) {
+              const allVariants = [translations.RU, translations.EN].flat().filter(Boolean).map((s) => s.toLowerCase());
+              if (tag in modifiers && allVariants.includes(text)) {
                 matchedTag = tag;
                 break;
               }
             }
-            if (matchedTag && deviceData.modifiers && matchedTag in deviceData.modifiers) {
-              const multiplier = deviceData.modifiers[matchedTag];
+            if (matchedTag && matchedTag in modifiers) {
+              const multiplier = modifiers[matchedTag];
               const valueSpan = nameSpan.parentElement?.nextElementSibling;
               if (valueSpan && valueSpan.tagName === "SPAN" && !valueSpan.classList.contains("custom-live-stat")) {
                 const original = valueSpan;
@@ -1712,6 +1745,7 @@
             window.addEventListener("kasp:settings-changed", sync);
             window.addEventListener("storage", sync);
             window.addEventListener(AUGMENTS_UPDATED, scheduleUpdate);
+            window.addEventListener(AUGMENT_CARDS_UPDATED, scheduleUpdate);
             const forceHideTooltip = () => {
               const hoverTooltip = document.getElementById("kasp-specs-tooltip");
               if (hoverTooltip) hoverTooltip.style.display = "none";
@@ -1747,6 +1781,7 @@
   var customPlayButton;
   var init_customPlayButton = __esm({
     "src/modules/customPlayButton.ts"() {
+      "use strict";
       init_gameDOM();
       init_state();
       init_utils();
@@ -2116,12 +2151,12 @@
   var customFriends;
   var init_customFriends = __esm({
     "src/modules/customFriends.ts"() {
+      "use strict";
       init_gameDOM();
       init_state();
       init_utils();
       init_accountIdentity();
       customFriends = /* @__PURE__ */ (() => {
-        let initialized = false;
         const filtersConfig = [
           { url: "https://s.eu.tankionline.com/static/images/allPaints.741c65e1.svg", type: "all" },
           { url: "https://s.eu.tankionline.com/static/images/uncommon.ca77d7da.svg", type: "online" },
@@ -2319,9 +2354,6 @@
         return () => {
           if (!utils.getSetting("k_friends", false)) return;
           if (state.currentScreen === "battle") return;
-          if (!initialized) {
-            initialized = true;
-          }
           const scrollBlocks = document.querySelectorAll(gameDOM.friends.lists);
           scrollBlocks.forEach((node) => {
             const scrollBlock = node;
@@ -2346,6 +2378,7 @@
   var garageButtons;
   var init_garageButtons = __esm({
     "src/modules/garageButtons.ts"() {
+      "use strict";
       init_gameDOM();
       init_state();
       garageButtons = /* @__PURE__ */ (() => {
@@ -2478,6 +2511,7 @@
   var welcomeModal;
   var init_welcomeModal = __esm({
     "src/modules/welcomeModal.ts"() {
+      "use strict";
       init_state();
       welcomeModal = (() => {
         const CURRENT_VERSION = chrome.runtime.getManifest().version;
@@ -2565,6 +2599,7 @@
   var hideCurrency;
   var init_hideCurrency = __esm({
     "src/modules/hideCurrency.ts"() {
+      "use strict";
       init_gameDOM();
       init_state();
       init_utils();
@@ -2612,6 +2647,7 @@
   var customTrophies;
   var init_customTrophies = __esm({
     "src/modules/customTrophies.ts"() {
+      "use strict";
       init_gameDOM();
       init_state();
       customTrophies = /* @__PURE__ */ (() => {
@@ -2840,6 +2876,7 @@
   var pendingModalIds, createKaspModal;
   var init_modal = __esm({
     "src/core/modal.ts"() {
+      "use strict";
       pendingModalIds = /* @__PURE__ */ new Set();
       createKaspModal = async (options) => {
         if (document.getElementById(options.id) || pendingModalIds.has(options.id)) return null;
@@ -2968,6 +3005,7 @@
   var autoUpgrade;
   var init_autoUpgrade = __esm({
     "src/modules/autoUpgrade.ts"() {
+      "use strict";
       init_gameDOM();
       init_state();
       init_utils();
@@ -3446,6 +3484,7 @@
   var changeCounter;
   var init_changeCounter = __esm({
     "src/modules/changeCounter.ts"() {
+      "use strict";
       init_gameDOM();
       changeCounter = (() => {
         const CACHE_KEY = "kasp_player_changes_cache";
@@ -3559,6 +3598,7 @@
   var customGarageSkins;
   var init_customGarageSkins = __esm({
     "src/modules/customGarageSkins.ts"() {
+      "use strict";
       init_gameDOM();
       customGarageSkins = (() => {
         const STORAGE_KEY = "kasp_equipped_skins";
@@ -3843,6 +3883,7 @@
   var zeroResists;
   var init_zeroResists = __esm({
     "src/modules/zeroResists.ts"() {
+      "use strict";
       init_gameDOM();
       init_state();
       zeroResists = (() => {
@@ -4086,6 +4127,7 @@
   var equipmentTracker;
   var init_equipmentTracker = __esm({
     "src/modules/equipmentTracker.ts"() {
+      "use strict";
       init_gameDOM();
       init_accountIdentity();
       equipmentTracker = /* @__PURE__ */ (() => {
@@ -4205,6 +4247,7 @@
   }
   var init_historyMarkup = __esm({
     "src/core/historyMarkup.ts"() {
+      "use strict";
     }
   });
 
@@ -4224,9 +4267,11 @@
   var historyTranslations, clearHistoryTranslations, linkHistoryTranslations, historyMessages;
   var init_localization = __esm({
     "src/modules/battleHistory/localization.ts"() {
+      "use strict";
       historyTranslations = {
         RU: {
           title: "\u0418\u0441\u0442\u043E\u0440\u0438\u044F \u0411\u0438\u0442\u0432",
+          loading: "\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430",
           date: "\u0414\u0430\u0442\u0430",
           map: "\u041A\u0430\u0440\u0442\u0430",
           status: "\u0421\u0442\u0430\u0442\u0443\u0441",
@@ -4264,6 +4309,7 @@
         },
         EN: {
           title: "Battle History",
+          loading: "Loading",
           date: "Date",
           map: "Map",
           status: "Status",
@@ -4536,6 +4582,7 @@
   var MODE_ICONS, DM_SCORE_ICON, DM_KD_ICON, MAP_ICON_URL, translateMapName, getGsClass;
   var init_presentation = __esm({
     "src/modules/battleHistory/presentation.ts"() {
+      "use strict";
       init_dataLoader();
       init_historyMarkup();
       MODE_ICONS = {
@@ -4679,6 +4726,7 @@
   var DATABASE_NAME, DATABASE_VERSION, STORE_NAME, INDEXES;
   var init_repository = __esm({
     "src/modules/battleHistory/repository.ts"() {
+      "use strict";
       DATABASE_NAME = "TankiBattlesDB";
       DATABASE_VERSION = 4;
       STORE_NAME = "battles";
@@ -4956,6 +5004,7 @@
   }
   var init_views = __esm({
     "src/modules/battleHistory/views.ts"() {
+      "use strict";
       init_state();
       init_presentation();
       init_repository();
@@ -4976,6 +5025,7 @@
   var validateImportedBattle;
   var init_validation = __esm({
     "src/modules/battleHistory/validation.ts"() {
+      "use strict";
       init_historyMarkup();
       validateImportedBattle = (value) => {
         if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -5230,6 +5280,7 @@
   }
   var init_actions = __esm({
     "src/modules/battleHistory/actions.ts"() {
+      "use strict";
       init_state();
       init_modal();
       init_repository();
@@ -5279,7 +5330,7 @@
       overlay.innerHTML = `
         <div class="kasp-loader-logo"></div>
         <div class="kasp-loader-bar">
-            <span class="kasp-loader-text">Loading</span>
+            <span class="kasp-loader-text">${getHistoryDictionary(state.lang).loading}</span>
             <div class="kasp-loader-progress"></div>
         </div>
     `;
@@ -5622,6 +5673,7 @@
   }
   var init_navigation = __esm({
     "src/modules/battleHistory/navigation.ts"() {
+      "use strict";
       init_gameDOM();
       init_state();
       init_localization();
@@ -5800,6 +5852,7 @@
   var parseMapAndMode;
   var init_capture = __esm({
     "src/modules/battleHistory/capture.ts"() {
+      "use strict";
       init_gameDOM();
       init_equipmentTracker();
       init_repository();
@@ -5826,6 +5879,7 @@
   var battleHistory;
   var init_battleHistory = __esm({
     "src/modules/battleHistory.ts"() {
+      "use strict";
       init_gameDOM();
       init_utils();
       init_state();
@@ -5948,11 +6002,23 @@
   });
 
   // src/core/bonusPickup.ts
+  function ownValue(value, field) {
+    if (!value || typeof value !== "object") return void 0;
+    const descriptor = Object.getOwnPropertyDescriptor(value, field);
+    return descriptor && "value" in descriptor ? descriptor.value : void 0;
+  }
+  function schemaFor(value, registry) {
+    for (let prototype = Object.getPrototypeOf(value), depth = 0; prototype && depth < 8; prototype = Object.getPrototypeOf(prototype), depth++) {
+      const schema = registry.get(prototype);
+      if (schema) return schema;
+    }
+    return void 0;
+  }
   function readBonusPosition(value) {
     if (!value || typeof value !== "object") return null;
     try {
-      const point = value;
-      const coordinates = "x" in point ? [point.x, point.y, point.z] : [point.f20_1, point.g20_1, point.h20_1];
+      const schema = schemaFor(value, vectorTypes);
+      const coordinates = schema ? [schema.x, schema.y, schema.z].map((field) => ownValue(value, field)) : ["x", "y", "z"].map((field) => ownValue(value, field));
       if (!coordinates.every((coordinate) => typeof coordinate === "number" && Number.isFinite(coordinate))) return null;
       const [x, y, z] = coordinates;
       return { x, y, z };
@@ -5960,11 +6026,14 @@
       return null;
     }
   }
-  var OVERDRIVE_BOX_MODEL, BONUS_PICKUP_MESSAGE;
+  var OVERDRIVE_BOX_MODEL, BONUS_PICKUP_MESSAGE, vectorTypes;
   var init_bonusPickup = __esm({
     "src/core/bonusPickup.ts"() {
+      "use strict";
+      init_clientPatches();
       OVERDRIVE_BOX_MODEL = "1647333199409";
       BONUS_PICKUP_MESSAGE = "kasp:bonus-pickup";
+      vectorTypes = /* @__PURE__ */ new WeakMap();
     }
   });
 
@@ -6021,6 +6090,7 @@
   var OVERDRIVE_COOLDOWN_MS, OVERDRIVE_POINT_RADIUS, overdriveTimer;
   var init_overdriveTimer = __esm({
     "src/modules/overdriveTimer.ts"() {
+      "use strict";
       init_bonusPickup();
       init_gameDOM();
       init_state();
@@ -6161,6 +6231,7 @@
   var modules;
   var init_modules = __esm({
     "src/modules/index.ts"() {
+      "use strict";
       init_customPaints();
       init_augmentSpecs();
       init_customPlayButton();
@@ -6403,6 +6474,7 @@
   }
   var init_boot = __esm({
     "src/boot.ts"() {
+      "use strict";
       init_state();
       init_gameDOM();
       init_utils();
@@ -6415,7 +6487,9 @@
   var BATTLE_PRESENCE_MESSAGE;
   var init_battlePresence = __esm({
     "src/core/battlePresence.ts"() {
+      "use strict";
       init_gameDOM();
+      init_clientPatches();
       BATTLE_PRESENCE_MESSAGE = "kasp:battle-presence";
     }
   });
@@ -6430,6 +6504,7 @@
       battle: "In a battle",
       match_results: "Battle results"
     };
+    const screenLabels = new Map(Object.entries(labels));
     let battle = null, receivedAt = 0, end;
     window.addEventListener("message", (event) => {
       if (event.source !== window || event.origin !== window.location.origin || event.data?.type !== BATTLE_PRESENCE_MESSAGE) return;
@@ -6448,7 +6523,7 @@
       const rawMap = active?.map.replace(/\s+(?:TDM|DM|CTF|CP|SGE|RGB|JGR|TJR|ASL|AR|AS|RUGBY|SUR|HOLIDAY|TAR|TUTORIAL)$/i, "").trim();
       const translated = rawMap ? DataLoader.translateMap(rawMap, "EN") : null;
       const mode = active?.mode || /\s+(TDM|DM|CTF|CP|SGE|RGB|JGR|TJR|ASL|AR|AS|RUGBY|SUR|HOLIDAY|TAR|TUTORIAL)$/i.exec(active?.map || "")?.[1]?.toUpperCase();
-      const details = translated && !/[\u0400-\u04ff]/.test(translated) ? `${translated}${mode ? ` ${mode}` : ""}` : labels[state.currentScreen] || labels.lobby;
+      const details = translated && !/[\u0400-\u04ff]/.test(translated) ? `${translated}${mode ? ` ${mode}` : ""}` : screenLabels.get(state.currentScreen) || labels.lobby;
       window.postMessage({
         type: "kasp:discord-presence",
         version: 1,
@@ -6483,6 +6558,7 @@
   }
   var init_discordPresence = __esm({
     "src/modules/discordPresence.ts"() {
+      "use strict";
       init_electron();
       init_accountIdentity();
       init_state();

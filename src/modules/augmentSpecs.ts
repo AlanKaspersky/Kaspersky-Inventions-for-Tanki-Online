@@ -3,7 +3,10 @@ import { state } from '../core/state';
 import { utils } from '../core/utils';
 import { DataLoader } from '../core/dataLoader';
 import { AUGMENTS_UPDATED } from '../core/augmentCatalog';
-import { activeGarageCardSection, isAugmentPreviewUrl } from '../core/gameAugments';
+import { activeGarageCardSection, AUGMENT_CARDS_UPDATED, isAugmentPreviewUrl } from '../core/gameAugments';
+import type { Lang } from '../core/state';
+
+interface LocalizedSpec { RU: string; EN: string; subItems?: LocalizedSpec[]; }
 
 export const augmentSpecs = (() => {
     let initialized = false;
@@ -76,10 +79,10 @@ export const augmentSpecs = (() => {
         POWER: { RU: "Мощность", EN: "Power" }
     };
 
-    const escapeText = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, character =>
-        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
+    const textEscapes: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    const escapeText = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, character => textEscapes[character]);
 
-    const renderList = (items, lang) => {
+    const renderList = (items: LocalizedSpec[] | null | undefined, lang: Lang) => {
         if (!items || items.length === 0) return `<li>${t[lang].empty}</li>`;
         return items.map(item => {
             let html = `<li>${escapeText(item[lang] || item['EN'])}`;
@@ -101,7 +104,7 @@ export const augmentSpecs = (() => {
             document.body.appendChild(hoverTooltip);
         }
 
-        const updateTooltipPos = (e) => {
+        const updateTooltipPos = (e: MouseEvent) => {
             if (!hoverTooltip) return;
             const offset = 15;
             const margin = 10;
@@ -121,9 +124,9 @@ export const augmentSpecs = (() => {
             hoverTooltip.style.top = `${y}px`;
         };
 
-        const applyButtonToCard = (card, url) => {
+        const applyButtonToCard = (card: HTMLElement | null, url: string) => {
             if (!card) return;
-            const existingBtn = card.querySelector('.custom-card-specs-btn');
+            const existingBtn = card.querySelector<HTMLElement>('.custom-card-specs-btn');
             const device = DataLoader.getDevice(url, card);
 
             if (!device) {
@@ -158,7 +161,8 @@ export const augmentSpecs = (() => {
                 });
 
                 btn.addEventListener('mouseenter', (e) => {
-                    const deviceData = DataLoader.getDevice(btn.dataset.url, card);
+                    const deviceUrl = btn.dataset.url;
+                    const deviceData = deviceUrl ? DataLoader.getDevice(deviceUrl, card) : undefined;
                     if (!deviceData) { hoverTooltip.style.display = 'none'; return; }
 
                     const lang = state.lang;
@@ -250,19 +254,21 @@ export const augmentSpecs = (() => {
         const activeValues = new Set<HTMLElement>();
         const deviceImg = document.querySelector<HTMLImageElement>(gameDOM.garage.deviceIcon);
         const deviceData = deviceImg ? DataLoader.getDevice(deviceImg.src, deviceImg) : undefined;
+        const modifiers = deviceData?.modifiers;
 
-        const allSpans = deviceData?.modifiers
+        const allSpans = modifiers
             ? Array.from(document.querySelectorAll('span')).filter(s => !s.closest('.custom-live-stat'))
             : [];
         allSpans.forEach(nameSpan => {
+            if (!modifiers) return;
             const text = nameSpan.textContent?.trim().toLowerCase() || '';
             let matchedTag = null;
             for (const [tag, translations] of Object.entries(STAT_DICT)) {
-                const allVariants = [].concat(translations.RU, translations.EN).filter(Boolean).map(s => s.toLowerCase());
-                if (tag in deviceData.modifiers && allVariants.includes(text)) { matchedTag = tag; break; }
+                const allVariants = [translations.RU, translations.EN].flat().filter(Boolean).map(s => s.toLowerCase());
+                if (tag in modifiers && allVariants.includes(text)) { matchedTag = tag; break; }
             }
-            if (matchedTag && deviceData.modifiers && (matchedTag in deviceData.modifiers)) {
-                const multiplier = deviceData.modifiers[matchedTag];
+            if (matchedTag && (matchedTag in modifiers)) {
+                const multiplier = modifiers[matchedTag];
                 const valueSpan = nameSpan.parentElement?.nextElementSibling;
                 if (valueSpan && valueSpan.tagName === 'SPAN' && !valueSpan.classList.contains('custom-live-stat')) {
                     const original = valueSpan as HTMLElement;
@@ -347,6 +353,7 @@ export const augmentSpecs = (() => {
             window.addEventListener('kasp:settings-changed', sync);
             window.addEventListener('storage', sync);
             window.addEventListener(AUGMENTS_UPDATED, scheduleUpdate);
+            window.addEventListener(AUGMENT_CARDS_UPDATED, scheduleUpdate);
 
             const forceHideTooltip = () => {
                 const hoverTooltip = document.getElementById('kasp-specs-tooltip');

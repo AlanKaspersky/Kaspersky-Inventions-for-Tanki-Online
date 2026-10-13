@@ -1,0 +1,183 @@
+{
+  "format": "ki-user-action-plans-v1",
+  "plans": [
+    {
+      "format": "ki-user-action-ast-v1",
+      "sha256": "bde47282cebdfc82e2977738a2d389837dea0a499f05005a3e548e2c83aaf80c",
+      "sourceLength": 10070637,
+      "status": {
+        "hooked": true,
+        "ready": true,
+        "strategy": "ast-plan",
+        "issues": [],
+        "constructorHooks": 1
+      },
+      "schema": {
+        "userLabelData": "mqe_1",
+        "type": "nqe_1",
+        "uid": "ftb_1",
+        "teamRelation": "jtb_1"
+      },
+      "schemaToken": "/*ki-user-action-schema:v1*/null",
+      "edits": [
+        {
+          "start": 0,
+          "end": 0,
+          "expected": "",
+          "before": "",
+          "after": "!function(t,n){\"object\"=",
+          "text": "/*ki-user-action-ast:v1:{\"hooked\":true,\"ready\":true,\"strategy\":\"ast-plan\",\"issues\":[],\"constructorHooks\":1}*/\n"
+        },
+        {
+          "start": 257317,
+          "end": 257317,
+          "expected": "",
+          "text": ";try{window.__kaspSendAction(\"TankUserActionLog\",this,{\"userLabelData\":\"mqe_1\",\"type\":\"nqe_1\",\"uid\":\"ftb_1\",\"teamRelation\":\"jtb_1\"})}catch(__kaspActionIgnored){}",
+          "before": "his.mqe_1=t,this.nqe_1=n",
+          "after": "}function jI(){return pI"
+        }
+      ],
+      "templates": [
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*toString\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*(?:\"TankUserActionLog\\(userLabelData=\"|'TankUserActionLog\\(userLabelData=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\", type=\"|', type=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\"\\)\"|'\\)')\\s*\\}",
+          "roles": {
+            "actionType": "s1",
+            "userLabelData": "s2",
+            "type": "s3"
+          },
+          "count": 1,
+          "search": {
+            "literal": "TankUserActionLog(userLabelData=",
+            "margin": 1264
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*toString\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*(?:\"UserLabelData\\(userId=\"|'UserLabelData\\(userId=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\", uid=\"|', uid=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:\", rank=\"|', rank=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:\", hasPremium=\"|', hasPremium=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:\", clanTag=\"|', clanTag=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:\", teamRelation=\"|', teamRelation=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\"\\)\"|'\\)')\\s*\\}",
+          "roles": {
+            "playerType": "s1",
+            "uid": "s3",
+            "teamRelation": "s7"
+          },
+          "count": 1,
+          "search": {
+            "literal": "UserLabelData(userId=",
+            "margin": 1976
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\k<s2>(?![$\\w])\\s*===\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\?\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*:\\s*\\k<s2>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s2>(?![$\\w])(?<e0start>)(?<e0end>)\\s*\\}",
+          "roles": {
+            "actionType": "s0",
+            "userLabelData": "s5",
+            "type": "s6"
+          },
+          "count": 1,
+          "search": {
+            "margin": 728
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                ";try{window.__kaspSendAction(\"TankUserActionLog\",this,/*ki-user-action-schema:v1*/null)}catch(__kaspActionIgnored){}"
+              ]
+            }
+          ]
+        }
+      ],
+      "sourceName": "ki-game-main.756da186.js"
+    },
+    {
+      "format": "ki-user-action-ast-v1",
+      "sha256": "3bd056e2ee762d486de7fffa07bba1402ee3b69b98a508e135d70d7b248cc612",
+      "sourceLength": 22382225,
+      "status": {
+        "hooked": true,
+        "ready": true,
+        "strategy": "ast-plan",
+        "issues": [],
+        "constructorHooks": 1
+      },
+      "schema": {
+        "userLabelData": "mqe_1",
+        "type": "nqe_1",
+        "uid": "ftb_1",
+        "teamRelation": "jtb_1"
+      },
+      "schemaToken": "/*ki-user-action-schema:v1*/null",
+      "edits": [
+        {
+          "start": 0,
+          "end": 0,
+          "expected": "",
+          "before": "",
+          "after": "! function (t, n) {\r\n   ",
+          "text": "/*ki-user-action-ast:v1:{\"hooked\":true,\"ready\":true,\"strategy\":\"ast-plan\",\"issues\":[],\"constructorHooks\":1}*/\n"
+        },
+        {
+          "start": 596480,
+          "end": 596480,
+          "expected": "",
+          "text": ";try{window.__kaspSendAction(\"TankUserActionLog\",this,{\"userLabelData\":\"mqe_1\",\"type\":\"nqe_1\",\"uid\":\"ftb_1\",\"teamRelation\":\"jtb_1\"})}catch(__kaspActionIgnored){}",
+          "before": " n\r\n                    ",
+          "after": "}\r\n\r\n                   "
+        }
+      ],
+      "templates": [
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*toString\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*(?:\"TankUserActionLog\\(userLabelData=\"|'TankUserActionLog\\(userLabelData=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\", type=\"|', type=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\"\\)\"|'\\)')\\s*\\}",
+          "roles": {
+            "actionType": "s1",
+            "userLabelData": "s2",
+            "type": "s3"
+          },
+          "count": 1,
+          "search": {
+            "literal": "TankUserActionLog(userLabelData=",
+            "margin": 1752
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*toString\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*(?:\"UserLabelData\\(userId=\"|'UserLabelData\\(userId=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\", uid=\"|', uid=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:\", rank=\"|', rank=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:\", hasPremium=\"|', hasPremium=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:\", clanTag=\"|', clanTag=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:\", teamRelation=\"|', teamRelation=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\"\\)\"|'\\)')\\s*\\}",
+          "roles": {
+            "playerType": "s1",
+            "uid": "s3",
+            "teamRelation": "s7"
+          },
+          "count": 1,
+          "search": {
+            "literal": "UserLabelData(userId=",
+            "margin": 2592
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\k<s2>(?![$\\w])\\s*===\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\?\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*:\\s*\\k<s2>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s2>(?![$\\w])\\s*(?<e0start>)(?<e0end>)\\}",
+          "roles": {
+            "actionType": "s0",
+            "userLabelData": "s5",
+            "type": "s6"
+          },
+          "count": 1,
+          "search": {
+            "margin": 1240
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                ";try{window.__kaspSendAction(\"TankUserActionLog\",this,/*ki-user-action-schema:v1*/null)}catch(__kaspActionIgnored){}"
+              ]
+            }
+          ]
+        }
+      ],
+      "sourceName": "main.js"
+    }
+  ]
+}

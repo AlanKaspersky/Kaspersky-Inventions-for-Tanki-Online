@@ -4,6 +4,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { test } = require('node:test');
 const { transformSync } = require('esbuild');
+const { webcrypto, createHash } = require('node:crypto');
 
 const root = path.join(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
@@ -11,16 +12,30 @@ const compile = source => transformSync(source, { loader: 'ts', format: 'cjs' })
 const gameDOMModule = { exports: {} };
 vm.runInNewContext(compile(read('src/core/gameDOM.ts')), { module: gameDOMModule });
 const bonusPickupModule = { exports: {} };
-vm.runInNewContext(compile(read('src/core/bonusPickup.ts')), { module: bonusPickupModule });
+vm.runInNewContext(compile(read('src/core/bonusPickup.ts')), { module: bonusPickupModule, crypto: webcrypto, TextEncoder, require: () => require('./test-client-patches.cjs') });
 const arcadeReloadModule = { exports: {} };
-vm.runInNewContext(compile(read('src/core/arcadeReload.ts')), { module: arcadeReloadModule });
+vm.runInNewContext(compile(read('src/core/arcadeReload.ts')), { module: arcadeReloadModule, crypto: webcrypto, TextEncoder, require: () => require('./test-client-patches.cjs') });
+const detailsModule = { exports: {} };
+vm.runInNewContext(compile(read('src/core/garageDetails.ts')), { module: detailsModule, crypto: webcrypto, TextEncoder, require: () => require('./test-client-patches.cjs') });
+const garageItemsModule = { exports: {} };
+vm.runInNewContext(compile(read('src/core/garageItems.ts')), { module: garageItemsModule, crypto: webcrypto, TextEncoder, require: () => require('./test-client-patches.cjs') });
+const inventoryModule = { exports: {} };
+vm.runInNewContext(compile(read('src/core/garageInventory.ts')), { module: inventoryModule, crypto: webcrypto, TextEncoder, require: () => require('./test-client-patches.cjs') });
 const presenceModule = { exports: {} };
 vm.runInNewContext(compile(read('src/core/battlePresence.ts')), {
-    module: presenceModule, require: () => gameDOMModule.exports,
+    module: presenceModule, crypto: webcrypto, TextEncoder, require: id => id === './clientPatches' ? require('./test-client-patches.cjs') : gameDOMModule.exports,
 });
+const statisticsModule = { exports: {} };
+vm.runInNewContext(compile(read('src/core/battleStatistics.ts')), { module: statisticsModule, crypto: webcrypto, TextEncoder, require: () => require('./test-client-patches.cjs') });
+const actionsModule = { exports: {} };
+vm.runInNewContext(compile(read('src/core/userActions.ts')), { module: actionsModule, crypto: webcrypto, TextEncoder, require: () => require('./test-client-patches.cjs') });
+const criticalDevicesModule = { exports: {} };
+vm.runInNewContext(compile(read('src/core/criticalDevices.ts')), {module:criticalDevicesModule});
+const criticalModule = { exports: {} };
+vm.runInNewContext(compile(read('src/core/criticalIndicator.ts')), { module: criticalModule, crypto: webcrypto, TextEncoder, require: id => id === './criticalDevices' ? criticalDevicesModule.exports : require('./test-client-patches.cjs') });
 const tick = () => new Promise(resolve => setImmediate(resolve));
 
-function injectorFixture(fetch) {
+function injectorFixture(fetch, plans = JSON.parse(read('src/generated/overdrive.json')).plans, bonusOverrides = {}, arcadePlans = [], arcadeOverrides = {}, augmentOverrides = {}, detailsOverrides = {}, itemsOverrides = {}, inventoryOverrides = {}, presenceOverrides = {}, userAgent = 'Chrome', statisticsOverrides = {}, actionOverrides = {}, criticalOverrides = {}) {
     class Script {
         constructor() {
             this.src = 'https://tankionline.com/static/js/main.123.js';
@@ -49,18 +64,31 @@ function injectorFixture(fetch) {
     const head = { appendChild(script) { appended.push(script); } };
     const context = {
         require: id => {
-            if (id === './core/bonusPickup') return bonusPickupModule.exports;
-            if (id === './core/arcadeReload') return arcadeReloadModule.exports;
-            if (id === './core/gameAugments') return { installGameAugments() {}, patchGameAugments: code => code };
-            if (id === './core/garageDetails') return { patchUnavailableGarageDetails: code => code };
-            if (id === './core/garageItems') return { patchUnavailableGarageItems: code => code };
-            if (id === './core/garageInventory') return { installGarageInventoryDiagnostics() {}, patchGarageInventoryDiagnostics: code => code };
-            if (id === './core/battlePresence') return { installBattlePresence() {}, patchBattlePresence: code => code, patchBattleCapacity: code => code,
-                readBattleKind: presenceModule.exports.readBattleKind };
+            if (id === './core/bonusPickup') return { ...bonusPickupModule.exports, ...bonusOverrides };
+            if (id === './generated/overdrive.json') return { plans };
+            if (id === './generated/critical.json') return { plans: [] };
+            if (id === './generated/user-action.json') return { plans: [] };
+            if (id === './generated/battle-statistics.json') return { plans: [] };
+            if (id === './generated/battle-presence.json') return { plans: [] };
+            if (id === './generated/garage-inventory.json') return { plans: [] };
+            if (id === './generated/garage-items.json') return { plans: [] };
+            if (id === './generated/garage-details.json') return { plans: [] };
+            if (id === './generated/augments.json') return { plans: [] };
+            if (id === './generated/arcade.json') return { plans: arcadePlans };
+            if (id === './core/clientPatches') return require('./test-client-patches.cjs');
+            if (id === './core/arcadeReload') return { ...arcadeReloadModule.exports, ...arcadeOverrides };
+            if (id === './core/gameAugments') return { installGameAugments() {}, selectGameAugmentsPlan: async () => undefined, patchGameAugments: code => code, ...augmentOverrides };
+            if (id === './core/garageDetails') return { ...detailsModule.exports, ...detailsOverrides };
+            if (id === './core/garageItems') return { ...garageItemsModule.exports, ...itemsOverrides };
+            if (id === './core/garageInventory') return { ...inventoryModule.exports, ...inventoryOverrides };
+            if (id === './core/criticalIndicator') return { ...criticalModule.exports, ...criticalOverrides };
+            if (id === './core/userActions') return { ...actionsModule.exports, ...actionOverrides };
+            if (id === './core/battleStatistics') return { ...statisticsModule.exports, ...statisticsOverrides };
+            if (id === './core/battlePresence') return { ...presenceModule.exports, installBattlePresence() {}, ...presenceOverrides };
             throw new Error(`Unexpected injector import: ${id}`);
         },
         window: { messages: [], postMessage(value) { this.messages.push(value); } },
-        navigator: { userAgent: 'Chrome' },
+        navigator: { userAgent },
         document: { head, documentElement: head, createElement: () => {
             const script = new Script();
             script.src = '';
@@ -87,10 +115,240 @@ function injectorFixture(fetch) {
     };
 }
 
+test('injector applies an exact-hash AST plan before other transformations and skips unknown bundles', async () => {
+    const source = 'function Stats(id,map,mode,mm,loaded,a,b,c,d,e,f){this.id=id,this.map=map,this.mode=mode,this.mm=mm,this.loaded=loaded,this.a=a,this.b=b,this.c=c,this.d=d,this.e=e,this.f=f}' +
+        'proto(Stats).toString=function(){return"BattleStatistics(battleId="+this.id+", mapName="+this.map+", mode="+this.mode+", isMMBattle="+this.mm+", battleLoaded="+this.loaded+")"};';
+    // A small prepared plan isolates injector ordering from the analyzer's own tests.
+    const status = { kind: 'hooks', strategy: 'ast-plan', pickupHook: true, pickupCalls: 1,
+        contextHook: true, registrationHooks: 1, issues: [], schemaIssues: [], ready: true };
+    const plan = { format: 'ki-overdrive-ast-v1', sha256: createHash('sha256').update(source).digest('hex'),
+        sourceLength: source.length, status, edits: [{ start: source.length, end: source.length,
+            expected: '', before: source.slice(-24), after: '', text: 'window.astApplied=true;' }] };
+    for (const input of [source, source.replace('battleId=', 'battleID=')]) {
+        const f = injectorFixture(async () => ({ ok: true, text: async () => input }), [plan], {}, [], {}, {}, {}, {}, {}, {}, 'Chrome', {
+            selectBattleStatisticsPlan: async code => require('./battle-statistics-ast.cjs').analyzeBattleStatistics(code),
+        });
+        await f.intercept(new f.Script());
+        for (let tries = 0; !f.appended.length && tries < 100; tries++) await new Promise(resolve => setTimeout(resolve, 5));
+        assert.equal(f.appended.length, 1);
+        const exact = input === source;
+        assert.equal(f.appended[0].textContent.includes('window.astApplied=true;'), exact);
+        assert.equal(f.page.__kaspBonusDebug.status().ready, exact);
+        assert.equal(f.errors.length, 0);
+        assert.equal(typeof f.page.__kaspBonusType, 'function');
+        if (exact) {
+            const context = { window: f.page, proto: type => type.prototype };
+            vm.runInNewContext(f.appended[0].textContent, context);
+            new context.Stats('1', 'Sandbox', 'DM', false, true);
+            assert.equal(f.page.astApplied, true);
+            assert.equal(f.page.messages.find(message => message.type === 'kasp:battle-kind').detail, 'PRO');
+        }
+    }
+});
+
+test('an overdrive preparation exception skips only that feature and still injects the game', async () => {
+    const source = 'window.mainLoaded=true;';
+    const f = injectorFixture(async () => ({ ok: true, text: async () => source }), [], {
+        patchBonusPickups() { throw Error('unsupported overdrive structure'); }
+    });
+    await f.intercept(new f.Script());
+    assert.equal(f.appended.length, 1);
+    assert.equal(f.appended[0].textContent, source);
+    assert.equal(f.page.__kaspBonusDebug.status().ready, false);
+    assert.equal(f.page.__kaspBonusDebug.status().issues[0], 'overdrive-patch-error');
+    assert.equal(f.errors.length, 0, 'the injector must not fall back to an unmodified game or lose other features');
+    vm.runInNewContext(f.appended[0].textContent, { window: f.page });
+    assert.equal(f.page.mainLoaded, true);
+});
+
+test('an arcade preparation exception leaves game loading and the other prepared plan intact', async () => {
+    const source='window.mainLoaded=true;';
+    const bonusPlan={format:'ki-overdrive-ast-v1',sha256:createHash('sha256').update(source).digest('hex'),sourceLength:source.length,
+        status:{kind:'hooks',ready:true,strategy:'ast-plan',issues:[],schemaIssues:[],pickupCalls:1,registrationHooks:1,contextHook:true,pickupHook:true},
+        edits:[{start:source.length,end:source.length,expected:'',before:source.slice(-24),after:'',text:'window.bonusPlanApplied=true;'}]};
+    const f=injectorFixture(async()=>({ok:true,text:async()=>source}),[bonusPlan],{},[],{
+        patchArcadeReload(){throw Error('unsupported native renderer');}
+    });
+    await f.intercept(new f.Script());
+    for(let tries=0;!f.appended.length&&tries<100;tries++)await new Promise(resolve=>setTimeout(resolve,5));
+    assert.equal(f.appended.length,1);vm.runInNewContext(f.appended[0].textContent,{window:f.page});
+    assert.equal(f.page.mainLoaded,true);assert.equal(f.page.bonusPlanApplied,true);
+    assert.equal(f.page.__kaspArcadeReloadDebug.status().hooked,false);
+    assert.equal(f.page.__kaspArcadeReloadDebug.status().issues[0],'arcade-patch-error');
+    assert.equal(f.page.__kaspBonusDebug.status().ready,true);assert.equal(f.errors.length,0);
+});
+
+test('an augments preparation exception leaves the native game and other features active', async () => {
+    const source = 'window.mainLoaded=true;';
+    const f = injectorFixture(async () => ({ ok: true, text: async () => source }), [], {}, [], {}, {
+        selectGameAugmentsPlan() { throw Error('unsupported native device models'); }
+    });
+    await f.intercept(new f.Script());
+    assert.equal(f.appended.length, 1);
+    assert.equal(f.errors.length, 0);
+    vm.runInNewContext(f.appended[0].textContent, { window: f.page });
+    assert.equal(f.page.mainLoaded, true);
+});
+
+test('garage details are merged with other AST plans before legacy transformations', async () => {
+    const source = 'window.mainLoaded=true;';
+    const hash = createHash('sha256').update(source).digest('hex');
+    const edit = text => ({ start: source.length, end: source.length, expected: '', before: source.slice(-24), after: '', text });
+    const bonus = { format: 'ki-overdrive-ast-v1', sha256: hash, sourceLength: source.length,
+        status: { kind: 'hooks', ready: true, issues: [], schemaIssues: [] }, edits: [edit('window.bonusApplied=true;')] };
+    const details = { format: 'ki-garage-details-ast-v1', sha256: hash, sourceLength: source.length,
+        status: { hooked: true, ready: true, strategy: 'ast-plan', issues: [] }, edits: [edit('window.detailsApplied=true;')] };
+    for (const fail of [false, true]) {
+        const f = injectorFixture(async () => ({ ok: true, text: async () => source }), [bonus], {}, [], {}, {}, {
+            selectGarageDetailsPlan() { if (fail) throw Error('unsupported native description renderer'); return Promise.resolve(details); }
+        });
+        await f.intercept(new f.Script());
+        for (let tries = 0; !f.appended.length && tries < 100; tries++) await new Promise(resolve => setTimeout(resolve, 5));
+        assert.equal(f.appended.length, 1); assert.equal(f.errors.length, 0);
+        vm.runInNewContext(f.appended[0].textContent, { window: f.page });
+        assert.equal(f.page.mainLoaded, true); assert.equal(f.page.bonusApplied, true);
+        assert.equal(f.page.detailsApplied, fail ? undefined : true);
+    }
+});
+
+test('garage-item preparation and failures stay independent of the game and other AST modules', async () => {
+    const source = 'window.mainLoaded=true;', hash = createHash('sha256').update(source).digest('hex');
+    const edit = text => ({ start: source.length, end: source.length, expected: '', before: source.slice(-24), after: '', text });
+    const bonus = { format: 'ki-overdrive-ast-v1', sha256: hash, sourceLength: source.length,
+        status: { kind: 'hooks', ready: true, issues: [], schemaIssues: [] }, edits: [edit('window.bonusApplied=true;')] };
+    const details = { format: 'ki-garage-details-ast-v1', sha256: hash, sourceLength: source.length,
+        status: { hooked: true, ready: true, strategy: 'ast-plan', issues: [] }, edits: [edit('window.detailsApplied=true;')] };
+    const items = { ...details, format: 'ki-garage-items-ast-v1', edits: [edit('window.itemsApplied=true;')] };
+    for (const fail of [false, true]) {
+        const f = injectorFixture(async () => ({ ok: true, text: async () => source }), [bonus], {}, [], {}, {},
+            { selectGarageDetailsPlan: async () => details },
+            { selectGarageItemsPlan() { if (fail) throw Error('unsupported native garage renderer'); return Promise.resolve(items); } });
+        await f.intercept(new f.Script());
+        for (let tries = 0; !f.appended.length && tries < 100; tries++) await new Promise(resolve => setTimeout(resolve, 5));
+        assert.equal(f.appended.length, 1); assert.equal(f.errors.length, 0);
+        vm.runInNewContext(f.appended[0].textContent, { window: f.page });
+        assert.equal(f.page.mainLoaded, true); assert.equal(f.page.bonusApplied, true); assert.equal(f.page.detailsApplied, true);
+        assert.equal(f.page.itemsApplied, fail ? undefined : true);
+    }
+});
+
+test('inventory preparation and its failures leave the game and other AST features active', async () => {
+    const source = 'window.mainLoaded=true;', hash = createHash('sha256').update(source).digest('hex');
+    const edit = text => ({ start: source.length, end: source.length, expected: '', before: source.slice(-24), after: '', text });
+    const bonus = { format: 'ki-overdrive-ast-v1', sha256: hash, sourceLength: source.length,
+        status: { kind: 'hooks', ready: true, issues: [], schemaIssues: [] }, edits: [edit('window.bonusApplied=true;')] };
+    const inventory = { format: 'ki-garage-inventory-ast-v1', sha256: hash, sourceLength: source.length,
+        status: { hooked: true, ready: true, strategy: 'ast-plan', issues: [] }, edits: [edit('window.inventoryApplied=true;')] };
+    for (const fail of [false, true]) {
+        const f = injectorFixture(async () => ({ ok: true, text: async () => source }), [bonus], {}, [], {}, {}, {}, {},
+            { selectGarageInventoryPlan() { if (fail) throw Error('unsupported native inventory'); return Promise.resolve(inventory); } });
+        await f.intercept(new f.Script());
+        for (let tries = 0; !f.appended.length && tries < 100; tries++) await new Promise(resolve => setTimeout(resolve, 5));
+        assert.equal(f.appended.length, 1); assert.equal(f.errors.length, 0);
+        vm.runInNewContext(f.appended[0].textContent, { window: f.page });
+        assert.equal(f.page.mainLoaded, true); assert.equal(f.page.bonusApplied, true);
+        assert.equal(f.page.inventoryApplied, fail ? undefined : true);
+        assert.equal(f.page.__kaspGarageInventoryDebug().captured, false);
+    }
+});
+
+test('Electron presence plans observe original offsets and failures cannot remove other game features', async () => {
+    const source = 'window.mainLoaded=true;';
+    const bonusPlan = { format: 'ki-overdrive-ast-v1', sourceLength: source.length, sha256: createHash('sha256').update(source).digest('hex'),
+        status: { kind: 'hooks', ready: true, strategy: 'ast-plan', issues: [], schemaIssues: [], pickupCalls: 1, registrationHooks: 1, contextHook: true, pickupHook: true },
+        edits: [{ start: source.length, end: source.length, expected: '', before: source.slice(-24), after: '', text: 'window.bonusApplied=true;' }] };
+    for (const behavior of ['success', 'exception', 'stale']) {
+        const presencePlan = { format: 'ki-battle-presence-ast-v1', profile: 'complete', sourceLength: behavior === 'stale' ? source.length + 1 : source.length,
+            status: { hooked: true, ready: true, strategy: 'ast-plan', issues: [] },
+            edits: [{ start: 0, end: 0, expected: '', before: '', after: source.slice(0, 24), text: 'window.presenceApplied=true;' }] };
+        const f = injectorFixture(async () => ({ ok: true, text: async () => source }), [bonusPlan], {}, [], {}, {}, {}, {}, {}, {
+            selectBattlePresencePlan(code) { assert.equal(code, source); if (behavior === 'exception') throw Error('presence incompatible'); return presencePlan; },
+        }, 'Electron');
+        await f.intercept(new f.Script());
+        for (let tries = 0; !f.appended.length && tries < 100; tries++) await new Promise(resolve => setTimeout(resolve, 5));
+        assert.equal(f.appended.length, 1); assert.equal(f.errors.length, 0);
+        vm.runInNewContext(f.appended[0].textContent, { window: f.page });
+        assert.equal(f.page.mainLoaded, true); assert.equal(f.page.bonusApplied, true);
+        assert.equal(!!f.page.presenceApplied, behavior === 'success');
+    }
+    let reads = 0;
+    const chrome = injectorFixture(async () => ({ ok: true, text: async () => source }), [], {}, [], {}, {}, {}, {}, {}, {
+        selectBattlePresencePlan() { reads++; throw Error('browser must not prepare presence'); },
+    });
+    await chrome.intercept(new chrome.Script()); assert.equal(reads, 0);
+    assert.equal(chrome.appended[0].textContent, source);
+});
+
+test('statistics preparation is independent of other AST modules in both browsers and Electron', async () => {
+    const source = 'window.mainLoaded=true;';
+    const bonus = { format: 'ki-overdrive-ast-v1', sourceLength: source.length, sha256: createHash('sha256').update(source).digest('hex'),
+        status: { kind: 'hooks', ready: true, strategy: 'ast-plan', issues: [], schemaIssues: [] },
+        edits: [{ start: source.length, end: source.length, expected: '', before: source.slice(-24), after: '', text: 'window.bonusApplied=true;' }] };
+    for (const userAgent of ['Chrome', 'Electron']) for (const behavior of ['success', 'exception', 'stale']) {
+        const statistics = { format: 'ki-battle-statistics-ast-v1', sourceLength: behavior === 'stale' ? source.length + 1 : source.length,
+            status: { hooked: true, ready: true, strategy: 'ast-plan', issues: [] },
+            edits: [{ start: 0, end: 0, expected: '', before: '', after: source.slice(0, 24), text: 'window.statisticsApplied=true;' }] };
+        const f = injectorFixture(async () => ({ ok: true, text: async () => source }), [bonus], {}, [], {}, {}, {}, {}, {}, {}, userAgent, {
+            selectBattleStatisticsPlan(code) { assert.equal(code, source); if (behavior === 'exception') throw Error('statistics incompatible'); return statistics; },
+        });
+        await f.intercept(new f.Script());
+        for (let tries = 0; !f.appended.length && tries < 100; tries++) await new Promise(resolve => setTimeout(resolve, 5));
+        assert.equal(f.appended.length, 1); assert.equal(f.errors.length, 0);
+        vm.runInNewContext(f.appended[0].textContent, { window: f.page });
+        assert.equal(f.page.mainLoaded, true); assert.equal(f.page.bonusApplied, true);
+        assert.equal(!!f.page.statisticsApplied, behavior === 'success');
+    }
+});
+
+test('action preparation uses original offsets and stays independent of game loading and other AST modules', async () => {
+    const source = 'window.mainLoaded=true;';
+    const bonus = { format: 'ki-overdrive-ast-v1', sourceLength: source.length, sha256: createHash('sha256').update(source).digest('hex'),
+        status: { kind: 'hooks', ready: true, strategy: 'ast-plan', issues: [], schemaIssues: [] },
+        edits: [{ start: source.length, end: source.length, expected: '', before: source.slice(-24), after: '', text: 'window.bonusApplied=true;' }] };
+    for (const userAgent of ['Chrome', 'Electron']) for (const behavior of ['success', 'exception', 'stale']) {
+        const action = { format: 'ki-user-action-ast-v1', sourceLength: behavior === 'stale' ? source.length + 1 : source.length,
+            status: { hooked: true, ready: true, strategy: 'ast-plan', issues: [] },
+            edits: [{ start: 0, end: 0, expected: '', before: '', after: source.slice(0, 24), text: 'window.actionsApplied=true;' }] };
+        const f = injectorFixture(async () => ({ ok: true, text: async () => source }), [bonus], {}, [], {}, {}, {}, {}, {}, {}, userAgent, {}, {
+            selectUserActionPlan(code) { assert.equal(code, source); if (behavior === 'exception') throw Error('action incompatible'); return action; },
+        });
+        await f.intercept(new f.Script());
+        for (let tries = 0; !f.appended.length && tries < 100; tries++) await new Promise(resolve => setTimeout(resolve, 5));
+        assert.equal(f.appended.length, 1); assert.equal(f.errors.length, 0);
+        vm.runInNewContext(f.appended[0].textContent, { window: f.page });
+        assert.equal(f.page.mainLoaded, true); assert.equal(f.page.bonusApplied, true);
+        assert.equal(!!f.page.actionsApplied, behavior === 'success');
+    }
+});
+
+test('critical preparation and failures cannot remove other prepared features or block native loading', async () => {
+    const source = 'window.mainLoaded=true;', hash = createHash('sha256').update(source).digest('hex');
+    const bonus = { format: 'ki-overdrive-ast-v1', sha256: hash, sourceLength: source.length,
+        status: { kind: 'hooks', ready: true, strategy: 'ast-plan', issues: [], schemaIssues: [] },
+        edits: [{ start: source.length, end: source.length, expected: '', before: source.slice(-24), after: '', text: 'window.bonusApplied=true;' }] };
+    for (const behavior of ['success', 'exception', 'stale']) {
+        const plan = { format: 'ki-critical-ast-v1', sourceLength: behavior === 'stale' ? source.length + 1 : source.length,
+            status: { hooked: true, ready: true, strategy: 'ast-plan', issues: [] },
+            edits: [{ start: 0, end: 0, expected: '', before: '', after: source.slice(0, 24), text: 'window.criticalApplied=true;' }] };
+        const f = injectorFixture(async () => ({ ok: true, text: async () => source }), [bonus], {}, [], {}, {}, {}, {}, {}, {}, 'Chrome', {}, {}, {
+            selectCriticalPlan(code) { assert.equal(code, source); if (behavior === 'exception') throw Error('unsupported critical state'); return plan; },
+        });
+        await f.intercept(new f.Script());
+        for (let tries = 0; !f.appended.length && tries < 100; tries++) await new Promise(resolve => setTimeout(resolve, 5));
+        assert.equal(f.appended.length, 1); assert.equal(f.errors.length, 0);
+        vm.runInNewContext(f.appended[0].textContent, { window: f.page });
+        assert.equal(f.page.mainLoaded, true); assert.equal(f.page.bonusApplied, true);
+        assert.equal(!!f.page.criticalApplied, behavior === 'success');
+        assert.equal(f.page.__kaspCriticalDebug.status().mapping.ready, behavior === 'success');
+    }
+});
+
 test('injected statistics use the native matchmaking flag and ignore unloaded defaults and misleading titles', async () => {
     const source = 'function Stats(id,map,mode,mm,loaded,a,b,c,d,e,f){this.id=id,this.map=map,this.mode=mode,this.mm=mm,this.loaded=loaded,this.a=a,this.b=b,this.c=c,this.d=d,this.e=e,this.f=f}' +
         'proto(Stats).toString=function(){return"BattleStatistics(battleId="+this.id+", mapName="+this.map+", mode="+this.mode+", isMMBattle="+this.mm+", battleLoaded="+this.loaded+")"};';
-    const f = injectorFixture(async () => ({ ok: true, text: async () => source }));
+    const f = injectorFixture(async () => ({ ok: true, text: async () => source }), [], {}, [], {}, {}, {}, {}, {}, {}, 'Chrome', {
+        selectBattleStatisticsPlan: async code => require('./battle-statistics-ast.cjs').analyzeBattleStatistics(code),
+    });
     await f.intercept(new f.Script());
     const context = { window: f.page, proto: type => type.prototype };
     vm.runInNewContext(f.appended[0].textContent, context);
@@ -148,19 +406,22 @@ test('network rejection and response body failures use native loading without an
 });
 
 test('successful loading preserves both hooks and ignores further main scripts in the same mutation batch', async () => {
-    const code = 'function User(a){this.field=a}User.prototype.toString=function(){return"TankUserActionLog(x="+this.field};'
+    const code = 'function Label(uid){this.nick=uid}Label.prototype.toString=function(){return"UserLabelData(uid="+this.nick+")"};'
+        + 'function User(a,b){this.field=a;this.kind=b}User.prototype.toString=function(){return"TankUserActionLog(userLabelData="+this.field+", type="+this.kind+")"};'
         + 'function Stats(a,b,c,d,e,f,g,h,i,j,k){this.a=a,this.b=b,this.c=c,this.d=d,this.e=e,this.f=f,this.g=g,this.h=h,this.i=i,this.j=j,this.k=k}'
-        + 'Stats.prototype.toString=function(){return"BattleStatistics(x="+this.a};';
+        + 'Stats.prototype.toString=function(){return"BattleStatistics(battleId="+this.a+", mapName="+this.b+", mode="+this.c+", isMMBattle="+this.d+", battleLoaded="+this.e+")"};';
     let requests = 0;
-    const f = injectorFixture(async () => { requests++; return { ok: true, text: async () => code }; });
+    const f = injectorFixture(async () => { requests++; return { ok: true, text: async () => code }; }, [], {}, [], {}, {}, {}, {}, {}, {}, 'Chrome', {
+        selectBattleStatisticsPlan: async source => require('./battle-statistics-ast.cjs').analyzeBattleStatistics(source),
+    }, { selectUserActionPlan: async source => require('./user-action-ast.cjs').analyzeUserAction(source) });
     const first = new f.Script();
     const second = new f.Script();
     await f.intercept(first, second);
     assert.equal(requests, 1);
     assert.equal(second.removed, undefined);
     assert.equal(f.appended.length, 1);
-    assert.ok(f.appended[0].textContent.includes('window.__kaspSendAction("TankUserActionLog", this)'));
-    assert.ok(f.appended[0].textContent.includes('window.__kaspBattleStats(this)'));
+    assert.ok(f.appended[0].textContent.includes('window.__kaspSendAction("TankUserActionLog",this,'));
+    assert.ok(f.appended[0].textContent.includes('window.__kaspBattleStats(this,'));
     assert.equal(f.appended[0].nonce, 'page-nonce');
     assert.equal(f.appended[0].type, 'module');
     assert.equal(f.errors.length, 0);

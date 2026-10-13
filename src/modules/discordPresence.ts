@@ -10,6 +10,7 @@ export function setupDiscordPresence(): void {
     if (!isElectronClient()) return;
     const labels = { loading: 'Loading the game', lobby: 'In the lobby', garage: 'In the garage',
         battle: 'In a battle', match_results: 'Battle results' };
+    const screenLabels = new Map(Object.entries(labels));
     let battle: BattlePresence | null = null, receivedAt = 0, end: number | undefined;
     window.addEventListener('message', event => {
         if (event.source !== window || event.origin !== window.location.origin || event.data?.type !== BATTLE_PRESENCE_MESSAGE) return;
@@ -33,7 +34,7 @@ export function setupDiscordPresence(): void {
         const translated = rawMap ? DataLoader.translateMap(rawMap, 'EN') : null;
         const mode = active?.mode || /\s+(TDM|DM|CTF|CP|SGE|RGB|JGR|TJR|ASL|AR|AS|RUGBY|SUR|HOLIDAY|TAR|TUTORIAL)$/i.exec(active?.map || '')?.[1]?.toUpperCase();
         const details = translated && !/[\u0400-\u04ff]/.test(translated)
-            ? `${translated}${mode ? ` ${mode}` : ''}` : labels[state.currentScreen] || labels.lobby;
+            ? `${translated}${mode ? ` ${mode}` : ''}` : screenLabels.get(state.currentScreen) || labels.lobby;
         window.postMessage({ type: 'kasp:discord-presence', version: 1,
             presence: { details, state: hidden ? 'Hidden' : account?.nickname || 'Signing in',
                 ...(active && end !== undefined ? { timestamps: { end } } : {}),

@@ -1,4 +1,6 @@
 import { gameDOM } from './gameDOM';
+import { clientSourceHash, resolveTemplateEdits, validatePatchEdits } from './clientPatches';
+import type { PreparedPatchPlan } from './clientPatches';
 
 export const BATTLE_PRESENCE_MESSAGE = 'kasp:battle-presence';
 export interface BattlePresence {
@@ -30,7 +32,9 @@ function field(object: object, label: string): unknown {
     return key ? Object.getOwnPropertyDescriptor(object, key)?.value : undefined;
 }
 function type(object: object, name: string): boolean {
-    return typeof object.toString === 'function' && Function.prototype.toString.call(object.toString).includes(`"${name}(`);
+    if (typeof object.toString !== 'function') return false;
+    const code = Function.prototype.toString.call(object.toString);
+    return code.includes(`"${name}(`) || code.includes(`'${name}(`);
 }
 function children(object: object): object[] {
     return Object.values(Object.getOwnPropertyDescriptors(object)).slice(0, 100)
@@ -103,25 +107,52 @@ export function readBattlePresence(store: object, capacities?: ReadonlyMap<strin
     return result;
 }
 
-export function patchBattleCapacity(code: string): string {
-    const capacity = /this\.([\w$]+)=new [\w$]+\(["']maxPeople["']\)/.exec(code)?.[1];
-    const id = /this\.([\w$]+)=new [\w$]+\(["']battleId["']\)/.exec(code)?.[1];
-    if (!capacity || !id) return code;
-    const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const assignments = new RegExp(`([\\w$]+\\([\\w$]+\\))\\.${escape(id)}\\.[\\w$]+\\(([\\w$]+\\(\\)\\.[\\w$]+\\(\\)\\.[\\w$]+\\(\\))\\),\\1\\.${escape(capacity)}\\.[\\w$]+\\(([\\w$]+\\.[\\w$]+)\\)`, 'g');
-    return code.replace(assignments, (whole, _settings, battleId, limit) =>
-        `${whole},(function(){try{window.__kaspPresenceCapacity(${battleId},${limit})}catch(__kaspIgnored){}})()`);
+export interface BattlePresenceHookStatus {
+    hooked: boolean;
+    ready: boolean;
+    strategy: 'ast-plan' | 'ast-template';
+    issues: string[];
+    storeHooks?: number;
+    capacityHooks?: number;
+}
+export interface BattlePresencePatchPlan extends PreparedPatchPlan {
+    format: 'ki-battle-presence-ast-v1';
+    status: BattlePresenceHookStatus;
+    profile: 'complete' | 'store' | 'capacity';
+}
+const MARKER = '/*ki-battle-presence-ast:v1:';
+const unavailable = (issue: string): BattlePresenceHookStatus => ({ hooked: false, ready: false, strategy: 'ast-plan', issues: [issue] });
+
+/** Native store getters and capacity writes are discovered offline; compatible builds use prepared templates. */
+export async function selectBattlePresencePlan(code: string, plans: readonly BattlePresencePatchPlan[]): Promise<BattlePresencePatchPlan | undefined> {
+    const candidates = plans.filter(plan => plan.format === 'ki-battle-presence-ast-v1' && plan.profile === 'complete' && plan.status.ready && plan.sourceLength === code.length);
+    if (candidates.length) try {
+        const hash = await clientSourceHash(code);
+        const exact = candidates.find(plan => plan.sha256 === hash);
+        if (exact) return exact;
+    } catch { }
+    for (const plan of [...plans].reverse()) try {
+        if (plan.format !== 'ki-battle-presence-ast-v1' || plan.profile !== 'complete' || !plan.status.ready) continue;
+        const adapted = resolveTemplateEdits(code, plan);
+        if (!adapted) continue;
+        const status: BattlePresenceHookStatus = { ...plan.status, strategy: 'ast-template' };
+        const edits = adapted.edits;
+        edits.unshift({ start: 0, end: 0, expected: '', before: '', after: code.slice(0, 24), text: MARKER + JSON.stringify(status) + '*/\n' });
+        return { ...plan, sourceLength: code.length, sha256: '', status, edits };
+    } catch { }
+    return undefined;
 }
 
-export function patchBattlePresence(code: string, report?: (matches: number) => void): string {
-    let matches = 0;
-    const getter = /function\(\)\{var ([\w$]+)=([\w$]+);return (this\.[\w$]+\.[\w$]+\(this,[\w$]+\(["']store["'],1,\1,function\(([\w$]+)\)\{return \4\.[\w$]+\(\)\},null\)\))\}/g;
-    const patched = code.replace(getter, (_whole, variable, scope, expression) => {
-        matches++;
-        return `function(){var ${variable}=${scope};var __kaspStore=${expression};try{window.__kaspPresenceStore(__kaspStore)}catch(__kaspIgnored){}return __kaspStore}`;
-    });
-    report?.(matches);
-    return patched;
+/** Validate all native store and capacity hooks before applying any edit. */
+export function patchBattlePresence(code: string, report?: (status: BattlePresenceHookStatus) => void, plan?: BattlePresencePatchPlan): string {
+    const done = (result: string, status: BattlePresenceHookStatus) => { try { report?.(status); } catch { } return result; };
+    if (code.includes(MARKER)) return done(code, plan?.status || { hooked: true, ready: true, strategy: 'ast-plan', issues: [] });
+    if (!plan) return done(code, unavailable('battle-presence-mapping-unavailable'));
+    if (plan.format !== 'ki-battle-presence-ast-v1' || !plan.status.ready) return done(code, plan.status);
+    if (!validatePatchEdits(code, plan)) return done(code, unavailable('battle-presence-edit-mismatch'));
+    let patched = code;
+    for (const edit of [...plan.edits].reverse()) patched = patched.slice(0, edit.start) + edit.text + patched.slice(edit.end);
+    return done(patched, plan.status);
 }
 
 export function installBattlePresence(page: Window): void {

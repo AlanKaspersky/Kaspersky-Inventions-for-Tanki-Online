@@ -1,8 +1,11 @@
+import { clientPatchHeader, clientSourceHash, resolveTemplateEdits, validatePatchEdits } from './clientPatches';
+import type { PreparedPatchPlan } from './clientPatches';
 import { gameDOM } from './gameDOM';
 import { augmentPropertyLabel } from './augmentLabels';
 
 export const AUGMENTS_MESSAGE = 'kasp:game-augments';
 export const AUGMENTS_REQUEST = 'kasp:game-augments-request';
+export const AUGMENT_CARDS_UPDATED = 'kasp:augment-cards-updated';
 export type GarageCardSection = 'augments' | 'skins' | 'shot-color';
 
 export function activeGarageCardSection(root: Pick<Document, 'querySelectorAll'>): GarageCardSection | null {
@@ -19,11 +22,12 @@ export interface GameAugment {
     name?: string;
     description?: string;
     locale: 'RU' | 'EN';
-    properties?: GameAugmentProperty[];
+    properties: GameAugmentProperty[];
     icons: string[];
     previewIcon?: string;
     rarity?: string;
 }
+type PendingGameAugment = Omit<GameAugment, 'properties'> & { properties?: GameAugmentProperty[] };
 export interface GameEquipmentProperties {
     id: string;
     currentLevel: number;
@@ -62,78 +66,62 @@ export interface AugmentSchema {
     baseFinal?: string;
 }
 
-function discoverModelCache(code: string) {
-    const writer = /([\w$]+)\(([\w$]+)\)\.([\w$]+)\s*=\s*function\s*\(\s*([\w$]+)\s*,\s*([\w$]+)\s*\)\s*\{\s*this\.([\w$]+)\.([\w$]+)\.set\(\s*\4\s*,\s*\5\s*\)\s*;?\s*\}/g;
-    const candidates = [...code.matchAll(writer)];
-    const semantic = candidates.flatMap(match => {
-        const before = code.slice(Math.max(0, match.index - 1000), match.index);
-        if (!before.includes('"No objects in stack"')) return [];
-        const getter = /([\w$]+)\(([\w$]+)\)\.([\w$]+)\s*=\s*function\s*\(\s*\)\s*\{\s*return\s+this\.[\w$]+\s*;?\s*\}\s*[,;]?\s*$/.exec(before);
-        if (!getter || getter[1] !== match[1] || getter[2] !== match[2]) return [];
-        return [{ match, objectIdMethod: getter[3] }];
-    });
-    if (semantic.length) return semantic.length === 1 ? semantic[0] : null;
-    const legacy = candidates.filter(match => match[3] === 'r7i');
-    return legacy.length === 1 ? { match: legacy[0], objectIdMethod: 'p57' } : null;
+function hasSchemaFields<K extends keyof AugmentSchema>(schema: Partial<AugmentSchema>, keys: readonly K[]):
+    schema is Partial<AugmentSchema> & Required<Pick<AugmentSchema, K>> {
+    return keys.every(key => typeof schema[key] === 'string' && schema[key] !== '');
 }
 
-export function discoverAugmentSchema(code: string): AugmentSchema | null {
-    function field(type: string, label: string): string | undefined {
-        const marker = code.indexOf(`"${type}`);
-        if (marker < 0) return undefined;
-        const before = code.slice(Math.max(0, marker - 500), marker);
-        const headers = [...before.matchAll(/([\w$]+)\(([\w$]+)\)\.toString\s*=\s*function\s*\([^)]*\)\s*\{/g)];
-        const header = headers[headers.length - 1];
-        if (!header) return undefined;
-        const body = code.slice(marker, code.indexOf('}', marker));
-        const match = new RegExp(`"[^"\\r\\n]*\\b${label}\\s*=\\s*"\\s*\\+\\s*(?:[\\w$]+\\()?this\\.([\\w$]+)(\\(\\))?`).exec(body);
-        if (!match) return undefined;
-        if (!match[2]) return match[1];
-        const area = code.slice(Math.max(0, marker - 20000), marker + 1000);
-        const getter = new RegExp(`${header[1]}\\(${header[2]}\\)\\.${match[1]}\\s*=\\s*function\\s*\\([^)]*\\)\\s*\\{\\s*(?:var\\s+[\\w$]+\\s*=\\s*|return\\s+)this\\.([\\w$]+)`).exec(area);
-        return getter?.[1];
-    }
-    const schema: AugmentSchema = {
-        objectIdMethod: discoverModelCache(code)?.objectIdMethod,
-        viewDeviceId: field('GarageDevice(id=', 'id'),
-        viewPreview: field('GarageDevice(id=', 'previewImage'),
-        viewRarity: field('GarageDevice(id=', 'rarity'),
-        imageUrlMethod: /props\.icon\s*;[^{}]{0,120}?\b[\w$]+\.([\w$]+)\(\)/.exec(code)?.[1],
-        properties: field('DevicePropertiesCC [', 'properties'),
-        operation: field('DevicePropertyEntity [', 'operation'),
-        property: field('DevicePropertyEntity [', 'property'),
-        value: field('DevicePropertyEntity [', 'value'),
-        name: field('DescriptionModelCC [', 'name'),
-        description: field('DescriptionModelCC [', 'description'),
-        deviceId: field('GarageDeviceObject(id=', 'id'),
-        baseItemId: field('GarageDeviceObject(id=', 'baseItemId'),
-        upgradeLevel: field('UpgradeParamsCC [', 'currentLevel'),
-        upgradeData: field('UpgradeParamsCC [', 'itemData'),
-        upgradeGroups: field('UpgradeParamsData [', 'properties'),
-        upgradeLevels: field('UpgradeParamsData [', 'upgradeLevelsCount'),
-        groupProperties: field('GaragePropertyParams [', 'properties'),
-        baseProperty: field('PropertyData [', 'property'),
-        baseInitial: field('PropertyData [', 'initialValue'),
-        baseFinal: field('PropertyData [', 'finalValue'),
-    };
-    return ['properties', 'operation', 'property', 'value', 'name', 'description']
-        .every(key => !!schema[key]) ? schema : null;
+export interface AugmentHookStatus {
+    hooked: boolean;
+    ready: boolean;
+    strategy: 'ast-plan' | 'ast-template';
+    issues: string[];
+}
+export interface AugmentPatchPlan extends PreparedPatchPlan {
+    format: 'ki-augments-ast-v1';
+    schema: AugmentSchema;
+    status: AugmentHookStatus;
+}
+const AUGMENT_MARKER = '/*ki-augments-ast:v1:';
+const unavailable = (issue: string): AugmentHookStatus => ({ hooked: false, ready: false, strategy: 'ast-plan', issues: [issue] });
+
+function augmentHeader(code: string, schema: AugmentSchema, status: AugmentHookStatus): string {
+    return clientPatchHeader(code, AUGMENT_MARKER, status, 'try{window.__kaspAugmentConfigure(' + JSON.stringify(schema) + ')}catch(__kaspIgnored){}');
 }
 
-export function patchGameAugments(code: string): string {
-    const schema = discoverAugmentSchema(code);
-    if (!schema) return code;
-    const cache = discoverModelCache(code);
-    if (!cache) return code;
-    const { match } = cache;
-    const replacement = match[0].replace(/\s*\}$/, `;try{window.__kaspAugmentData(${match[4]},${match[5]})}catch(__kaspIgnored){} }`);
-    let patched = code.slice(0, match.index) + replacement + code.slice(match.index + match[0].length);
-    if (schema.deviceId && schema.baseItemId) {
-        const constructor = new RegExp(`function\\s+[\\w$]+\\([^)]{1,400}\\)\\s*\\{\\s*this\\.${schema.deviceId}\\s*=\\s*[\\w$]+\\s*[,;]\\s*this\\.${schema.baseItemId}\\s*=\\s*[\\w$]+[^{}]*\\}`, 'g');
-        patched = patched.replace(constructor, whole => whole.replace(/\s*\}$/, `;try{window.__kaspAugmentLink(this.${schema.deviceId},this.${schema.baseItemId})}catch(__kaspIgnored){} }`));
-    }
-    const directive = /^\s*(["'])use strict\1\s*;/.exec(patched)?.[0] || '';
-    return `${directive}\ntry{window.__kaspAugmentConfigure(${JSON.stringify(schema)})}catch(__kaspIgnored){}\n${patched.slice(directive.length)}`;
+/** Offline AST plans supply native fields; compatible unknown builds use prepared templates. */
+export async function selectGameAugmentsPlan(code: string, plans: readonly AugmentPatchPlan[]): Promise<AugmentPatchPlan | undefined> {
+    const candidates = plans.filter(plan => plan.format === 'ki-augments-ast-v1' && plan.status.ready && plan.sourceLength === code.length);
+    if (candidates.length) try {
+        const hash = await clientSourceHash(code);
+        const exact = candidates.find(plan => plan.sha256 === hash);
+        if (exact) return exact;
+    } catch { }
+    for (const plan of [...plans].reverse()) try {
+        if (plan.format !== 'ki-augments-ast-v1' || !plan.status.ready) continue;
+        const adapted = resolveTemplateEdits(code, plan);
+        if (!adapted) continue;
+        const schema: Partial<AugmentSchema> = {};
+        for (const key of Object.keys(plan.schema) as (keyof AugmentSchema)[]) schema[key] = adapted.roles.get(key);
+        if (!hasSchemaFields(schema, ['properties', 'operation', 'property', 'value', 'name', 'description', 'objectIdMethod']) ||
+            Object.values(schema).some(value => typeof value !== 'string' || !/^[$A-Z_a-z][$\w]*$/.test(value))) continue;
+        const status: AugmentHookStatus = { ...plan.status, strategy: 'ast-template' };
+        const edits = adapted.edits;
+        edits.unshift({ start: 0, end: 0, expected: '', before: '', after: code.slice(0, 24), text: augmentHeader(code, schema, status) });
+        return { ...plan, sourceLength: code.length, sha256: '', schema, status, edits };
+    } catch { }
+    return undefined;
+}
+
+export function patchGameAugments(code: string, report?: (status: AugmentHookStatus) => void, plan?: AugmentPatchPlan): string {
+    const done = (result: string, status: AugmentHookStatus) => { try { report?.(status); } catch { } return result; };
+    if (code.includes(AUGMENT_MARKER)) return done(code, plan?.status || { hooked: true, ready: true, strategy: 'ast-plan', issues: [] });
+    if (!plan) return done(code, unavailable('augments-mapping-unavailable'));
+    if (plan.format !== 'ki-augments-ast-v1' || !plan.status.ready) return done(code, plan.status);
+    if (!validatePatchEdits(code, plan)) return done(code, unavailable('augments-edit-mismatch'));
+    let patched = code;
+    for (const edit of [...plan.edits].reverse()) patched = patched.slice(0, edit.start) + edit.text + patched.slice(edit.end);
+    return done(patched, plan.status);
 }
 
 function longId(value: unknown): string | null {
@@ -166,7 +154,7 @@ export function readGameProperties(value: unknown, schema: AugmentSchema): GameA
 }
 
 export function readEquipmentProperties(raw: unknown, schema: AugmentSchema): Omit<GameEquipmentProperties, 'id'> | null {
-    if (!['upgradeLevel', 'upgradeData', 'upgradeGroups', 'upgradeLevels', 'groupProperties', 'baseProperty', 'baseInitial', 'baseFinal'].every(key => !!schema[key])) return null;
+    if (!hasSchemaFields(schema, ['upgradeLevel', 'upgradeData', 'upgradeGroups', 'upgradeLevels', 'groupProperties', 'baseProperty', 'baseInitial', 'baseFinal'])) return null;
     try {
         const source = raw as Record<string, unknown>;
         const currentLevel = source[schema.upgradeLevel];
@@ -210,14 +198,15 @@ const committedTrees = new WeakMap<object, { root: CardFiber; parents: Map<CardF
 
 function closestReactProps(node: Element): unknown[] {
     const key = Object.keys(node).find(name => name.startsWith('__reactFiber$') || name.startsWith('__reactInternalInstance$'));
-    let fiber = key ? node[key] as CardFiber : undefined;
+    let fiber = key ? (node as Element & Record<string, unknown>)[key] as CardFiber : undefined;
     if (!fiber) return [];
     let root = fiber;
     for (let depth = 0; root.return && depth < 100; depth++) root = root.return;
-    const current = root.stateNode?.current;
+    const rootState = root.stateNode;
+    const current = rootState?.current;
     let parents: Map<CardFiber, CardFiber | null> | undefined;
-    if (current) {
-        let tree = committedTrees.get(root.stateNode);
+    if (rootState && current) {
+        let tree = committedTrees.get(rootState);
         if (!tree || tree.root !== current) {
             parents = new Map();
             const pending: Array<[CardFiber, CardFiber | null]> = [[current, null]];
@@ -229,7 +218,7 @@ function closestReactProps(node: Element): unknown[] {
                 if (item.child) pending.push([item.child, item]);
             }
             tree = { root: current, parents };
-            committedTrees.set(root.stateNode, tree);
+            committedTrees.set(rootState, tree);
         }
         parents = tree.parents;
         if (!parents.has(fiber)) fiber = fiber.alternate;
@@ -366,7 +355,7 @@ export function installGameAugments(page: Window): void {
     let revision = 0;
     let queued = false;
     const session = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const entries = new Map<string, GameAugment>();
+    const entries = new Map<string, PendingGameAugment>();
     const equipment = new Map<string, GameEquipmentProperties>();
     function locale(): 'RU' | 'EN' {
         try {
@@ -378,13 +367,16 @@ export function installGameAugments(page: Window): void {
     }
     function snapshot(): AugmentSnapshot {
         return { format: 'kasp-augments-v1', session, revision, updatedAt: Date.now(), hooked: !!schema,
-            devices: [...entries.values()].filter(entry => entry.properties !== undefined), equipment: [...equipment.values()] };
+            devices: [...entries.values()].filter((entry): entry is GameAugment => entry.properties !== undefined), equipment: [...equipment.values()] };
     }
     function publish(): void { page.postMessage({ type: AUGMENTS_MESSAGE, detail: snapshot() }, '*'); }
     function schedule(): void {
         if (queued) return;
         queued = true;
-        page.setTimeout(() => { queued = false; publish(); }, 100);
+        page.setTimeout(() => {
+            try { bindCards(); }
+            finally { queued = false; publish(); }
+        }, 100);
     }
     page.__kaspAugmentConfigure = value => { schema = value; revision++; schedule(); };
     page.__kaspAugmentLink = (rawId, rawBase) => {
@@ -401,7 +393,7 @@ export function installGameAugments(page: Window): void {
             const isDescription = Object.prototype.hasOwnProperty.call(data, schema.name) && Object.prototype.hasOwnProperty.call(data, schema.description);
             const isEquipment = schema.upgradeData && Object.prototype.hasOwnProperty.call(data, schema.upgradeData);
             if (!isProperties && !isDescription && !isEquipment) return;
-            const method = (object as Record<string, unknown>)[schema.objectIdMethod || 'p57'];
+            const method = schema.objectIdMethod ? (object as Record<string, unknown>)[schema.objectIdMethod] : undefined;
             if (typeof method !== 'function') return;
             const id = String(method.call(object));
             if (!/^\d{1,20}$/.test(id) || entries.size >= 20000 && !entries.has(id)) return;
@@ -417,7 +409,7 @@ export function installGameAugments(page: Window): void {
                 }
                 if (!isProperties && !isDescription) return;
             }
-            const entry = entries.get(id) || { id, locale: locale(), icons: [] };
+            const entry: PendingGameAugment = entries.get(id) || { id, locale: locale(), icons: [] };
             const before = JSON.stringify(entry);
             if (isProperties) {
                 const properties = readGameProperties(data[schema.properties], schema);
@@ -445,7 +437,7 @@ export function installGameAugments(page: Window): void {
                 ['data-kasp-cosmetic-name', cosmetic?.name],
                 ['data-kasp-cosmetic-preview', cosmetic?.previewIcon],
                 ['data-kasp-cosmetic-section', cosmetic ? section : undefined],
-            ]) {
+            ] as const) {
                 if (value && element.getAttribute(attribute) !== value) {
                     element.setAttribute(attribute, value); revision++; schedule();
                 } else if (!value && element.hasAttribute(attribute)) {
@@ -484,6 +476,8 @@ export function installGameAugments(page: Window): void {
             const previous = revision;
             bindCards();
             if (revision !== previous) publish();
+            // React can restore src/class without changing the item's identity or metadata.
+            else page.dispatchEvent?.(new Event(AUGMENT_CARDS_UPDATED));
         });
     let scanTimer: number | undefined;
     function syncEnabled(): void {
@@ -535,7 +529,15 @@ export function installGameAugments(page: Window): void {
         return { format: 'kasp-augment-page-v1', capturedAt: Date.now(), devices: [...devices.values()], unmatchedCards,
             note: 'Only currently rendered visible device cards are included. Scroll virtualized lists and export again to inspect more cards.' };
     }
-    page.__kaspAugmentsDebug = { export: () => JSON.stringify(snapshot(), null, 2),
+    let hookStatus: AugmentHookStatus | undefined;
+    page.__kaspAugmentsDebug = {
+        device: id => {
+            const device = entries.get(id);
+            return device ? { id: device.id, name: device.name, baseItemId: device.baseItemId,
+                properties: device.properties?.map(property => ({ ...property })) ?? [] } : null;
+        },
+        reportHook: status => { hookStatus = { ...status, issues: [...status.issues] }; },
+        export: () => JSON.stringify(snapshot(), null, 2),
         page: () => JSON.parse(JSON.stringify(pageData())), exportPage: () => JSON.stringify(pageData(), null, 2),
-        status: () => ({ hooked: !!schema, devices: snapshot().devices.length, equipment: equipment.size, revision }) };
+        status: () => ({ hooked: !!schema, devices: snapshot().devices.length, equipment: equipment.size, revision, mapping: hookStatus && { ...hookStatus, issues: [...hookStatus.issues] } }) };
 }

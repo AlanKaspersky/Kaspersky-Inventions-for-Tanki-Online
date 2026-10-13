@@ -1,15 +1,44 @@
+import { clientSourceHash, resolveTemplateEdits } from './clientPatches';
 export const OVERDRIVE_BOX_MODEL = '1647333199409';
 export const BONUS_PICKUP_MESSAGE = 'kasp:bonus-pickup';
 
 export interface BonusPosition { x: number; y: number; z: number; }
 export interface BonusPickup { model: string; position: BonusPosition | null; }
 
+const vectorTypes = new WeakMap<object, { x: string; y: string; z: string }>();
+const bonusTypes = new WeakMap<object, { box: string; pickupSound: string }>();
+
+function ownValue(value: unknown, field: string): unknown {
+    if (!value || typeof value !== 'object') return undefined;
+    const descriptor = Object.getOwnPropertyDescriptor(value, field);
+    return descriptor && 'value' in descriptor ? descriptor.value : undefined;
+}
+
+function schemaFor<T>(value: object, registry: WeakMap<object, T>): T | undefined {
+    for (let prototype = Object.getPrototypeOf(value), depth = 0; prototype && depth < 8; prototype = Object.getPrototypeOf(prototype), depth++) {
+        const schema = registry.get(prototype);
+        if (schema) return schema;
+    }
+    return undefined;
+}
+
+/** Native prototypes and their field names are supplied by the offline AST plan. */
+export function registerBonusType(prototype: unknown, kind: unknown, fields: unknown): boolean {
+    if (!prototype || typeof prototype !== 'object' || !fields || typeof fields !== 'object') return false;
+    const keys = kind === 'vector' ? ['x', 'y', 'z'] : kind === 'bonus' ? ['box', 'pickupSound'] : [];
+    const names = keys.map(key => ownValue(fields, key));
+    if (!keys.length || names.some(name => typeof name !== 'string' || !name || name.length > 128) || new Set(names).size !== names.length) return false;
+    if (kind === 'vector') vectorTypes.set(prototype, { x: names[0] as string, y: names[1] as string, z: names[2] as string });
+    else bonusTypes.set(prototype, { box: names[0] as string, pickupSound: names[1] as string });
+    return true;
+}
+
 export function readBonusPosition(value: unknown): BonusPosition | null {
     if (!value || typeof value !== 'object') return null;
     try {
-        const point = value as Record<string, unknown>;
-        const coordinates = 'x' in point ? [point.x, point.y, point.z]
-            : [point.f20_1, point.g20_1, point.h20_1];
+        const schema = schemaFor(value, vectorTypes);
+        const coordinates = schema ? [schema.x, schema.y, schema.z].map(field => ownValue(value, field))
+            : ['x', 'y', 'z'].map(field => ownValue(value, field));
         if (!coordinates.every(coordinate => typeof coordinate === 'number' && Number.isFinite(coordinate))) return null;
         const [x, y, z] = coordinates as number[];
         return { x, y, z };
@@ -75,7 +104,7 @@ function modelId(value: unknown): string | null {
     try {
         const keys = Object.keys(value);
         if (keys.length !== 2) return null;
-        const fields = keys.map(key => (value as Record<string, unknown>)[key]);
+        const fields = keys.map(key => ownValue(value, key));
         if (!fields.every(field => typeof field === 'number')) return null;
         const id = String(value);
         return /^-?\d{4,20}$/.test(id) ? id : null;
@@ -90,7 +119,7 @@ function findModel(value: unknown, depth = 0, visited = new Set<object>()): stri
     try {
         for (const key of Object.keys(value).slice(0, 20)) {
             let child: unknown;
-            try { child = (value as Record<string, unknown>)[key]; } catch { continue; }
+            try { child = ownValue(value, key); } catch { continue; }
             const found = findModel(child, depth + 1, visited);
             if (found) return found;
         }
@@ -100,16 +129,13 @@ function findModel(value: unknown, depth = 0, visited = new Set<object>()): stri
 
 function bonusModels(value: unknown, excludedField?: string): Array<string | null> {
     if (!value || typeof value !== 'object') return [];
-    const models: Array<string | null> = [];
     try {
-        for (const key of Object.keys(value).slice(0, 8)) {
-            if (key === excludedField) continue;
-            let child: unknown;
-            try { child = (value as Record<string, unknown>)[key]; } catch { continue; }
-            if (child && typeof child === 'object') models.push(findModel(child));
-        }
+        const schema = schemaFor(value, bonusTypes);
+        const box = ownValue(value, schema?.box || 'box') ?? (schema ? undefined : ownValue(value, 'model'));
+        const soundField = schema?.pickupSound || 'sound';
+        return [findModel(box), soundField === excludedField ? null : findModel(ownValue(value, soundField))];
     } catch { }
-    return models;
+    return [];
 }
 
 export function createBonusPickupBridge(
@@ -124,7 +150,8 @@ export function createBonusPickupBridge(
         try { diagnose?.(record); } catch { }
     }
     function resolve(data: unknown, excludedField?: string): string | null {
-        const candidate = bonusModels(data, excludedField)[0] || (excludedField ? null : findModel(data));
+        const models = bonusModels(data, excludedField);
+        const candidate = models[0] || (excludedField ? null : modelId(data) || models[1]);
         return candidate && (soundModels.has(candidate) ? soundModels.get(candidate) || null : candidate);
     }
     return {
@@ -198,39 +225,77 @@ export function createBonusPickupBridge(
     };
 }
 
-export function patchBonusPickups(code: string, report?: (record: BonusDiagnosticRecord) => void): string {
-    let pickupHook = false;
-    let contextHook = false;
-    let registrationHooks = 0;
-    const pickup = /[\w$]+\([\w$]+\)\.(\w+)=function\((\w+),(\w+)\)\{\w+\(this,this\.\w+,\2,\3,"bonus pickup"\)\}/.exec(code);
-    if (pickup) {
-        const original = pickup[0];
-        const openingEnd = original.indexOf('{') + 1;
-        const observed = original.slice(0, openingEnd) +
-            'try{window.__kaspBonusContext&&window.__kaspBonusContext(' + pickup[2] + ',' + pickup[3] + ')}catch(_kaspBonusError){};' +
-            original.slice(openingEnd);
-        code = code.replace(original, () => observed);
-        contextHook = true;
-        const call = new RegExp('\\.' + pickup[1] + '\\(([\\w$]+\\(([\\w$]+)\\))\\.([\\w$]+),');
-        pickupHook = call.test(code);
-        code = code.replace(call, '.' + pickup[1] + '(window.__kaspBonusPrepare($1,"$3",$2),');
+export interface BonusHookStatus extends BonusDiagnosticRecord {
+    kind: 'hooks';
+    strategy: 'ast-plan' | 'ast-template';
+    pickupHook: boolean;
+    pickupCalls: number;
+    contextHook: boolean;
+    registrationHooks: number;
+    issues: string[];
+    schemaIssues: string[];
+    ready: boolean;
+}
+export interface BonusPatchPlan {
+    format: 'ki-overdrive-ast-v1';
+    sha256: string;
+    sourceLength: number;
+    status: BonusHookStatus;
+    edits: Array<{ start: number; end: number; expected: string; text: string; before: string; after: string }>;
+    templates?: Array<{
+        pattern: string;
+        roles: Partial<Record<'vectorX' | 'vectorY' | 'vectorZ' | 'box' | 'sound' | 'pickup' | 'manager', string>>;
+        count: number;
+        edits: Array<{ start: string; end: string; parts: Array<string | { capture: string; quoted: boolean }> }>;
+    }>;
+}
+
+const PATCH_MARKER = '/*ki-overdrive-ast:v1:';
+const unavailable = (issue: string): BonusHookStatus => ({ kind: 'hooks', strategy: 'ast-plan', pickupHook: false,
+    pickupCalls: 0, contextHook: false, registrationHooks: 0, issues: [issue], schemaIssues: [], ready: false });
+
+function adaptBonusPatchPlan(code: string, plan: BonusPatchPlan): BonusPatchPlan | undefined {
+    if (!plan.status.ready) return undefined;
+    const adapted = resolveTemplateEdits(code, plan);
+    if (!adapted || new Set(['vectorX', 'vectorY', 'vectorZ'].map(role => adapted.roles.get(role))).size !== 3 ||
+        adapted.roles.get('box') === adapted.roles.get('sound')) return undefined;
+    const status: BonusHookStatus = { ...plan.status, strategy: 'ast-template' };
+    const edits = adapted.edits;
+    edits.unshift({ start: 0, end: 0, expected: '', before: '', after: code.slice(0, 24), text: `${PATCH_MARKER}${JSON.stringify(status)}*/\n` });
+    return { ...plan, sourceLength: code.length, sha256: '', status, edits };
+}
+
+/** SHA selects a fast path; an unknown build is tried against the prepared semantic templates. */
+export async function selectBonusPatchPlan(code: string, plans: readonly BonusPatchPlan[]): Promise<BonusPatchPlan | undefined> {
+    const candidates = plans.filter(plan => plan.format === 'ki-overdrive-ast-v1' && plan.status.ready && plan.sourceLength === code.length);
+    if (candidates.length) try {
+        const sha256 = await clientSourceHash(code);
+        const exact = candidates.find(plan => plan.sha256 === sha256);
+        if (exact) return exact;
+    } catch { }
+    for (const plan of [...plans].reverse()) try {
+        if (plan.format !== 'ki-overdrive-ast-v1') continue;
+        const adapted = adaptBonusPatchPlan(code, plan);
+        if (adapted) return adapted;
+    } catch { }
+    return undefined;
+}
+
+/** Apply pre-generated, guarded edits to the original bundle before any other injector patches. */
+export function patchBonusPickups(code: string, report?: (record: BonusDiagnosticRecord) => void, plan?: BonusPatchPlan): string {
+    const done = (result: string, status: BonusHookStatus) => { try { report?.(status); } catch {} return result; };
+    if (!plan) return done(code, unavailable('bundle-mapping-missing'));
+    if (code.includes(PATCH_MARKER)) return done(code, plan.status);
+    if (plan.format !== 'ki-overdrive-ast-v1' || plan.sourceLength !== code.length) return done(code, unavailable('bundle-mapping-mismatch'));
+    // Validate every edit before changing anything. A stale or corrupted plan cannot partially patch the game.
+    let previousEnd = 0;
+    for (const edit of plan.edits) {
+        if (!Number.isSafeInteger(edit.start) || !Number.isSafeInteger(edit.end) || edit.start < previousEnd || edit.end < edit.start || edit.end > code.length ||
+            code.slice(edit.start, edit.end) !== edit.expected || code.slice(Math.max(0, edit.start - 24), edit.start) !== edit.before ||
+            code.slice(edit.end, edit.end + 24) !== edit.after) return done(code, unavailable('bundle-edit-mismatch'));
+        previousEnd = edit.end;
     }
-    const pooledRegistration = /([\w$]+\([\w$]+\)\.\w+=function\(([\w$]+),([\w$]+),([\w$]+),[\w$]+,[\w$]+\)\{var ([\w$]+)=this\.\w+\.\w+\(\);\5\.\w+\(\2,\3\);)/g;
-    code = code.replace(pooledRegistration, (match, opening: string, id: string, data: string, position: string, instance: string, offset: number) => {
-        const body = code.slice(offset, offset + 900);
-        if (!body.includes('onBonusCollision') || body.includes('__kaspBonusRegister')) return match;
-        registrationHooks++;
-        return opening + 'try{window.__kaspBonusRegister&&window.__kaspBonusRegister(' +
-            [data, id, position, 'undefined', 'undefined', instance].join(',') + ')}catch(_kaspBonusError){};';
-    });
-    const registration = /([\w$]+\([\w$]+\)\.\w+=function\(([\w$]+),([\w$]+),([\w$]+),([\w$]+),([\w$]+),[\w$]+\)\{)(var \w+,\w+,\w+=this\.\w+\.\w+\(\);)/g;
-    code = code.replace(registration, (match, opening: string, id: string, data: string, x: string, y: string, z: string, locals: string, offset: number) => {
-        const body = code.slice(offset, offset + 900);
-        if (!body.includes('onBonusCollision') || body.includes('__kaspBonusRegister')) return match;
-        registrationHooks++;
-        return opening + 'try{window.__kaspBonusRegister&&window.__kaspBonusRegister(' +
-            [data, id, x, y, z].join(',') + ')}catch(_kaspBonusError){};' + locals;
-    });
-    try { report?.({ kind: 'hooks', pickupHook, contextHook, registrationHooks }); } catch { }
-    return code;
+    let patched = code;
+    for (const edit of [...plan.edits].reverse()) patched = patched.slice(0, edit.start) + edit.text + patched.slice(edit.end);
+    return done(patched, plan.status);
 }

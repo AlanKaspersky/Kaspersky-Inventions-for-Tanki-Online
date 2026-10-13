@@ -304,7 +304,7 @@ test('battle store reader uses current battle limits and excludes spectators', (
     const compiled = { exports: {} };
     vm.runInNewContext(transformSync(fs.readFileSync(path.join(__dirname, '../../src/core/battlePresence.ts'), 'utf8'), {
         loader: 'ts', format: 'cjs',
-    }).code, { module: compiled, require() { return { gameDOM: {} }; } });
+    }).code, { module: compiled, require(id) { return id === './clientPatches' ? require('../test-client-patches.cjs') : { gameDOM: {} }; } });
     const stats = { a: { toString: () => 'battle-1' }, b: 'Молотов', c: 120, d: true, e: 'CP',
         toString() { return "BattleStatistics(battleId=" + this.a + ", mapNameWithoutMode=" + this.b + ", remainingTimeInSec=" + this.c + ", battleLoaded=" + this.d + ", mode=" + this.e + ")"; } };
     const params = { a: 12, b: { k3_1: 2 },
@@ -337,9 +337,10 @@ test('server capacity hook captures battle identity and limit without breaking s
     const compiled = { exports: {} };
     vm.runInNewContext(transformSync(fs.readFileSync(path.join(__dirname, '../../src/core/battlePresence.ts'), 'utf8'), {
         loader: 'ts', format: 'cjs',
-    }).code, { module: compiled, require() { return { gameDOM: {} }; } });
+    }).code, { module: compiled, require(id) { return id === './clientPatches' ? require('../test-client-patches.cjs') : { gameDOM: {} }; } });
     const source = 'function Settings(){this.idSlot=new Value("battleId"),this.maxSlot=new Value("maxPeople")}function load(t,n){settings(t).idSlot.set(runtime().current().id()),settings(t).maxSlot.set(n.limit)}';
-    const patched = compiled.exports.patchBattleCapacity(source);
+    const plan = require('../battle-presence-ast.cjs').analyzeBattlePresence(source, { profile: 'capacity' });
+    const patched = compiled.exports.patchBattlePresence(source, undefined, plan);
     assert.notEqual(patched, source);
     const values = {}, captured = [], context = {
         Value: function(name) { this.set = value => { values[name] = value; }; },
@@ -353,17 +354,18 @@ test('server capacity hook captures battle identity and limit without breaking s
     assert.deepEqual(captured, [['battle-1', 20]]);
     context.window.__kaspPresenceCapacity = () => { throw new Error('observer'); };
     context.load({}, { limit: 24 }); assert.equal(values.maxPeople, 24);
-    assert.equal(compiled.exports.patchBattleCapacity('function unchanged(){}'), 'function unchanged(){}');
+    assert.equal(compiled.exports.patchBattlePresence('function unchanged(){}'), 'function unchanged(){}');
 });
 
 test('presence captures the DI store without a React accessor and preserves getter behavior', () => {
     const compiled = { exports: {} };
     vm.runInNewContext(transformSync(fs.readFileSync(path.join(__dirname, '../../src/core/battlePresence.ts'), 'utf8'), {
         loader: 'ts', format: 'cjs',
-    }).code, { module: compiled, require() { return { gameDOM: {} }; } });
+    }).code, { module: compiled, require(id) { return id === './clientPatches' ? require('../test-client-patches.cjs') : { gameDOM: {} }; } });
     const source = 'getter=function(){var q=Scope;return this.changedField.resolve(this,descriptor("store",1,q,function(x){return x.renamedGetter()},null))}';
     let matches;
-    const patched = compiled.exports.patchBattlePresence(source, count => { matches = count; });
+    const plan = require('../battle-presence-ast.cjs').analyzeBattlePresence(source, { profile: 'store' });
+    const patched = compiled.exports.patchBattlePresence(source, status => { matches = status.storeHooks; }, plan);
     assert.equal(matches, 1);
     const store = {}, captured = [], context = { Scope: {}, descriptor() {},
         window: { __kaspPresenceStore(value) { captured.push(value); } } };

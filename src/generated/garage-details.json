@@ -1,0 +1,847 @@
+{
+  "format": "ki-garage-details-plans-v1",
+  "plans": [
+    {
+      "format": "ki-garage-details-ast-v1",
+      "sha256": "bde47282cebdfc82e2977738a2d389837dea0a499f05005a3e548e2c83aaf80c",
+      "sourceLength": 10070637,
+      "status": {
+        "hooked": true,
+        "ready": true,
+        "strategy": "ast-plan",
+        "issues": [],
+        "devicePanels": 2,
+        "skinPanels": 1,
+        "previewPanels": 1
+      },
+      "edits": [
+        {
+          "start": 0,
+          "end": 0,
+          "text": "/*ki-garage-details-ast:v1:{\"hooked\":true,\"ready\":true,\"strategy\":\"ast-plan\",\"issues\":[],\"devicePanels\":2,\"skinPanels\":1,\"previewPanels\":1}*/\n",
+          "expected": "",
+          "before": "",
+          "after": "!function(t,n){\"object\"="
+        },
+        {
+          "start": 4409137,
+          "end": 4409137,
+          "text": ";var __kaspDetailsUnavailable=false;",
+          "expected": "",
+          "before": "urn n}function $Xn(t,n){",
+          "after": "var i=NXn,r=Dq.xut(i);r."
+        },
+        {
+          "start": 4409250,
+          "end": 4409279,
+          "text": "((__kaspDetailsUnavailable=(t.zas_1.s1pm_1.lrf()&&!bXn(t)))&&!(function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})())",
+          "expected": "t.zas_1.s1pm_1.lrf()&&!bXn(t)",
+          "before": "t),function(t){var n;if(",
+          "after": ")n=Ce;else if(t.props.sk"
+        },
+        {
+          "start": 4409437,
+          "end": 4409451,
+          "text": "((function(){try{__kaspDetailsUnavailable&&(function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})()&&RE(r.tuv(),\"grayscale(1)\")}catch(__kaspDetailsIgnored){}})(),n.cap(r.c9l()))",
+          "expected": "n.cap(r.c9l())",
+          "before": "==r?be:r}return n}(t))),",
+          "after": "}function xXn(t,n,i){var"
+        },
+        {
+          "start": 5706526,
+          "end": 5706553,
+          "text": "((a=this).zas_1.p1p8_1.lrf()&&!(function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})())",
+          "expected": "(a=this).zas_1.p1p8_1.lrf()",
+          "before": "SJn().n1p9(EUn(this),Ee,",
+          "after": "?Ce:a.zas_1.p1p8_1.jrh_1"
+        },
+        {
+          "start": 5706600,
+          "end": 5706614,
+          "text": "((function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})()?\"grayscale(1)\":\"invert(0.25)\")",
+          "expected": "\"invert(0.25)\"",
+          "before": "1.w93())),n.lrf()&&RE(f,",
+          "after": "),_.cap(l.c9l()),!n.lrf("
+        },
+        {
+          "start": 5706631,
+          "end": 5706639,
+          "text": "(!n.lrf()||(function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})())",
+          "expected": "!n.lrf()",
+          "before": "(0.25)\"),_.cap(l.c9l()),",
+          "after": "){var v=Mq(TDn);_.iap(v,"
+        },
+        {
+          "start": 5769682,
+          "end": 5769701,
+          "text": "((!bXn(this)&&n.lrf())&&!(function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})())",
+          "expected": "!bXn(this)&&n.lrf()",
+          "before": ".g1iw()),Wy(h,Zy(18.5)),",
+          "after": "){var a=AXn,c=Dq.xut(a),"
+        },
+        {
+          "start": 5773485,
+          "end": 5773512,
+          "text": "((c=this).zas_1.a1pn_1.lrf()&&!(function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})())",
+          "expected": "(c=this).zas_1.a1pn_1.lrf()",
+          "before": "SJn().n1p9(VXn(this),ke,",
+          "after": "?Ce:c.zas_1.a1pn_1.jrh_1"
+        },
+        {
+          "start": 5773559,
+          "end": 5773573,
+          "text": "((function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})()?\"grayscale(1)\":\"invert(0.25)\")",
+          "expected": "\"invert(0.25)\"",
+          "before": "1.w93())),n.lrf()&&RE(v,",
+          "after": "),_.cap(f.c9l()),!n.lrf("
+        },
+        {
+          "start": 5773590,
+          "end": 5773598,
+          "text": "(!n.lrf()||(function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})())",
+          "expected": "!n.lrf()",
+          "before": "(0.25)\"),_.cap(f.c9l()),",
+          "after": "){var p=Mq(TDn);_.iap(p,"
+        }
+      ],
+      "templates": [
+        {
+          "pattern": "(?<![$\\w])\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*(?:\"State\\(item=\"|'State\\(item=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\", devices=\"|', devices=')\\s*\\+\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\+\\s*(?:\", selectedDevice=\"|', selectedDevice=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\", mountedDevice=\"|', mountedDevice=')\\s*\\+\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\+\\s*(?:\", user=\"|', user=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\", endDelayMountTime=\"|', endDelayMountTime=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\", selectedDeviceIndex=\"|', selectedDeviceIndex=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:\", inDebt=\"|', inDebt=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:\"\\)\"|'\\)')\\s*\\}",
+          "roles": {
+            "selectedDevice0": "s3"
+          },
+          "count": 1,
+          "search": {
+            "literal": ", selectedDeviceIndex=",
+            "margin": 2696
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*var(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*,\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s8>(?![$\\w])\\s*,\\s*new(?![$\\w])\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:\"calc\\(100% - 4em\\)\"|'calc\\(100% - 4em\\)')\\s*\\)\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\k<s16>(?![$\\w])\\s*\\)\\s*;\\s*\\k<s18>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*\\)\\s*,\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s22>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s23>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s23>(?![$\\w])\\s*,\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*18\\.5\\s*\\)\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s28>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s29>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s30>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s31>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\k<s29>(?![$\\w])\\s*\\)\\s*,\\s*(?<s32>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s31>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\k<s32>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*(?<s33>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s34>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s35>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*,\\s*(?<s36>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,(?<e0start>)\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*\\k<s2>(?![$\\w])\\s*\\.\\s*(?<s37>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)(?<e0end>)\\s*\\?\\s*(?<s38>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*:\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*\\k<s2>(?![$\\w])\\s*\\.\\s*(?<s39>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s40>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\)\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\)\\s*&&\\s*(?<s41>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s32>(?![$\\w])\\s*,(?<e1start>)\\s*(?:\"invert\\(0\\.25\\)\"|'invert\\(0\\.25\\)')(?<e1end>)\\s*\\)\\s*,\\s*\\k<s22>(?![$\\w])\\s*\\.\\s*(?<s42>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s31>(?![$\\w])\\s*\\.\\s*(?<s43>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,(?<e2start>)\\s*!\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\)(?<e2end>)\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s44>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s45>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s46>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*;\\s*\\k<s22>(?![$\\w])\\s*\\.\\s*(?<s47>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s44>(?![$\\w])\\s*,\\s*(?<s48>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\)\\s*\\)\\s*\\}",
+          "roles": {
+            "selectedDevice0": "s2",
+            "unknownMethod": "s37",
+            "filterHelper": "s41",
+            "descriptionType": "s46"
+          },
+          "count": 1,
+          "search": {
+            "literal": "calc(100% - 4em)",
+            "margin": 3912
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                "((",
+                {
+                  "capture": "s28",
+                  "quoted": false
+                },
+                "=this).",
+                {
+                  "capture": "s1",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "capture": "s2",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "capture": "s37",
+                  "quoted": false
+                },
+                "()&&!(function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})())"
+              ]
+            },
+            {
+              "start": "e1start",
+              "end": "e1end",
+              "parts": [
+                "((function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})()?\"grayscale(1)\":\"invert(0.25)\")"
+              ]
+            },
+            {
+              "start": "e2start",
+              "end": "e2end",
+              "parts": [
+                "(!",
+                {
+                  "capture": "s0",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "capture": "s37",
+                  "quoted": false
+                },
+                "()||(function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})())"
+              ]
+            }
+          ]
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*(?:\"State\\(item=\"|'State\\(item=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\", devices=\"|', devices=')\\s*\\+\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\+\\s*(?:\", selectedDevice=\"|', selectedDevice=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\", mountedDevice=\"|', mountedDevice=')\\s*\\+\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\+\\s*(?:\", user=\"|', user=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\", endDelayMountTime=\"|', endDelayMountTime=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\", category=\"|', category=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\", garage=\"|', garage=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\", selectedDeviceIndex=\"|', selectedDeviceIndex=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:\", inDebt=\"|', inDebt=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:\"\\)\"|'\\)')\\s*\\}",
+          "roles": {
+            "selectedDevice1": "s3"
+          },
+          "count": 1,
+          "search": {
+            "literal": ", selectedDeviceIndex=",
+            "margin": 3272
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*var(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*,\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s8>(?![$\\w])\\s*,\\s*new(?![$\\w])\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:\"calc\\(100% - 4em\\)\"|'calc\\(100% - 4em\\)')\\s*\\)\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\k<s16>(?![$\\w])\\s*\\)\\s*;\\s*\\k<s18>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*\\)\\s*,\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s22>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s23>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s23>(?![$\\w])\\s*,\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*18\\.5\\s*\\)\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s28>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s29>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s23>(?![$\\w])\\s*\\.\\s*(?<s30>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*,\\s*(?<s31>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s32>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s33>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s34>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s35>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\k<s33>(?![$\\w])\\s*\\)\\s*,\\s*(?<s36>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s35>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\k<s36>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*(?<s37>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s38>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s39>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*,\\s*(?<s40>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,(?<e0start>)\\s*\\(\\s*\\k<s32>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*\\k<s2>(?![$\\w])\\s*\\.\\s*(?<s41>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)(?<e0end>)\\s*\\?\\s*(?<s42>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*:\\s*\\k<s32>(?![$\\w])\\s*\\.\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*\\k<s2>(?![$\\w])\\s*\\.\\s*(?<s43>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s44>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\)\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*\\k<s41>(?![$\\w])\\s*\\(\\s*\\)\\s*&&\\s*(?<s45>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s36>(?![$\\w])\\s*,(?<e1start>)\\s*(?:\"invert\\(0\\.25\\)\"|'invert\\(0\\.25\\)')(?<e1end>)\\s*\\)\\s*,\\s*\\k<s22>(?![$\\w])\\s*\\.\\s*(?<s46>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s35>(?![$\\w])\\s*\\.\\s*(?<s47>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,(?<e2start>)\\s*!\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*\\k<s41>(?![$\\w])\\s*\\(\\s*\\)(?<e2end>)\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s48>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s49>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s50>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*;\\s*\\k<s22>(?![$\\w])\\s*\\.\\s*(?<s51>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s48>(?![$\\w])\\s*,\\s*(?<s52>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\)\\s*\\)\\s*\\}",
+          "roles": {
+            "selectedDevice1": "s2",
+            "unknownMethod": "s41",
+            "filterHelper": "s45",
+            "descriptionType": "s50"
+          },
+          "count": 1,
+          "search": {
+            "literal": "calc(100% - 4em)",
+            "margin": 4104
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                "((",
+                {
+                  "capture": "s32",
+                  "quoted": false
+                },
+                "=this).",
+                {
+                  "capture": "s1",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "capture": "s2",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "capture": "s41",
+                  "quoted": false
+                },
+                "()&&!(function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})())"
+              ]
+            },
+            {
+              "start": "e1start",
+              "end": "e1end",
+              "parts": [
+                "((function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})()?\"grayscale(1)\":\"invert(0.25)\")"
+              ]
+            },
+            {
+              "start": "e2start",
+              "end": "e2end",
+              "parts": [
+                "(!",
+                {
+                  "capture": "s0",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "capture": "s41",
+                  "quoted": false
+                },
+                "()||(function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})())"
+              ]
+            }
+          ]
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*(?:\"State\\(item=\"|'State\\(item=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\", skins=\"|', skins=')\\s*\\+\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\+\\s*(?:\", selectedSkin=\"|', selectedSkin=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\", mountedSkin=\"|', mountedSkin=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\", user=\"|', user=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\", selectedSkinIndex=\"|', selectedSkinIndex=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:\"\\)\"|'\\)')\\s*\\}",
+          "roles": {
+            "selectedSkin": "s3"
+          },
+          "count": 1,
+          "search": {
+            "literal": ", selectedSkinIndex=",
+            "margin": 2128
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*var(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*,\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s8>(?![$\\w])\\s*,\\s*new(?![$\\w])\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:\"calc\\(100% - 4em\\)\"|'calc\\(100% - 4em\\)')\\s*\\)\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\k<s16>(?![$\\w])\\s*\\)\\s*;\\s*\\k<s18>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*\\)\\s*,\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s22>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\k<s23>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s23>(?![$\\w])\\s*,\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*18\\.5\\s*\\)\\s*\\)\\s*,(?<e0start>)\\s*!\\s*(?<s28>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*&&\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*(?<s29>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)(?<e0end>)\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s30>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s31>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s32>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\k<s30>(?![$\\w])\\s*\\)\\s*,\\s*(?<s33>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s32>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*(?<s34>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s33>(?![$\\w])\\s*,\\s*(?:\"invert\\(0\\.25\\)\"|'invert\\(0\\.25\\)')\\s*\\)\\s*,\\s*(?<s35>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*\\k<s32>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s22>(?![$\\w])\\s*\\.\\s*(?<s36>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s32>(?![$\\w])\\s*\\.\\s*(?<s37>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\}\\s*else(?![$\\w])\\s*\\{\\s*\\k<s35>(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*\\k<s22>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s38>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s39>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s40>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*;\\s*\\k<s22>(?![$\\w])\\s*\\.\\s*(?<s41>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s38>(?![$\\w])\\s*,\\s*(?<s42>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\)\\s*\\)\\s*\\}",
+          "roles": {
+            "selectedSkin": "s2",
+            "unknownMethod": "s29",
+            "filterHelper": "s34",
+            "descriptionType": "s40",
+            "standardSkin": "s28",
+            "previewRenderer": "s35"
+          },
+          "count": 1,
+          "search": {
+            "literal": "calc(100% - 4em)",
+            "margin": 3424
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                "((!",
+                {
+                  "capture": "s28",
+                  "quoted": false
+                },
+                "(this)&&",
+                {
+                  "capture": "s0",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "capture": "s29",
+                  "quoted": false
+                },
+                "())&&!(function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})())"
+              ]
+            }
+          ]
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{(?<e0start>)(?<e0end>)\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*;\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*!\\s*!\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*&&\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\)\\s*,\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\)\\s*,\\s*function(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*\\k<s2>(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\((?<e1start>)\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*&&\\s*!\\s*\\k<s16>(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\)(?<e1end>)\\s*\\)\\s*\\k<s2>(?![$\\w])\\s*=\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*else(?![$\\w])\\s*if(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\.\\s*\\k<s13>(?![$\\w])\\s*\\.\\s*\\k<s14>(?![$\\w])\\s*\\(\\s*\\k<s15>(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\)\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*\\.\\s*\\k<s19>(?![$\\w])\\s*\\.\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*else(?![$\\w])\\s*\\{\\s*var(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*\\.\\s*\\k<s19>(?![$\\w])\\s*\\.\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s5>(?![$\\w])\\s*=\\s*null(?![$\\w])\\s*==\\s*\\k<s3>(?![$\\w])\\s*\\?\\s*null(?![$\\w])\\s*:\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s23>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s2>(?![$\\w])\\s*=\\s*null(?![$\\w])\\s*==\\s*\\k<s5>(?![$\\w])\\s*\\?\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*:\\s*\\k<s5>(?![$\\w])\\s*\\}\\s*return(?![$\\w])\\s*\\k<s2>(?![$\\w])\\s*\\}\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\)\\s*\\)\\s*\\)\\s*,(?<e2start>)\\s*\\k<s2>(?![$\\w])\\s*\\.\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)(?<e2end>)\\s*\\}",
+          "roles": {
+            "previewRenderer": "s0",
+            "selectedSkin": "s19",
+            "unknownMethod": "s20",
+            "standardSkin": "s16"
+          },
+          "count": 1,
+          "search": {
+            "margin": 2920
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                ";var __kaspDetailsUnavailable=false;"
+              ]
+            },
+            {
+              "start": "e1start",
+              "end": "e1end",
+              "parts": [
+                "((__kaspDetailsUnavailable=(",
+                {
+                  "capture": "s1",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "capture": "s18",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "capture": "s19",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "capture": "s20",
+                  "quoted": false
+                },
+                "()&&!",
+                {
+                  "capture": "s16",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "capture": "s1",
+                  "quoted": false
+                },
+                ")))&&!(function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})())"
+              ]
+            },
+            {
+              "start": "e2start",
+              "end": "e2end",
+              "parts": [
+                "((function(){try{__kaspDetailsUnavailable&&(function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})()&&",
+                {
+                  "role": "filterHelper",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "capture": "s5",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "capture": "s8",
+                  "quoted": false
+                },
+                "(),\"grayscale(1)\")}catch(__kaspDetailsIgnored){}})(),",
+                {
+                  "capture": "s2",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "capture": "s26",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "capture": "s5",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "capture": "s27",
+                  "quoted": false
+                },
+                "()))"
+              ]
+            }
+          ]
+        }
+      ],
+      "temporaries": [
+        "__kaspDetailsUnavailable"
+      ],
+      "sourceName": "ki-game-main.756da186.js"
+    },
+    {
+      "format": "ki-garage-details-ast-v1",
+      "sha256": "3bd056e2ee762d486de7fffa07bba1402ee3b69b98a508e135d70d7b248cc612",
+      "sourceLength": 22382225,
+      "status": {
+        "hooked": true,
+        "ready": true,
+        "strategy": "ast-plan",
+        "issues": [],
+        "devicePanels": 2,
+        "skinPanels": 1,
+        "previewPanels": 1
+      },
+      "edits": [
+        {
+          "start": 0,
+          "end": 0,
+          "text": "/*ki-garage-details-ast:v1:{\"hooked\":true,\"ready\":true,\"strategy\":\"ast-plan\",\"issues\":[],\"devicePanels\":2,\"skinPanels\":1,\"previewPanels\":1}*/\n",
+          "expected": "",
+          "before": "",
+          "after": "! function (t, n) {\r\n   "
+        },
+        {
+          "start": 9946978,
+          "end": 9946978,
+          "text": ";var __kaspDetailsUnavailable=false;",
+          "expected": "",
+          "before": "    function $Xn(t, n) {",
+          "after": "\r\n                      "
+        },
+        {
+          "start": 9947244,
+          "end": 9947275,
+          "text": "((__kaspDetailsUnavailable=(t.zas_1.s1pm_1.lrf() && !bXn(t)))&&!(function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})())",
+          "expected": "t.zas_1.s1pm_1.lrf() && !bXn(t)",
+          "before": "                    if (",
+          "after": ") n = Ce;\r\n             "
+        },
+        {
+          "start": 9947712,
+          "end": 9947726,
+          "text": "((function(){try{__kaspDetailsUnavailable&&(function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})()&&RE(r.tuv(),\"grayscale(1)\")}catch(__kaspDetailsIgnored){}})(),n.cap(r.c9l()))",
+          "expected": "n.cap(r.c9l())",
+          "before": "                }(t))), ",
+          "after": "\r\n                    }\r"
+        },
+        {
+          "start": 12991231,
+          "end": 12991260,
+          "text": "((a = this).zas_1.p1p8_1.lrf()&&!(function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})())",
+          "expected": "(a = this).zas_1.p1p8_1.lrf()",
+          "before": "n().n1p9(EUn(this), Ee, ",
+          "after": " ? Ce : a.zas_1.p1p8_1.j"
+        },
+        {
+          "start": 12991315,
+          "end": 12991329,
+          "text": "((function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})()?\"grayscale(1)\":\"invert(0.25)\")",
+          "expected": "\"invert(0.25)\"",
+          "before": "3())), n.lrf() && RE(f, ",
+          "after": "), _.cap(l.c9l()), !n.lr"
+        },
+        {
+          "start": 12991348,
+          "end": 12991356,
+          "text": "(!n.lrf()||(function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})())",
+          "expected": "!n.lrf()",
+          "before": ".25)\"), _.cap(l.c9l()), ",
+          "after": ") {\r\n                   "
+        },
+        {
+          "start": 13135095,
+          "end": 13135116,
+          "text": "((!bXn(this) && n.lrf())&&!(function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})())",
+          "expected": "!bXn(this) && n.lrf()",
+          "before": "iw()), Wy(h, Zy(18.5)), ",
+          "after": ") {\r\n                   "
+        },
+        {
+          "start": 13144472,
+          "end": 13144501,
+          "text": "((c = this).zas_1.a1pn_1.lrf()&&!(function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})())",
+          "expected": "(c = this).zas_1.a1pn_1.lrf()",
+          "before": "n().n1p9(VXn(this), ke, ",
+          "after": " ? Ce : c.zas_1.a1pn_1.j"
+        },
+        {
+          "start": 13144556,
+          "end": 13144570,
+          "text": "((function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})()?\"grayscale(1)\":\"invert(0.25)\")",
+          "expected": "\"invert(0.25)\"",
+          "before": "3())), n.lrf() && RE(v, ",
+          "after": "), _.cap(f.c9l()), !n.lr"
+        },
+        {
+          "start": 13144589,
+          "end": 13144597,
+          "text": "(!n.lrf()||(function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})())",
+          "expected": "!n.lrf()",
+          "before": ".25)\"), _.cap(f.c9l()), ",
+          "after": ") {\r\n                   "
+        }
+      ],
+      "templates": [
+        {
+          "pattern": "(?<![$\\w])\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*(?:\"State\\(item=\"|'State\\(item=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\", devices=\"|', devices=')\\s*\\+\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\+\\s*(?:\", selectedDevice=\"|', selectedDevice=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\", mountedDevice=\"|', mountedDevice=')\\s*\\+\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\+\\s*(?:\", user=\"|', user=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\", endDelayMountTime=\"|', endDelayMountTime=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\", selectedDeviceIndex=\"|', selectedDeviceIndex=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:\", inDebt=\"|', inDebt=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:\"\\)\"|'\\)')\\s*\\}",
+          "roles": {
+            "selectedDevice0": "s3"
+          },
+          "count": 1,
+          "search": {
+            "literal": ", selectedDeviceIndex=",
+            "margin": 3360
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*var(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*,\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s8>(?![$\\w])\\s*,\\s*new(?![$\\w])\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:\"calc\\(100% - 4em\\)\"|'calc\\(100% - 4em\\)')\\s*\\)\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\k<s16>(?![$\\w])\\s*\\)\\s*;\\s*\\k<s18>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*\\)\\s*,\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s22>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s23>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s23>(?![$\\w])\\s*,\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*18\\.5\\s*\\)\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s28>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s29>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s30>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s31>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\k<s29>(?![$\\w])\\s*\\)\\s*,\\s*(?<s32>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s31>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\k<s32>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*(?<s33>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s34>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s35>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*,\\s*(?<s36>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<e0start>)\\(\\s*\\k<s28>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*\\k<s2>(?![$\\w])\\s*\\.\\s*(?<s37>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)(?<e0end>)\\s*\\?\\s*(?<s38>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*:\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*\\k<s2>(?![$\\w])\\s*\\.\\s*(?<s39>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s40>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\)\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\)\\s*&&\\s*(?<s41>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s32>(?![$\\w])\\s*,\\s*(?<e1start>)(?:\"invert\\(0\\.25\\)\"|'invert\\(0\\.25\\)')(?<e1end>)\\s*\\)\\s*,\\s*\\k<s22>(?![$\\w])\\s*\\.\\s*(?<s42>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s31>(?![$\\w])\\s*\\.\\s*(?<s43>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*(?<e2start>)!\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\)(?<e2end>)\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s44>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s45>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s46>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*;\\s*\\k<s22>(?![$\\w])\\s*\\.\\s*(?<s47>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s44>(?![$\\w])\\s*,\\s*(?<s48>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\)\\s*\\)\\s*\\}",
+          "roles": {
+            "selectedDevice0": "s2",
+            "unknownMethod": "s37",
+            "filterHelper": "s41",
+            "descriptionType": "s46"
+          },
+          "count": 1,
+          "search": {
+            "literal": "calc(100% - 4em)",
+            "margin": 8376
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                "((",
+                {
+                  "capture": "s28",
+                  "quoted": false
+                },
+                " = this).",
+                {
+                  "capture": "s1",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "capture": "s2",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "capture": "s37",
+                  "quoted": false
+                },
+                "()&&!(function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})())"
+              ]
+            },
+            {
+              "start": "e1start",
+              "end": "e1end",
+              "parts": [
+                "((function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})()?\"grayscale(1)\":\"invert(0.25)\")"
+              ]
+            },
+            {
+              "start": "e2start",
+              "end": "e2end",
+              "parts": [
+                "(!",
+                {
+                  "capture": "s0",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "capture": "s37",
+                  "quoted": false
+                },
+                "()||(function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})())"
+              ]
+            }
+          ]
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*(?:\"State\\(item=\"|'State\\(item=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\", devices=\"|', devices=')\\s*\\+\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\+\\s*(?:\", selectedDevice=\"|', selectedDevice=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\", mountedDevice=\"|', mountedDevice=')\\s*\\+\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\+\\s*(?:\", user=\"|', user=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\", endDelayMountTime=\"|', endDelayMountTime=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\", category=\"|', category=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\", garage=\"|', garage=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\", selectedDeviceIndex=\"|', selectedDeviceIndex=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:\", inDebt=\"|', inDebt=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:\"\\)\"|'\\)')\\s*\\}",
+          "roles": {
+            "selectedDevice1": "s3"
+          },
+          "count": 1,
+          "search": {
+            "literal": ", selectedDeviceIndex=",
+            "margin": 4000
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*var(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*,\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s8>(?![$\\w])\\s*,\\s*new(?![$\\w])\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:\"calc\\(100% - 4em\\)\"|'calc\\(100% - 4em\\)')\\s*\\)\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\k<s16>(?![$\\w])\\s*\\)\\s*;\\s*\\k<s18>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*\\)\\s*,\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s22>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s23>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s23>(?![$\\w])\\s*,\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*18\\.5\\s*\\)\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s28>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s29>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s23>(?![$\\w])\\s*\\.\\s*(?<s30>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*,\\s*(?<s31>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s32>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s33>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s34>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s35>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\k<s33>(?![$\\w])\\s*\\)\\s*,\\s*(?<s36>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s35>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\k<s36>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*(?<s37>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s38>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s39>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*,\\s*(?<s40>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<e0start>)\\(\\s*\\k<s32>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*\\k<s2>(?![$\\w])\\s*\\.\\s*(?<s41>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)(?<e0end>)\\s*\\?\\s*(?<s42>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*:\\s*\\k<s32>(?![$\\w])\\s*\\.\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*\\k<s2>(?![$\\w])\\s*\\.\\s*(?<s43>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s44>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\)\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*\\k<s41>(?![$\\w])\\s*\\(\\s*\\)\\s*&&\\s*(?<s45>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s36>(?![$\\w])\\s*,\\s*(?<e1start>)(?:\"invert\\(0\\.25\\)\"|'invert\\(0\\.25\\)')(?<e1end>)\\s*\\)\\s*,\\s*\\k<s22>(?![$\\w])\\s*\\.\\s*(?<s46>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s35>(?![$\\w])\\s*\\.\\s*(?<s47>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*(?<e2start>)!\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*\\k<s41>(?![$\\w])\\s*\\(\\s*\\)(?<e2end>)\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s48>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s49>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s50>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*;\\s*\\k<s22>(?![$\\w])\\s*\\.\\s*(?<s51>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s48>(?![$\\w])\\s*,\\s*(?<s52>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\)\\s*\\)\\s*\\}",
+          "roles": {
+            "selectedDevice1": "s2",
+            "unknownMethod": "s41",
+            "filterHelper": "s45",
+            "descriptionType": "s50"
+          },
+          "count": 1,
+          "search": {
+            "literal": "calc(100% - 4em)",
+            "margin": 9008
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                "((",
+                {
+                  "capture": "s32",
+                  "quoted": false
+                },
+                " = this).",
+                {
+                  "capture": "s1",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "capture": "s2",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "capture": "s41",
+                  "quoted": false
+                },
+                "()&&!(function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})())"
+              ]
+            },
+            {
+              "start": "e1start",
+              "end": "e1end",
+              "parts": [
+                "((function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})()?\"grayscale(1)\":\"invert(0.25)\")"
+              ]
+            },
+            {
+              "start": "e2start",
+              "end": "e2end",
+              "parts": [
+                "(!",
+                {
+                  "capture": "s0",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "capture": "s41",
+                  "quoted": false
+                },
+                "()||(function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})())"
+              ]
+            }
+          ]
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*(?:\"State\\(item=\"|'State\\(item=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\", skins=\"|', skins=')\\s*\\+\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\+\\s*(?:\", selectedSkin=\"|', selectedSkin=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\", mountedSkin=\"|', mountedSkin=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\", user=\"|', user=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:\", selectedSkinIndex=\"|', selectedSkinIndex=')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:\"\\)\"|'\\)')\\s*\\}",
+          "roles": {
+            "selectedSkin": "s3"
+          },
+          "count": 1,
+          "search": {
+            "literal": ", selectedSkinIndex=",
+            "margin": 2728
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*var(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*,\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s8>(?![$\\w])\\s*,\\s*new(?![$\\w])\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:\"calc\\(100% - 4em\\)\"|'calc\\(100% - 4em\\)')\\s*\\)\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\k<s16>(?![$\\w])\\s*\\)\\s*;\\s*\\k<s18>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*\\)\\s*,\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s22>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\k<s23>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s23>(?![$\\w])\\s*,\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*18\\.5\\s*\\)\\s*\\)\\s*,\\s*(?<e0start>)!\\s*(?<s28>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*&&\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*(?<s29>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)(?<e0end>)\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s30>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s31>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s32>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\k<s30>(?![$\\w])\\s*\\)\\s*,\\s*(?<s33>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s32>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*(?<s34>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s33>(?![$\\w])\\s*,\\s*(?:\"invert\\(0\\.25\\)\"|'invert\\(0\\.25\\)')\\s*\\)\\s*,\\s*(?<s35>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*\\k<s32>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s22>(?![$\\w])\\s*\\.\\s*(?<s36>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s32>(?![$\\w])\\s*\\.\\s*(?<s37>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\}\\s*else(?![$\\w])\\s*\\{\\s*\\k<s35>(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*\\k<s22>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s38>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s39>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s40>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*;\\s*\\k<s22>(?![$\\w])\\s*\\.\\s*(?<s41>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s38>(?![$\\w])\\s*,\\s*(?<s42>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\)\\s*\\)\\s*\\}",
+          "roles": {
+            "selectedSkin": "s2",
+            "unknownMethod": "s29",
+            "filterHelper": "s34",
+            "descriptionType": "s40",
+            "standardSkin": "s28",
+            "previewRenderer": "s35"
+          },
+          "count": 1,
+          "search": {
+            "literal": "calc(100% - 4em)",
+            "margin": 8424
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                "((!",
+                {
+                  "capture": "s28",
+                  "quoted": false
+                },
+                "(this) && ",
+                {
+                  "capture": "s0",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "capture": "s29",
+                  "quoted": false
+                },
+                "())&&!(function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})())"
+              ]
+            }
+          ]
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{(?<e0start>)(?<e0end>)\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*;\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*!\\s*!\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*&&\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\)\\s*,\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\)\\s*,\\s*function(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*\\k<s2>(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\((?<e1start>)\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*&&\\s*!\\s*\\k<s16>(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\)(?<e1end>)\\s*\\)\\s*\\k<s2>(?![$\\w])\\s*=\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*else(?![$\\w])\\s*if(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\.\\s*\\k<s13>(?![$\\w])\\s*\\.\\s*\\k<s14>(?![$\\w])\\s*\\(\\s*\\k<s15>(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\)\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*\\.\\s*\\k<s19>(?![$\\w])\\s*\\.\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*else(?![$\\w])\\s*\\{\\s*var(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*\\.\\s*\\k<s19>(?![$\\w])\\s*\\.\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s5>(?![$\\w])\\s*=\\s*null(?![$\\w])\\s*==\\s*\\k<s3>(?![$\\w])\\s*\\?\\s*null(?![$\\w])\\s*:\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s23>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s2>(?![$\\w])\\s*=\\s*null(?![$\\w])\\s*==\\s*\\k<s5>(?![$\\w])\\s*\\?\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*:\\s*\\k<s5>(?![$\\w])\\s*\\}\\s*return(?![$\\w])\\s*\\k<s2>(?![$\\w])\\s*\\}\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\)\\s*\\)\\s*\\)\\s*,\\s*(?<e2start>)\\k<s2>(?![$\\w])\\s*\\.\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)(?<e2end>)\\s*\\}",
+          "roles": {
+            "previewRenderer": "s0",
+            "selectedSkin": "s19",
+            "unknownMethod": "s20",
+            "standardSkin": "s16"
+          },
+          "count": 1,
+          "search": {
+            "margin": 6584
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                ";var __kaspDetailsUnavailable=false;"
+              ]
+            },
+            {
+              "start": "e1start",
+              "end": "e1end",
+              "parts": [
+                "((__kaspDetailsUnavailable=(",
+                {
+                  "capture": "s1",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "capture": "s18",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "capture": "s19",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "capture": "s20",
+                  "quoted": false
+                },
+                "() && !",
+                {
+                  "capture": "s16",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "capture": "s1",
+                  "quoted": false
+                },
+                ")))&&!(function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})())"
+              ]
+            },
+            {
+              "start": "e2start",
+              "end": "e2end",
+              "parts": [
+                "((function(){try{__kaspDetailsUnavailable&&(function(){try{return window.localStorage.getItem(\"k_augments\")===\"true\"}catch(__kaspDetailsIgnored){return false}})()&&",
+                {
+                  "role": "filterHelper",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "capture": "s5",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "capture": "s8",
+                  "quoted": false
+                },
+                "(),\"grayscale(1)\")}catch(__kaspDetailsIgnored){}})(),",
+                {
+                  "capture": "s2",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "capture": "s26",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "capture": "s5",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "capture": "s27",
+                  "quoted": false
+                },
+                "()))"
+              ]
+            }
+          ]
+        }
+      ],
+      "temporaries": [
+        "__kaspDetailsUnavailable"
+      ],
+      "sourceName": "main.js"
+    }
+  ]
+}

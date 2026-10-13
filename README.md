@@ -2,7 +2,7 @@
 
 ## Complete Documentation
 
-**Extension version:** 2.9.3 (`manifest.json`)
+**Extension version:** 2.9.4 (`manifest.json`)
 
 **Documentation updated:** October 5, 2026
 
@@ -743,12 +743,22 @@ This discrepancy matters for reproducible installation. `npm ci` may reject an i
 
 | Command | Operation |
 | --- | --- |
-| `npm run typecheck` | Runs `tsc --noEmit`. |
+| `npm run typecheck` | Runs `tsc --noEmit` with TypeScript strict checking enabled. |
+| `npm run parse:client -- <main.js>` | Parses a local game bundle with Acorn; optionally exports its AST with `--ast <output.json>`. |
 | `npm run build:js` | Bundles both TypeScript entry points into `dist/`. |
 | `npm run build:zip` | Packages the files currently present into a release archive. |
 | `npm run build` | Runs type checking, JavaScript bundling, and packaging in sequence. |
 | `npm run release` | Alias for the complete build command. |
 | `npm run watch` | Watches and rebuilds the JavaScript entry points. |
+
+The development-only JS parser is [tools/client-parser.cjs](tools/client-parser.cjs). For example:
+
+```powershell
+npm run parse:client -- "C:/path/to/main.js"
+npm run parse:client -- "C:/path/to/main.js" --ast "main.ast.json"
+```
+
+The default input mode is `script`; add `--module` for an ES module. The command reports the absolute input path, parser version, file size, SHA-256 and top-level statement count. AST exports include node offsets and line/column locations; output files must not already exist. Acorn is a development dependency and is not imported by the extension. This step does not migrate interceptors, generate mappings or modify the `archived` backups.
 
 Bundling uses esbuild with IIFE output and the `chrome100` target. Watch mode does not run the separate TypeScript type check or create a release archive.
 
@@ -769,7 +779,7 @@ After rebuilding, reload the unpacked extension and then reload the game page. A
 
 ### Version metadata
 
-The current `manifest.json` version is **2.9.3**; `package.json` and the lockfile package version remain **2.9.3**. The browser, welcome window, and release-folder naming use the manifest version. These metadata values should be aligned as part of release maintenance.
+The current `manifest.json` version is **2.9.4**; `package.json` and the lockfile package version remain **2.9.4**. The browser, welcome window, and release-folder naming use the manifest version. These metadata values should be aligned as part of release maintenance.
 
 ### Release output
 
@@ -779,11 +789,11 @@ For the current manifest version, output is:
 
 ```text
 release/
-├── Kaspersky's Inventions 2.9.3/
+├── Kaspersky's Inventions 2.9.4/
 │   ├── manifest.json
 │   ├── LICENSE.txt
 │   └── ... runtime directories
-└── Kaspersky's Inventions 2.9.3.zip
+└── Kaspersky's Inventions 2.9.4.zip
 ```
 
 The archive contains the versioned outer folder. Extract it and select the folder containing `manifest.json` when loading the extension. Source files, tests, `node_modules`, and this README are not included by the current packaging script.
@@ -908,4 +918,4 @@ For the in-game presentation of release information and credits, see [the welcom
 
 ---
 
-Documentation aligned with extension manifest version **2.9.3*, updated **October 5, 2026**.
+Documentation aligned with extension manifest version **2.9.4*, updated **October 5, 2026**.

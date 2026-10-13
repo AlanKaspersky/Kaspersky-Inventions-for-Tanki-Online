@@ -4,7 +4,6 @@ import { utils } from '../core/utils';
 import { DataLoader } from '../core/dataLoader';
 
 export const customPaints = (() => {
-    let initialized = false;
 
     function normalizeText(text: string) {
         if (!text) return "";
@@ -83,10 +82,6 @@ export const customPaints = (() => {
     return () => {
         if (!utils.getSetting('k_paints', false)) return;
         if (state.currentScreen !== 'garage') return;
-
-        if (!initialized) {
-            initialized = true;
-        }
 
         addSearchInput();
         const input = document.querySelector('.kasp-search-wrapper input') as HTMLInputElement;

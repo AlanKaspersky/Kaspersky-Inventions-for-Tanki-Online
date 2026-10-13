@@ -16,7 +16,10 @@ function load(file, dependencies = {}, globals = {}) {
     });
     return module.exports;
 }
-const bonus = load('src/core/bonusPickup.ts');
+const runtime = load('src/core/bonusPickup.ts', { './clientPatches': require('./test-client-patches.cjs') });
+const { analyzeOverdrive } = require('./overdrive-ast.cjs');
+// Tests generate plans in Node, matching the offline preparation step; the page receives only edits.
+const bonus = { ...runtime, patchBonusPickups: (source, report) => runtime.patchBonusPickups(source, report, analyzeOverdrive(source)) };
 const timer = load('src/modules/overdriveTimer.ts', {
     '../core/bonusPickup': bonus, '../core/gameDOM': {}, '../core/state': {}, '../core/utils': {},
 });
@@ -29,15 +32,17 @@ function gameId(id) {
 const vectorPrototype = {
     toString() { return "Vector3 (" + this.f20_1 + ", " + this.g20_1 + ", " + this.h20_1 + ")"; }
 };
+bonus.registerBonusType(vectorPrototype, 'vector', { x: 'f20_1', y: 'g20_1', z: 'h20_1' });
 function gameVector(x, y, z) {
     return Object.assign(Object.create(vectorPrototype), { f20_1: x, g20_1: y, h20_1: z });
 }
 
-test('coordinates follow Vector3 semantics after renaming and field reordering without executing diagnostics or getters', () => {
+test('mapped coordinates follow Vector3 semantics after renaming and field reordering without executing diagnostics or getters', () => {
     const prototype = {
         toString() { throw Error('must not execute'); return 'Vector3 (' + this.$east + ', ' + this['north'] + ', ' + this["altitude"] + ')'; }
     };
     const position = Object.assign(Object.create(prototype), { altitude: 3, unrelated: 123, north: 2, $east: 1 });
+    bonus.registerBonusType(prototype, 'vector', { x: '$east', y: 'north', z: 'altitude' });
     assert.deepEqual({ ...bonus.readBonusPosition(position) }, { x: 1, y: 2, z: 3 });
     position.$east = 4;
     assert.equal(bonus.readBonusPosition(position).x, 4);
@@ -58,6 +63,7 @@ test('renamed BattleBonusData fields identify the box independently of resource 
     const prototype = {
         toString() { throw Error('must not execute'); return 'BattleBonusData(box=' + this['$mesh'] + ', pickupSound=' + this.$audio + ', dropSound=' + this.other + ')'; }
     };
+    bonus.registerBonusType(prototype, 'bonus', { box: '$mesh', pickupSound: '$audio' });
     const sound = { id: gameId('118254') };
     const resource = model => Object.assign(Object.create(prototype), {
         metadata: gameId('9876543210'), other: { id: gameId('1111111111') }, $audio: sound, $mesh: { id: gameId(model) }
