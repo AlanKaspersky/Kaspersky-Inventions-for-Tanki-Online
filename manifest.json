@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Tanki Online: Kaspersky's Inventions",
-  "version": "2.9.4",
+  "version": "2.9.5",
   "default_locale": "en",
   "description": "__MSG_extensionDescription__",
   "icons": {
@@ -24,6 +24,7 @@
         "styles/shared.css",
         "styles/garageButtons.css",
         "styles/navigation.css",
+        "styles/cybersport.css",
         "styles/header.css",
         "styles/battleStats.css",
         "styles/overdriveTimer.css",

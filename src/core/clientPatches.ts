@@ -22,7 +22,6 @@ export function validatePatchEdits(code: string, plan: PreparedPatchPlan): boole
     return true;
 }
 
-/** All plans refer to the original source. A rejected plan cannot invalidate other features. */
 export function mergeClientPatchPlans(code: string, plans: PreparedPatchPlan[]): { code: string; rejected: PreparedPatchPlan[] } {
     const edits: PatchEdit[] = [], rejected: PreparedPatchPlan[] = [];
     for (const plan of plans) {
@@ -44,7 +43,6 @@ type SourceContext = {
     hash?: Promise<string>;
     anchors: Map<string, number[]>;
 };
-// Only one source is retained. The injector releases it after preparing its plans.
 let sourceContext: SourceContext | undefined;
 function contextFor(code: string): SourceContext {
     if (!sourceContext || sourceContext.code !== code) sourceContext = { code, anchors: new Map() };
@@ -73,7 +71,6 @@ function anchorOffsets(context: SourceContext, anchor: string): number[] {
     return offsets;
 }
 
-/** Configuration is a statement, so it must follow a preserved native strict directive. */
 export function clientPatchHeader(code: string, marker: string, status: unknown, setup: string): string {
     let at = 0, strict = false;
     const trivia = /^(?:\s|\/\*[\s\S]*?\*\/|\/\/[^\r\n\u2028\u2029]*(?:\r\n|[\r\n\u2028\u2029]|$))*/;
@@ -85,7 +82,6 @@ export function clientPatchHeader(code: string, marker: string, status: unknown,
         const gap = trivia.exec(code.slice(at))![0];
         at += gap.length;
         const next = code.slice(at);
-        // A newline is not ASI if the following token continues the literal expression.
         const continues = /^(?:[([.`*/%<>=&|^?]|[+\-](?![+\-])|!=|in\b|instanceof\b)/.test(next);
         if (next[0] !== ';' && next.length && (!/[\r\n\u2028\u2029]/.test(gap) || continues)) break;
         strict ||= directive[1] === '"use strict"' || directive[1] === "'use strict'";
@@ -100,7 +96,6 @@ export function codeOffsets(code: string, offsets: Set<number>): Set<number> {
     return new Set([...offsets].filter(valid));
 }
 
-/** Match precompiled AST templates without fixed names or offsets and without evaluating game code. */
 export function resolveTemplateEdits(code: string, plan: PreparedPatchPlan): { edits: PatchEdit[]; roles: Map<string, string> } | undefined {
     if (!plan.templates?.length) return undefined;
     const context = contextFor(code);
@@ -173,7 +168,6 @@ export function resolveTemplateEdits(code: string, plan: PreparedPatchPlan): { e
                 before: code.slice(Math.max(0, start - 24), start), after: code.slice(end, end + 24) });
         }
     }
-    // Every offline edit must have a corresponding live match; no partial feature is installed.
     if (edits.length !== plan.edits.filter(edit => edit.start !== 0).length) return undefined;
     edits.sort((a, b) => a.start - b.start || a.end - b.end);
     if (edits.some((edit, index) => index > 0 && edits[index - 1].end > edit.start)) return undefined;

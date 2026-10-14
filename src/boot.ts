@@ -34,6 +34,7 @@ export function startBoot() {
         modules.customGarageSkins();
 
         try {
+            modules.cybersport();
             if (state.currentScreen === 'lobby' || state.currentScreen === 'loading') {
                 modules.customPlayButton();
             }

@@ -22,7 +22,6 @@ function schemaFor<T>(value: object, registry: WeakMap<object, T>): T | undefine
     return undefined;
 }
 
-/** Native prototypes and their field names are supplied by the offline AST plan. */
 export function registerBonusType(prototype: unknown, kind: unknown, fields: unknown): boolean {
     if (!prototype || typeof prototype !== 'object' || !fields || typeof fields !== 'object') return false;
     const keys = kind === 'vector' ? ['x', 'y', 'z'] : kind === 'bonus' ? ['box', 'pickupSound'] : [];
@@ -265,7 +264,6 @@ function adaptBonusPatchPlan(code: string, plan: BonusPatchPlan): BonusPatchPlan
     return { ...plan, sourceLength: code.length, sha256: '', status, edits };
 }
 
-/** SHA selects a fast path; an unknown build is tried against the prepared semantic templates. */
 export async function selectBonusPatchPlan(code: string, plans: readonly BonusPatchPlan[]): Promise<BonusPatchPlan | undefined> {
     const candidates = plans.filter(plan => plan.format === 'ki-overdrive-ast-v1' && plan.status.ready && plan.sourceLength === code.length);
     if (candidates.length) try {
@@ -281,13 +279,11 @@ export async function selectBonusPatchPlan(code: string, plans: readonly BonusPa
     return undefined;
 }
 
-/** Apply pre-generated, guarded edits to the original bundle before any other injector patches. */
 export function patchBonusPickups(code: string, report?: (record: BonusDiagnosticRecord) => void, plan?: BonusPatchPlan): string {
     const done = (result: string, status: BonusHookStatus) => { try { report?.(status); } catch {} return result; };
     if (!plan) return done(code, unavailable('bundle-mapping-missing'));
     if (code.includes(PATCH_MARKER)) return done(code, plan.status);
     if (plan.format !== 'ki-overdrive-ast-v1' || plan.sourceLength !== code.length) return done(code, unavailable('bundle-mapping-mismatch'));
-    // Validate every edit before changing anything. A stale or corrupted plan cannot partially patch the game.
     let previousEnd = 0;
     for (const edit of plan.edits) {
         if (!Number.isSafeInteger(edit.start) || !Number.isSafeInteger(edit.end) || edit.start < previousEnd || edit.end < edit.start || edit.end > code.length ||

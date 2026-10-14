@@ -16,7 +16,6 @@ export interface GarageItemsPatchPlan extends PreparedPatchPlan {
 const MARKER = '/*ki-garage-items-ast:v1:';
 const unavailable = (issue: string): GarageItemsHookStatus => ({ hooked: false, ready: false, strategy: 'ast-plan', issues: [issue] });
 
-/** Native panels are discovered offline. Compatible unknown builds use prepared templates. */
 export async function selectGarageItemsPlan(code: string, plans: readonly GarageItemsPatchPlan[]): Promise<GarageItemsPatchPlan | undefined> {
     const candidates = plans.filter(plan => plan.format === 'ki-garage-items-ast-v1' && plan.status.ready && plan.sourceLength === code.length);
     if (candidates.length) try {
@@ -36,7 +35,6 @@ export async function selectGarageItemsPlan(code: string, plans: readonly Garage
     return undefined;
 }
 
-/** Validate the complete native contract before modifying any image or label branch. */
 export function patchUnavailableGarageItems(code: string, report?: (status: GarageItemsHookStatus) => void, plan?: GarageItemsPatchPlan): string {
     const done = (result: string, status: GarageItemsHookStatus) => { try { report?.(status); } catch { } return result; };
     if (code.includes(MARKER)) return done(code, plan?.status || { hooked: true, ready: true, strategy: 'ast-plan', issues: [] });

@@ -18,7 +18,6 @@ const SCHEMA_TOKEN = '/*ki-inventory-schema:v1*/null';
 const MARKER = '/*ki-garage-inventory-ast:v1:';
 const unavailable = (issue: string): GarageInventoryHookStatus => ({ hooked: false, ready: false, strategy: 'ast-plan', issues: [issue] });
 
-/** Native inventory fields and collection methods are discovered offline. */
 export async function selectGarageInventoryPlan(code: string, plans: readonly GarageInventoryPatchPlan[]): Promise<GarageInventoryPatchPlan | undefined> {
     const candidates = plans.filter(plan => plan.format === 'ki-garage-inventory-ast-v1' && plan.status.ready && plan.sourceLength === code.length);
     if (candidates.length) try {
@@ -48,7 +47,6 @@ export async function selectGarageInventoryPlan(code: string, plans: readonly Ga
     return undefined;
 }
 
-/** Validate the complete native contract before modifying any native inventory initialization. */
 export function patchGarageInventoryDiagnostics(code: string, report?: (status: GarageInventoryHookStatus) => void, plan?: GarageInventoryPatchPlan): string {
     const done = (result: string, status: GarageInventoryHookStatus) => { try { report?.(status); } catch { } return result; };
     if (code.includes(MARKER)) return done(code, plan?.status || { hooked: true, ready: true, strategy: 'ast-plan', issues: [] });

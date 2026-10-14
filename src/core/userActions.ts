@@ -19,7 +19,6 @@ const SCHEMA_TOKEN = '/*ki-user-action-schema:v1*/null';
 const MARKER = '/*ki-user-action-ast:v1:';
 const unavailable = (issue: string): UserActionHookStatus => ({ hooked: false, ready: false, strategy: 'ast-plan', issues: [issue] });
 
-/** The action constructor and its player fields are discovered offline. */
 export async function selectUserActionPlan(code: string, plans: readonly UserActionPatchPlan[]): Promise<UserActionPatchPlan | undefined> {
     const candidates = plans.filter(plan => plan.format === 'ki-user-action-ast-v1' && plan.status.ready && plan.sourceLength === code.length);
     if (candidates.length) try {
@@ -49,7 +48,6 @@ export async function selectUserActionPlan(code: string, plans: readonly UserAct
     return undefined;
 }
 
-/** Validate the complete native contract before modifying native user action initialization. */
 export function patchUserActions(code: string, report?: (status: UserActionHookStatus) => void, plan?: UserActionPatchPlan): string {
     const done = (result: string, status: UserActionHookStatus) => { try { report?.(status); } catch { } return result; };
     if (code.includes(MARKER)) return done(code, plan?.status || { hooked: true, ready: true, strategy: 'ast-plan', issues: [] });
@@ -61,7 +59,6 @@ export function patchUserActions(code: string, report?: (status: UserActionHookS
     return done(patched, plan.status);
 }
 
-/** Emit the existing message shape from semantic fields, without traversing unrelated objects or accessors. */
 export function readUserAction(value: unknown, schema: UserActionSchema): string[] | null {
     if (!value || typeof value !== 'object' || !schema || typeof schema !== 'object') return null;
     const field = (object: object, label: string): unknown => typeof schema[label] === 'string' ? Object.getOwnPropertyDescriptor(object, schema[label])?.value : undefined;

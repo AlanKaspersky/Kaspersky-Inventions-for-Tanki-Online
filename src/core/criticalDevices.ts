@@ -2,8 +2,6 @@ import type { GameAugment } from './gameAugments';
 
 export type CriticalDevice = Pick<GameAugment, 'id' | 'name' | 'baseItemId' | 'properties'>;
 
-// Server catalog snapshot supplied while diagnosing direct entry into a battle.
-// Live properties take precedence; these item IDs do not depend on bundle symbol names.
 const profiles = [
     ['1931009774129', '920009631123', 'Strict Ammunition Load', 1, -1],
     ['921009712832', '920009630969', 'Sorted Ammunition', 1, -2],

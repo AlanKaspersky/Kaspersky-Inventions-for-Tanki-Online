@@ -123,7 +123,6 @@ export interface BattlePresencePatchPlan extends PreparedPatchPlan {
 const MARKER = '/*ki-battle-presence-ast:v1:';
 const unavailable = (issue: string): BattlePresenceHookStatus => ({ hooked: false, ready: false, strategy: 'ast-plan', issues: [issue] });
 
-/** Native store getters and capacity writes are discovered offline; compatible builds use prepared templates. */
 export async function selectBattlePresencePlan(code: string, plans: readonly BattlePresencePatchPlan[]): Promise<BattlePresencePatchPlan | undefined> {
     const candidates = plans.filter(plan => plan.format === 'ki-battle-presence-ast-v1' && plan.profile === 'complete' && plan.status.ready && plan.sourceLength === code.length);
     if (candidates.length) try {
@@ -143,7 +142,6 @@ export async function selectBattlePresencePlan(code: string, plans: readonly Bat
     return undefined;
 }
 
-/** Validate all native store and capacity hooks before applying any edit. */
 export function patchBattlePresence(code: string, report?: (status: BattlePresenceHookStatus) => void, plan?: BattlePresencePatchPlan): string {
     const done = (result: string, status: BattlePresenceHookStatus) => { try { report?.(status); } catch { } return result; };
     if (code.includes(MARKER)) return done(code, plan?.status || { hooked: true, ready: true, strategy: 'ast-plan', issues: [] });

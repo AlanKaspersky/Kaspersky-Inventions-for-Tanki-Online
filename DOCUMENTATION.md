@@ -2,9 +2,9 @@
 
 ## Complete Implementation Reference
 
-**Extension version:** 2.9.4 (`manifest.json`)
+**Extension version:** 2.9.5 (`manifest.json`)
 
-**Documentation updated:** October 13, 2026
+**Documentation updated:** October 14, 2026
 
 **Interface languages:** English and Russian
 
@@ -24,6 +24,7 @@ The source implementation is authoritative. `dist/` contains generated browser e
 5. [Settings Integration](#settings-integration)
 6. [Feature Module Reference](#feature-module-reference)
    - [Enhanced Play](#enhanced-play)
+   - [Cybersport Format Prototype](#cybersport-format-prototype)
    - [Augment Specifications](#augment-specifications)
    - [Paint Search](#paint-search)
    - [Friend Categories](#friend-categories)
@@ -574,6 +575,28 @@ Hotkeys reject repeated events, Ctrl/Alt/Meta combinations, editable focus, unsu
 The main artwork is sliced from `assets/playButton.png` using shared dimensions and offsets. Native children are hidden by the injected `kasp-playbtn-styles`; `data-overridden` and `buttonsCreated` distinguish treated elements and avoid duplicate wrappers. A newly created native Play button resets the wrapper creation state.
 
 `syncButtonStates()` skips work when searching state is unchanged unless forced. Language text is updated within that synchronization path, so changing language alone is not a universal immediate refresh of all existing button labels.
+
+### Cybersport Format Prototype
+
+Source: [cybersport.ts](src/modules/cybersport.ts), [cybersport.css](styles/cybersport.css), and `gameDOM.battleCreate`.
+
+Boot calls `cybersport()` in its heavy-pass conditional error boundary, independently of screen classification and settings. It recognizes the Format row and direct native Sport card using its RU/EN heading or semantic background resource. One deep DOM clone is inserted immediately after Sport. Copied IDs are removed; custom heading, `assets/cybersport.png`, button role, focusability, and Enter/click handlers are applied. The source description/count stay synchronized; no React fiber or event handler is copied.
+
+Activation calls the original connected Sport element's `click()` once. A forwarding flag prevents the row capture listener from treating that forwarded click as native deselection. Custom selected presentation is enabled only when native Sport confirms its selected class; a bounded one-second animation-frame retry allows asynchronous native updates. Other native clicks or selection away from Sport clear the alias. The source card receives temporary scoped attributes/pseudo-label styling, not replacement text or native class changes.
+
+A row-scoped observer watches child/class/text changes and coalesces through one animation frame. Conditional writes allow feedback to settle. Row/source/clone replacement rebuilds one entry; leaving the row disconnects its observer/listener, removes its clone, and clears source attributes. An Esports activation separately retains a pending CTF action across that transition: it searches native `.blockCard` elements in the creation row for an exact `CTF` heading and calls the matching card's `click()` once. Boot updates and a temporary 100 ms retry handle delayed mounting, bounded to five seconds. A native format click cancels the pending action; ordinary formats never start it. The action is consumed before clicking to avoid duplicate navigation. No permanent interval, AST patch, synthetic Start action, new server format, or automatic battle creation is added. Q/E/gamepad native format traversal still belongs to the game's original cards.
+
+Esports selection is retained across Format/Mode/Map transitions against the connected `BattleCreateComponentStyle-mainContainer`; removing/replacing that root or choosing an ordinary native format clears it. Map cards are identified by their native `MapCardComponentStyle-message` child inside a background-image element, within the row's native columns. Computed background URL pathnames are compared with seven explicit artwork paths in `cybersport.ts`, independently of CDN host and URL query. The shared Red Alert artwork additionally requires the exact ordinary Red Alert MM name in RU/EN, after whitespace normalization, to exclude Red Alert MM Esports. Other paths do not depend on localized names. A separate map-row observer handles child/text and class/style updates, including search/theme results and delayed artwork/labels. Removed/recycled elements have their module attributes cleared or recomputed.
+
+Scoped CSS hides excluded cards and uses a three-row grid with 25em columns. Native column wrappers use `display: contents`; cards remain in their React-owned DOM positions with native click handlers. When a native selected-panel marker appears on an excluded card, the first currently available allowed card is clicked once for that rejected selection and horizontal scrolling is reset. No card is manufactured if the game's search/theme result contains no allowed variant. Leaving the map row removes filtering attributes and disconnects its observer, while returning to Map within the same Esports creation session reapplies the filter. No map list or selection is persisted to disk.
+
+[cybersportSettings.ts](src/modules/cybersportSettings.ts) owns the scoped native settings controller. In an active Esports creation root, it observes the native right panel and coalesces updates through the module's animation-frame scheduler. The first two parameter inputs are the native per-team player limit and minutes; the HTMLInputElement prototype value setter plus bubbling input/change events apply 6 and 12 through React's ordinary change handlers. The score input is excluded. The native RU private-battle label or EN PRIVATE (also PRIVATE BATTLE/CLOSED BATTLE) identifies its checkbox; native click enables it. Original readOnly/disabled flags are retained and released when controls are replaced or Esports ends. Numeric inputs are read-only and the enabled private checkbox is disabled against edits while the preset is active. If the additional-options view expands, a panel-scoped `-alignSelfFlexEnd` button with exact RU/EN Close text is clicked once per mounted element. The remaining preset is completed on the restored compact view; no DOM preview clone or generated `ksc-*` selector is used for closing.
+
+The first rank dropdown is the minimum rank. An existing First Sergeant RU/EN placeholder is accepted; otherwise the native mousedown handler opens that dropdown and the first item in its inner list is clicked. Its rank-image pathname is retained in memory to recognize the selected minimum independently of localized text. Delayed menu mounting receives a bounded two-second retry; a failed unchanged selection is not retried indefinitely and remains available for manual correction. Once fixed, mouse and editing-key interactions with that minimum control are prevented; Tab/Escape and the maximum-rank control remain available. Only menus opened by the controller are closed during cleanup. A panel observer covers class/src/value/checked attributes, child replacement, and preview text; captured input/change/click events cover user actions and reset controls. The game's map/default resets are corrected through native handlers, rather than changing only the preview. The native Start action and network submission remain owned by the game; no server endpoint or request patch is introduced.
+
+[cybersportNative.ts](src/core/cybersportNative.ts) is installed by the injector in MAIN, where the game's React instances are accessible. The isolated settings controller marks only its creation root with `data-kasp-esports-active` and sends a payload-free DOM sync event. Bounded fiber-parent traversal reads live component instance props, excluding host nodes and stale memoizedProps. Semantic form callbacks apply numeric player/time values; the minimum-rank widget supplies its numeric `minRank` and native change callback. The authoritative options set is checked for the untranslated enum name Private. No constructor/minified field name, module ID, AST parser, or additional game-bundle edit is introduced.
+
+The native creation component's `launchFun` callback is guarded while Esports is active. Its inspected seven-argument signature is checked; submission preserves name, score, maximum rank and native callback receiver, replaces team capacity/time/minimum rank with 6/12/the verified rank, and uses the current native options set. Missing privacy/rank or incompatible signatures postpone creation and reset the native creationStarted flag for a manual retry. Capture checks cover mouse Start and Space; the callback guard also covers direct gamepad/native activation once installed. A changed map invalidates the rank cache until its widget supplies a new value. Replaced launch callbacks are guarded again; deactivation restores the original callback without overwriting a newer native replacement. `__kaspCybersportDebug.status()` reports active/guarded/ready state, authoritative values, errors and lastSubmission numeric arguments. lastSubmission confirms arguments handed to the native callback, not server acceptance. The bridge has no periodic poll; existing form updates and a coalesced animation frame after a postponed Start drive synchronization.
 
 ### Augment Specifications
 
@@ -1335,6 +1358,7 @@ The manifest declares 18 stylesheets at document start. `mainUI.css` also import
 | `styles/battleHistory.css` | History layout, cards, detail tables, controls, pagination, equipment placeholders, and status presentation. |
 | `styles/garageButtons.css` | Active/disabled button classes, mask presentation, and directional hover effects. |
 | `styles/navigation.css` | Native navigation item geometry, hover, shine, and related visual rules. |
+| `styles/cybersport.css` | Scoped Esports prototype and source Sport visual state; custom image variable, gradients, hover/focus, and selection. |
 | `styles/header.css` | Header currencies, icon arrangement, and header presentation. |
 | `styles/battleStats.css` | Native battle-statistics layout plus related equipment/resistance/skin presentation. |
 | `styles/killBoard.css` | Result-table geometry, columns, headers, and kill-board layout. |
@@ -1366,6 +1390,7 @@ When debugging a visual conflict, inspect all applicable stylesheet, dynamic-sty
 | --- | --- |
 | `assets/background.png` | Custom game-loading background through the root CSS property |
 | `assets/playButton.png` | Enhanced Play artwork and sliced button backgrounds |
+| `assets/cybersport.png` | Native Sport-clone artwork for the first Esports UI stage |
 | `assets/map-icon.png` | History map icon |
 | `assets/modulesTAB.svg` | Resistance heading and expansion-control shield |
 | `assets/icons/icon16.png` | Manifest icon, 16 px |
@@ -1621,7 +1646,7 @@ The build does not invoke regression tests automatically. Reload the extension a
 
 ### Dependency Metadata
 
-The manifest, package, and lockfile package versions are 2.9.4. Package/lockfile-root ranges agree: `@types/chrome` `^0.3.0`, esbuild `^0.28.2`, TypeScript `^7.0.2`, Acorn `^8.19.0`, acorn-walk `^8.3.5`, and Astring `^1.9.0`. The parser/walker/generator are development dependencies, not imports of the runtime entries.
+The manifest, package, and lockfile package versions are 2.9.5. Package/lockfile-root ranges agree: `@types/chrome` `^0.3.0`, esbuild `^0.28.2`, TypeScript `^7.0.2`, Acorn `^8.19.0`, acorn-walk `^8.3.5`, and Astring `^1.9.0`. The parser/walker/generator are development dependencies, not imports of the runtime entries.
 
 Use `npm ci` to install the locked dependency graph. Dependency changes should update the manifest and lockfile together; `npm install` can rewrite the lockfile. The project does not declare a Node `engines` field; tooling requires APIs such as `fs.cpSync` and the built-in Node test runner.
 
@@ -1663,7 +1688,7 @@ Generated JSON is statically imported into `dist/kasp_injector.js`; it is not fe
 
 Configured directories are `dist`, `styles`, `assets`, `database`, `_locales`, and `templates`. Configured root files are `manifest.json`, `LICENSE.txt`, `README.md`, and `DOCUMENTATION.md`.
 
-For 2.9.4, the folder and archive names are `release/Kaspersky's Inventions 2.9.4/` and `release/Kaspersky's Inventions 2.9.4.zip`. The ZIP contains that outer versioned folder.
+For 2.9.5, the folder and archive names are `release/Kaspersky's Inventions 2.9.5/` and `release/Kaspersky's Inventions 2.9.5.zip`. The ZIP contains that outer versioned folder.
 
 The script removes the existing same-version output before recreating it. It throws if no directory or no root file was copied, but does not require every configured input to exist. `build:zip` can package stale bundles or partial resources if invoked without appropriate preparation.
 
@@ -1786,4 +1811,4 @@ Project use and distribution are governed by [LICENSE.txt](LICENSE.txt), which c
 
 ---
 
-Technical documentation aligned with source/manifest version **2.9.4**, updated **October 13, 2026**.
+Technical documentation aligned with source/manifest version **2.9.5**, updated **October 14, 2026**.

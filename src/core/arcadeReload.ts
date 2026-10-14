@@ -21,7 +21,6 @@ export interface ArcadeReloadPatchPlan extends PreparedPatchPlan {
 const MARKER = '/*ki-arcade-ast:v1:';
 const unavailable = (issue: string): ArcadeReloadHookStatus => ({ hooked: false, ready: false, issues: [issue], strategy: 'ast-plan' });
 
-/** Only prepared data is shipped. Unknown builds are tried against AST-generated templates. */
 export async function selectArcadeReloadPlan(code: string, plans: readonly ArcadeReloadPatchPlan[]): Promise<ArcadeReloadPatchPlan | undefined> {
     const candidates = plans.filter(plan => plan.format === 'ki-arcade-ast-v1' && plan.status.ready && plan.sourceLength === code.length);
     if (candidates.length) try {
@@ -41,7 +40,6 @@ export async function selectArcadeReloadPlan(code: string, plans: readonly Arcad
     return undefined;
 }
 
-/** All guards are checked before modifying the native game; failures skip only the added HUD row. */
 export function patchArcadeReload(code: string, report?: (status: ArcadeReloadHookStatus) => void, plan?: ArcadeReloadPatchPlan): string {
     const done = (result: string, status: ArcadeReloadHookStatus) => { try { report?.(status); } catch { } return result; };
     if (code.includes(MARKER)) return done(code, plan?.status || { hooked: true, ready: true, panel: 'local-hud', issues: [] });

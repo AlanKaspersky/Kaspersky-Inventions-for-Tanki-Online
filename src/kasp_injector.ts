@@ -30,6 +30,7 @@ import userActionPlans from './generated/user-action.json';
 import { installCriticalIndicator, patchCriticalIndicator, selectCriticalPlan } from './core/criticalIndicator';
 import type { CriticalPatchPlan, CriticalHookStatus } from './core/criticalIndicator';
 import criticalPlans from './generated/critical.json';
+import { installCybersportNative } from './core/cybersportNative';
 
 (function (): void {
     'use strict';
@@ -40,6 +41,7 @@ import criticalPlans from './generated/critical.json';
     installBattleStatistics(window);
     installUserActions(window);
     installGarageInventoryDiagnostics(window);
+    installCybersportNative(window);
 
     let arcadeHookStatus: ArcadeReloadHookStatus = { hooked: false, issues: ['pending'] };
     let arcadeError: string | null = null;
@@ -109,7 +111,6 @@ import criticalPlans from './generated/critical.json';
                             return res.text();
                         })
                         .then(async code => {
-                            // Exact plans and adaptive AST templates both observe the original response.
                             const originalCode = code;
                             sourceForPatches = originalCode;
                             const prepared: PreparedPatchPlan[] = [];

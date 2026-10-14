@@ -1,5 +1,3 @@
-/** A lexical filter, not a runtime AST parser. Control parentheses and block endings
- * distinguish regular expressions from division; template substitutions remain code. */
 export function createCodeOffsetGuard(code: string): (offset: number) => boolean {
     const ranges: Array<[number, number]> = [];
     const parens: Array<{ control: boolean; body?: boolean }> = [];

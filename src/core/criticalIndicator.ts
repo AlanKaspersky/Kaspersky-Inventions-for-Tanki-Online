@@ -22,7 +22,6 @@ function criticalHeader(code: string, schema: CriticalSchema, status: CriticalHo
     return clientPatchHeader(code, MARKER, status, 'try{window.__kaspCriticalBridge.configure(' + JSON.stringify(schema) + ')}catch(__kaspCriticalIgnored){}');
 }
 
-/** Native critical state, equipment and the local reload material are discovered offline. */
 export async function selectCriticalPlan(code: string, plans: readonly CriticalPatchPlan[]): Promise<CriticalPatchPlan | undefined> {
     const candidates = plans.filter(plan => plan.format === 'ki-critical-ast-v1' && plan.status.ready && plan.sourceLength === code.length);
     if (candidates.length) try {
@@ -50,7 +49,6 @@ export async function selectCriticalPlan(code: string, plans: readonly CriticalP
     return undefined;
 }
 
-/** Validate the complete native contract before modifying native critical telemetry or HUD initialization. */
 export function patchCriticalIndicator(code: string, report?: (status: CriticalHookStatus) => void, plan?: CriticalPatchPlan): string {
     const done = (result: string, status: CriticalHookStatus) => { try { report?.(status); } catch { } return result; };
     if (code.includes(MARKER)) return done(code, plan?.status || { hooked: true, ready: true, strategy: 'ast-plan', issues: [] });
@@ -122,7 +120,6 @@ function cycleProfile(device: DeviceIdentity | null) {
         Number.isFinite(after) && after >= -20 && after <= 0 ? { start, after, delta, max } : null;
 }
 
-/** Observe native lifecycle, shots and confirmed hits; never write a tank or nameplate field. */
 export function createCriticalIndicator(resolveDevice: (id: string) => DeviceIdentity | null) {
     let schema: CriticalSchema | null = null;
     const actors = new WeakMap<object, { actor: object; ready: boolean; updates: number }>();
@@ -132,8 +129,6 @@ export function createCriticalIndicator(resolveDevice: (id: string) => DeviceIde
     const events = new WeakMap<object, { kind: 'shot' | 'life'; field: string }>();
     const cycles = new WeakMap<object, { state: string; spawned: boolean; chance: number | null }>();
     const charged = new WeakSet<object>();
-    // Forced critical damage cannot establish the ordinary device phase. Require a normal
-    // acknowledgement before accepting another critical hit as a synchronization point.
     const recovering = new WeakSet<object>();
     type PostSupercharge = { shots: number; initialized: boolean; normalSeen: boolean; criticalShot: number | null };
     const postSupercharge = new WeakMap<object, PostSupercharge>();
@@ -153,8 +148,6 @@ export function createCriticalIndicator(resolveDevice: (id: string) => DeviceIde
         let cycle = cycles.get(entity);
         const post = postSupercharge.get(entity), weapon = supportedDevice(device?.name);
         if (post && !post.initialized && profile && weapon && post.shots <= 256) {
-            // Verified after supercharge: one extra ordinary shot compared with the regular cycle.
-            // Seed from live device properties, then check the first actual critical damage packet.
             cycle ??= { state: 'ACTIVE', spawned: false, chance: null };
             cycle.chance = profile.after - profile.delta;
             for (let i = 0; i < post.shots; i++) {
@@ -171,7 +164,6 @@ export function createCriticalIndicator(resolveDevice: (id: string) => DeviceIde
         if (!schema) return;
         const descriptor = Object.getOwnPropertyDescriptor(bar.material, schema.foregroundField);
         if (!descriptor || !('value' in descriptor) || !descriptor.writable) throw Error('Native reload color is unavailable.');
-        // Keep a new native color if the game replaces it while the HUD is alive.
         if (descriptor.value !== bar.red && descriptor.value !== bar.original) bar.original = descriptor.value;
         const color = ready ? bar.red : bar.original;
         if (descriptor.value !== color) (bar.material as Record<string, unknown>)[schema.foregroundField] = color;
@@ -328,15 +320,12 @@ export function createCriticalIndicator(resolveDevice: (id: string) => DeviceIde
                     if (post.criticalShot === post.shots) post.criticalShot = null;
                     return;
                 }
-                // A forced critical can arrive after the effect ended. Do not synchronize until
-                // an ordinary hit or the expected first critical shot establishes a new phase.
                 if (!critical || normal || !post.shots || (!post.normalSeen && post.criticalShot === null)) return;
                 const cycle = cycles.get(entity);
                 if (!cycle || cycle.state !== 'ACTIVE') return;
                 const laterShots = post.criticalShot === null ? 0 : post.shots - post.criticalShot;
                 if (laterShots > 256) return;
                 cycle.chance = profile.after;
-                // Preserve shots fired while the acknowledgement was in flight.
                 for (let i = 0; i < laterShots; i++) cycle.chance = cycle.chance >= profile.max ? profile.after : Math.min(profile.max, cycle.chance + profile.delta);
                 cycle.spawned = false; postSupercharge.delete(entity); recovering.delete(entity); actors.delete(entity);
                 return;
@@ -347,7 +336,6 @@ export function createCriticalIndicator(resolveDevice: (id: string) => DeviceIde
             }
             const cycle = cycles.get(entity) ?? { state: 'ACTIVE', spawned: false, chance: null };
             if (cycle.state !== 'ACTIVE') return;
-            // A late hit acknowledgement must not rewind a cycle already tracked from native shots.
             if (cycle.chance !== null) return;
             if (critical && normal) { cycle.chance = null; cycle.spawned = false; }
             else if (critical) { cycle.chance = profile.after; cycle.spawned = false; }

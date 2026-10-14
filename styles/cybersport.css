@@ -1,0 +1,139 @@
+.FormatsSectionComponentStyle-card.kasp-cybersport-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    background: linear-gradient(360deg, rgb(0, 25, 38) 0%, rgba(0, 25, 38, 0) 50%),
+        linear-gradient(rgb(0, 26, 39) 0%, rgba(0, 26, 39, 0) 50%);
+    border-radius: 0.5em;
+    height: 100%;
+    margin-right: 1em;
+    min-width: 22.5em;
+    position: relative;
+    z-index: 1;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.kasp-cybersport-card > [class*="backgroundImageCover"] {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    background-image: linear-gradient(360deg, rgb(0, 25, 38) 0%, rgba(0, 25, 38, 0) 50%),
+        linear-gradient(rgb(0, 26, 39) 0%, rgba(0, 26, 39, 0) 50%), var(--kasp-cybersport-image) !important;
+    background-color: rgba(0, 25, 38, 0.9);
+    background-repeat: no-repeat !important;
+    background-size: cover !important;
+    background-position: center !important;
+    background-blend-mode: luminosity;
+    transition: transform 0.2s ease-in-out;
+}
+
+.kasp-cybersport-card:hover > [class*="backgroundImageCover"] {
+    transform: scale(1.05);
+}
+
+.kasp-cybersport-card.FormatsSectionComponentStyle-selectedCard > [class*="backgroundImageCover"] {
+    background-blend-mode: normal !important;
+}
+
+[data-kasp-cybersport-source-active] > [class*="backgroundImageCover"] {
+    background-color: rgba(0, 25, 38, 0.9) !important;
+    background-blend-mode: luminosity !important;
+}
+
+.kasp-cybersport-card.FormatsSectionComponentStyle-unSelectedCard,
+.FormatsSectionComponentStyle-card[data-kasp-cybersport-source-active] {
+    box-shadow: rgba(255, 255, 255, 0.15) 0 0 0 1px !important;
+}
+
+.kasp-cybersport-card:hover,
+.kasp-cybersport-card:focus-visible,
+.kasp-cybersport-card.FormatsSectionComponentStyle-selectedCard,
+.FormatsSectionComponentStyle-card[data-kasp-cybersport-source-active]:hover {
+    box-shadow: rgb(118, 255, 51) 0 0 0 2px !important;
+}
+
+.kasp-cybersport-card .FormatsSectionComponentStyle-modeDescription p,
+[data-kasp-cybersport-source-active] .FormatsSectionComponentStyle-modeDescription p {
+    opacity: 0 !important;
+}
+
+.kasp-cybersport-card:hover .FormatsSectionComponentStyle-modeDescription p,
+.kasp-cybersport-card:focus-visible .FormatsSectionComponentStyle-modeDescription p,
+.kasp-cybersport-card.FormatsSectionComponentStyle-selectedCard .FormatsSectionComponentStyle-modeDescription p,
+[data-kasp-cybersport-source-active]:hover .FormatsSectionComponentStyle-modeDescription p {
+    opacity: 1 !important;
+}
+
+.kasp-cybersport-card > :last-child,
+[data-kasp-cybersport-source-active] > :last-child {
+    background: none !important;
+    border-top: 1px solid rgba(191, 213, 255, 0.15) !important;
+}
+
+.kasp-cybersport-card.FormatsSectionComponentStyle-selectedCard > :last-child {
+    background: linear-gradient(0deg, rgba(118, 255, 51, 0.5) 0%, rgba(118, 255, 51, 0) 100%) !important;
+}
+
+.kasp-cybersport-card > :last-child h2,
+[data-kasp-cybersport-source-active] > :last-child h2 {
+    color: inherit !important;
+}
+
+.kasp-cybersport-card > :last-child {
+    color: rgb(191, 213, 255) !important;
+}
+
+.kasp-cybersport-card:hover > :last-child,
+.kasp-cybersport-card:focus-visible > :last-child,
+.kasp-cybersport-card.FormatsSectionComponentStyle-selectedCard > :last-child {
+    color: rgb(118, 255, 51) !important;
+}
+
+[data-kasp-cybersport-source-active] > :last-child {
+    color: rgb(191, 213, 255) !important;
+}
+
+[data-kasp-cybersport-source-active]:hover > :last-child {
+    color: rgb(118, 255, 51) !important;
+}
+
+[data-kasp-cybersport-source-active] > :last-child h2 {
+    position: relative;
+    visibility: hidden;
+}
+
+[data-kasp-cybersport-source-active] h2[data-kasp-select-label]::after {
+    content: attr(data-kasp-select-label);
+    position: absolute;
+    inset: 0;
+    visibility: visible;
+    white-space: nowrap;
+}
+
+.BattleCreateComponentStyle-scrollBattlePick[data-kasp-esports-maps] {
+    display: grid !important;
+    grid-template-rows: repeat(3, minmax(0, 1fr));
+    grid-auto-flow: column;
+    grid-auto-columns: 25em;
+    gap: 1em;
+    align-content: stretch;
+    justify-content: start;
+    padding-left: 2.1em !important;
+}
+
+[data-kasp-esports-maps] > [data-kasp-esports-column] {
+    display: contents !important;
+}
+
+[data-kasp-esports-maps] [data-kasp-esports-map] {
+    width: 100% !important;
+    height: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+}
+
+[data-kasp-esports-maps] [data-kasp-esports-map="excluded"] {
+    display: none !important;
+}

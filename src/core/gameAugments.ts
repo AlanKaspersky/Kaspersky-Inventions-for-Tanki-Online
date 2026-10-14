@@ -89,7 +89,6 @@ function augmentHeader(code: string, schema: AugmentSchema, status: AugmentHookS
     return clientPatchHeader(code, AUGMENT_MARKER, status, 'try{window.__kaspAugmentConfigure(' + JSON.stringify(schema) + ')}catch(__kaspIgnored){}');
 }
 
-/** Offline AST plans supply native fields; compatible unknown builds use prepared templates. */
 export async function selectGameAugmentsPlan(code: string, plans: readonly AugmentPatchPlan[]): Promise<AugmentPatchPlan | undefined> {
     const candidates = plans.filter(plan => plan.format === 'ki-augments-ast-v1' && plan.status.ready && plan.sourceLength === code.length);
     if (candidates.length) try {
@@ -476,7 +475,6 @@ export function installGameAugments(page: Window): void {
             const previous = revision;
             bindCards();
             if (revision !== previous) publish();
-            // React can restore src/class without changing the item's identity or metadata.
             else page.dispatchEvent?.(new Event(AUGMENT_CARDS_UPDATED));
         });
     let scanTimer: number | undefined;

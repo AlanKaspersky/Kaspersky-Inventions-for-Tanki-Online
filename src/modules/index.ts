@@ -14,6 +14,7 @@ import { zeroResists } from './zeroResists';
 import { equipmentTracker } from './equipmentTracker';
 import { battleHistory } from './battleHistory';
 import { overdriveTimer } from './overdriveTimer';
+import { cybersport } from './cybersport';
 
 export const modules = {
   customPaints,
@@ -32,4 +33,5 @@ export const modules = {
   equipmentTracker,
   battleHistory,
   overdriveTimer,
+  cybersport,
 };

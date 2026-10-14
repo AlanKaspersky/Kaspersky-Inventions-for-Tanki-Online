@@ -65,6 +65,7 @@ function injectorFixture(fetch, plans = JSON.parse(read('src/generated/overdrive
     const context = {
         require: id => {
             if (id === './core/bonusPickup') return { ...bonusPickupModule.exports, ...bonusOverrides };
+            if (id === './core/cybersportNative') return { installCybersportNative() {} };
             if (id === './generated/overdrive.json') return { plans };
             if (id === './generated/critical.json') return { plans: [] };
             if (id === './generated/user-action.json') return { plans: [] };

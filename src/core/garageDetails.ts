@@ -17,7 +17,6 @@ export interface GarageDetailsPatchPlan extends PreparedPatchPlan {
 const MARKER = '/*ki-garage-details-ast:v1:';
 const unavailable = (issue: string): GarageDetailsHookStatus => ({ hooked: false, ready: false, strategy: 'ast-plan', issues: [issue] });
 
-/** Native panels are discovered offline. Compatible unknown builds use prepared templates. */
 export async function selectGarageDetailsPlan(code: string, plans: readonly GarageDetailsPatchPlan[]): Promise<GarageDetailsPatchPlan | undefined> {
     const candidates = plans.filter(plan => plan.format === 'ki-garage-details-ast-v1' && plan.status.ready && plan.sourceLength === code.length);
     if (candidates.length) try {
@@ -37,7 +36,6 @@ export async function selectGarageDetailsPlan(code: string, plans: readonly Gara
     return undefined;
 }
 
-/** Validate the complete native contract before modifying any description or preview branch. */
 export function patchUnavailableGarageDetails(code: string, report?: (status: GarageDetailsHookStatus) => void, plan?: GarageDetailsPatchPlan): string {
     const done = (result: string, status: GarageDetailsHookStatus) => { try { report?.(status); } catch { } return result; };
     if (code.includes(MARKER)) return done(code, plan?.status || { hooked: true, ready: true, strategy: 'ast-plan', issues: [] });

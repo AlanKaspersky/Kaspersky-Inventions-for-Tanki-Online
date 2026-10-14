@@ -169,6 +169,27 @@
     "src/core/gameDOM.ts"() {
       "use strict";
       gameDOM = {
+        battleCreate: {
+          root: ".BattleCreateComponentStyle-mainContainer",
+          formats: ".BattleCreateComponentStyle-scrollBattlePick",
+          formatCard: ".FormatsSectionComponentStyle-card",
+          formatName: ".FormatsSectionComponentStyle-modeName h2",
+          formatDescription: ".FormatsSectionComponentStyle-modeDescription p",
+          formatCount: ".FormatsSectionComponentStyle-numberBattles p",
+          formatImage: '[class*="backgroundImageCover"]',
+          modeCard: ".blockCard",
+          mapName: ".MapCardComponentStyle-message",
+          selectedMap: ".MapCardComponentStyle-selectedPanel",
+          options: ".BattleOptionsComponentStyle-rightBlock",
+          parameterInputs: ".BattleOptionsComponentStyle-parameters .BattleCreateInputStyle-settings input",
+          optionRows: ".BattleOptionsSectionComponentStyle-checkBoxSettingsCreateBattle",
+          rankDropdowns: ".RankRangeSelectorStyle-rankRangeSelectorLabel .DropDownStyle-dropdownRoot",
+          dropdownControl: ".DropDownStyle-dropdownControl",
+          dropdownPlaceholder: ".DropDownStyle-dropdownPlaceholder",
+          dropdownMenu: ".DropDownStyle-dropdownMenu",
+          dropdownItems: ".DropDownStyle-innerContainerStyle",
+          advancedClose: ".-alignSelfFlexEnd"
+        },
         presence: {
           battleRoot: ".BattleHudComponentStyle-hudContainer, .BattleHudComponentStyle-container, .BattleComponentStyle-canvasContainer, .BattleTabStatisticComponentStyle-container",
           timer: '[class*="BattleTimerComponentStyle-battleTimer"]'
@@ -6099,8 +6120,8 @@
       OVERDRIVE_POINT_RADIUS = 1e3;
       overdriveTimer = (() => {
         const locations = createOverdriveLocations();
-        const timers = locations.timers.map((location) => ({
-          location,
+        const timers = locations.timers.map((location2) => ({
+          location: location2,
           panel: null,
           time: null
         }));
@@ -6227,6 +6248,517 @@
     }
   });
 
+  // src/core/cybersportNative.ts
+  var CYBERSPORT_ACTIVE, CYBERSPORT_SYNC;
+  var init_cybersportNative = __esm({
+    "src/core/cybersportNative.ts"() {
+      "use strict";
+      init_gameDOM();
+      CYBERSPORT_ACTIVE = "data-kasp-esports-active";
+      CYBERSPORT_SYNC = "kasp:cybersport:sync";
+    }
+  });
+
+  // src/modules/cybersportSettings.ts
+  function createCybersportSettings(schedule) {
+    let root = null;
+    let observer = null;
+    let writing2 = false;
+    let closingButton = null;
+    let creationRoot = null;
+    const locks = /* @__PURE__ */ new Map();
+    let rankIcon = null;
+    let lastRankAttempt = null;
+    let rankJob = null;
+    let rankTimer = null;
+    const dom = gameDOM.battleCreate;
+    const imageKey = (element) => {
+      const image = element?.querySelector("img");
+      if (!image?.src) return null;
+      try {
+        return new URL(image.src, location.href).pathname;
+      } catch {
+        return null;
+      }
+    };
+    const lock = (input, checkbox = false) => {
+      if (!locks.has(input)) locks.set(input, { readOnly: input.readOnly, disabled: input.disabled });
+      if (checkbox) input.disabled = true;
+      else input.readOnly = true;
+    };
+    const releaseLocks = () => {
+      for (const [input, previous] of locks) {
+        input.readOnly = previous.readOnly;
+        input.disabled = previous.disabled;
+      }
+      locks.clear();
+    };
+    const toggleDropdown = (dropdown) => {
+      const control = dropdown.querySelector(dom.dropdownControl);
+      control?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
+    };
+    const finishRank = (close = false) => {
+      if (rankTimer !== null) clearTimeout(rankTimer);
+      rankTimer = null;
+      if (close && rankJob?.opened && rankJob.dropdown.isConnected && rankJob.dropdown.querySelector(dom.dropdownMenu)) {
+        const previousWriting = writing2;
+        writing2 = true;
+        try {
+          toggleDropdown(rankJob.dropdown);
+        } finally {
+          writing2 = previousWriting;
+        }
+      }
+      rankJob = null;
+    };
+    const onInteraction = (event) => {
+      if (writing2) return;
+      const target = event.target;
+      const minimum = root?.querySelector(dom.rankDropdowns);
+      const placeholder = minimum?.querySelector(dom.dropdownPlaceholder);
+      const fixedRank = /^(?:первый сержант|first sergeant)$/i.test(placeholder?.textContent?.trim() || "") || rankIcon !== null && imageKey(placeholder || null) === rankIcon;
+      const editsRank = event.type === "mousedown" || event.type === "keydown" && ["Enter", " ", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"].includes(event.key);
+      if (editsRank && fixedRank && target instanceof Node && minimum?.contains(target)) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      schedule();
+    };
+    const events = ["input", "change", "click", "mousedown", "keydown"];
+    const clear = () => {
+      finishRank(true);
+      observer?.disconnect();
+      observer = null;
+      events.forEach((type) => root?.removeEventListener(type, onInteraction, true));
+      releaseLocks();
+      creationRoot?.removeAttribute(CYBERSPORT_ACTIVE);
+      creationRoot = null;
+      document.dispatchEvent(new Event(CYBERSPORT_SYNC));
+      root = null;
+      closingButton = null;
+      rankIcon = lastRankAttempt = null;
+    };
+    const setNumber = (index, value) => {
+      const input = root?.querySelectorAll(dom.parameterInputs)[index];
+      if (!input?.isConnected || input.type !== "text") return;
+      if (input.value !== value) {
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+        if (!setter || input.disabled) return;
+        setter.call(input, value);
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      lock(input);
+    };
+    const setPrivate = () => {
+      const rows = root?.querySelectorAll(dom.optionRows);
+      const privateRow = Array.from(rows || []).find((element) => /^(?:закрытая\s+битва|(?:private|closed)(?:\s+battle)?)$/i.test(
+        element.querySelector("label[for]")?.textContent?.trim() || ""
+      ));
+      const input = privateRow?.querySelector('input[type="checkbox"]');
+      if (!input?.isConnected) return;
+      if (!input.checked) {
+        const previous = locks.get(input);
+        if (previous) input.disabled = previous.disabled;
+        if (input.disabled) return;
+        input.click();
+      }
+      if (input.checked) lock(input, true);
+    };
+    const closeAdvanced = () => {
+      const button = Array.from(root?.querySelectorAll(dom.advancedClose) || []).find((element) => /^(?:закрыть|close)$/i.test(element.textContent?.trim() || ""));
+      if (!button) {
+        closingButton = null;
+        return false;
+      }
+      if (closingButton !== button) {
+        closingButton = button;
+        button.click();
+        schedule();
+      }
+      return true;
+    };
+    const setRank = () => {
+      const dropdown = root?.querySelector(dom.rankDropdowns);
+      const placeholder = dropdown?.querySelector(dom.dropdownPlaceholder);
+      if (!dropdown || !placeholder) {
+        finishRank(true);
+        return;
+      }
+      const currentIcon = imageKey(placeholder);
+      const name = placeholder.textContent?.replace(/\s+/g, " ").trim() || "";
+      if (/^(?:первый сержант|first sergeant)$/i.test(name) || rankIcon && currentIcon === rankIcon) {
+        finishRank(true);
+        lastRankAttempt = null;
+        return;
+      }
+      const key = `${currentIcon}|${name}`;
+      if (rankJob && (rankJob.dropdown !== dropdown || rankJob.key !== key)) finishRank(true);
+      if (!rankJob) {
+        if (lastRankAttempt === key) return;
+        lastRankAttempt = key;
+        rankJob = { dropdown, key, until: Date.now() + 2e3, opened: false, clicked: false };
+        if (!dropdown.querySelector(dom.dropdownMenu)) {
+          rankJob.opened = true;
+          toggleDropdown(dropdown);
+        }
+      }
+      if (Date.now() >= rankJob.until) {
+        finishRank(true);
+        return;
+      }
+      const menu = dropdown.querySelector(dom.dropdownMenu);
+      const firstImage = menu?.querySelector(`${dom.dropdownItems} img`);
+      const firstOption = firstImage?.parentElement;
+      if (firstOption && !rankJob.clicked) {
+        rankIcon = imageKey(firstOption);
+        rankJob.clicked = true;
+        firstOption.click();
+      }
+      if (rankTimer === null) rankTimer = setTimeout(() => {
+        rankTimer = null;
+        schedule();
+      }, 100);
+    };
+    const sync = (nextRoot) => {
+      if (!nextRoot?.isConnected) {
+        clear();
+        return;
+      }
+      const panel = nextRoot.querySelector(dom.options);
+      if (!panel) {
+        clear();
+        return;
+      }
+      if (root !== panel) {
+        clear();
+        root = panel;
+        events.forEach((type) => panel.addEventListener(type, onInteraction, true));
+        observer = new MutationObserver(schedule);
+        observer.observe(panel, {
+          subtree: true,
+          childList: true,
+          characterData: true,
+          attributes: true,
+          attributeFilter: ["class", "src", "value", "checked"]
+        });
+      }
+      creationRoot = nextRoot;
+      if (!nextRoot.hasAttribute(CYBERSPORT_ACTIVE)) nextRoot.setAttribute(CYBERSPORT_ACTIVE, "");
+      document.dispatchEvent(new Event(CYBERSPORT_SYNC));
+      for (const [input, previous] of locks) if (!panel.contains(input)) {
+        input.readOnly = previous.readOnly;
+        input.disabled = previous.disabled;
+        locks.delete(input);
+      }
+      if (writing2) return;
+      writing2 = true;
+      try {
+        setNumber(0, "6");
+        setNumber(1, "12");
+        setPrivate();
+        if (closeAdvanced()) return;
+        setRank();
+      } finally {
+        writing2 = false;
+      }
+    };
+    return { sync, clear };
+  }
+  var init_cybersportSettings = __esm({
+    "src/modules/cybersportSettings.ts"() {
+      "use strict";
+      init_gameDOM();
+      init_cybersportNative();
+    }
+  });
+
+  // src/modules/cybersport.ts
+  var cybersport;
+  var init_cybersport = __esm({
+    "src/modules/cybersport.ts"() {
+      "use strict";
+      init_gameDOM();
+      init_state();
+      init_cybersportSettings();
+      cybersport = (() => {
+        let row = null;
+        let sport = null;
+        let card = null;
+        let observer = null;
+        let chosen = false;
+        let selectionUntil = 0;
+        let forwarding = false;
+        let scheduled = false;
+        let modeUntil = 0;
+        let modeTimer = null;
+        let esportsRoot = null;
+        let mapRow = null;
+        let mapObserver = null;
+        let rejectedSelection = null;
+        const mapCards = /* @__PURE__ */ new Set();
+        const mapColumns = /* @__PURE__ */ new Set();
+        const allowedMaps = /* @__PURE__ */ new Set([
+          "/601/107774/12/176/30061777033536/image.webp",
+          "/601/107774/12/213/30061777063716/image.webp",
+          "/601/107774/12/330/30061777035270/image.webp",
+          "/601/107774/12/277/31343433343114/image.webp",
+          "/601/107774/13/14/30061777055502/image.webp",
+          "/634/136431/332/233/31627506673770/image.webp",
+          "/601/107774/13/55/30061777053474/image.webp"
+        ]);
+        const labels = {
+          RU: { name: "\u041A\u0438\u0431\u0435\u0440\u0441\u043F\u043E\u0440\u0442", select: "\u0412\u044B\u0431\u0440\u0430\u0442\u044C", selected: "\u0412\u044B\u0431\u0440\u0430\u043D\u043E" },
+          EN: { name: "Esports", select: "Choose", selected: "Chosen" }
+        };
+        const text = (element, value) => {
+          if (element && element.textContent !== value) element.textContent = value;
+        };
+        const findSport = (container) => {
+          const nativeCards = Array.from(container.children).filter((element) => element instanceof HTMLElement && element.matches(gameDOM.battleCreate.formatCard) && !element.classList.contains("kasp-cybersport-card"));
+          return nativeCards.find((element) => /^(?:спорт|sport)$/i.test(
+            element.querySelector(gameDOM.battleCreate.formatName)?.textContent?.trim() || ""
+          )) || nativeCards.find((element) => {
+            const image = element.querySelector(gameDOM.battleCreate.formatImage);
+            return image && getComputedStyle(image).backgroundImage.includes("battle_pick_sport_mode");
+          }) || null;
+        };
+        const schedule = () => {
+          if (scheduled) return;
+          scheduled = true;
+          requestAnimationFrame(() => {
+            scheduled = false;
+            sync();
+          });
+        };
+        const settings = createCybersportSettings(schedule);
+        const cancelModeSelection = () => {
+          modeUntil = 0;
+          if (modeTimer !== null) clearTimeout(modeTimer);
+          modeTimer = null;
+        };
+        const selectMode = (container) => {
+          if (!modeUntil) return;
+          if (Date.now() >= modeUntil) {
+            cancelModeSelection();
+            return;
+          }
+          const ctf = Array.from(container?.querySelectorAll(gameDOM.battleCreate.modeCard) || []).find((element) => Array.from(element.querySelectorAll("h2")).some((label) => label.textContent?.trim() === "CTF"));
+          if (ctf) {
+            cancelModeSelection();
+            ctf.click();
+          } else if (modeTimer === null) {
+            modeTimer = setTimeout(() => {
+              modeTimer = null;
+              sync();
+            }, 100);
+          }
+        };
+        const clearMaps = () => {
+          mapObserver?.disconnect();
+          mapObserver = null;
+          mapRow?.removeAttribute("data-kasp-esports-maps");
+          mapCards.forEach((element) => element.removeAttribute("data-kasp-esports-map"));
+          mapColumns.forEach((element) => element.removeAttribute("data-kasp-esports-column"));
+          mapCards.clear();
+          mapColumns.clear();
+          mapRow = rejectedSelection = null;
+        };
+        const allowsMap = (element) => {
+          const background = getComputedStyle(element).backgroundImage;
+          for (const match of background.matchAll(/url\(\s*["']?([^"')]+)["']?\s*\)/g)) {
+            try {
+              const path = new URL(match[1].trim(), location.href).pathname;
+              if (!allowedMaps.has(path)) continue;
+              if (path === "/601/107774/12/330/30061777035270/image.webp") {
+                const name = element.querySelector(gameDOM.battleCreate.mapName)?.textContent?.replace(/\s+/g, " ").trim() || "";
+                return /^(?:red alert|ред алерт) (?:mm|мм)$/i.test(name);
+              }
+              return true;
+            } catch {
+            }
+          }
+          return false;
+        };
+        const syncMaps = (container) => {
+          if (!esportsRoot || container?.closest(gameDOM.battleCreate.root) !== esportsRoot) {
+            clearMaps();
+            return;
+          }
+          const cards = Array.from(container.querySelectorAll(gameDOM.battleCreate.mapName)).map((label) => label.parentElement).filter((element) => element instanceof HTMLElement && element.matches(gameDOM.battleCreate.formatImage) && element.parentElement?.parentElement === container);
+          if (!cards.length) {
+            clearMaps();
+            return;
+          }
+          if (mapRow !== container) {
+            clearMaps();
+            mapRow = container;
+            mapObserver = new MutationObserver(schedule);
+            mapObserver.observe(container, {
+              childList: true,
+              subtree: true,
+              characterData: true,
+              attributes: true,
+              attributeFilter: ["class", "style"]
+            });
+          }
+          if (!container.hasAttribute("data-kasp-esports-maps")) container.setAttribute("data-kasp-esports-maps", "");
+          const allowed = [];
+          let excludedSelected = null;
+          const currentCards = new Set(cards);
+          const currentColumns = new Set(cards.map((element) => element.parentElement));
+          for (const element of mapCards) if (!currentCards.has(element)) {
+            element.removeAttribute("data-kasp-esports-map");
+            mapCards.delete(element);
+          }
+          for (const element of mapColumns) if (!currentColumns.has(element)) {
+            element.removeAttribute("data-kasp-esports-column");
+            mapColumns.delete(element);
+          }
+          for (const element of cards) {
+            const show = allowsMap(element);
+            const value = show ? "allowed" : "excluded";
+            if (element.getAttribute("data-kasp-esports-map") !== value) {
+              element.setAttribute("data-kasp-esports-map", value);
+            }
+            mapCards.add(element);
+            const column = element.parentElement;
+            if (!column.hasAttribute("data-kasp-esports-column")) column.setAttribute("data-kasp-esports-column", "");
+            mapColumns.add(column);
+            if (show) allowed.push(element);
+            else if (element.querySelector(gameDOM.battleCreate.selectedMap)) excludedSelected = element;
+          }
+          if (!excludedSelected) rejectedSelection = null;
+          else if (allowed.length && excludedSelected !== rejectedSelection) {
+            rejectedSelection = excludedSelected;
+            allowed[0].click();
+            if (mapRow?.isConnected) mapRow.scrollLeft = 0;
+          }
+        };
+        const cancelEsports = () => {
+          settings.clear();
+          esportsRoot = null;
+          chosen = false;
+          selectionUntil = 0;
+          cancelModeSelection();
+          clearMaps();
+        };
+        const onNativeClick = (event) => {
+          if (forwarding || !(event.target instanceof Element)) return;
+          const selected = event.target.closest(gameDOM.battleCreate.formatCard);
+          if (selected && selected !== card && selected.parentElement === row) {
+            cancelEsports();
+            schedule();
+          }
+        };
+        const cleanup = () => {
+          observer?.disconnect();
+          observer = null;
+          row?.removeEventListener("click", onNativeClick, true);
+          sport?.removeAttribute("data-kasp-cybersport-source-active");
+          sport?.lastElementChild?.querySelector("h2")?.removeAttribute("data-kasp-select-label");
+          card?.remove();
+          row = sport = card = null;
+          chosen = false;
+          selectionUntil = 0;
+        };
+        const select = () => {
+          if (!sport?.isConnected || !row?.contains(sport)) return;
+          esportsRoot = sport.closest(gameDOM.battleCreate.root);
+          chosen = true;
+          selectionUntil = Date.now() + 1e3;
+          cancelModeSelection();
+          modeUntil = Date.now() + 5e3;
+          forwarding = true;
+          try {
+            sport.click();
+          } catch (error) {
+            cancelEsports();
+            throw error;
+          } finally {
+            forwarding = false;
+            schedule();
+          }
+        };
+        function sync() {
+          if (esportsRoot && !esportsRoot.isConnected) cancelEsports();
+          let container = document.querySelector(gameDOM.battleCreate.formats);
+          if (esportsRoot && container && container.closest(gameDOM.battleCreate.root) !== esportsRoot) cancelEsports();
+          selectMode(container);
+          container = document.querySelector(gameDOM.battleCreate.formats);
+          syncMaps(container);
+          settings.sync(esportsRoot);
+          const nativeSport = container && findSport(container);
+          if (!container || !nativeSport) {
+            cleanup();
+            return;
+          }
+          if (row !== container || sport !== nativeSport || !card?.isConnected) {
+            cleanup();
+            row = container;
+            sport = nativeSport;
+            chosen = esportsRoot !== null;
+            card = nativeSport.cloneNode(true);
+            card.classList.add("kasp-cybersport-card");
+            card.removeAttribute("id");
+            card.querySelectorAll("[id]").forEach((element) => element.removeAttribute("id"));
+            card.setAttribute("role", "button");
+            card.tabIndex = 0;
+            card.style.setProperty("--kasp-cybersport-image", `url("${chrome.runtime.getURL("assets/cybersport.png")}")`);
+            card.addEventListener("click", (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              select();
+            });
+            card.addEventListener("keydown", (event) => {
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              event.stopPropagation();
+              if (!event.repeat) select();
+            });
+            row.insertBefore(card, nativeSport.nextSibling);
+            row.addEventListener("click", onNativeClick, true);
+            observer = new MutationObserver(schedule);
+            observer.observe(row, {
+              childList: true,
+              subtree: true,
+              characterData: true,
+              attributes: true,
+              attributeFilter: ["class"]
+            });
+          }
+          const nativeSelected = sport.classList.contains("FormatsSectionComponentStyle-selectedCard");
+          if (nativeSelected) selectionUntil = 0;
+          else if (Date.now() >= selectionUntil) cancelEsports();
+          const active = chosen && nativeSelected;
+          const label = labels[state.lang];
+          text(card.querySelector(gameDOM.battleCreate.formatName), label.name);
+          text(
+            card.querySelector(gameDOM.battleCreate.formatDescription),
+            sport.querySelector(gameDOM.battleCreate.formatDescription)?.textContent || ""
+          );
+          text(
+            card.querySelector(gameDOM.battleCreate.formatCount),
+            sport.querySelector(gameDOM.battleCreate.formatCount)?.textContent || ""
+          );
+          text(card.lastElementChild?.querySelector("h2") || null, active ? label.selected : label.select);
+          card.classList.toggle("FormatsSectionComponentStyle-selectedCard", active);
+          card.classList.toggle("FormatsSectionComponentStyle-unSelectedCard", !active);
+          const pressed = String(active);
+          if (card.getAttribute("aria-pressed") !== pressed) card.setAttribute("aria-pressed", pressed);
+          sport.toggleAttribute("data-kasp-cybersport-source-active", active);
+          const nativeAction = sport.lastElementChild?.querySelector("h2");
+          if (active && nativeAction?.getAttribute("data-kasp-select-label") !== label.select) {
+            nativeAction?.setAttribute("data-kasp-select-label", label.select);
+          } else if (!active) nativeAction?.removeAttribute("data-kasp-select-label");
+          if (sport.nextSibling !== card) row.insertBefore(card, sport.nextSibling);
+          if (chosen && !nativeSelected && Date.now() < selectionUntil) schedule();
+        }
+        return sync;
+      })();
+    }
+  });
+
   // src/modules/index.ts
   var modules;
   var init_modules = __esm({
@@ -6248,6 +6780,7 @@
       init_equipmentTracker();
       init_battleHistory();
       init_overdriveTimer();
+      init_cybersport();
       modules = {
         customPaints,
         augmentSpecs,
@@ -6264,7 +6797,8 @@
         zeroResists,
         equipmentTracker,
         battleHistory,
-        overdriveTimer
+        overdriveTimer,
+        cybersport
       };
     }
   });
@@ -6294,6 +6828,7 @@
       modules.hideCurrency();
       modules.customGarageSkins();
       try {
+        modules.cybersport();
         if (state.currentScreen === "lobby" || state.currentScreen === "loading") {
           modules.customPlayButton();
         }

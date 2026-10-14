@@ -3268,6 +3268,27 @@
     "src/core/gameDOM.ts"() {
       "use strict";
       gameDOM = {
+        battleCreate: {
+          root: ".BattleCreateComponentStyle-mainContainer",
+          formats: ".BattleCreateComponentStyle-scrollBattlePick",
+          formatCard: ".FormatsSectionComponentStyle-card",
+          formatName: ".FormatsSectionComponentStyle-modeName h2",
+          formatDescription: ".FormatsSectionComponentStyle-modeDescription p",
+          formatCount: ".FormatsSectionComponentStyle-numberBattles p",
+          formatImage: '[class*="backgroundImageCover"]',
+          modeCard: ".blockCard",
+          mapName: ".MapCardComponentStyle-message",
+          selectedMap: ".MapCardComponentStyle-selectedPanel",
+          options: ".BattleOptionsComponentStyle-rightBlock",
+          parameterInputs: ".BattleOptionsComponentStyle-parameters .BattleCreateInputStyle-settings input",
+          optionRows: ".BattleOptionsSectionComponentStyle-checkBoxSettingsCreateBattle",
+          rankDropdowns: ".RankRangeSelectorStyle-rankRangeSelectorLabel .DropDownStyle-dropdownRoot",
+          dropdownControl: ".DropDownStyle-dropdownControl",
+          dropdownPlaceholder: ".DropDownStyle-dropdownPlaceholder",
+          dropdownMenu: ".DropDownStyle-dropdownMenu",
+          dropdownItems: ".DropDownStyle-innerContainerStyle",
+          advancedClose: ".-alignSelfFlexEnd"
+        },
         presence: {
           battleRoot: ".BattleHudComponentStyle-hudContainer, .BattleHudComponentStyle-container, .BattleComponentStyle-canvasContainer, .BattleTabStatisticComponentStyle-container",
           timer: '[class*="BattleTimerComponentStyle-battleTimer"]'
@@ -10210,6 +10231,207 @@
     }
   });
 
+  // src/core/cybersportNative.ts
+  function components(element) {
+    if (!element) return [];
+    const key = Object.keys(element).find((name) => name.startsWith("__reactFiber$") || name.startsWith("__reactInternalInstance$"));
+    let fiber = key ? element[key] : void 0;
+    const result = [];
+    const seen = /* @__PURE__ */ new Set();
+    for (let depth = 0; fiber && depth < 40; depth++, fiber = fiber.return) {
+      const value = fiber.stateNode;
+      if (!value || typeof value !== "object" || value instanceof Node || seen.has(value)) continue;
+      seen.add(value);
+      const component = value;
+      if (component.props && typeof component.props === "object") result.push(component);
+    }
+    return result;
+  }
+  function creationModel(panel) {
+    return components(panel).find((component) => typeof component.props.launchFun === "function" && component.state && typeof component.state.maxPlayers === "string" && typeof component.state.timeLimit === "string" && Number.isInteger(component.state.selectedMinUserRank)) || null;
+  }
+  function nativePrivate(model) {
+    try {
+      return /\bPrivate\b/.test(String(model.state.selectedOptions));
+    } catch {
+      return false;
+    }
+  }
+  function guardCybersportSubmission(model, active, minimum, report) {
+    const props = model.props;
+    const original = props.launchFun;
+    const wrapped = function(...args) {
+      if (!active()) return Reflect.apply(original, this, args);
+      const rank = minimum();
+      const signature = args.length === 7 && typeof args[0] === "string" && args.slice(1, 6).every((value) => typeof value === "number" && Number.isFinite(value));
+      const capacity = model.state.maxPlayersStatic;
+      if (!signature || !Number.isInteger(rank) || rank === null || rank < 1 || rank > 100 || !nativePrivate(model) || typeof capacity === "number" && capacity < 6) {
+        report(null, signature ? "native-preset-not-ready" : "native-launch-signature-mismatch");
+        model.setState?.({ creationStarted: false });
+        return;
+      }
+      const submitted = [...args];
+      submitted[1] = 6;
+      submitted[2] = 12;
+      submitted[5] = rank;
+      submitted[6] = model.state.selectedOptions;
+      report({ players: 6, minutes: 12, minRank: rank, private: true }, null);
+      return Reflect.apply(original, this, submitted);
+    };
+    props.launchFun = wrapped;
+    if (props.launchFun !== wrapped) throw new Error("native-launch-handler-unwritable");
+    return { handler: wrapped, restore() {
+      if (props.launchFun === wrapped) props.launchFun = original;
+    } };
+  }
+  function installCybersportNative(page) {
+    const debugPage = page;
+    if (debugPage.__kaspCybersportDebug) return;
+    const doc = page.document;
+    const dom = gameDOM.battleCreate;
+    let root = null;
+    let model = null;
+    let guardedProps = null;
+    let guard = null;
+    let minimum = null;
+    let rankMap;
+    let queued = false;
+    let error = null;
+    let lastSubmission = null;
+    const active = () => !!root?.isConnected && root.hasAttribute(CYBERSPORT_ACTIVE);
+    const clear = () => {
+      guard?.restore();
+      guard = null;
+      guardedProps = null;
+      root = null;
+      model = null;
+      minimum = null;
+      rankMap = void 0;
+    };
+    const schedule = () => {
+      if (queued) return;
+      queued = true;
+      page.requestAnimationFrame(() => {
+        queued = false;
+        sync();
+      });
+    };
+    function sync() {
+      const nextRoot = doc.querySelector(`${dom.root}[${CYBERSPORT_ACTIVE}]`);
+      if (!nextRoot) {
+        clear();
+        error = null;
+        return;
+      }
+      if (root !== nextRoot) {
+        clear();
+        root = nextRoot;
+      }
+      const panel = root.querySelector(dom.options);
+      const nextModel = panel && creationModel(panel);
+      if (!nextModel) {
+        guard?.restore();
+        guard = null;
+        guardedProps = null;
+        model = null;
+        minimum = null;
+        error = "native-creation-model-missing";
+        return;
+      }
+      if (model !== nextModel) {
+        guard?.restore();
+        guard = null;
+        guardedProps = null;
+        minimum = null;
+        model = nextModel;
+      }
+      if (rankMap !== model.props.activeMap) {
+        rankMap = model.props.activeMap;
+        minimum = null;
+      }
+      try {
+        const fields = panel.querySelectorAll(dom.parameterInputs);
+        const form = components(fields[0] || null).find((component) => typeof component.props.onMaxPlayersChanged === "function" && typeof component.props.onTimeLimitChanged === "function")?.props;
+        if (form) {
+          if (model.state.maxPlayers !== "6") form.onMaxPlayersChanged("6");
+          if (model.state.timeLimit !== "12") form.onTimeLimitChanged("12");
+        }
+        const dropdown = panel.querySelector(dom.rankDropdowns);
+        const ranks = components(dropdown).find((component) => Number.isInteger(component.props.minRank) && typeof component.props.onChangeFunction === "function")?.props;
+        if (ranks) {
+          const rank = ranks.minRank;
+          if (rank >= 1 && rank <= 100) {
+            minimum = rank;
+            if (model.state.selectedMinUserRank !== rank) ranks.onChangeFunction(rank);
+          }
+        }
+        if (!nativePrivate(model)) for (const row of panel.querySelectorAll(dom.optionRows)) {
+          const checkbox = row.querySelector('input[type="checkbox"]');
+          const privateOption = components(checkbox).find((component) => typeof component.props.onChange === "function" && typeof component.props.checked === "boolean" && /^(?:закрытая\s+битва|(?:private|closed)(?:\s+battle)?)$/i.test(String(component.props.label).trim()))?.props;
+          if (privateOption) {
+            privateOption.onChange(true);
+            break;
+          }
+        }
+        if (!guard || guardedProps !== model.props || model.props.launchFun !== guard.handler) {
+          guard?.restore();
+          guardedProps = model.props;
+          guard = guardCybersportSubmission(model, active, () => minimum, (submission, cause) => {
+            lastSubmission = submission;
+            error = cause;
+            if (cause) {
+              console.warn("[KI Esports] Creation postponed:", cause);
+              schedule();
+            }
+          });
+        }
+        error = minimum === null ? "native-minimum-rank-missing" : null;
+      } catch (cause) {
+        error = String(cause);
+      }
+    }
+    const status = () => ({
+      active: active(),
+      guarded: guard !== null && model?.props.launchFun === guard.handler,
+      ready: active() && guard !== null && model?.props.launchFun === guard.handler && minimum !== null && model?.state.maxPlayers === "6" && model?.state.timeLimit === "12" && model?.state.selectedMinUserRank === minimum && nativePrivate(model),
+      players: model?.state.maxPlayers ?? null,
+      minutes: model?.state.timeLimit ?? null,
+      minRank: model?.state.selectedMinUserRank ?? null,
+      private: !!model && nativePrivate(model),
+      error,
+      lastSubmission: lastSubmission && { ...lastSubmission }
+    });
+    debugPage.__kaspCybersportDebug = { status };
+    doc.addEventListener(CYBERSPORT_SYNC, sync);
+    const beforeStart = (event) => {
+      if (event.type === "keydown") {
+        const key = event;
+        if (key.code !== "Space" || key.repeat || key.ctrlKey || key.altKey || key.metaKey || event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable="true"]')) return;
+      } else if (!(event.target instanceof Element) || !event.target.closest(".JoinToBattleComponentStyle-buttonJoin")) return;
+      const creation = doc.querySelector(`${dom.root}[${CYBERSPORT_ACTIVE}]`);
+      if (!creation || event.type === "click" && event.target instanceof Node && !creation.contains(event.target)) return;
+      sync();
+      if (!guard || minimum === null || !model || model.props.launchFun !== guard.handler || !nativePrivate(model)) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        error = error || "native-preset-not-ready";
+        schedule();
+        console.warn("[KI Esports] Creation postponed:", error);
+      }
+    };
+    doc.addEventListener("click", beforeStart, true);
+    page.addEventListener("keydown", beforeStart, true);
+  }
+  var CYBERSPORT_ACTIVE, CYBERSPORT_SYNC;
+  var init_cybersportNative = __esm({
+    "src/core/cybersportNative.ts"() {
+      "use strict";
+      init_gameDOM();
+      CYBERSPORT_ACTIVE = "data-kasp-esports-active";
+      CYBERSPORT_SYNC = "kasp:cybersport:sync";
+    }
+  });
+
   // src/kasp_injector.ts
   var require_kasp_injector = __commonJS({
     "src/kasp_injector.ts"() {
@@ -10234,6 +10456,7 @@
       init_user_action();
       init_criticalIndicator();
       init_critical();
+      init_cybersportNative();
       (function() {
         "use strict";
         installGameAugments(window);
@@ -10242,6 +10465,7 @@
         installBattleStatistics(window);
         installUserActions(window);
         installGarageInventoryDiagnostics(window);
+        installCybersportNative(window);
         let arcadeHookStatus = { hooked: false, issues: ["pending"] };
         let arcadeError = null;
         let arcadeSample = null;

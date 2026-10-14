@@ -19,7 +19,6 @@ const SCHEMA_TOKEN = '/*ki-battle-statistics-schema:v1*/null';
 const MARKER = '/*ki-battle-statistics-ast:v1:';
 const unavailable = (issue: string): BattleStatisticsHookStatus => ({ hooked: false, ready: false, strategy: 'ast-plan', issues: [issue] });
 
-/** The native statistics constructor and its semantic fields are discovered offline. */
 export async function selectBattleStatisticsPlan(code: string, plans: readonly BattleStatisticsPatchPlan[]): Promise<BattleStatisticsPatchPlan | undefined> {
     const candidates = plans.filter(plan => plan.format === 'ki-battle-statistics-ast-v1' && plan.status.ready && plan.sourceLength === code.length);
     if (candidates.length) try {
@@ -49,7 +48,6 @@ export async function selectBattleStatisticsPlan(code: string, plans: readonly B
     return undefined;
 }
 
-/** Validate the complete native contract before modifying native statistics initialization. */
 export function patchBattleStatistics(code: string, report?: (status: BattleStatisticsHookStatus) => void, plan?: BattleStatisticsPatchPlan): string {
     const done = (result: string, status: BattleStatisticsHookStatus) => { try { report?.(status); } catch { } return result; };
     if (code.includes(MARKER)) return done(code, plan?.status || { hooked: true, ready: true, strategy: 'ast-plan', issues: [] });
@@ -67,7 +65,6 @@ export interface BattleStatisticsDetail {
 }
 const KNOWN_MODES = new Set(['DM', 'TDM', 'CTF', 'CP', 'SGE', 'RGB', 'JGR', 'TJR', 'ASL', 'AR']);
 
-/** Read only mapped native fields; unloaded defaults and unrelated strings cannot overwrite history. */
 export function readBattleStatistics(value: unknown, schema: BattleStatisticsSchema): BattleStatisticsDetail | null {
     if (!value || typeof value !== 'object' || !schema || typeof schema !== 'object') return null;
     const field = (label: string): unknown => typeof schema[label] === 'string' ? Object.getOwnPropertyDescriptor(value, schema[label])?.value : undefined;

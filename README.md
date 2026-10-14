@@ -2,9 +2,9 @@
 
 ## Complete Documentation
 
-**Extension version:** 2.9.4 (`manifest.json`)
+**Extension version:** 2.9.5 (`manifest.json`)
 
-**Documentation updated:** October 13, 2026
+**Documentation updated:** October 14, 2026
 
 **Interface languages:** English and Russian
 
@@ -27,6 +27,7 @@ For implementation details, module logic, and workflows, see
 6. [Module Documentation](#module-documentation)
    - [Core Settings Module](#core-settings-module)
    - [Custom Play Button Module](#custom-play-button-module)
+   - [Cybersport Format Prototype](#cybersport-format-prototype)
    - [Augment Specifications Module](#augment-specifications-module)
    - [Smart Paint Search Module](#smart-paint-search-module)
    - [Friend Tags & Categories Module](#friend-tags--categories-module)
@@ -79,6 +80,7 @@ The project is an independent interface modification. Its relationship to Tanki 
 | Area | Current functionality |
 |------|-----------------------|
 | Battle navigation | Enhanced Play interface, seven mode shortcuts, quick battle, PRO battles, and festive mode |
+| PRO format prototype | Esports card between Sport and Parkour, selecting native Sport with custom artwork |
 | Equipment information | Augment advantages/disadvantages and supported numerical stat adjustments |
 | Collection navigation | Russian/English paint-name search with multiword matching |
 | Friends | Online, offline, clan, and three color-category filters |
@@ -255,6 +257,18 @@ For standard modes, the module opens native Play, selects Modes, then the reques
 Active matchmaking produces a locked/disabled state. Automated selection has a 1.5-second fail-safe; if the expected card does not appear in time, the extension exits its selection state. This timeout does not guarantee completion of a slow game menu.
 
 Shortcuts are ignored while typing in text inputs, textareas, select controls, or editable content. They are also ignored for repeated events, modifier-key combinations, active matchmaking, and recognized native dialogs.
+
+### Cybersport Format Prototype
+
+**Purpose:** Adds an automatic **Esports / Киберспорт** entry between Sport and Parkour on the PRO battle creation Format page.
+
+The card clones the native Sport card, uses `assets/cybersport.png`, and retains native card layout with scoped gradients/hover styling. Clicking it or pressing Enter while focused selects the original Sport format and then automatically clicks the native CTF mode card when it appears. This applies only to Esports. Native battle settings and creation remain owned by the game. The Sport description and live battle count are mirrored. Selecting a native format clears the custom selection, and reopening the section does not accumulate clones.
+
+While Esports is active, the Map page shows only the seven configured map artwork resource paths. Red Alert MM shares artwork with Red Alert MM Esports; an additional exact RU/EN name check retains only ordinary Red Alert MM. Native cards are retained and visually packed into columns of three. If the game's selected map is excluded, the first available allowed card is selected through its native click handler. Search/theme changes still belong to the game; only allowed variants present in that result are shown. Choosing a native format or leaving battle creation clears the filter. This uses the server's Sport format with CTF. There is no individual settings switch. Native Q/E/gamepad navigation is not extended to include the custom format entry.
+
+The native creation settings are kept at **12 minutes**, **6 players per team (6 vs 6 in CTF)**, **Private battle**, and the **first available minimum rank (First Sergeant in the supplied game configuration)**. Changes made by the game after selecting another map are corrected. The two numeric fields and the private checkbox are locked while Esports is active; minimum-rank changes are prevented once the desired rank is selected. If additional settings expand, the native Close action restores the compact panel and preview. Choosing another format or leaving creation releases these controls. Maximum rank and other settings remain native. These actions update the game's form state for its normal server submission; battle creation still requires pressing Start.
+
+A small MAIN-world bridge also calls native form callbacks using numeric values and verifies the real creation state. Before submission, the original creation callback receives 6 players per team, 12 minutes, the verified minimum-rank number, and current native options. A missing rank or unconfirmed Private option postpones Start rather than submitting defaults; after the form is ready, press Start again. Ordinary formats use their original callback. `window.__kaspCybersportDebug.status()` reports native readiness and the numeric arguments passed in the last guarded creation call; this is not a server acknowledgement.
 
 ### Augment Specifications Module
 
@@ -698,6 +712,7 @@ The manifest injects the extension's styles at document start. Some rules apply 
 | `shared.css` | Shared visual primitives |
 | `garageButtons.css` | Garage action buttons |
 | `navigation.css` | Navigation controls |
+| `cybersport.css` | Scoped Esports card and native Sport selection presentation during the prototype |
 | `header.css` | Header presentation |
 | `battleStats.css` | Battle statistics and equipment presentation |
 | `killBoard.css` | Kill-board presentation |
@@ -858,7 +873,7 @@ After rebuilding, reload the unpacked extension and then reload the game page. A
 
 ### Version metadata
 
-The current manifest, package, and lockfile package versions are **2.9.4**. The browser, welcome window, and release-folder naming use the manifest version. Keep these metadata values aligned when preparing another version.
+The current manifest, package, and lockfile package versions are **2.9.5**. The browser, welcome window, and release-folder naming use the manifest version. Keep these metadata values aligned when preparing another version.
 
 ### Release output
 
@@ -868,13 +883,13 @@ For the current manifest version, output is:
 
 ```text
 release/
-├── Kaspersky's Inventions 2.9.4/
+├── Kaspersky's Inventions 2.9.5/
 │   ├── manifest.json
 │   ├── LICENSE.txt
 │   ├── README.md
 │   ├── DOCUMENTATION.md
 │   └── ... runtime directories
-└── Kaspersky's Inventions 2.9.4.zip
+└── Kaspersky's Inventions 2.9.5.zip
 ```
 
 The archive contains the versioned outer folder. Extract it and select the folder containing `manifest.json` when loading the extension. Source files, tests, `node_modules`, the local game bundle, and raw generated-plan JSON are not separately included. The two root documentation files are included.
@@ -950,7 +965,7 @@ For changes affecting multiple modules, verify the relevant flows after rebuildi
 - Ordinary critical-cycle indication supports the three specified weapon/augment pairs. Post-Supercharge phase assumptions require verification if the game changes its mechanics.
 - Device tooltips use mouse hover. Equivalent keyboard, gamepad, and mobile tooltip interaction is not implemented.
 - AST compatibility templates reduce dependence on symbol names but still depend on native structure. A runtime exception is not automatically rolled back by the injector's preparation guards.
-- An intermittent missing local tank after entering a loaded map has been reported. Its cause and relationship to the extension remain unconfirmed; it is not listed as fixed in 2.9.4.
+- An intermittent missing local tank after entering a loaded map has been reported. Its cause and relationship to the extension remain unconfirmed; it is not listed as fixed in 2.9.5.
 - Auto Upgrade depends on recognized native dialogs and stops on an unknown confirmation. Its local confirmation count is not an independently verified purchase ledger.
 - Third-party UI modifications can alter the same elements and introduce selector, style, or event conflicts.
 
@@ -1020,4 +1035,4 @@ For the in-game presentation of release information and credits, see [the welcom
 
 ---
 
-Documentation aligned with extension manifest version **2.9.4**, updated **October 13, 2026**.
+Documentation aligned with extension manifest version **2.9.5**, updated **October 14, 2026**.
