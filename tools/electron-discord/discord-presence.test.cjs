@@ -1,3 +1,4 @@
+const runFeatureContext = require('../test-feature-context.cjs');
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
@@ -26,7 +27,7 @@ function fixture() {
         require(name) { return name === 'node:net' ? { Socket } : require(name); },
     };
     const compiled = { exports: {} };
-    vm.runInNewContext(transformSync(fs.readFileSync(path.join(__dirname, 'discordPresence.ts'), 'utf8'), {
+    runFeatureContext(transformSync(fs.readFileSync(path.join(__dirname, 'discordPresence.ts'), 'utf8'), {
         loader: 'ts', format: 'cjs', target: 'es2022',
     }).code, { ...context, module: compiled });
     return { ...compiled.exports, sockets, tick(delta) {
@@ -54,7 +55,7 @@ function heartbeatFixture() {
     window.isMinimized = () => window.minimized === true;
     window.isVisible = () => window.visible !== false;
     const updates = [], discord = { update(value) { updates.push(value); }, dispose() { this.disposed = true; } };
-    vm.runInNewContext(transformSync(code, { loader: 'ts' }).code, {
+    runFeatureContext(transformSync(code, { loader: 'ts' }).code, {
         window, ipcMain, discord, URL, validPresence: fixture().validPresence,
         copyPresence: fixture().copyPresence,
         Date: { now: () => now }, setInterval(fn) { check = fn; return 1; },
@@ -147,7 +148,7 @@ test('preload accepts game messages only and exposes no Node API', () => {
     let listener;
     const messages = [], window = { location: { protocol: 'https:', hostname: 'tankionline.com',
         pathname: '/play/', origin: 'https://tankionline.com' }, addEventListener(type, fn) { listener = fn; } };
-    vm.runInNewContext(transformSync(fs.readFileSync(path.join(__dirname, 'preload.ts'), 'utf8'), {
+    runFeatureContext(transformSync(fs.readFileSync(path.join(__dirname, 'preload.ts'), 'utf8'), {
         loader: 'ts', format: 'cjs',
     }).code, { exports: {}, window, require() { return { ipcRenderer: { send(...args) { messages.push(args); } } }; } });
     const event = { source: window, origin: window.location.origin,
@@ -181,7 +182,7 @@ function extensionFixture(electron, hidden = false) {
             clearInterval(id) { intervals.delete(id); },
             addEventListener(name, fn) { events[name] = fn; } };
         const compiled = { exports: {} };
-        vm.runInNewContext(transformSync(fs.readFileSync(path.join(__dirname, '../../src/modules/discordPresence.ts'), 'utf8'), {
+        runFeatureContext(transformSync(fs.readFileSync(path.join(__dirname, '../../src/modules/discordPresence.ts'), 'utf8'), {
             loader: 'ts', format: 'cjs',
         }).code, { module: compiled, window, require(name) {
             if (name.endsWith('/electron')) return { isElectronClient: () => electron };
@@ -209,7 +210,7 @@ test('extension keeps labels English, translates battle maps and resumes after p
     f.events.pageshow(); assert.equal(f.intervals.size, 1);
     assert.equal(f.messages[3].presence.details, 'In a battle');
     f.state.lang = 'RU';
-    f.events.message({ source: f.window, origin: 'https://tankionline.com', data: { type: 'kasp:battle-presence',
+    f.events.message({ source: f.window, origin: 'https://tankionline.com', data: { at: 0, type: 'kasp:battle-presence',
         battle: { map: 'Молотов DM', remaining: 120, players: 12, maxPlayers: 24 } } });
     [...f.intervals.values()][0]();
     assert.equal(f.messages[4].presence.details, 'Molotov DM');
@@ -226,7 +227,7 @@ test('nickname privacy applies to the first activity and updates live without lo
     assert.equal(f.messages[0].presence.state, 'Hidden');
     f.account.nickname = 'ActualPlayer';
     f.state.currentScreen = 'battle';
-    f.events.message({ source: f.window, origin: f.window.location.origin, data: {
+    f.events.message({ source: f.window, origin: f.window.location.origin, data: { at: 0,
         type: 'kasp:battle-presence', battle: { map: 'Молотов', mode: 'CP', remaining: 120, players: 12, maxPlayers: 24 },
     } });
     [...f.intervals.values()][0]();
@@ -302,7 +303,7 @@ test('session timer survives garage, battle, activity clear and Discord reconnec
 
 test('battle store reader uses current battle limits and excludes spectators', () => {
     const compiled = { exports: {} };
-    vm.runInNewContext(transformSync(fs.readFileSync(path.join(__dirname, '../../src/core/battlePresence.ts'), 'utf8'), {
+    runFeatureContext(transformSync(fs.readFileSync(path.join(__dirname, '../../src/core/battlePresence.ts'), 'utf8'), {
         loader: 'ts', format: 'cjs',
     }).code, { module: compiled, require(id) { return id === './clientPatches' ? require('../test-client-patches.cjs') : { gameDOM: {} }; } });
     const stats = { a: { toString: () => 'battle-1' }, b: 'Молотов', c: 120, d: true, e: 'CP',
@@ -335,7 +336,7 @@ test('battle store reader uses current battle limits and excludes spectators', (
 
 test('server capacity hook captures battle identity and limit without breaking settings loading', () => {
     const compiled = { exports: {} };
-    vm.runInNewContext(transformSync(fs.readFileSync(path.join(__dirname, '../../src/core/battlePresence.ts'), 'utf8'), {
+    runFeatureContext(transformSync(fs.readFileSync(path.join(__dirname, '../../src/core/battlePresence.ts'), 'utf8'), {
         loader: 'ts', format: 'cjs',
     }).code, { module: compiled, require(id) { return id === './clientPatches' ? require('../test-client-patches.cjs') : { gameDOM: {} }; } });
     const source = 'function Settings(){this.idSlot=new Value("battleId"),this.maxSlot=new Value("maxPeople")}function load(t,n){settings(t).idSlot.set(runtime().current().id()),settings(t).maxSlot.set(n.limit)}';
@@ -347,7 +348,7 @@ test('server capacity hook captures battle identity and limit without breaking s
         runtime: () => ({ current: () => ({ id: () => 'battle-1' }) }),
         window: { __kaspPresenceCapacity(id, limit) { captured.push([id, limit]); } },
     };
-    vm.runInNewContext(patched, context);
+    runFeatureContext(patched, context);
     const settings = new context.Settings(); context.settings = () => settings;
     context.load({}, { limit: 20 });
     assert.deepEqual(values, { battleId: 'battle-1', maxPeople: 20 });
@@ -359,7 +360,7 @@ test('server capacity hook captures battle identity and limit without breaking s
 
 test('presence captures the DI store without a React accessor and preserves getter behavior', () => {
     const compiled = { exports: {} };
-    vm.runInNewContext(transformSync(fs.readFileSync(path.join(__dirname, '../../src/core/battlePresence.ts'), 'utf8'), {
+    runFeatureContext(transformSync(fs.readFileSync(path.join(__dirname, '../../src/core/battlePresence.ts'), 'utf8'), {
         loader: 'ts', format: 'cjs',
     }).code, { module: compiled, require(id) { return id === './clientPatches' ? require('../test-client-patches.cjs') : { gameDOM: {} }; } });
     const source = 'getter=function(){var q=Scope;return this.changedField.resolve(this,descriptor("store",1,q,function(x){return x.renamedGetter()},null))}';
@@ -369,7 +370,7 @@ test('presence captures the DI store without a React accessor and preserves gett
     assert.equal(matches, 1);
     const store = {}, captured = [], context = { Scope: {}, descriptor() {},
         window: { __kaspPresenceStore(value) { captured.push(value); } } };
-    vm.runInNewContext(patched, context);
+    runFeatureContext(patched, context);
     const component = { changedField: { resolve() { return store; } } };
     assert.equal(context.getter.call(component), store);
     assert.equal(captured[0], store);

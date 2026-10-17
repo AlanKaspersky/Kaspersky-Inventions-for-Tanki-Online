@@ -1,3 +1,6 @@
+import { featureScope } from '../core/featureRuntime';
+import { readPageMessage } from '../core/pageMessages';
+const lifecycle = featureScope('overdriveTimer');
 import { BONUS_PICKUP_MESSAGE, OVERDRIVE_BOX_MODEL, readBonusPosition, BonusPosition } from '../core/bonusPickup';
 import { gameDOM } from '../core/gameDOM';
 import { state } from '../core/state';
@@ -56,7 +59,7 @@ export function createOverdriveLocations(now: () => number = Date.now) {
     };
 }
 
-export const overdriveTimer = (() => {
+export const overdriveTimer = lifecycle.initialize(() => {
     const locations = createOverdriveLocations();
     const timers = locations.timers.map(location => ({
         location,
@@ -108,7 +111,7 @@ export const overdriveTimer = (() => {
     function render(): void {
         const enabled = utils.getSetting('k_overdrive_timer', false);
         if (!enabled) {
-            if (renderInterval !== undefined) window.clearInterval(renderInterval);
+            if (renderInterval !== undefined) lifecycle.cancelInterval(renderInterval);
             renderInterval = undefined;
             previewObserver?.disconnect();
             battleCanvas = null; sectionOpen = false; resumeUntil = 0;
@@ -122,7 +125,7 @@ export const overdriveTimer = (() => {
             previewObserver?.observe(document.documentElement, {
                 childList: true, attributes: true, attributeFilter: ['class', 'style', 'hidden'], subtree: true,
             });
-            renderInterval = window.setInterval(render, 250);
+            renderInterval = lifecycle.interval(render, 250);
         }
         const inBattle = syncBattle();
         if (!inBattle) reset();
@@ -161,21 +164,17 @@ export const overdriveTimer = (() => {
     function setup(): void {
         if (initialized) return;
         initialized = true;
-        window.addEventListener('message', event => {
-            if (event.source !== window || !utils.getSetting('k_overdrive_timer', false)) return;
-            const message: unknown = event.data;
-            if (!message || typeof message !== 'object') return;
-            const { type, detail } = message as { type?: unknown; detail?: unknown };
-            if (type !== BONUS_PICKUP_MESSAGE || !syncBattle()) return;
-            const pickup = typeof detail === 'string' ? { model: detail, position: null }
-                : detail && typeof detail === 'object' ? detail as { model?: unknown; position?: unknown } : null;
-            if (!pickup || typeof pickup.model !== 'string') return;
+        lifecycle.listen(window, 'message', event => {
+            if (!utils.getSetting('k_overdrive_timer', false)) return;
+            const message = readPageMessage(event, window, BONUS_PICKUP_MESSAGE);
+            if (!message || !syncBattle()) return;
+            const pickup = typeof message.detail === 'string' ? { model: message.detail, position: null } : message.detail;
             if (locations.pickup(pickup.model, pickup.position)) render();
         });
-        document.addEventListener('kasp:battle:id', () => { reset(); render(); });
-        window.addEventListener('kasp:settings-changed', render);
-        window.addEventListener('storage', render);
-        previewObserver = new MutationObserver(records => {
+        lifecycle.listen(document, 'kasp:battle:id', () => { reset(); render(); });
+        lifecycle.listen(window, 'kasp:settings-changed', render);
+        lifecycle.listen(window, 'storage', render);
+        previewObserver = lifecycle.observer(records => {
             if (!utils.getSetting('k_overdrive_timer', false)) return;
             const selector = `${gameDOM.screens.tankPreview}, ${gameDOM.common.container}`;
             if (records.some(record => record.type === 'childList'
@@ -185,5 +184,7 @@ export const overdriveTimer = (() => {
         });
         render();
     }
+    lifecycle.onCleanup(() => { previewObserver?.disconnect();renderInterval=undefined;reset();for(const timer of timers){timer.panel?.remove();timer.panel=timer.time=null;} });
+
     return { setup, sync: render };
-})();
+}, { setup() {}, sync() {} });

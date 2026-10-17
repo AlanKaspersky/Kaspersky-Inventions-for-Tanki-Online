@@ -1,3 +1,4 @@
+const runFeatureContext = require('./test-feature-context.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -14,8 +15,8 @@ function loadModule(file, globals = {}, mocks = {}, cache = new Map()) {
     cache.set(file, module);
     const source = fs.readFileSync(path.join(root, file), 'utf8');
     const code = transformSync(source, { loader: 'ts', format: 'cjs' }).code;
-    vm.runInNewContext(code, {
-        module, URL, console,
+    runFeatureContext(code, {
+        module, URL, console, crypto: require('node:crypto').webcrypto,
         chrome: { runtime: { getURL: value => value } },
         ...globals,
         require(name) {
@@ -37,7 +38,7 @@ function database(initial = [], { failAddAt = 0, manualCommit = false } = {}) {
     const indexedDB = {
         open(name, version) {
             assert.equal(name, 'TankiBattlesDB');
-            assert.equal(version, 4);
+            assert.equal(version, 5);
             const request = {};
             const db = {
                 closed: false,
@@ -75,10 +76,10 @@ function database(initial = [], { failAddAt = 0, manualCommit = false } = {}) {
                         return request;
                     }
                     const index = {
-                        getAll: nickname => enqueue(() => plain(working.filter(b => b.nickname === nickname))),
-                        getAllKeys: nickname => enqueue(() => working.filter(b => b.nickname === nickname).map(b => b.id)),
+                        getAll: nickname => enqueue(() => plain(working.filter(b => b.userId === nickname))),
+                        getAllKeys: nickname => enqueue(() => working.filter(b => b.userId === nickname).map(b => b.id)),
                         openCursor(nickname) {
-                            const matches = working.filter(b => b.nickname === nickname);
+                            const matches = working.filter(b => b.userId === nickname);
                             let offset = 0;
                             const request = {};
                             const advance = () => requests.push(() => {
@@ -95,8 +96,8 @@ function database(initial = [], { failAddAt = 0, manualCommit = false } = {}) {
                         },
                     };
                     const store = {
-                        indexNames: { contains: name => name === 'nickname' },
-                        index(name) { assert.equal(name, 'nickname'); return index; },
+                        indexNames: { contains: name => name === 'userId' },
+                        index(name) { assert.equal(name, 'userId'); return index; },
                         getAll: () => enqueue(() => plain(working)),
                         add: battle => enqueue(() => {
                             if (++adds === failAddAt) throw Error('write failed');
@@ -126,27 +127,28 @@ function database(initial = [], { failAddAt = 0, manualCommit = false } = {}) {
     return { repository, connections, transactions, get records() { return records; } };
 }
 
-test('database reads are account-scoped; clear and link preserve other accounts and record IDs', async () => {
+test('ID-scoped reads survive renames, isolate reused nicknames and preserve unassigned legacy rows', async () => {
     const f = database([
-        { id: 1, nickname: 'A', date: 10 }, { id: 2, nickname: 'B', date: 20 },
-        { id: 3, nickname: 'A', date: 30 }, { id: 4, nickname: 'C', date: 40 },
+        { id: 1, userId: '1001', nickname: 'Old', date: 10 },
+        { id: 2, userId: '2002', nickname: 'Current', date: 20 },
+        { id: 3, userId: '1001', nickname: 'Current', date: 30 },
+        { id: 4, nickname: 'Current', date: 40 },
     ]);
-    assert.deepEqual(plain(await f.repository.getAllBattles('A')).map(b => b.id), [1, 3]);
-    assert.deepEqual(plain(await f.repository.getNicknameHistory()), [
-        { nickname: 'A', count: 2 }, { nickname: 'B', count: 1 }, { nickname: 'C', count: 1 },
-    ]);
-    assert.equal(await f.repository.mergeNicknameHistory('A', 'B'), 2);
-    assert.deepEqual(plain(await f.repository.getAllBattles('B')).map(b => b.id), [1, 2, 3]);
-    assert.deepEqual(plain(await f.repository.getAllBattles('A')), []);
-    await f.repository.clearNicknameHistory('B');
-    assert.deepEqual(f.records, [{ id: 4, nickname: 'C', date: 40 }]);
+    assert.deepEqual(plain(await f.repository.getAllBattles('1001')).map(b => b.id), [1, 3]);
+    assert.deepEqual(plain(await f.repository.getAllBattles('2002')).map(b => b.id), [2]);
+    assert.deepEqual(plain(await f.repository.getAllBattles(null)), []);
+    assert.deepEqual(plain(await f.repository.getAllBattles('Current')), []);
+    assert.equal(f.repository.mergeNicknameHistory, undefined);
+    assert.equal(f.repository.getNicknameHistory, undefined);
+    await f.repository.clearAccountHistory('1001');
+    assert.deepEqual(f.records.map(b => b.id), [2, 4]);
     assert.ok(f.connections.every(db => db.closed));
 });
 
 test('writes resolve after commit and imports roll back all records on failure', async () => {
     const f = database([], { manualCommit: true });
     let completed = false;
-    const pending = f.repository.addBattle({ nickname: 'A' }).then(id => { completed = true; return id; });
+    const pending = f.repository.addBattle({ userId: '1001', nickname: 'A' }).then(id => { completed = true; return id; });
     await tick();
     f.transactions[0].flushRequests();
     await tick();
@@ -157,7 +159,7 @@ test('writes resolve after commit and imports roll back all records on failure',
     assert.equal(f.connections[0].closed, true);
 
     const failed = database([{ id: 1, nickname: 'Existing' }], { failAddAt: 2 });
-    await assert.rejects(failed.repository.addBattles([{ nickname: 'A' }, { nickname: 'B' }]), /write failed/);
+    await assert.rejects(failed.repository.addBattles([{ id: 10, userId: '1001', nickname: 'A' }, { id: 11, userId: '1001', nickname: 'B' }], '1001'), /write failed/);
     assert.deepEqual(failed.records, [{ id: 1, nickname: 'Existing' }]);
     assert.ok(failed.connections.every(db => db.closed));
     await failed.repository.addBattles([]);
@@ -167,7 +169,7 @@ test('writes resolve after commit and imports roll back all records on failure',
 test('read failures propagate and synchronous request failures abort and close the database', async () => {
     const f = database();
     const originalOpen = f.repository;
-    assert.deepEqual(plain(await originalOpen.getAllBattles('A')), []);
+    assert.deepEqual(plain(await originalOpen.getAllBattles('1001')), []);
     const db = {
         closed: false,
         close() { this.closed = true; },
@@ -183,7 +185,7 @@ test('read failures propagate and synchronous request failures abort and close t
             return request;
         } },
     });
-    await assert.rejects(repository.getAllBattles('A'), /missing store/);
+    await assert.rejects(repository.getAllBattles('1001'), /missing store/);
     assert.equal(db.closed, true);
     const unavailable = loadModule(directory + 'repository.ts', {
         indexedDB: { open() {
@@ -192,7 +194,39 @@ test('read failures propagate and synchronous request failures abort and close t
             return request;
         } },
     });
-    await assert.rejects(unavailable.getAllBattles('A'), /database unavailable/);
+    await assert.rejects(unavailable.getAllBattles('1001'), /database unavailable/);
+});
+
+test('import skips existing IDs and repeated file entries, preserving the first stored record', async () => {
+    const f = database([{ id: 7, userId: '1001', nickname: 'Original' }]);
+    const incoming = [
+        { id: 7, userId: '1001', nickname: 'Do not overwrite' },
+        { id: 9, userId: '1001', nickname: 'New' },
+        { id: 9, userId: '1001', nickname: 'Duplicate' },
+    ];
+    assert.equal(await f.repository.addBattles(incoming, '1001'), 1);
+    assert.deepEqual(f.records.map(b => b.nickname), ['Original', 'New']);
+    assert.equal(f.records[1].battleId, 'legacy:9');
+    assert.equal(await f.repository.addBattles(incoming, '1001'), 0);
+    assert.equal(f.records.length, 2);
+    assert.ok(f.transactions.every(tx => tx.mode === 'readwrite'));
+});
+
+test('portable battle IDs survive database key remapping and re-export, without affecting another owner', async () => {
+    const f = database([{ id: 1, userId: '2002', nickname: 'Other account' }]);
+    const backup = [{ id: 1, userId: '1001', nickname: 'Player' }];
+    assert.equal(await f.repository.addBattles(backup, '1001'), 1);
+    assert.equal(f.records[1].id, 2);
+    const reexported = await f.repository.getAllBattles('1001');
+    assert.equal(reexported[0].battleId, 'legacy:1');
+    assert.equal(await f.repository.addBattles(reexported, '1001'), 0);
+    assert.equal(await f.repository.addBattles(backup, '1001'), 0);
+    assert.equal(f.records[0].nickname, 'Other account');
+    await f.repository.addBattle({ userId: '1001', nickname: 'Captured' });
+    const captured = (await f.repository.getAllBattles('1001')).find(b => b.nickname === 'Captured');
+    assert.match(captured.battleId, /^[0-9a-f-]{36}$/);
+    assert.equal(await f.repository.addBattles([{ ...captured, id: 99 }], '1001'), 0);
+    assert.equal(f.records.length, 3);
 });
 
 function resultScreen({ secondTeam = false, mode = 'TDM', status = 'Victory', deaths = '5' } = {}) {
@@ -228,20 +262,38 @@ function resultScreen({ secondTeam = false, mode = 'TDM', status = 'Victory', de
 
 function captureFixture(options = {}, save = async () => 1) {
     const screen = resultScreen(options);
+    const recovery = new Map();
+    let nextRecovery = 0;
     let nickname = options.nickname ?? 'Player';
-    const account = { getNickname: () => nickname, updateNickname: () => true, setNickname: value => { nickname = value; } };
+    const account = { getUserId: () => nickname === 'Unknown' ? null : nickname === 'Player' ? '1001' : '2002', getNickname: () => nickname, updateIdentity: () => true, setNickname: value => { nickname = value; } };
     const captureModule = loadModule(directory + 'capture.ts', {
         document: screen.document, window: { __kaspBattleKind: 'PRO' }, console: { error() {} },
+        crypto: { randomUUID: () => `pending-${++nextRecovery}` },
+        sessionStorage: { getItem: key => recovery.get(key) ?? null, setItem: (key, value) => recovery.set(key, value) },
     }, {
         [directory + 'repository.ts']: { addBattle: save },
         'src/modules/equipmentTracker.ts': { equipmentTracker: { get: () => ({ turret: 'turret', hull: 'hull' }) } },
     });
-    return { ...screen, account, ...captureModule, capture: captureModule.createResultCapture(account) };
+    return { ...screen, account, recovery, ...captureModule, capture: captureModule.createResultCapture(account) };
 }
+
+test('identity loss preserves one unassigned result, recovered only while its matching native result remains open', async () => {
+    let writes = 0;
+    const f = captureFixture({}, async () => { writes++; return 1; });
+    f.account.setNickname('Unknown');
+    await f.capture.capture(); await f.capture.capture();
+    const pending = JSON.parse(f.recovery.get('kasp_history_unassigned_v1'));
+    assert.equal(pending.length, 1); assert.equal(pending[0].owner, null);
+    assert.ok(!('userId' in pending[0].result)); assert.equal(writes, 0);
+    f.account.setNickname('Player'); await f.capture.capture();
+    assert.equal(writes, 1); assert.deepEqual(JSON.parse(f.recovery.get('kasp_history_unassigned_v1')), []);
+    f.account.setNickname('Unknown'); await f.capture.capture();
+    assert.deepEqual(JSON.parse(f.recovery.get('kasp_history_unassigned_v1')), []);
+});
 
 test('capture preserves placement, second-team scores, stats, raw player names and equipment', () => {
     const f = captureFixture({ secondTeam: true });
-    const result = f.readBattleResult(f.self, 'Player');
+    const result = f.readBattleResult(f.self, 'Player', '1001');
     assert.equal(result.map, 'Rio');
     assert.equal(result.mode, 'TDM');
     assert.equal(result.kind, 'PRO');
@@ -276,7 +328,7 @@ test('DM and empty result text use solo teams and zero deaths keep K/D equal to 
 test('capture waits for complete cells, avoids duplicate saves, retries failed saves and resets for next result', async () => {
     let saves = 0;
     let fail = true;
-    const f = captureFixture({ nickname: 'Unknown' }, async () => {
+    const f = captureFixture({}, async () => {
         saves++;
         if (fail) throw Error('save failed');
     });
@@ -309,18 +361,39 @@ test('a late failure from the previous result cannot unlock the current result',
     assert.equal(saves, 2);
 });
 
-test('import validates the entire file and strips original database IDs', () => {
+test('capture waits for a real account ID and temporary identity loss does not duplicate a saved result', async () => {
+    const saved = [];
+    const f = captureFixture({}, async record => saved.push(plain(record)));
+    let owner = null;
+    f.account.getUserId = () => owner;
+    await f.capture.capture();
+    assert.equal(saved.length, 0);
+    owner = '1001'; await f.capture.capture();
+    assert.equal(saved.length, 1);
+    assert.equal(saved[0].userId, '1001');
+    owner = null; await f.capture.capture();
+    owner = '1001'; await f.capture.capture();
+    assert.equal(saved.length, 1);
+    f.account.getNickname = () => 'Other';
+    owner = '2002'; await f.capture.capture();
+    assert.equal(saved.length, 1, 'a previous account result cannot be attributed to the new account');
+});
+
+test('import preserves portable identity from older numeric IDs but strips local destination keys', () => {
     const { parseHistoryImport } = loadModule(directory + 'validation.ts');
     const record = {
-        id: 99, nickname: 'Player', date: 1, status: 'Draw', map: 'Rio', mode: 'CP', top: '-',
+        id: 99, userId: '1001', nickname: 'Player', date: 1, status: 'Draw', map: 'Rio', mode: 'CP', top: '-',
         reputation: 0, kills: 0, deaths: 0, kd: 0, crystals: 0, stars: 0,
     };
-    const imported = parseHistoryImport(JSON.stringify([record]));
+    const imported = parseHistoryImport(JSON.stringify([record]), '1001');
     assert.equal(imported.length, 1);
     assert.equal(imported[0].id, undefined);
+    assert.equal(imported[0].battleId, 'legacy:99');
     assert.deepEqual(plain(imported[0].players), []);
-    for (const input of ['[]', '{}', 'broken', JSON.stringify([record, { ...record, kd: null }])]) {
-        assert.throws(() => parseHistoryImport(input));
+    for (const input of ['[]', '{}', 'broken', JSON.stringify([record, { ...record, kd: null }]),
+        JSON.stringify([{ ...record, id: undefined }]), JSON.stringify([{ ...record, id: -1 }]),
+        JSON.stringify([{ ...record, battleId: '' }]), JSON.stringify([{ ...record, battleId: {} }])]) {
+        assert.throws(() => parseHistoryImport(input, '1001'));
     }
 });
 
@@ -414,7 +487,7 @@ function uiFixture() {
     return { document, window, selectors, ids, globals: { document, window, getComputedStyle: window.getComputedStyle } };
 }
 
-function viewFixture(getBattles, fetchOverride) {
+function viewFixture(getBattles, fetchOverride, globals = {}) {
     const ui = uiFixture();
     const list = new Element();
     const content = new Element();
@@ -428,10 +501,11 @@ function viewFixture(getBattles, fetchOverride) {
     ui.ids.set('bh-page-list', pages);
     ui.ids.set('bh-total-battles', total);
     let nickname = 'Player';
-    const account = { getNickname: () => nickname, updateNickname: () => true };
+    const account = { getUserId: () => nickname === 'Unknown' ? null : nickname === 'Player' ? '1001' : '2002', getNickname: () => nickname, updateIdentity: () => true };
     const state = { lang: 'EN' };
     ui.globals.fetch = fetchOverride || (async file => ({ ok: true, text: async () => fs.readFileSync(path.join(root, file), 'utf8') }));
     ui.globals.console = { error() {} };
+    Object.assign(ui.globals, globals);
     const views = loadModule(directory + 'views.ts', ui.globals, {
         [directory + 'repository.ts']: { getAllBattles: getBattles },
         'src/core/state.ts': { state },
@@ -441,7 +515,7 @@ function viewFixture(getBattles, fetchOverride) {
 }
 
 const match = (id, overrides = {}) => ({
-    id, nickname: 'Player', date: id, status: 'Victory', map: 'Map-' + id, mode: 'TDM', top: '1',
+    id, userId: '1001', nickname: 'Player', date: id, status: 'Victory', map: 'Map-' + id, mode: 'TDM', top: '1',
     reputation: 100, kills: 10, deaths: 5, kd: 2, crystals: 20, stars: 3,
     turretIcon: '', turretAugmentIcon: '', hullIcon: '', hullAugmentIcon: '',
     ...overrides,
@@ -609,7 +683,7 @@ test('native opening keeps loader timing and restores visibility, settings and b
     const pageObserver = f.observers[0];
     const modal = new Element();
     modal.closeDialogMethod = () => { modal.closed = true; };
-    f.ids.set('link-history-overlay', modal);
+    f.ids.set('clear-confirm-overlay', modal);
     f.closeHistoryOverlay(f.overlay);
     assert.equal(modal.closed, true);
     assert.equal(f.overlay.style.display, 'none');
@@ -712,6 +786,49 @@ test('failed templates are retried and simultaneous detail clicks show only the 
     assert.ok(f.content.children[0].innerHTML.includes('Map-2'));
 });
 
+test('extension invalidation shows a localized reload notice and stops repeated history attempts', async () => {
+    for (const lang of ['RU', 'EN']) {
+        let reads = 0, templateAttempts = 0;
+        const errors = [];
+        const f = viewFixture(async () => { reads++; return [match(1)]; }, undefined, {
+            console: { error: (...args) => errors.push(args) },
+            chrome: { runtime: { getURL: file => {
+                if (file.startsWith('templates/')) { templateAttempts++; throw Error('Extension context invalidated.'); }
+                return file;
+            } } },
+        });
+        f.state.lang = lang;
+        const button = new Element('button');
+        f.document.querySelectorAll = selector => selector === '.bh-control-btn' ? [button] : [];
+        await f.renderBattleList();
+        await f.renderBattleList();
+        const dict = loadModule(directory + 'localization.ts').getHistoryDictionary(lang);
+        await f.renderDetailedMatch(match(1), dict, lang);
+        assert.equal(reads, 1);
+        assert.equal(templateAttempts, 1);
+        assert.equal(errors.length, 0);
+        assert.equal(button.disabled, true);
+        assert.equal(f.list.children[0].textContent, dict.contextExpired);
+    }
+});
+
+test('an in-flight card render cannot overwrite the reload notice after extension invalidation', async () => {
+    let finishCard;
+    const f = viewFixture(async () => [match(1)], file => {
+        if (file.includes('-card')) return new Promise(resolve => { finishCard = () => resolve({ ok: true,
+            text: async () => fs.readFileSync(path.join(root, file), 'utf8') }); });
+        return Promise.reject(Error('Extension context invalidated.'));
+    });
+    const pending = f.renderBattleList();
+    await tick();
+    const dict = loadModule(directory + 'localization.ts').getHistoryDictionary('EN');
+    await f.renderDetailedMatch(match(1), dict, 'EN');
+    finishCard(); await pending;
+    assert.equal(f.list.children.length, 1);
+    assert.equal(f.list.children[0].textContent, dict.contextExpired);
+    assert.equal(f.content.children.length, 0);
+});
+
 test('pagination retains first/last pages and ellipses for long histories', async () => {
     const f = viewFixture(async () => Array.from({ length: 160 }, (_, index) => match(index + 1)));
     await f.renderBattleList(6);
@@ -732,7 +849,7 @@ function actionFixture(repository = {}) {
         static revokeObjectURL(url) { urls.at(-1).revoked = url; }
     }
     let nickname = 'Player';
-    const account = { getNickname: () => nickname, updateNickname: () => true };
+    const account = { getUserId: () => nickname === 'Unknown' ? null : nickname === 'Player' ? '1001' : '2002', getNickname: () => nickname, updateIdentity: () => true };
     let renders = 0;
     const state = { lang: 'EN' };
     const actions = loadModule(directory + 'actions.ts', {
@@ -768,7 +885,7 @@ function actionFixture(repository = {}) {
 test('clear confirmation supports cancel and refreshes only after deletion completes', async () => {
     const deleted = [];
     let finishDelete;
-    const f = actionFixture({ clearNicknameHistory: nickname => {
+    const f = actionFixture({ clearAccountHistory: nickname => {
         deleted.push(nickname);
         return new Promise(resolve => { finishDelete = resolve; });
     } });
@@ -781,69 +898,33 @@ test('clear confirmation supports cancel and refreshes only after deletion compl
     const confirm = f.modals[1].actions.children[1];
     await confirm.click();
     await confirm.click();
-    assert.deepEqual(deleted, ['Player']);
+    assert.deepEqual(deleted, ['1001']);
     assert.equal(f.renders, 0);
     finishDelete();
     await tick();
     assert.equal(f.renders, 1);
 });
 
-test('link dialog filters current/unknown accounts and locks repeated confirmation until merge finishes', async () => {
-    let finishMerge;
-    const moved = [];
-    const f = actionFixture({
-        getNicknameHistory: async () => [
-            { nickname: 'Player', count: 2 }, { nickname: 'Unknown', count: 1 }, { nickname: 'OldPlayer', count: 3 },
-        ],
-        mergeNicknameHistory: (source, target) => {
-            moved.push([source, target]);
-            return new Promise(resolve => { finishMerge = resolve; });
-        },
-    });
-    await f.openLinkHistoryDialog();
-    const modal = f.modals[0];
-    const select = modal.body.children[2].children[1];
-    assert.deepEqual(select.children.map(option => option.value), ['', 'OldPlayer']);
-    assert.equal(modal.actions.children[1].disabled, true);
-    select.value = 'OldPlayer';
-    await select.emit('change');
-    const merging = modal.actions.children[1].click();
-    await modal.actions.children[1].click();
-    assert.deepEqual(moved, [['OldPlayer', 'Player']]);
-    assert.equal(modal.actions.children[0].disabled, true);
-    assert.equal(f.renders, 0);
-    finishMerge(3);
-    await merging;
-    assert.equal(modal.closed, true);
-    assert.equal(f.renders, 1);
-    assert.deepEqual(f.alerts, ['Histories linked. Battles added: 3.']);
-});
-
-test('link handles no available history, unknown accounts and account changes during selection', async () => {
-    let merges = 0;
-    const f = actionFixture({ getNicknameHistory: async () => [], mergeNicknameHistory: async () => { merges++; } });
-    await f.openLinkHistoryDialog();
-    assert.equal(f.modals[0].actions.children[1].hidden, true);
-    f.modals[0].close();
-    f.setNickname('Unknown');
-    await f.openLinkHistoryDialog();
-    assert.equal(f.modals.length, 1);
-    assert.deepEqual(f.alerts, ['Could not detect the current nickname.']);
-    f.setNickname('Player');
-    await f.openLinkHistoryDialog();
-    const select = f.modals[1].body.children[2].children[1];
-    select.value = 'Old';
+test('nickname-linking UI is absent and an account switch cancels a pending clear', async () => {
+    let deleted = 0;
+    const f = actionFixture({ clearAccountHistory: async () => { deleted++; } });
+    assert.equal(f.openLinkHistoryDialog, undefined);
+    f.clearHistoryDb(); await tick();
     f.setNickname('Other');
-    await f.modals[1].actions.children[1].click();
-    assert.equal(merges, 0);
+    await f.modals[0].actions.children[1].click();
+    assert.equal(deleted, 0);
 });
 
-test('import rejects mixed invalid records before saving and preserves valid foreign account histories', async () => {
+test('import rejects invalid or foreign ownership and preserves previous nicknames of the same ID', async () => {
     const saved = [];
-    const f = actionFixture({ addBattles: async battles => { saved.push(plain(battles)); } });
+    const f = actionFixture({ addBattles: async battles => { saved.push(plain(battles)); return battles.length; } });
     await f.import(JSON.stringify([match(1), { bad: true }]));
     assert.equal(saved.length, 0);
     assert.equal(f.renders, 0);
+    await f.import(JSON.stringify([match(1), match(2, { userId: '2002' })]));
+    assert.equal(saved.length, 0, 'a mixed-account import must not write any records');
+    await f.import(JSON.stringify([match(1, { userId: undefined })]));
+    assert.equal(saved.length, 0, 'legacy ownership cannot be guessed');
     await f.import(JSON.stringify([match(1, { nickname: 'OldPlayer' })]));
     assert.equal(saved.length, 1);
     assert.equal(saved[0][0].nickname, 'OldPlayer');
@@ -854,12 +935,12 @@ test('import rejects mixed invalid records before saving and preserves valid for
     assert.ok(f.alerts.at(-1).includes('Could not import this file'));
 });
 
-test('export keeps JSON format and selected nickname in filename while releasing its Blob URL', async () => {
+test('export keeps JSON format and account ID in filename while releasing its Blob URL', async () => {
     const record = match(42);
-    const f = actionFixture({ getAllBattles: async nickname => { assert.equal(nickname, 'Player'); return [record]; } });
+    const f = actionFixture({ getAllBattles: async userId => { assert.equal(userId, '1001'); return [record]; } });
     await f.exportHistoryData();
     const link = f.created.at(-1);
-    assert.match(link.download, /^Tanki_BattleHistory_Player_\d{4}-\d{2}-\d{2}\.json$/);
+    assert.match(link.download, /^Tanki_BattleHistory_1001_\d{4}-\d{2}-\d{2}\.json$/);
     assert.equal(link.clicks, 1);
     assert.deepEqual(JSON.parse(await f.urls[0].blob.text()), [record]);
     assert.equal(f.urls[0].revoked, 'blob:history');
@@ -882,7 +963,7 @@ test('module preloads once, retries failed pages and replaces the overlay on acc
     }, {
         'src/core/state.ts': { state: { lang: 'EN' } },
         'src/core/utils.ts': { utils: { getSetting: () => enabled } },
-        'src/core/accountIdentity.ts': { getAccountIdentity: () => ({ nickname }) },
+        'src/core/accountIdentity.ts': { getVerifiedAccount: () => ({ userId: nickname === 'Player' ? '1001' : '2002', nickname }) },
         'src/core/dataLoader.ts': { DataLoader: {} },
         'src/core/modal.ts': {},
         'src/modules/equipmentTracker.ts': {},
@@ -905,7 +986,7 @@ test('module preloads once, retries failed pages and replaces the overlay on acc
     battleHistory();
     await tick();
     assert.equal(first.removed, true);
-    assert.equal(storage.get('kasp_last_nickname'), 'Other');
+    assert.equal(storage.get('kasp_last_nickname'), 'Player', 'legacy storage remains untouched');
     assert.equal(requests, 3);
     assert.notEqual(f.document.querySelector('.custom-history-overlay'), first);
 });
@@ -929,7 +1010,7 @@ test('boot saves results over a retained canvas and resets capture before a dire
         'src/core/state.ts': { state },
         'src/core/utils.ts': { utils: { getLang: () => 'EN', getSetting: () => true } },
         'src/core/coreSettings.ts': { coreSettings: {} },
-        'src/core/accountIdentity.ts': { getAccountIdentity: () => ({ nickname: 'Player' }) },
+        'src/core/accountIdentity.ts': { getVerifiedAccount: () => ({ userId: '1001', nickname: 'Player' }) },
         'src/modules/equipmentTracker.ts': { equipmentTracker: { get: () => null } },
         [directory + 'repository.ts']: { addBattle: async battle => { saved.push(battle); } },
         [directory + 'views.ts']: { createHistoryViews: () => ({ reset() {}, renderBattleList() {}, playPendingBattleListAnimation() {} }) },
@@ -953,11 +1034,83 @@ test('boot saves results over a retained canvas and resets capture before a dire
     assert.equal(saved.length, 2, 'the next battle saves without a lobby visit');
 });
 
+test('boot updates TAB immediately on every mutation without waiting for a heavy pass', () => {
+    let tabOpen = false;
+    const frames = [], observers = [], calls = [];
+    const state = { lang: 'EN', currentScreen: 'battle', friendsMenuOpen: false, settingsOpen: false };
+    const noop = Object.assign(() => {}, { onTick() {}, sync() {}, setup() {} });
+    const modules = new Proxy({}, { get: (_target, name) =>
+        ['changeCounter', 'zeroResists', 'equipmentTracker'].includes(name)
+            ? { sync: () => calls.push(name), onTick() {} } : noop });
+    const globals = {
+        document: { documentElement: { lang: 'en' }, getElementById: () => null,
+            querySelector: selector => selector === '.BattleTabStatisticComponentStyle-container' && tabOpen ? {} : null },
+        window: { addEventListener() {}, setInterval() {}, setTimeout() {} },
+        performance: { now: () => 1000 }, requestAnimationFrame: fn => frames.push(fn),
+        MutationObserver: class { constructor(fn) { observers.push(fn); } observe() {} },
+    };
+    loadModule('src/boot.ts', globals, {
+        'src/core/state.ts': { state },
+        'src/core/utils.ts': { utils: { getLang: () => 'EN' } },
+        'src/core/coreSettings.ts': { coreSettings: {} },
+        'src/modules.ts': { modules },
+    }).startBoot();
+    observers[0]();
+    assert.deepEqual(calls, [], 'closed TAB has no targeted updates');
+    tabOpen = true;
+    observers[0]();
+    observers[0]();
+    assert.deepEqual(calls, ['changeCounter', 'zeroResists', 'equipmentTracker',
+        'changeCounter', 'zeroResists', 'equipmentTracker'], 'both mutations update before the queued frame');
+    assert.equal(frames.length, 1, 'general work still coalesces into one frame');
+    frames.shift()();
+    assert.equal(calls.length, 6, 'the heavy pass does not repeat targeted TAB work');
+    observers[0]();
+    assert.equal(calls.length, 9, 'TAB remains immediate inside the heavy-pass throttle interval');
+    tabOpen = false;
+    observers[0]();
+    assert.equal(calls.length, 9, 'closing TAB stops targeted updates');
+});
+
+test('boot refreshes quick upgrade buttons immediately as native garage controls mount or change', () => {
+    let panelPresent = false, calls = 0;
+    const frames = [], observers = [];
+    const state = { lang: 'EN', currentScreen: 'garage', friendsMenuOpen: false, settingsOpen: false };
+    const noop = Object.assign(() => {}, { onTick() {}, sync() {}, setup() {} });
+    const globals = {
+        document: { documentElement: { lang: 'en' }, getElementById: () => null,
+            querySelector: selector => panelPresent && selector === '.TanksPartBaseComponentStyle-buttonsContainer' ? {} : null },
+        window: { addEventListener() {}, setInterval() {}, setTimeout() {} },
+        performance: { now: () => 1000 }, requestAnimationFrame: fn => frames.push(fn),
+        MutationObserver: class { constructor(fn) { observers.push(fn); } observe() {} },
+    };
+    loadModule('src/boot.ts', globals, {
+        'src/core/state.ts': { state },
+        'src/core/utils.ts': { utils: { getLang: () => 'EN' } },
+        'src/core/coreSettings.ts': { coreSettings: {} },
+        'src/modules.ts': { modules: new Proxy({}, { get: (_target, name) => name === 'autoUpgrade' ? () => { calls++; } : noop }) },
+    }).startBoot();
+    observers[0]();
+    assert.equal(calls, 0, 'no targeted update before native controls exist');
+    panelPresent = true;
+    observers[0](); observers[0]();
+    assert.equal(calls, 2, 'native mounting and subsequent changes run before the queued frame');
+    assert.equal(frames.length, 1, 'other work remains coalesced');
+    frames.shift()();
+    const afterHeavyPass = calls;
+    observers[0]();
+    assert.equal(calls, afterHeavyPass + 1, 'quick buttons bypass the 150 ms heavy-pass throttle');
+    panelPresent = false;
+    observers[0]();
+    assert.equal(calls, afterHeavyPass + 1, 'targeted updates stop when the native panel disappears');
+});
+
 test('boot styles garage actions over a retained battle canvas and resumes battle after closing', () => {
     let garageOpen = false;
     const frames = [], observers = [], classes = new Set(), iconStyles = new Map();
     const state = { lang: 'EN', currentScreen: 'battle', friendsMenuOpen: false, settingsOpen: false };
-    const icon = { style: { setProperty: (key, value) => iconStyles.set(key, value) } };
+    const icon = { style: { setProperty: (key, value) => iconStyles.set(key, value),
+        getPropertyValue: key => iconStyles.get(key) || '', getPropertyPriority: () => '', removeProperty: key => iconStyles.delete(key) } };
     const button = {
         textContent: 'Завершено', innerHTML: '<span>Завершено</span>', children: [{}],
         classList: { contains: name => classes.has(name),

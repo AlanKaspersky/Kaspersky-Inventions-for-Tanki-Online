@@ -6,6 +6,7 @@ export interface ArcadeReloadHookStatus {
     issues: string[];
     panel?: 'local-hud';
     ready?: boolean;
+    runtimeControls?: boolean;
     strategy?: 'ast-plan' | 'ast-template';
 }
 export interface ArcadeReloadSample {
@@ -22,14 +23,14 @@ const MARKER = '/*ki-arcade-ast:v1:';
 const unavailable = (issue: string): ArcadeReloadHookStatus => ({ hooked: false, ready: false, issues: [issue], strategy: 'ast-plan' });
 
 export async function selectArcadeReloadPlan(code: string, plans: readonly ArcadeReloadPatchPlan[]): Promise<ArcadeReloadPatchPlan | undefined> {
-    const candidates = plans.filter(plan => plan.format === 'ki-arcade-ast-v1' && plan.status.ready && plan.sourceLength === code.length);
+    const candidates = plans.filter(plan => plan.format === 'ki-arcade-ast-v1' && plan.status.ready && plan.status.runtimeControls && plan.sourceLength === code.length);
     if (candidates.length) try {
         const hash = await clientSourceHash(code);
         const exact = candidates.find(plan => plan.sha256 === hash);
         if (exact) return exact;
     } catch { }
     for (const plan of [...plans].reverse()) try {
-        if (plan.format !== 'ki-arcade-ast-v1' || !plan.status.ready) continue;
+        if (plan.format !== 'ki-arcade-ast-v1' || !plan.status.ready || !plan.status.runtimeControls) continue;
         const adapted = resolveTemplateEdits(code, plan);
         if (!adapted) continue;
         const status: ArcadeReloadHookStatus = { ...plan.status, strategy: 'ast-template' };

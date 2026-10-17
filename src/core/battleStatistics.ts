@@ -1,3 +1,5 @@
+import { featureScope } from './featureRuntime';
+import { postPageMessage } from './pageMessages';
 import { clientSourceHash, resolveTemplateEdits, validatePatchEdits } from './clientPatches';
 import type { PreparedPatchPlan } from './clientPatches';
 
@@ -89,9 +91,9 @@ export function installBattleStatistics(target: Window): void {
     bridge.__kaspBattleStats = (value, schema) => {
         try {
             const detail = readBattleStatistics(value, schema);
-            if (detail?.mode) target.postMessage({ type: 'kasp:battle-mode', detail: detail.mode }, '*');
-            if (detail?.kind) target.postMessage({ type: 'kasp:battle-kind', detail: detail.kind }, '*');
-        } catch { }
+            if (detail?.mode) postPageMessage(target, { type: 'kasp:battle-mode', detail: detail.mode });
+            if (detail?.kind) postPageMessage(target, { type: 'kasp:battle-kind', detail: detail.kind });
+        } catch (error) { featureScope('battleStatistics').fail(error); }
     };
 }
 

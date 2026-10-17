@@ -1,5 +1,6 @@
 import { clientPatchHeader, clientSourceHash, resolveTemplateEdits, validatePatchEdits } from './clientPatches';
 import type { PreparedPatchPlan } from './clientPatches';
+import { createNativeFeature } from './nativeFeature';
 import { knownCriticalDevice } from './criticalDevices';
 import type { CriticalDevice } from './criticalDevices';
 
@@ -8,6 +9,7 @@ export interface CriticalHookStatus {
     ready: boolean;
     strategy: 'ast-plan' | 'ast-template';
     issues: string[];
+    juggernautHook?: boolean;
 }
 export interface CriticalPatchPlan extends PreparedPatchPlan {
     format: 'ki-critical-ast-v1';
@@ -23,14 +25,14 @@ function criticalHeader(code: string, schema: CriticalSchema, status: CriticalHo
 }
 
 export async function selectCriticalPlan(code: string, plans: readonly CriticalPatchPlan[]): Promise<CriticalPatchPlan | undefined> {
-    const candidates = plans.filter(plan => plan.format === 'ki-critical-ast-v1' && plan.status.ready && plan.sourceLength === code.length);
+    const candidates = plans.filter(plan => plan.format === 'ki-critical-ast-v1' && plan.status.ready && plan.status.juggernautHook && plan.sourceLength === code.length);
     if (candidates.length) try {
         const hash = await clientSourceHash(code);
         const exact = candidates.find(plan => plan.sha256 === hash);
         if (exact) return exact;
     } catch { }
     for (const plan of [...plans].reverse()) try {
-        if (plan.format !== 'ki-critical-ast-v1' || !plan.status.ready) continue;
+        if (plan.format !== 'ki-critical-ast-v1' || !plan.status.ready || !plan.status.juggernautHook) continue;
         const adapted = resolveTemplateEdits(code, plan);
         if (!adapted) continue;
         const schema: CriticalSchema = {};
@@ -54,6 +56,7 @@ export function patchCriticalIndicator(code: string, report?: (status: CriticalH
     if (code.includes(MARKER)) return done(code, plan?.status || { hooked: true, ready: true, strategy: 'ast-plan', issues: [] });
     if (!plan) return done(code, unavailable('critical-mapping-unavailable'));
     if (plan.format !== 'ki-critical-ast-v1' || !plan.status.ready) return done(code, plan.status);
+    if (!plan.status.juggernautHook) return done(code, unavailable('critical-vehicle-mapping-unavailable'));
     if (!validatePatchEdits(code, plan)) return done(code, unavailable('critical-edit-mismatch'));
     let patched = code;
     for (const edit of [...plan.edits].reverse()) patched = patched.slice(0, edit.start) + edit.text + patched.slice(edit.end);
@@ -78,6 +81,7 @@ export interface CriticalSample {
     lifeEvents: number;
     source: 'server' | 'device-cycle' | 'supercharge' | null;
     supercharge: boolean;
+    juggernaut: boolean;
     awaitingPostSuperchargeCritical: boolean;
     postSuperchargeShots: number;
 }
@@ -93,6 +97,7 @@ export interface CriticalBridge {
     event(entity: unknown, value: unknown): void;
     damage(entity: unknown, collection: unknown, kind: unknown): void;
     supercharge(entity: unknown, active: unknown): void;
+    juggernaut(entity: unknown, active: unknown): void;
 }
 type DeviceIdentity = { id: string; name?: string; baseItemId?: string; properties?: CriticalDevice['properties'] };
 const object = (value: unknown): value is object => !!value && typeof value === 'object';
@@ -122,23 +127,25 @@ function cycleProfile(device: DeviceIdentity | null) {
 
 export function createCriticalIndicator(resolveDevice: (id: string) => DeviceIdentity | null) {
     let schema: CriticalSchema | null = null;
-    const actors = new WeakMap<object, { actor: object; ready: boolean; updates: number }>();
+    let actors = new WeakMap<object, { actor: object; ready: boolean; updates: number }>();
     const equipment = new WeakMap<object, { weaponId: string | null; deviceId: string | null }>();
     type Bar = { material: object; original: unknown; red: unknown; painted: boolean };
     const bars = new Map<object, Bar>();
     const events = new WeakMap<object, { kind: 'shot' | 'life'; field: string }>();
-    const cycles = new WeakMap<object, { state: string; spawned: boolean; chance: number | null }>();
-    const charged = new WeakSet<object>();
-    const recovering = new WeakSet<object>();
+    let cycles = new WeakMap<object, { state: string; spawned: boolean; chance: number | null }>();
+    let charged = new WeakSet<object>();
+    const juggernauts = new WeakSet<object>();
+    let recovering = new WeakSet<object>();
     type PostSupercharge = { shots: number; initialized: boolean; normalSeen: boolean; criticalShot: number | null };
-    const postSupercharge = new WeakMap<object, PostSupercharge>();
+    let postSupercharge = new WeakMap<object, PostSupercharge>();
     let shotEvents = 0, hitEvents = 0, lifeEvents = 0;
     let stateEvents = 0;
     type FrameSample = Omit<CriticalSample, 'attached' | 'stateEvents' | 'shotEvents' | 'hitEvents' | 'lifeEvents'>;
     let sample: FrameSample = { weapon: null, weaponId: null, deviceId: null, deviceName: null,
         ready: null, painted: false, updates: 0, frames: 0, reason: 'pending-local-hud', error: null, source: null, supercharge: false,
-        awaitingPostSuperchargeCritical: false, postSuperchargeShots: 0 };
+        awaitingPostSuperchargeCritical: false, postSuperchargeShots: 0, juggernaut: false };
     const deviceFor = (entity: object) => {
+        if (juggernauts.has(entity)) return null;
         const item = equipment.get(entity);
         const device = item?.deviceId ? resolveDevice(item.deviceId) ?? knownCriticalDevice(item.deviceId) : null;
         return device && device.id === item?.deviceId && (!device.baseItemId || device.baseItemId === item.weaponId) ? device : null;
@@ -178,6 +185,7 @@ export function createCriticalIndicator(resolveDevice: (id: string) => DeviceIde
         },
         ready(actor, entity, value) {
             if (!schema || !object(actor) || !object(entity) || typeof value !== 'boolean') return;
+            if (juggernauts.has(entity)) return;
             stateEvents++;
             recovering.delete(entity);
             postSupercharge.delete(entity);
@@ -213,7 +221,7 @@ export function createCriticalIndicator(resolveDevice: (id: string) => DeviceIde
             const bar = bars.get(owner); if (!bar) return;
             const next: FrameSample = { weapon: null, weaponId: null, deviceId: null, deviceName: null, ready: null,
                 painted: false, updates: 0, frames: sample.frames + 1, reason: 'no-local-tank', error: null, source: null, supercharge: false,
-                awaitingPostSuperchargeCritical: false, postSuperchargeShots: 0 };
+                awaitingPostSuperchargeCritical: false, postSuperchargeShots: 0, juggernaut: false };
             try {
                 if (object(entity)) {
                     const item = equipment.get(entity), state = actors.get(entity);
@@ -221,7 +229,8 @@ export function createCriticalIndicator(resolveDevice: (id: string) => DeviceIde
                     const resolved = next.deviceId ? resolveDevice(next.deviceId) ?? knownCriticalDevice(next.deviceId) : null;
                     const device = resolved?.id === next.deviceId ? resolved : null;
                     next.deviceName = device?.name ?? null;
-                    if (device && (!device.baseItemId || device.baseItemId === next.weaponId)) next.weapon = supportedDevice(device.name);
+                    next.juggernaut = juggernauts.has(entity);
+                    if (!next.juggernaut && device && (!device.baseItemId || device.baseItemId === next.weaponId)) next.weapon = supportedDevice(device.name);
                     const ready = state?.ready;
                     const { profile, cycle } = preparedCycle(entity);
                     next.supercharge = charged.has(entity);
@@ -231,6 +240,7 @@ export function createCriticalIndicator(resolveDevice: (id: string) => DeviceIde
                     next.updates = state?.updates ?? 0;
                     if (cycle && cycle.state !== 'ACTIVE') next.reason = 'tank-not-active';
                     else if (next.supercharge) { next.ready = true; next.source = 'supercharge'; next.reason = 'supercharge-active'; }
+                    else if (next.juggernaut) next.reason = 'juggernaut-weapon';
                     else if (!item) next.reason = 'waiting-equipment';
                     else if (!device) next.reason = 'waiting-device-metadata';
                     else if (!next.weapon) next.reason = 'unsupported-device';
@@ -252,7 +262,7 @@ export function createCriticalIndicator(resolveDevice: (id: string) => DeviceIde
             const bar = bars.get(owner);
             if (bar) { try { paint(bar, false); } catch { } bars.delete(owner); }
             if (!bars.size) sample = { ...sample, weapon: null, deviceId: null, deviceName: null, weaponId: null, ready: null, painted: false, supercharge: false,
-                awaitingPostSuperchargeCritical: false, postSuperchargeShots: 0, reason: 'hud-detached' };
+                awaitingPostSuperchargeCritical: false, postSuperchargeShots: 0, juggernaut: false, reason: 'hud-detached' };
         },
         eventType(prototype, kind, field) {
             if (object(prototype) && (kind === 'shot' || kind === 'life')) events.set(prototype, { kind, field });
@@ -278,6 +288,7 @@ export function createCriticalIndicator(resolveDevice: (id: string) => DeviceIde
                 return;
             }
             shotEvents++;
+            if (juggernauts.has(entity)) return;
             const { device, profile, cycle } = preparedCycle(entity);
             if (charged.has(entity)) {
                 actors.delete(entity);
@@ -350,23 +361,47 @@ export function createCriticalIndicator(resolveDevice: (id: string) => DeviceIde
                 if (ended) {
                     actors.delete(entity);
                     const device = deviceFor(entity), weapon = supportedDevice(device?.name);
-                    if (!device || weapon) {
+                    if (!juggernauts.has(entity) && (!device || weapon)) {
                         postSupercharge.set(entity, { shots: 0, initialized: false, normalSeen: false, criticalShot: null });
                         preparedCycle(entity);
                     }
                 }
             }
         },
+        juggernaut(entity, active) {
+            if (!object(entity) || typeof active !== 'boolean' || juggernauts.has(entity) === active) return;
+            if (active) juggernauts.add(entity); else juggernauts.delete(entity);
+            actors.delete(entity);
+            const lifecycle = cycles.get(entity)?.state;
+            if (lifecycle) cycles.set(entity, { state: lifecycle, spawned: !active && lifecycle === 'SEMI_ACTIVE', chance: null });
+            else cycles.delete(entity);
+            recovering.delete(entity); postSupercharge.delete(entity);
+        },
     };
-    return { bridge, status: (): CriticalSample => ({ ...sample, attached: bars.size > 0, stateEvents, shotEvents, hitEvents, lifeEvents }) };
+    return { bridge, suspend() {
+        for (const bar of bars.values()) try { paint(bar, false); } catch { }
+        actors = new WeakMap(); cycles = new WeakMap(); charged = new WeakSet(); recovering = new WeakSet(); postSupercharge = new WeakMap();
+        sample = { ...sample, painted: false, ready: null, source: null, reason: 'disabled' };
+    }, status: (): CriticalSample => ({ ...sample, attached: bars.size > 0, stateEvents, shotEvents, hitEvents, lifeEvents }) };
 }
 
 export function installCriticalIndicator(target: Window): void {
     const engine = createCriticalIndicator(id => target.__kaspAugmentsDebug?.device?.(id) ?? null);
+    const control = createNativeFeature(target, 'criticalIndicator', 'k_critical_indicator');
+    control.track(engine, engine.suspend);
     let mapping: CriticalHookStatus | null = null;
-    target.__kaspCriticalBridge = engine.bridge;
+    target.__kaspCriticalBridge = Object.fromEntries(Object.entries(engine.bridge).map(([key, method]) => [key,
+        (...args: unknown[]) => {
+            if (!control.active() && !['configure', 'attach', 'detach', 'equipment', 'eventType', 'juggernaut'].includes(key)) return;
+            if (key === 'detach') { try { return (method as (...args: unknown[]) => unknown)(...args); } catch { return; } }
+            return control.observe(() => {
+                const result = (method as (...args: unknown[]) => unknown)(...args);
+                if (key === 'frame' && engine.status().error) throw Error(engine.status().error!);
+                return result;
+            });
+        }])) as unknown as CriticalBridge;
     target.__kaspCriticalDebug = {
-        status: () => ({ ...engine.status(), mapping: mapping && { ...mapping, issues: [...mapping.issues] } }),
+        status: () => ({ ...engine.status(), mapping: mapping && { ...mapping, issues: [...mapping.issues] }, runtime: control.status() }),
         reportHook: value => { mapping = { ...value, issues: [...value.issues] }; },
     };
 }

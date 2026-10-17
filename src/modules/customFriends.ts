@@ -1,9 +1,14 @@
+import { featureScope } from '../core/featureRuntime';
+const lifecycle = featureScope('customFriends');
 import { gameDOM } from '../core/gameDOM';
 import { state } from '../core/state';
 import { utils } from '../core/utils';
-import { getAccountIdentity } from '../core/accountIdentity';
+import { getAccountIdentity, getVerifiedAccount, getPlayerUserId, getAccountIdentityRevision } from '../core/accountIdentity';
 
-export const customFriends = (() => {
+export const customFriends = lifecycle.initialize(() => {
+    const originalDisplays = new Map<HTMLElement, string>();
+    let filterAccount: string | null = null;
+    let filterRevision = -1;
 
     const filtersConfig = [
         { url: "https://s.eu.tankionline.com/static/images/allPaints.741c65e1.svg", type: "all" },
@@ -15,29 +20,28 @@ export const customFriends = (() => {
         { url: "https://s.eu.tankionline.com/static/images/iconCustomiseRed.2b5c8828.svg", type: "red" },
     ];
 
-    const getCurrentNickname = () => {
-        return getAccountIdentity()?.nickname || 'Unknown';
-    };
+    const getCurrentUserId = () => getVerifiedAccount()?.userId || null;
 
     const getCustomCategories = () => {
-        const myNick = getCurrentNickname();
+        const userId = getCurrentUserId();
+        if (!userId) return {};
         try {
-            return JSON.parse(localStorage.getItem(`tankiCustomCategories_${myNick}`) || '{}');
+            const value: unknown = JSON.parse(localStorage.getItem(`tankiCustomCategories_uid_${userId}`) || '{}');
+            return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, string> : {};
         } catch (e) {
             return {};
         }
     };
 
-    const setCustomCategory = (friendNickname: string, colorType: string) => {
-        const myNick = getCurrentNickname();
-        if (myNick === "Unknown") return;
+    const setCustomCategory = (ownerId: string, friendId: string, colorType: string) => {
+        if (ownerId !== getCurrentUserId()) return;
         const cats = getCustomCategories();
-        if (cats[friendNickname] === colorType) {
-            delete cats[friendNickname];
+        if (cats[friendId] === colorType) {
+            delete cats[friendId];
         } else {
-            cats[friendNickname] = colorType;
+            cats[friendId] = colorType;
         }
-        localStorage.setItem(`tankiCustomCategories_${myNick}`, JSON.stringify(cats));
+        localStorage.setItem(`tankiCustomCategories_uid_${ownerId}`, JSON.stringify(cats));
         document.querySelectorAll('.custom-friends-sidebar').forEach(node => {
             const sidebar = node as HTMLElement;
             const activeBtn = sidebar.querySelector('.custom-filter-btn.active') as HTMLElement;
@@ -56,7 +60,8 @@ export const customFriends = (() => {
         const clanTag = getMyClanTag();
         const isClan = Boolean(clanTag && cardText.includes(clanTag));
         const cats = getCustomCategories();
-        const customColor = cats[nickText];
+        const friendId = getPlayerUserId(nickText);
+        const customColor = friendId ? cats[friendId] : undefined;
 
         let rarityType = null;
         if (customColor) {
@@ -108,25 +113,32 @@ export const customFriends = (() => {
             else if (filterType === 'offline') match = isOffline;
             else if (filterType === 'clan') match = Boolean(clanTag && cardText.includes(clanTag));
             else if (['purple', 'yellow', 'red'].includes(filterType)) {
-                match = (cats[nickText] === filterType);
+                const friendId = getPlayerUserId(nickText);
+                match = !!friendId && cats[friendId] === filterType;
             }
+            if (!originalDisplays.has(el)) originalDisplays.set(el, el.style.display);
             el.style.display = match ? '' : 'none';
         });
     };
 
     const injectCategoriesMenu = (menu: HTMLElement) => {
-        if (menu.dataset.customCategoriesInjected === 'true') return;
-        menu.dataset.customCategoriesInjected = 'true';
         const rankItem = menu.querySelector(gameDOM.friends.contextPlayer) as HTMLElement;
         if (!rankItem) return;
         const span = Array.from(rankItem.querySelectorAll('span')).find(s => s.className.includes(gameDOM.fragments.nicknameText)) as HTMLElement;
         if (!span) return;
 
         const nickname = span.innerText.trim();
+        const ownerId = getCurrentUserId(), friendId = getPlayerUserId(nickname);
+        const binding = ownerId && friendId ? `${ownerId}:${friendId}` : '';
+        if (binding && menu.dataset.customCategoriesInjected === binding) return;
+        menu.querySelector('.custom-category-row')?.remove();
+        delete menu.dataset.customCategoriesInjected;
+        if (!ownerId || !friendId) return;
+        menu.dataset.customCategoriesInjected = binding;
         const row = document.createElement('div');
         row.className = 'custom-category-row';
         const cats = getCustomCategories();
-        const currentColor = cats[nickname];
+        const currentColor = cats[friendId];
 
         const customButtons = [
             { type: 'purple', url: 'https://s.eu.tankionline.com/static/images/iconEpicFiolet.d91b1151.svg' },
@@ -138,20 +150,21 @@ export const customFriends = (() => {
             const btn = document.createElement('div');
             btn.className = `custom-category-menu-btn ${currentColor === c.type ? 'active' : ''}`;
             btn.innerHTML = `<img src="${c.url}">`;
-            btn.onclick = (e) => {
+            btn.onclick = lifecycle.guard((e: MouseEvent) => {
                 e.stopPropagation();
-                setCustomCategory(nickname, c.type);
+                if (ownerId !== getCurrentUserId() || getPlayerUserId(span.innerText.trim()) !== friendId) return;
+                setCustomCategory(ownerId, friendId, c.type);
                 row.querySelectorAll('.custom-category-menu-btn').forEach(b => b.classList.remove('active'));
                 const newCats = getCustomCategories();
-                if (newCats[nickname] === c.type) {
+                if (newCats[friendId] === c.type) {
                     btn.classList.add('active');
                 }
-            };
+            });
             row.appendChild(btn);
         });
 
         menu.appendChild(row);
-        requestAnimationFrame(() => {
+        lifecycle.frame(() => {
             const rect = menu.getBoundingClientRect();
             const overflow = rect.bottom - window.innerHeight;
             if (overflow > 0) {
@@ -183,7 +196,7 @@ export const customFriends = (() => {
                 if (index === 0) btn.classList.add('active');
                 const img = document.createElement('img');
                 img.src = config.url;
-                btn.addEventListener('click', () => {
+                lifecycle.listen(btn, 'click', () => {
                     sidebar.querySelectorAll('.custom-filter-btn').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
                     applyFilter(scrollBlock, config.type);
@@ -206,7 +219,7 @@ export const customFriends = (() => {
                 if (index === 0) btn.classList.add('active');
                 const img = document.createElement('img');
                 img.src = config.url;
-                btn.addEventListener('click', () => {
+                lifecycle.listen(btn, 'click', () => {
                     sidebar.querySelectorAll('.custom-filter-btn').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
                     applyFilter(scrollBlock, config.type);
@@ -218,10 +231,25 @@ export const customFriends = (() => {
         }
     };
 
+    lifecycle.onCleanup(() => {
+        document.querySelectorAll('.custom-friends-sidebar, .custom-rarity-badge, .custom-category-row').forEach(node => node.remove());
+        for (const [row, display] of originalDisplays) row.style.display = display;
+        originalDisplays.clear();
+        document.querySelectorAll('[data-sidebar-injected]').forEach(node => node.removeAttribute('data-sidebar-injected'));
+        document.querySelectorAll('.custom-friends-wrapper').forEach(wrapper => wrapper.replaceWith(...Array.from(wrapper.childNodes)));
+    });
+
     return () => {
         if (!utils.getSetting('k_friends', false)) return;
 
         if (state.currentScreen === 'battle') return;
+        const userId = getCurrentUserId();
+        const revision = getAccountIdentityRevision();
+        if (filterAccount !== userId || filterRevision !== revision) {
+            filterAccount = userId;
+            filterRevision = revision;
+            document.querySelectorAll<HTMLElement>('.custom-friends-sidebar .custom-filter-btn.active').forEach(button => button.click());
+        }
 
         const scrollBlocks = document.querySelectorAll(gameDOM.friends.lists);
         scrollBlocks.forEach(node => {
@@ -239,7 +267,7 @@ export const customFriends = (() => {
         const contextMenus = document.querySelectorAll(gameDOM.friends.contextMenu);
         contextMenus.forEach(node => {
             const menu = node as HTMLElement;
-            if (menu.dataset.customCategoriesInjected !== 'true') injectCategoriesMenu(menu);
+            injectCategoriesMenu(menu);
         });
     };
-})();
+}, () => {});

@@ -1,18 +1,26 @@
+import { featureScope } from '../core/featureRuntime';
+const lifecycle = featureScope('customGarageSkins');
 import { gameDOM } from '../core/gameDOM';
+import { getVerifiedAccount } from '../core/accountIdentity';
+import { GARAGE_SKIN_CARDS_REQUEST } from '../core/gameAugments';
+import { getTankiImageUrl } from '../core/imageUrl';
 interface SkinsDatabase {
     names: Record<string, string>;
     defaults: Record<string, string>;
 }
 
-export const customGarageSkins = (() => {
+export const customGarageSkins = lifecycle.initialize(() => {
     type SavedSkins = Record<string, string>;
     type DefaultImagesMap = Record<string, string[]>;
 
-    const STORAGE_KEY = 'kasp_equipped_skins';
+    const STORAGE_PREFIX = 'kasp_equipped_skins_uid_';
     const BASE_IMG_KEY = 'kasp_base_images';
+    let ownerId: string | null = null;
     let NAME_TRANSLATE: SkinsDatabase['names'] | null = null;
     let PREFILLED_DEFAULTS: SkinsDatabase['defaults'] | null = null;
     let dataReadyPromise: Promise<void> | null = null;
+    const parsedStorage = new Map<string, unknown>();
+    let cssInputs: { owner: string | null; skins: string | null; bases: string | null } | null = null;
 
     function loadSkinsData(): Promise<void> {
         if (dataReadyPromise) return dataReadyPromise;
@@ -33,15 +41,23 @@ export const customGarageSkins = (() => {
 
     function safeParseJSON<T>(raw: string | null): T | null {
         if (!raw) return null;
+        if (parsedStorage.has(raw)) return parsedStorage.get(raw) as T;
         try {
-            return JSON.parse(raw) as T;
+            const value: unknown = JSON.parse(raw);
+            if (parsedStorage.size >= 3) parsedStorage.clear();
+            parsedStorage.set(raw, value);
+            return value as T;
         } catch (e) {
             return null;
         }
     }
 
     function getSavedSkins(): SavedSkins {
-        return safeParseJSON<SavedSkins>(localStorage.getItem(STORAGE_KEY)) || {};
+        if (!ownerId) return {};
+        const stored = safeParseJSON<unknown>(localStorage.getItem(STORAGE_PREFIX + ownerId));
+        if (!stored || typeof stored !== 'object' || Array.isArray(stored)) return {};
+        return Object.fromEntries(Object.entries(stored).filter((entry): entry is [string, string] =>
+            typeof entry[1] === 'string' && SAFE_ART_URL.test(entry[1])));
     }
 
     function getDefaultImages(): DefaultImagesMap {
@@ -57,9 +73,10 @@ export const customGarageSkins = (() => {
                 if (!merged[key]) merged[key] = [];
                 const val = stored[key];
                 if (Array.isArray(val)) {
-                    val.forEach(v => { if (v && !merged[key].includes(v)) merged[key].push(v); });
+                    val.forEach(v => { const url = getTankiImageUrl(v); if (url && !merged[key].includes(url)) merged[key].push(url); });
                 } else if (val) {
-                    if (!merged[key].includes(val)) merged[key].push(val);
+                    const url = getTankiImageUrl(val);
+                    if (url && !merged[key].includes(url)) merged[key].push(url);
                 }
             }
             return merged;
@@ -71,6 +88,10 @@ export const customGarageSkins = (() => {
     }
 
     function updateGlobalCSS(): void {
+        const inputs = { owner: ownerId, skins: ownerId ? localStorage.getItem(STORAGE_PREFIX + ownerId) : null,
+            bases: localStorage.getItem(BASE_IMG_KEY) };
+        if (cssInputs && cssInputs.owner === inputs.owner && cssInputs.skins === inputs.skins && cssInputs.bases === inputs.bases
+            && document.getElementById('kasp-skins-global-css')) return;
         const savedSkins = getSavedSkins();
         const defaultImages = getDefaultImages();
         let css = '';
@@ -83,7 +104,7 @@ export const customGarageSkins = (() => {
 
             if (finalUrls.length > 0) {
                 const selectors = finalUrls.map(url =>
-                    `.GarageItemComponentStyle-mainImg[src="${url}"], .garage-item img[src="${url}"], .MountedItemsStyle-itemPreview[src="${url}"]`
+                    gameDOM.garage.skinArt.map(selector => `${selector}[src="${url}"]`).join(', ')
                 ).join(',\n');
                 css += `${selectors} {\n    content: url("${targetUrl}") !important;\n    object-fit: contain !important;\n    pointer-events: none !important;\n}\n\n`;
             }
@@ -98,6 +119,7 @@ export const customGarageSkins = (() => {
         if (styleEl.textContent !== css) {
             styleEl.textContent = css;
         }
+        cssInputs = inputs;
     }
 
     function hasUnknownSkin(
@@ -149,37 +171,40 @@ export const customGarageSkins = (() => {
             readonly item: string;
             readonly equipped: EquippedCard;
             readonly selectedTitle: string | null;
+            readonly selectionIsEquipped: boolean;
             readonly artUrl: string | null;
         };
 
     interface SkinCard {
+        readonly id: string;
         readonly title: string;
         readonly isStandard: boolean;
         readonly isEquipped: boolean;
+        readonly isSelected: boolean;
+        readonly isOwned: boolean;
+        readonly isUnknown: boolean;
     }
 
     function readSkinCards(row: Element): SkinCard[] {
         const cards: SkinCard[] = [];
-        row.querySelectorAll(gameDOM.skins.cardTitle).forEach((titleEl) => {
-            const card = titleEl.parentElement;
-            if (!card) return;
-            const icon = card.querySelector(gameDOM.skins.cardIcon);
+        if (window.dispatchEvent(new Event(GARAGE_SKIN_CARDS_REQUEST, { cancelable: true }))) return cards;
+        row.querySelectorAll(gameDOM.skins.cardIcon).forEach((icon) => {
+            const native = safeParseJSON<ReturnType<typeof import('../core/gameAugments').readGarageCosmeticCard>>(icon.getAttribute('data-kasp-skin-card'));
+            if (!native || typeof native.id !== 'string' || !/^\d{1,20}$/.test(native.id)
+                || typeof native.name !== 'string' || typeof native.isMounted !== 'boolean'
+                || typeof native.isSelected !== 'boolean' || typeof native.isOwned !== 'boolean'
+                || typeof native.isUnknown !== 'boolean' || typeof native.isStandard !== 'boolean') return;
             cards.push({
-                title: (titleEl.textContent ?? '').trim(),
-                isStandard: (icon?.getAttribute('src') ?? '').includes('ic_standard'),
-                isEquipped: !!card.querySelector(gameDOM.skins.equippedIcon),
+                id: native.id,
+                title: native.name.trim(),
+                isStandard: native.isStandard || (icon.getAttribute('src') ?? '').includes('ic_standard'),
+                isEquipped: native.isMounted,
+                isSelected: native.isSelected,
+                isOwned: native.isOwned,
+                isUnknown: native.isUnknown,
             });
         });
         return cards;
-    }
-
-    function readSelectedTitle(menu: Element, row: Element, cardTitles: ReadonlySet<string>): string | null {
-        for (const el of menu.querySelectorAll('*')) {
-            if (el.children.length > 0 || row.contains(el)) continue;
-            const text = (el.textContent ?? '').trim();
-            if (cardTitles.has(text.toLowerCase())) return text;
-        }
-        return null;
     }
 
     function readPreviewArt(menu: Element, row: Element): string | null {
@@ -197,7 +222,10 @@ export const customGarageSkins = (() => {
         if (!row || !menu) return { kind: 'absent' };
 
         const cards = readSkinCards(row);
-        const equippedCard = cards.find(card => card.isEquipped);
+        const mounted = cards.filter(card => card.isEquipped);
+        const selected = cards.filter(card => card.isSelected);
+        const equippedCard = mounted.length === 1 ? mounted[0] : undefined;
+        const selectedCard = selected.length === 1 ? selected[0] : undefined;
         const namedCard = equippedCard && !equippedCard.isStandard
             ? equippedCard
             : cards.find(card => !card.isStandard);
@@ -213,7 +241,9 @@ export const customGarageSkins = (() => {
             equipped: equippedCard.isStandard
                 ? { kind: 'standard' }
                 : { kind: 'skin', title: equippedCard.title },
-            selectedTitle: readSelectedTitle(menu, row, new Set(cards.map(card => card.title.toLowerCase()))),
+            selectedTitle: selectedCard?.title ?? null,
+            selectionIsEquipped: !!selectedCard && selectedCard.id === equippedCard.id
+                && !selectedCard.isUnknown && (selectedCard.isOwned || selectedCard.isStandard),
             artUrl: readPreviewArt(menu, row),
         };
     }
@@ -247,8 +277,7 @@ export const customGarageSkins = (() => {
         if (state.kind === 'absent') return { kind: 'none', reason: null };
         if (state.equipped.kind === 'standard') return { kind: 'clear', item: state.item };
 
-        const selectedIsEquipped = state.selectedTitle !== null
-            && state.selectedTitle.toLowerCase() === state.equipped.title.toLowerCase();
+        const selectedIsEquipped = state.selectionIsEquipped;
         if (!selectedIsEquipped) {
             return {
                 kind: 'none',
@@ -281,8 +310,9 @@ export const customGarageSkins = (() => {
     }
 
     function writeSavedSkins(savedSkins: SavedSkins): void {
+        if (!ownerId || getVerifiedAccount()?.userId !== ownerId) return;
         try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(savedSkins));
+            localStorage.setItem(STORAGE_PREFIX + ownerId, JSON.stringify(savedSkins));
         } catch (e: unknown) {
             console.warn('[KI-test][garage-skins] could not save skins:', e instanceof Error ? e.message : e);
         }
@@ -324,6 +354,20 @@ export const customGarageSkins = (() => {
     }
 
     function tick(): void {
+        const nextOwnerId = getVerifiedAccount()?.userId ?? null;
+        if (nextOwnerId !== ownerId) {
+            ownerId = nextOwnerId;
+            cssInputs = null;
+            parsedStorage.clear();
+            pendingLearn = null;
+            lastSkinsSummary = null;
+            lastLearnNote = null;
+            const style = document.getElementById('kasp-skins-global-css');
+            if (style) style.textContent = '';
+            document.querySelectorAll('.kasp-unknown-skin').forEach(label => label.remove());
+            if (NAME_TRANSLATE && PREFILLED_DEFAULTS) updateGlobalCSS();
+        }
+        if (!ownerId) return;
         if (!NAME_TRANSLATE || !PREFILLED_DEFAULTS) return;
         if (!isGarageScreen()) return;
 
@@ -348,7 +392,7 @@ export const customGarageSkins = (() => {
                 const itemNameEN = nameTranslate[rawTitle.split(/\s+/)[0]] || rawTitle.split(/\s+/)[0];
                 const originalSrc = imgMain.getAttribute('src') || '';
 
-                if (originalSrc && originalSrc.includes('tankionline.com') && originalSrc !== savedSkinsForList[itemNameEN]) {
+                if (getTankiImageUrl(originalSrc) && originalSrc !== savedSkinsForList[itemNameEN]) {
                     if (!defaultImages[itemNameEN]) defaultImages[itemNameEN] = [];
                     if (!defaultImages[itemNameEN].includes(originalSrc)) {
                         defaultImages[itemNameEN].push(originalSrc);
@@ -369,5 +413,7 @@ export const customGarageSkins = (() => {
         updateGlobalCSS();
     }
 
+    lifecycle.onCleanup(() => { pendingLearn = null; ownerId = null; parsedStorage.clear(); cssInputs = null; document.getElementById('kasp-skins-global-css')?.remove(); document.querySelectorAll('.kasp-unknown-skin').forEach(node => node.remove()); });
+
     return tick;
-})();
+}, () => {});

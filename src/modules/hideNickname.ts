@@ -1,3 +1,5 @@
+import { featureScope } from '../core/featureRuntime';
+const lifecycle = featureScope('hideNickname');
 import { gameDOM } from '../core/gameDOM';
 import { state } from '../core/state';
 import { utils } from '../core/utils';
@@ -52,10 +54,11 @@ export function hideNickname() {
 }
 
 export function setupNicknamePrivacy() {
+    if (lifecycle.disabled) return;
     if (!utils.getSetting('k_hideNicknameXP', false)) return;
     hideNickname();
     if (privacyObserver) return;
-    privacyObserver = new MutationObserver(hideNickname);
+    privacyObserver = lifecycle.observer(hideNickname);
     privacyObserver.observe(document.documentElement, {
         childList: true,
         subtree: true,
@@ -64,3 +67,5 @@ export function setupNicknamePrivacy() {
         attributeFilter: ['class', 'id'],
     });
 }
+
+lifecycle.onCleanup(() => { privacyObserver?.disconnect(); document.documentElement.classList.remove('kasp-hide-nickname'); });

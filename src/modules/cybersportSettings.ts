@@ -1,3 +1,5 @@
+import { featureScope } from '../core/featureRuntime';
+const lifecycle = featureScope('cybersportSettings');
 import { gameDOM } from '../core/gameDOM';
 import { CYBERSPORT_ACTIVE, CYBERSPORT_SYNC } from '../core/cybersportNative';
 
@@ -37,7 +39,7 @@ export function createCybersportSettings(schedule: () => void) {
         control?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }));
     };
     const finishRank = (close = false) => {
-        if (rankTimer !== null) clearTimeout(rankTimer);
+        if (rankTimer !== null) lifecycle.cancelTimeout(rankTimer);
         rankTimer = null;
         if (close && rankJob?.opened && rankJob.dropdown.isConnected && rankJob.dropdown.querySelector(dom.dropdownMenu)) {
             const previousWriting = writing;
@@ -66,7 +68,7 @@ export function createCybersportSettings(schedule: () => void) {
     const clear = () => {
         finishRank(true);
         observer?.disconnect(); observer = null;
-        events.forEach(type => root?.removeEventListener(type, onInteraction, true));
+        events.forEach(type => lifecycle.unlisten(root, type, onInteraction, true));
         releaseLocks();
         creationRoot?.removeAttribute(CYBERSPORT_ACTIVE); creationRoot = null;
         document.dispatchEvent(new Event(CYBERSPORT_SYNC));
@@ -139,7 +141,7 @@ export function createCybersportSettings(schedule: () => void) {
             rankJob.clicked = true;
             firstOption.click();
         }
-        if (rankTimer === null) rankTimer = setTimeout(() => {
+        if (rankTimer === null) rankTimer = lifecycle.timeout(() => {
             rankTimer = null; schedule();
         }, 100);
     };
@@ -149,8 +151,8 @@ export function createCybersportSettings(schedule: () => void) {
         if (!panel) { clear(); return; }
         if (root !== panel) {
             clear(); root = panel;
-            events.forEach(type => panel.addEventListener(type, onInteraction, true));
-            observer = new MutationObserver(schedule);
+            events.forEach(type => lifecycle.listen(panel, type, onInteraction, true));
+            observer = lifecycle.observer(schedule);
             observer.observe(panel, { subtree: true, childList: true, characterData: true,
                 attributes: true, attributeFilter: ['class', 'src', 'value', 'checked'] });
         }
@@ -170,5 +172,6 @@ export function createCybersportSettings(schedule: () => void) {
             setRank();
         } finally { writing = false; }
     };
-    return { sync, clear };
+    lifecycle.onCleanup(clear);
+    return { sync: lifecycle.guard(sync), clear };
 }

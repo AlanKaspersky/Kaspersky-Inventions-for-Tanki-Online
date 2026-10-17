@@ -1,8 +1,10 @@
+import { featureScope } from '../core/featureRuntime';
+const lifecycle = featureScope('cybersport');
 import { gameDOM } from '../core/gameDOM';
 import { state } from '../core/state';
 import { createCybersportSettings } from './cybersportSettings';
 
-export const cybersport = (() => {
+export const cybersport = lifecycle.initialize(() => {
     let row: HTMLElement | null = null;
     let sport: HTMLElement | null = null;
     let card: HTMLElement | null = null;
@@ -50,12 +52,12 @@ export const cybersport = (() => {
     const schedule = () => {
         if (scheduled) return;
         scheduled = true;
-        requestAnimationFrame(() => { scheduled = false; sync(); });
+        lifecycle.frame(() => { scheduled = false; sync(); });
     };
     const settings = createCybersportSettings(schedule);
     const cancelModeSelection = () => {
         modeUntil = 0;
-        if (modeTimer !== null) clearTimeout(modeTimer);
+        if (modeTimer !== null) lifecycle.cancelTimeout(modeTimer);
         modeTimer = null;
     };
     const selectMode = (container: HTMLElement | null) => {
@@ -68,7 +70,7 @@ export const cybersport = (() => {
             cancelModeSelection();
             ctf.click();
         } else if (modeTimer === null) {
-            modeTimer = setTimeout(() => { modeTimer = null; sync(); }, 100);
+            modeTimer = lifecycle.timeout(() => { modeTimer = null; sync(); }, 100);
         }
     };
     const clearMaps = () => {
@@ -106,7 +108,7 @@ export const cybersport = (() => {
         if (!cards.length) { clearMaps(); return; }
         if (mapRow !== container) {
             clearMaps(); mapRow = container;
-            mapObserver = new MutationObserver(schedule);
+            mapObserver = lifecycle.observer(schedule);
             mapObserver.observe(container, { childList: true, subtree: true, characterData: true,
                 attributes: true, attributeFilter: ['class', 'style'] });
         }
@@ -159,7 +161,7 @@ export const cybersport = (() => {
     };
     const cleanup = () => {
         observer?.disconnect(); observer = null;
-        row?.removeEventListener('click', onNativeClick, true);
+        lifecycle.unlisten(row, 'click', onNativeClick, true);
         sport?.removeAttribute('data-kasp-cybersport-source-active');
         sport?.lastElementChild?.querySelector('h2')?.removeAttribute('data-kasp-select-label');
         card?.remove();
@@ -199,21 +201,21 @@ export const cybersport = (() => {
             card.setAttribute('role', 'button');
             card.tabIndex = 0;
             card.style.setProperty('--kasp-cybersport-image', `url("${chrome.runtime.getURL('assets/cybersport.png')}")`);
-            card.addEventListener('click', event => {
+            lifecycle.listen(card, 'click', event => {
                 event.preventDefault(); event.stopPropagation(); select();
             });
-            card.addEventListener('keydown', event => {
+            lifecycle.listen(card, 'keydown', event => {
                 if (event.key !== 'Enter') return;
                 event.preventDefault(); event.stopPropagation();
                 if (!event.repeat) select();
             });
             row.insertBefore(card, nativeSport.nextSibling);
-            row.addEventListener('click', onNativeClick, true);
-            observer = new MutationObserver(schedule);
+            lifecycle.listen(row, 'click', onNativeClick, true);
+            observer = lifecycle.observer(schedule);
             observer.observe(row, { childList: true, subtree: true, characterData: true,
                 attributes: true, attributeFilter: ['class'] });
         }
-        const nativeSelected = sport.classList.contains('FormatsSectionComponentStyle-selectedCard');
+        const nativeSelected = sport.classList.contains(gameDOM.classes.formatSelected);
         if (nativeSelected) selectionUntil = 0;
         else if (Date.now() >= selectionUntil) cancelEsports();
         const active = chosen && nativeSelected;
@@ -224,8 +226,8 @@ export const cybersport = (() => {
         text(card.querySelector(gameDOM.battleCreate.formatCount),
             sport.querySelector(gameDOM.battleCreate.formatCount)?.textContent || '');
         text(card.lastElementChild?.querySelector('h2') || null, active ? label.selected : label.select);
-        card.classList.toggle('FormatsSectionComponentStyle-selectedCard', active);
-        card.classList.toggle('FormatsSectionComponentStyle-unSelectedCard', !active);
+        card.classList.toggle(gameDOM.classes.formatSelected, active);
+        card.classList.toggle(gameDOM.classes.formatUnselected, !active);
         const pressed = String(active);
         if (card.getAttribute('aria-pressed') !== pressed) card.setAttribute('aria-pressed', pressed);
         sport.toggleAttribute('data-kasp-cybersport-source-active', active);
@@ -236,5 +238,7 @@ export const cybersport = (() => {
         if (sport.nextSibling !== card) row.insertBefore(card, sport.nextSibling);
         if (chosen && !nativeSelected && Date.now() < selectionUntil) schedule();
     }
+    lifecycle.onCleanup(() => { cancelEsports(); cleanup(); });
+
     return sync;
-})();
+}, () => {});

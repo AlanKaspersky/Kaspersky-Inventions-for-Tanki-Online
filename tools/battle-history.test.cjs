@@ -1,3 +1,4 @@
+const runFeatureContext = require('./test-feature-context.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -10,7 +11,7 @@ function compile(file) {
     return transformSync(fs.readFileSync(path.join(root, file), 'utf8'), { loader: 'ts', format: 'cjs' }).code;
 }
 const markupModule = { exports: {} };
-vm.runInNewContext(compile('src/core/historyMarkup.ts'), { module: markupModule, URL });
+runFeatureContext(compile('src/core/historyMarkup.ts'), { module: markupModule, URL });
 const { escapeHistoryHtml, getHistoryImageUrl, renderHistoryTemplate } = markupModule.exports;
 
 function fixture() {
@@ -51,10 +52,10 @@ function fixture() {
             if (dependency === 'src/modules/equipmentTracker.ts') return {};
             return load(dependency);
         };
-        vm.runInNewContext(compile(file), { ...context, module, require });
+        runFeatureContext(compile(file), { ...context, module, require });
         return module.exports;
     }
-    const account = { getNickname: () => 'TestPlayer', updateNickname: () => true };
+    const account = { getUserId: () => '1001', getNickname: () => 'TestPlayer', updateIdentity: () => true };
     const views = load('src/modules/battleHistory/views.ts').createHistoryViews(account);
     const { validateImportedBattle } = load('src/modules/battleHistory/validation.ts');
     const { historyTranslations: t } = load('src/modules/battleHistory/localization.ts');
@@ -64,7 +65,7 @@ function fixture() {
 const image = 'https://s.eu.tankionline.com/static/images/rank.svg';
 function battle(overrides = {}) {
     return {
-        nickname: 'TestPlayer', date: 1700000000000, status: 'Victory', map: 'Arena', mode: 'TDM', top: '1',
+        id: 1, userId: '1001', nickname: 'TestPlayer', date: 1700000000000, status: 'Victory', map: 'Arena', mode: 'TDM', top: '1',
         reputation: 100, kills: 10, deaths: 5, kd: 2, crystals: 20, stars: 3,
         turretIcon: image, turretAugmentIcon: '', hullIcon: image, hullAugmentIcon: '',
         teamScoreMy: 10, teamScoreEnemy: 5,

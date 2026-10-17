@@ -5,8 +5,7 @@ html.kasp-hide-nickname [data-kasp-private-uid],
 html.kasp-hide-nickname [data-kasp-private-nickname],
 html.kasp-hide-nickname .BattleTabStatisticComponentStyle-selectedRowBackGround .BattleTabStatisticComponentStyle-nicknameCell span,
 html.kasp-hide-nickname #selfUserBg [class*="BattleKillBoardComponentStyle-col1"] span.-whiteSpaceNoWrap,
-html.kasp-hide-nickname .players-table tr.current-player .player-name,
-html.kasp-hide-nickname .bh-link-target {
+html.kasp-hide-nickname .players-table tr.current-player .player-name {
     position: relative;
     color: transparent !important;
     -webkit-text-fill-color: transparent !important;
@@ -35,8 +34,7 @@ html.kasp-hide-nickname [data-kasp-private-uid]::before,
 html.kasp-hide-nickname [data-kasp-private-nickname]::before,
 html.kasp-hide-nickname .BattleTabStatisticComponentStyle-selectedRowBackGround .BattleTabStatisticComponentStyle-nicknameCell span::before,
 html.kasp-hide-nickname #selfUserBg [class*="BattleKillBoardComponentStyle-col1"] span.-whiteSpaceNoWrap::before,
-html.kasp-hide-nickname .players-table tr.current-player .player-name::before,
-html.kasp-hide-nickname .bh-link-target::before {
+html.kasp-hide-nickname .players-table tr.current-player .player-name::before {
     content: var(--kasp-hidden-label, "Hidden");
     position: absolute;
     top: 0;

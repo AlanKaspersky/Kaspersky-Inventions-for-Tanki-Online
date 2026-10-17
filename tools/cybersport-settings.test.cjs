@@ -1,3 +1,4 @@
+const runFeatureContext = require('./test-feature-context.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -8,10 +9,10 @@ const { transformSync } = require('esbuild');
 const compile = file => transformSync(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'),
     { loader: 'ts', format: 'cjs' }).code;
 const domModule = { exports: {} };
-vm.runInNewContext(compile('src/core/gameDOM.ts'), { module: domModule });
+runFeatureContext(compile('src/core/gameDOM.ts'), { module: domModule });
 const dom = domModule.exports.gameDOM.battleCreate;
 const nativeModule = { exports: {} };
-vm.runInNewContext(compile('src/core/cybersportNative.ts'), { module: nativeModule, require: () => domModule.exports });
+runFeatureContext(compile('src/core/cybersportNative.ts'), { module: nativeModule, require: () => domModule.exports });
 const code = compile('src/modules/cybersportSettings.ts');
 
 function fixture({ language = 'RU', rank = 'Маршал', delayedMenu = false, privateLabel } = {}) {
@@ -91,7 +92,7 @@ function fixture({ language = 'RU', rank = 'Маршал', delayedMenu = false, 
         dropdown.queries.delete(dom.dropdownMenu);
     };
     const module = { exports: {} };
-    vm.runInNewContext(code, { module, require: id => id.includes('cybersportNative') ? nativeModule.exports : domModule.exports, Node,
+    runFeatureContext(code, { module, require: id => id.includes('cybersportNative') ? nativeModule.exports : domModule.exports, Node,
         document: { dispatchEvent() {} },
         HTMLInputElement: Input, Event, MouseEvent: Event, URL,
         location: { href: 'https://tankionline.com/play/' }, Date: { now: () => now },

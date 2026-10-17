@@ -1,8 +1,11 @@
+import { featureScope } from '../../core/featureRuntime';
+const lifecycle = featureScope('battleHistory');
 import { state } from '../../core/state';
 import { buildCardMarkup, buildDetailedMarkup } from './presentation';
 import { getAllBattles } from './repository';
 import { getHistoryDictionary, type HistoryDictionary } from './localization';
 import type { BattleData, HistoryAccount } from './types';
+import { historyContext } from './context';
 
 export function createHistoryViews(account: HistoryAccount) {
     const ROWS_PER_PAGE = 15;
@@ -38,8 +41,8 @@ export function createHistoryViews(account: HistoryAccount) {
             const finish = () => {
                 if (finished) return;
                 finished = true;
-                window.clearTimeout(timer);
-                element.removeEventListener('animationend', onAnimationEnd);
+                lifecycle.cancelTimeout(timer);
+                lifecycle.unlisten(element, 'animationend', onAnimationEnd);
                 element.classList.remove(className);
                 resolve();
             };
@@ -49,23 +52,24 @@ export function createHistoryViews(account: HistoryAccount) {
 
             element.classList.remove(className);
             void element.offsetWidth;
-            element.addEventListener('animationend', onAnimationEnd);
+            lifecycle.listen(element, 'animationend', onAnimationEnd);
             element.classList.add(className);
-            timer = window.setTimeout(finish, duration + 50);
+            timer = lifecycle.timeout(finish, duration + 50);
         });
 
     const renderDetailedMatch = async (b: BattleData, dict: HistoryDictionary, lang: string) => {
+        if (historyContext.invalidated) return;
         const contentBlock = document.querySelector('.custom-history-content');
         if (!contentBlock) return;
         const revision = ++detailRevision;
-        const isCurrent = () => revision === detailRevision
+        const isCurrent = () => !historyContext.invalidated && revision === detailRevision
             && document.querySelector('.custom-history-content') === contentBlock;
 
         let template: string;
         try {
             template = await loadTemplate('detail');
         } catch (error) {
-            console.error('[Tanki Battle History] Failed to load detail template:', error);
+            if (!historyContext.handle(error, lang)) console.error('[Tanki Battle History] Failed to load detail template:', error);
             return;
         }
 
@@ -112,7 +116,7 @@ export function createHistoryViews(account: HistoryAccount) {
         const card = document.createElement('article');
         card.innerHTML = buildCardMarkup(b, dict, lang, await loadTemplate('card'));
         card.style.cursor = 'pointer';
-        card.addEventListener('click', () => renderDetailedMatch(b, dict, lang));
+        lifecycle.listen(card, 'click', () => renderDetailedMatch(b, dict, lang));
         return card;
     };
 
@@ -143,7 +147,7 @@ export function createHistoryViews(account: HistoryAccount) {
         prev.className = 'bh-page bh-page-arrow';
         prev.textContent = '‹';
         prev.disabled = current <= 1;
-        prev.addEventListener('click', () => renderBattleList(current - 1));
+        lifecycle.listen(prev, 'click', () => renderBattleList(current - 1));
         list.appendChild(prev);
 
         const pages = buildPageNumbers(current, total);
@@ -159,7 +163,7 @@ export function createHistoryViews(account: HistoryAccount) {
             btn.type = 'button';
             btn.className = 'bh-page' + (p === current ? ' bh-page-active' : '');
             btn.textContent = String(p);
-            btn.addEventListener('click', () => renderBattleList(p as number));
+            lifecycle.listen(btn, 'click', () => renderBattleList(p as number));
             list.appendChild(btn);
         }
 
@@ -168,7 +172,7 @@ export function createHistoryViews(account: HistoryAccount) {
         next.className = 'bh-page bh-page-arrow';
         next.textContent = '›';
         next.disabled = current >= total;
-        next.addEventListener('click', () => renderBattleList(current + 1));
+        lifecycle.listen(next, 'click', () => renderBattleList(current + 1));
         list.appendChild(next);
     };
 
@@ -182,7 +186,7 @@ export function createHistoryViews(account: HistoryAccount) {
             listEl.classList.add('bh-list--animations-ready');
             listEl.querySelectorAll<HTMLElement>('.bh-card--rise-in').forEach(card => {
                 const delay = parseFloat(card.style.animationDelay) || 0;
-                window.setTimeout(() => {
+                lifecycle.timeout(() => {
                     card.classList.remove('bh-card--rise-in');
                     card.style.removeProperty('animation-delay');
                     card.style.removeProperty('z-index');
@@ -207,21 +211,26 @@ export function createHistoryViews(account: HistoryAccount) {
     };
 
     const renderBattleList = async (page = 1, animateNewMatches = false) => {
-        account.updateNickname();
+        if (historyContext.invalidated) return;
+        account.updateIdentity();
         const listEl = document.querySelector('.bh-list');
         if (!listEl) return;
 
         const revision = ++listRevision;
-        const nickname = account.getNickname();
-        const isCurrent = () => revision === listRevision && nickname === account.getNickname()
+        const userId = account.getUserId();
+        const isCurrent = () => !historyContext.invalidated && revision === listRevision && userId === account.getUserId()
             && document.querySelector('.bh-list') === listEl;
         const lang = state.lang;
         const dict = getHistoryDictionary(lang);
         let battles: BattleData[];
+        if (!userId) {
+            listEl.textContent = dict.accountUnavailable;
+            return;
+        }
         try {
-            battles = await getAllBattles(nickname);
+            battles = await getAllBattles(userId);
         } catch (error) {
-            console.error('[BattleHistory] Failed to load battles:', error);
+            if (!historyContext.handle(error, lang)) console.error('[BattleHistory] Failed to load battles:', error);
             return;
         }
         if (!isCurrent()) return;
@@ -246,7 +255,7 @@ export function createHistoryViews(account: HistoryAccount) {
         try {
             cards = await Promise.all(pageBattles.map(b => buildBattleCard(b, dict, lang)));
         } catch (error) {
-            console.error('[BattleHistory] Failed to render battles:', error);
+            if (!historyContext.handle(error, lang)) console.error('[BattleHistory] Failed to render battles:', error);
             return;
         }
         if (!isCurrent()) return;

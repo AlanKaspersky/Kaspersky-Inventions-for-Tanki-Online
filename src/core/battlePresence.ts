@@ -1,3 +1,5 @@
+import { featureScope } from './featureRuntime';
+import { postPageMessage } from './pageMessages';
 import { gameDOM } from './gameDOM';
 import { clientSourceHash, resolveTemplateEdits, validatePatchEdits } from './clientPatches';
 import type { PreparedPatchPlan } from './clientPatches';
@@ -123,15 +125,27 @@ export interface BattlePresencePatchPlan extends PreparedPatchPlan {
 const MARKER = '/*ki-battle-presence-ast:v1:';
 const unavailable = (issue: string): BattlePresenceHookStatus => ({ hooked: false, ready: false, strategy: 'ast-plan', issues: [issue] });
 
-export async function selectBattlePresencePlan(code: string, plans: readonly BattlePresencePatchPlan[]): Promise<BattlePresencePatchPlan | undefined> {
-    const candidates = plans.filter(plan => plan.format === 'ki-battle-presence-ast-v1' && plan.profile === 'complete' && plan.status.ready && plan.sourceLength === code.length);
+export async function selectBattlePresencePlan(code: string, plans: readonly BattlePresencePatchPlan[], profile: 'complete' | 'store' = 'complete'): Promise<BattlePresencePatchPlan | undefined> {
+    if (profile === 'store') plans = plans.flatMap(plan => {
+        if (plan.profile === 'store') return [plan];
+        if (plan.profile !== 'complete' || !plan.status.ready) return [];
+        const edits = plan.edits.filter(edit => edit.text.includes('window.__kaspPresenceStore('));
+        const templates = plan.templates?.filter(template => template.edits.length > 0 && template.edits.every(edit =>
+            edit.parts.some(part => typeof part === 'string' && part.includes('window.__kaspPresenceStore('))));
+        if (!edits.length || edits.length !== plan.status.storeHooks) return [];
+        const status = { ...plan.status, capacityHooks: 0 };
+        const marker = plan.edits.find(edit => edit.start === 0 && edit.end === 0 && edit.text.startsWith(MARKER));
+        return [{ ...plan, profile: 'store' as const, status, templates,
+            edits: marker ? [{ ...marker, text: MARKER + JSON.stringify(status) + '*/\n' }, ...edits] : edits }];
+    });
+    const candidates = plans.filter(plan => plan.format === 'ki-battle-presence-ast-v1' && plan.profile === profile && plan.status.ready && plan.sourceLength === code.length);
     if (candidates.length) try {
         const hash = await clientSourceHash(code);
         const exact = candidates.find(plan => plan.sha256 === hash);
         if (exact) return exact;
     } catch { }
     for (const plan of [...plans].reverse()) try {
-        if (plan.format !== 'ki-battle-presence-ast-v1' || plan.profile !== 'complete' || !plan.status.ready) continue;
+        if (plan.format !== 'ki-battle-presence-ast-v1' || plan.profile !== profile || !plan.status.ready) continue;
         const adapted = resolveTemplateEdits(code, plan);
         if (!adapted) continue;
         const status: BattlePresenceHookStatus = { ...plan.status, strategy: 'ast-template' };
@@ -153,8 +167,10 @@ export function patchBattlePresence(code: string, report?: (status: BattlePresen
     return done(patched, plan.status);
 }
 
-export function installBattlePresence(page: Window): void {
-    if (!navigator.userAgent.includes('Electron')) return;
+export function installBattlePresence(page: Window, observeStore?: (value: object) => void): void {
+    const lifecycle = featureScope('battlePresence');
+    const electron = navigator.userAgent.includes('Electron');
+    if (!electron && !observeStore) return;
     let store: object | null = null;
     const capacities = new Map<string, number>();
     const bridge = page as Window & {
@@ -164,9 +180,13 @@ export function installBattlePresence(page: Window): void {
         __kaspPresenceStoreDebug?: () => { captured: boolean; error: string | null };
     };
     bridge.__kaspPresenceStore = value => {
-        if (value && typeof value === 'object') store = value;
+        if (!lifecycle.disabled && value && typeof value === 'object') {
+            store = value;
+            try { observeStore?.(value); } catch { }
+        }
         return value;
     };
+    if (!electron) return;
     bridge.__kaspPresenceCapacity = (id, limit) => {
         if (id == null || typeof limit !== 'number' || !Number.isInteger(limit) || limit <= 0 || limit > 1000) return;
         capacities.set(String(id), limit);
@@ -190,9 +210,11 @@ export function installBattlePresence(page: Window): void {
             }
             lastMap = latest.map;
         } else { lastMap = undefined; lastRemaining = undefined; deadline = undefined; }
-        page.postMessage({ type: BATTLE_PRESENCE_MESSAGE, battle: latest, at: Date.now() }, page.location.origin);
+        postPageMessage(page, { type: BATTLE_PRESENCE_MESSAGE, battle: latest, at: Date.now() });
     };
     bridge.__kaspPresenceBattleDebug = () => latest;
     bridge.__kaspPresenceStoreDebug = () => ({ captured: store !== null, error });
-    page.setInterval(poll, 1000);
+    const timer = page.setInterval(() => lifecycle.run(poll), 1000);
+    lifecycle.onCleanup(() => { page.clearInterval(timer); store = null; capacities.clear(); latest = null;
+        postPageMessage(page, { type: BATTLE_PRESENCE_MESSAGE, battle: null, at: Date.now() }); });
 }

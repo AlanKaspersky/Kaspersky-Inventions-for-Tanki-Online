@@ -1,9 +1,13 @@
+import { featureScope } from '../core/featureRuntime';
+const lifecycle = featureScope('customTrophies');
 import { gameDOM } from '../core/gameDOM';
 import { state } from '../core/state';
+import { getVerifiedAccount } from '../core/accountIdentity';
+import { getTankiImageUrl } from '../core/imageUrl';
 
-export const customTrophies = (() => {
+export const customTrophies = lifecycle.initialize(() => {
     let initialization: Promise<void> | null = null;
-    const STORAGE_KEY = 'kasp_trophies_favorites';
+    const STORAGE_PREFIX = 'kasp_trophies_favorites_uid_';
     const ICON_UNFAV = 'https://s.eu.tankionline.com/static/images/unfavoriteStar.0e39d67a.svg';
     const ICON_FAV = 'https://s.eu.tankionline.com/static/images/favoriteStar.1ce58570.svg';
 
@@ -27,11 +31,30 @@ export const customTrophies = (() => {
     }
 
     let cachedFavs: Trophy[] | null = null;
+    let favoritesOwner: string | null = null;
+
+    function syncOwner(): string | null {
+        const userId = getVerifiedAccount()?.userId || null;
+        if (favoritesOwner !== userId) {
+            cachedFavs = null;
+            favoritesOwner = userId;
+            document.getElementById('custom-trophy-panel')?.remove();
+            document.querySelectorAll(gameDOM.trophies.favorite).forEach(star => star.remove());
+        }
+        return userId;
+    }
 
     function getFavs(): Trophy[] {
+        const userId = syncOwner();
+        if (!userId) return [];
         if (cachedFavs) return cachedFavs;
         try {
-            cachedFavs = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+            const value: unknown = JSON.parse(localStorage.getItem(STORAGE_PREFIX + userId) || '[]');
+            cachedFavs = Array.isArray(value) ? value.filter((item): item is Trophy => item && typeof item === 'object'
+                && typeof item.id === 'string' && item.id.length > 0 && item.id.length <= 128
+                && ['turret', 'hull'].includes(item.type) && typeof item.icon === 'string'
+                && Number.isFinite(item.current) && item.current >= 0 && Number.isFinite(item.max) && item.max > 0)
+                .slice(0, 4).map(item => ({ ...item, icon: getTankiImageUrl(item.icon) })) : [];
         } catch {
             cachedFavs = [];
         }
@@ -39,8 +62,10 @@ export const customTrophies = (() => {
     }
 
     function saveFavs(favs: Trophy[]) {
+        const owner = favoritesOwner;
+        if (!owner || syncOwner() !== owner) return;
         cachedFavs = favs;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(favs));
+        localStorage.setItem(STORAGE_PREFIX + owner, JSON.stringify(favs));
     }
 
     function parseItem(rawText: string) {
@@ -88,6 +113,8 @@ export const customTrophies = (() => {
     }
 
     function processGarageMissions(garageCards: HTMLElement[]) {
+        const owner = syncOwner();
+        if (!owner) return;
         let favs = getFavs();
         let favsUpdated = false;
         const favTurrets = favs.filter(f => f.type === 'turret').length;
@@ -127,18 +154,19 @@ export const customTrophies = (() => {
             if (!starContainer) {
                 starContainer = document.createElement('div');
                 starContainer.className = gameDOM.classes.favorite;
+                starContainer.setAttribute('data-kasp-trophy-star', '');
                 starContainer.innerHTML = `<img src="${favItem ? ICON_FAV : ICON_UNFAV}">`;
-                starContainer.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const iconUrl = extractIcon(card);
-                    toggleFavorite(itemInfo.id, type, iconUrl, currentPoints, maxPoints);
-                });
                 card.appendChild(starContainer);
             } else {
                 const img = starContainer.querySelector('img');
                 const expectedIcon = favItem ? ICON_FAV : ICON_UNFAV;
                 if (img && img.src !== expectedIcon) img.src = expectedIcon;
             }
+            (starContainer as HTMLElement).onclick = lifecycle.guard((e: MouseEvent) => {
+                e.stopPropagation();
+                if (syncOwner() !== owner || parseItem(card.textContent || '')?.id !== itemInfo.id) return;
+                toggleFavorite(itemInfo.id, type, extractIcon(card), currentPoints, maxPoints);
+            });
 
             if (limitReached) starContainer.classList.add('star-limit-reached');
             else starContainer.classList.remove('star-limit-reached');
@@ -198,19 +226,30 @@ export const customTrophies = (() => {
             const percent = Math.min(100, Math.max(0, (trophy.current / trophy.max) * 100));
             const match = Object.values(trophyDictionary).find(d => d.id === trophy.id);
             const displayName = match ? (state.lang === 'RU' ? match.ru : match.en) : trophy.id;
-            const itemHTML = `
-                        <div class="custom-trophy-item">
-                            <img class="custom-trophy-icon" src="${trophy.icon}" alt="${displayName}">
-                            <div class="custom-trophy-info">
-                                <div class="custom-trophy-title">${displayName}</div>
-                                <div class="custom-trophy-bar-bg">
-                                    <div class="custom-trophy-bar-fill" style="width: ${percent}%;"></div>
-                                </div>
-                                <div class="custom-trophy-text">${formatNumber(trophy.current)} / ${formatNumber(trophy.max)}</div>
-                            </div>
-                        </div>
-                    `;
-            panel.insertAdjacentHTML('beforeend', itemHTML);
+            const item = document.createElement('div');
+            item.className = 'custom-trophy-item';
+            const image = document.createElement('img');
+            image.className = 'custom-trophy-icon';
+            const icon = getTankiImageUrl(trophy.icon);
+            if (icon) image.src = icon;
+            image.alt = displayName;
+            const info = document.createElement('div');
+            info.className = 'custom-trophy-info';
+            const title = document.createElement('div');
+            title.className = 'custom-trophy-title';
+            title.textContent = displayName;
+            const bar = document.createElement('div');
+            bar.className = 'custom-trophy-bar-bg';
+            const fill = document.createElement('div');
+            fill.className = 'custom-trophy-bar-fill';
+            fill.style.width = `${percent}%`;
+            bar.appendChild(fill);
+            const progress = document.createElement('div');
+            progress.className = 'custom-trophy-text';
+            progress.textContent = `${formatNumber(trophy.current)} / ${formatNumber(trophy.max)}`;
+            info.append(title, bar, progress);
+            item.append(image, info);
+            panel.appendChild(item);
         });
         return panel;
     }
@@ -220,7 +259,7 @@ export const customTrophies = (() => {
         const panel = document.getElementById('custom-trophy-panel');
 
         if (challengesBlock) {
-            const key = JSON.stringify([state.lang, getFavs()]);
+            const key = JSON.stringify([favoritesOwner, state.lang, getFavs()]);
             if (getFavs().length === 0) panel?.remove();
             else if (challengesBlock.parentElement && (!panel || panel.dataset.trophiesKey !== key)) {
                 const replacement = createPanel();
@@ -236,10 +275,14 @@ export const customTrophies = (() => {
         if (cards.length > 0) processGarageMissions(Array.from(cards) as HTMLElement[]);
     }
 
+    lifecycle.onCleanup(() => { cachedFavs=null;favoritesOwner=null;document.querySelectorAll('.custom-trophy-panel, [data-kasp-trophy-star]').forEach(node=>node.remove()); });
+
     return async () => {
+        const owner = syncOwner();
         if (!initialization) initialization = loadTrophyDictionary();
         await initialization;
-        if (!trophyDictionaryLoaded) return;
+        if(lifecycle.disabled) return;
+        if (!trophyDictionaryLoaded || !owner || syncOwner() !== owner) return;
 
         if (state.currentScreen === 'lobby' || state.currentScreen === 'garage') {
             updateInterface();
@@ -248,4 +291,4 @@ export const customTrophies = (() => {
             if (battleCards.length > 0) processBattleResults(Array.from(battleCards) as HTMLElement[]);
         }
     };
-})();
+}, () => {});

@@ -1,7 +1,9 @@
+import { featureScope } from '../core/featureRuntime';
+const lifecycle = featureScope('garageButtons');
 import { gameDOM } from '../core/gameDOM';
 import { state } from '../core/state';
 
-export const garageButtons = (() => {
+export const garageButtons = lifecycle.initialize(() => {
     const ICONS = {
         UPGRADE: "https://s.eu.tankionline.com/static/images/max_level.e31e0825.svg",
         MOUNT: "https://s.eu.tankionline.com/static/images/ic_mount.4175dc0c.svg",
@@ -39,6 +41,7 @@ export const garageButtons = (() => {
             return;
         const currentCategory = getActiveTabCategory();
         buttons.forEach((btn) => {
+            const commit = lifecycle.preserve(btn as HTMLElement, [], ['kasp-active-btn', 'kasp-disabled-btn', 'kasp-hover-up', 'kasp-hover-down', 'kasp-btn-white', 'kasp-btn-gray']);
             const textHTML = btn.innerHTML.toLowerCase();
             const textContent = btn.textContent?.toLowerCase() || '';
             const hasHotKey = btn.querySelector(gameDOM.common.hotkeyFragment);
@@ -102,8 +105,11 @@ export const garageButtons = (() => {
 
             const iconDiv = btn.querySelector<HTMLElement>(gameDOM.common.icon);
             if (iconDiv) {
+                const commitIcon = lifecycle.preserve(iconDiv, ['background-image', 'background-color', '-webkit-mask-image', 'mask-image', '-webkit-mask-size', 'mask-size', '-webkit-mask-repeat', 'mask-repeat', '-webkit-mask-position', 'mask-position', 'opacity']);
                 applyMask(iconDiv, targetIcon, iconColor);
+                commitIcon();
             }
+            commit();
         });
     }
 
@@ -150,4 +156,4 @@ export const garageButtons = (() => {
             processedSigs.set(buttons[i], computeButtonSig(buttons[i], category));
         }
     };
-})();
+}, () => {});

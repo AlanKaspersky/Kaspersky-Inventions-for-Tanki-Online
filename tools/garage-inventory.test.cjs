@@ -1,10 +1,11 @@
+const runFeatureContext = require('./test-feature-context.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const { test } = require('node:test');
 const { transformSync } = require('esbuild');
 const loaded = { exports: {} };
-vm.runInNewContext(transformSync(fs.readFileSync('src/core/garageInventory.ts', 'utf8'), { loader: 'ts', format: 'cjs' }).code,
+runFeatureContext(transformSync(fs.readFileSync('src/core/garageInventory.ts', 'utf8'), { loader: 'ts', format: 'cjs' }).code,
     { module: loaded, exports: loaded.exports, crypto: require('crypto').webcrypto, TextEncoder, require: () => require('./test-client-patches.cjs') });
 const { installGarageInventoryDiagnostics } = loaded.exports;
 const { analyzeGarageInventory } = require('./garage-inventory-ast.cjs');
@@ -21,7 +22,7 @@ function setup() {
     const target = { document: { querySelectorAll: () => [{ getAttribute: () => '1' }] } };
     installGarageInventoryDiagnostics(target);
     const context = { window: target, proto: type => type.prototype };
-    vm.runInNewContext(patchGarageInventoryDiagnostics(fixture), context);
+    runFeatureContext(patchGarageInventoryDiagnostics(fixture), context);
     return { target, context };
 }
 const collection = items => ({ b3: () => ({ t: () => {
@@ -105,7 +106,7 @@ test('prepared inventory templates adapt all item fields and collection methods 
         const patched = patchGarageInventoryDiagnostics(changed, undefined, adapted); new vm.Script(patched);
         assert.equal(patched.includes(adapted.schemaToken), false);
         const target = { document: { querySelectorAll: () => [] } }; installGarageInventoryDiagnostics(target);
-        const c = { window: target, proto: type => type.prototype }; vm.runInNewContext(patched, c);
+        const c = { window: target, proto: type => type.prototype }; runFeatureContext(patched, c);
         const raw = { updated_id: { toString: () => '9223372036854775807' }, updated_name: 'Native name', updated_owned: false,
             updated_visible: false, updated_secret: true, updated_preview: { updated_url: () => 'native-preview' } };
         const values = [raw], collection = mappedCollection(values, adapted.schema);
@@ -124,7 +125,7 @@ test('inventory capture performs no traversal or DOM queries until diagnostics a
         setInterval() { throw Error('unexpected polling'); }, setTimeout() { throw Error('unexpected background work'); } };
     installGarageInventoryDiagnostics(target);
     const plan = analyzeGarageInventory(fixture), c = { window: target, proto: type => type.prototype };
-    vm.runInNewContext(patchGarageInventoryDiagnostics(fixture, undefined, plan), c);
+    runFeatureContext(patchGarageInventoryDiagnostics(fixture, undefined, plan), c);
     const calls = [], values = [item(1, false)], native = mappedCollection(values, plan.schema, calls);
     const state = new c.State(native);
     assert.equal(state.flat, native); assert.equal(state.completed, true); assert.equal(queries, 0); assert.equal(calls.length, 0);
@@ -154,7 +155,7 @@ test('state scopes, assignment return values and native strict mode are preserve
     const changed = source + '\nvar _kaspBonusResult=456;';
     const adapted = await loaded.exports.selectGarageInventoryPlan(changed, [plan]); assert.ok(adapted);
     const capture = [], c = { window: { __kaspGarageInventoryCapture: (...args) => { capture.push(args); throw Error('bridge failed'); } }, proto: type => type.prototype };
-    vm.runInNewContext(patchGarageInventoryDiagnostics(changed, undefined, adapted), c);
+    runFeatureContext(patchGarageInventoryDiagnostics(changed, undefined, adapted), c);
     const native = collection([]), state = new c.State(native);
     assert.equal(state.flat, native); assert.equal(state.completedValue, native); assert.equal(state.completed, true);
     assert.equal(capture.length, 1); assert.equal(capture[0][0], native); assert.equal(c._kaspBonusResult, 456);

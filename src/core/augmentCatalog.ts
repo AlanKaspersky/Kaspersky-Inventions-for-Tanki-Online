@@ -2,6 +2,7 @@ import { AUGMENTS_MESSAGE, AUGMENTS_REQUEST, isAugmentPreviewUrl } from './gameA
 import type { AugmentSnapshot, GameAugment } from './gameAugments';
 import { augmentPropertyBenefit, augmentPropertyLabel } from './augmentLabels';
 import { parseAugmentRules } from './augmentRules';
+import { postPageMessage, readPageMessage } from './pageMessages';
 import type { AugmentRule } from './augmentRules';
 
 export const AUGMENTS_JSON_FILE = 'kasp-augments.json';
@@ -197,11 +198,12 @@ if (typeof window !== 'undefined' && window === window.top) {
     }
     void persist(catalog.export());
     window.addEventListener('message', event => {
-        if (event.source !== window || event.data?.type !== AUGMENTS_MESSAGE || !catalog.accept(event.data.detail)) return;
+        const message = readPageMessage(event, window, AUGMENTS_MESSAGE);
+        if (!message || !catalog.accept(message.detail)) return;
         void persist(catalog.export());
         window.dispatchEvent(new CustomEvent(AUGMENTS_UPDATED));
     });
-    window.postMessage({ type: AUGMENTS_REQUEST }, '*');
+    postPageMessage(window, { type: AUGMENTS_REQUEST });
 }
 
 export const AugmentCatalog = {

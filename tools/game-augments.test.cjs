@@ -1,3 +1,4 @@
+const runFeatureContext = require('./test-feature-context.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -10,7 +11,7 @@ function load(file, globals = {}, cache = new Map()) {
     if (cache.has(absolute)) return cache.get(absolute);
     const module = { exports: {} };
     cache.set(absolute, module.exports);
-    vm.runInNewContext(transformSync(fs.readFileSync(absolute, 'utf8'), { loader: 'ts', format: 'cjs' }).code, {
+    runFeatureContext(transformSync(fs.readFileSync(absolute, 'utf8'), { loader: 'ts', format: 'cjs' }).code, {
         module, exports: module.exports, URL, Map, Set, Event, console, ...globals,
         require: name => load(path.relative(root, path.resolve(path.dirname(absolute), name + '.ts')), globals, cache),
     });
@@ -26,6 +27,52 @@ const catalog = load('src/core/augmentCatalog.ts');
 const labels = load('src/core/augmentLabels.ts');
 const rules = load('src/core/augmentRules.ts');
 const tick = () => new Promise(resolve => setImmediate(resolve));
+
+test('garage cosmetic flags use the committed React card and preserve distinct skin IDs', () => {
+    const rootState = {};
+    const previousRoot = { stateNode: rootState }, currentRoot = { stateNode: rootState };
+    const previous = { return: previousRoot, memoizedProps: { id: '101', name: 'Hornet XT', isMounted: true, isSelected: true, isOwned: true, isUnknown: false } };
+    const current = { return: currentRoot, memoizedProps: { id: '102', name: 'Hornet XT', isMounted: false, isSelected: true, isOwned: false, isUnknown: true } };
+    previous.alternate = current; current.alternate = previous;
+    previousRoot.child = previous; currentRoot.child = current;
+    rootState.current = currentRoot;
+    const icon = { parentElement: null, __reactFiber$test: previous };
+    const value = game.readGarageCosmeticCard(icon);
+    assert.equal(value.id, '102');
+    assert.equal(value.isMounted, false);
+    assert.equal(value.isUnknown, true);
+    assert.equal(value.isOwned, false);
+    rootState.current = previousRoot;
+    assert.equal(game.readGarageCosmeticCard(icon).id, '101');
+    assert.equal(game.readGarageCosmeticCard({ parentElement: null }), null);
+});
+
+test('page-world skin bridge refreshes DOM attributes through presentation wrappers without a catalog or setting', () => {
+    const native = { id: '101', name: 'Hornet XT', isMounted: true, isSelected: true, isOwned: true, isUnknown: false };
+    const model = { memoizedProps: native };
+    let leaf = model;
+    for (let i = 0; i < 9; i++) leaf = { memoizedProps: { className: 'style' }, return: leaf };
+    const attributes = new Map(); let writes = 0;
+    const icon = { parentElement: null, __reactFiber$test: leaf,
+        getAttribute: key => attributes.get(key) ?? null, hasAttribute: key => attributes.has(key),
+        setAttribute(key, value) { writes++; attributes.set(key, value); }, removeAttribute: key => attributes.delete(key) };
+    const handlers = {};
+    const document = { querySelector: () => ({ querySelectorAll: () => [icon] }) };
+    const runtime = load('src/core/gameAugments.ts', { document });
+    runtime.installGarageSkinCardsBridge({ addEventListener: (name, fn) => { handlers[name] = fn; } });
+    const refresh = () => {
+        const event = new Event(runtime.GARAGE_SKIN_CARDS_REQUEST, { cancelable: true });
+        handlers[runtime.GARAGE_SKIN_CARDS_REQUEST](event);
+        assert.equal(event.defaultPrevented, true);
+    };
+    refresh();
+    assert.equal(JSON.parse(attributes.get('data-kasp-skin-card')).id, '101');
+    refresh(); assert.equal(writes, 1, 'unchanged state must not create an observer feedback loop');
+    native.isMounted = false; native.isUnknown = true; refresh();
+    assert.equal(JSON.parse(attributes.get('data-kasp-skin-card')).isMounted, false);
+    model.memoizedProps = {}; refresh();
+    assert.equal(attributes.has('data-kasp-skin-card'), false, 'obsolete metadata must be removed');
+});
 
 const fixture = `
 function fake() { function jh(){return other} }
@@ -116,7 +163,7 @@ test('page export refreshes exact identities, deduplicates cards, and reports un
         getClientRects() { return this.visible ? [{}] : []; }
     }
     const images = [new Image('1'), new Image('1'), new Image('2', false), new Image('3')];
-    const page = { setTimeout() {}, setInterval() {}, addEventListener() {}, postMessage() {} };
+    const page = { location: { origin: 'https://tankionline.com' }, setTimeout() {}, setInterval() {}, addEventListener() {}, postMessage() {} };
     const module = load('src/core/gameAugments.ts', { HTMLImageElement: Image,
         document: { body: {}, documentElement: { lang: 'en' }, querySelectorAll: () => images },
         localStorage: { getItem: () => 'en' } });
@@ -136,14 +183,14 @@ test('page export refreshes exact identities, deduplicates cards, and reports un
 
 test('late rule loading refreshes classification without requiring another game snapshot', async () => {
     let finish; const handlers = {}, events = [];
-    const page = { addEventListener: (name, callback) => { handlers[name] = callback; },
+    const page = { location: { origin: 'https://tankionline.com' }, addEventListener: (name, callback) => { handlers[name] = callback; },
         dispatchEvent: event => events.push(event.type), postMessage() {} }; page.top = page;
     const module = load('src/core/augmentCatalog.ts', { window: page,
         CustomEvent: class { constructor(type) { this.type = type; } },
         chrome: { runtime: { getURL: value => value } },
         fetch: () => new Promise(resolve => { finish = resolve; }),
         sessionStorage: { setItem() {} }, navigator: { storage: {} } });
-    handlers.message({ source: page, data: { type: game.AUGMENTS_MESSAGE, detail: snapshot([device('1', -25)]) } });
+    handlers.message({ origin: 'https://tankionline.com', source: page, data: { type: game.AUGMENTS_MESSAGE, detail: snapshot([device('1', -25)]) } });
     assert.equal(module.AugmentCatalog.getDevice(device().icons[0]).disadvantages.length, 1);
     finish({ ok: true, json: async () => ({ rules: [{ objectId: '1', property: 'SHOT_RANGE', status: 'better' }] }) });
     await tick();
@@ -168,7 +215,7 @@ test('patch preserves model cache writes and constructor behavior even when brid
         __kaspAugmentData: () => { throw new Error('diagnostic'); },
         __kaspAugmentLink: () => { throw new Error('diagnostic'); },
     }, Map };
-    vm.runInNewContext(game.patchGameAugments(fixture), context);
+    runFeatureContext(game.patchGameAugments(fixture), context);
     assert.equal(configured.properties, 'ncb_1');
     const m = new context.model();
     const object = {}, data = {};
@@ -200,7 +247,7 @@ test('renamed model methods are discovered by context and unrelated map writers 
         const context = { Map, window: { __kaspAugmentConfigure() {}, __kaspAugmentData: (...args) => observed.push(args) } };
         const patched = game.patchGameAugments(code);
         assert.notEqual(patched, code);
-        vm.runInNewContext(patched, context);
+        runFeatureContext(patched, context);
         const object = {}, data = {};
         const model = new context.model(); model.v7j(object, data);
         assert.equal(model.l7j_1.s2a_1.get(object), data);
@@ -214,7 +261,7 @@ test('renamed model methods are discovered by context and unrelated map writers 
 
 test('collector uses the discovered object ID method after a game update', () => {
     const frames = [], messages = [];
-    const page = { setTimeout: fn => frames.push(fn), setInterval() {}, addEventListener() {}, postMessage: m => messages.push(m) };
+    const page = { location: { origin: 'https://tankionline.com' }, setTimeout: fn => frames.push(fn), setInterval() {}, addEventListener() {}, postMessage: m => messages.push(m) };
     const module = load('src/core/gameAugments.ts', { document: { documentElement: { lang: 'en' } }, localStorage: { getItem: () => 'en' } });
     module.installGameAugments(page);
     page.__kaspAugmentConfigure({ ...schema, objectIdMethod: 'x57' });
@@ -319,7 +366,7 @@ test('selected cards use the committed React tree when switching skins and shot 
 
 test('collector joins properties and descriptions in either order, preserves empty effects, and replies to late listeners', () => {
     const frames = [], handlers = {}, messages = [];
-    const page = { setTimeout: fn => frames.push(fn), setInterval() {},
+    const page = { location: { origin: 'https://tankionline.com' }, setTimeout: fn => frames.push(fn), setInterval() {},
         addEventListener: (name, callback) => { handlers[name] = callback; },
         postMessage: message => messages.push(message) };
     const document = { documentElement: { lang: 'en' } };
@@ -340,7 +387,7 @@ test('collector joins properties and descriptions in either order, preserves emp
     const revision = messages.at(-1).detail.revision;
     page.__kaspAugmentData(object, { ncb_1: list([]) });
     assert.equal(frames.length, 0);
-    handlers.message({ source: page, data: { type: module.AUGMENTS_REQUEST } });
+    handlers.message({ origin: 'https://tankionline.com', source: page, data: { type: module.AUGMENTS_REQUEST } });
     assert.equal(messages.at(-1).detail.revision, revision);
 });
 
@@ -351,7 +398,7 @@ test('disabled card binding has no DOM observer or polling and restarts without 
     const document = { body: {}, documentElement: { lang: 'en',
         toggleAttribute(name, value) { if (value) attributes.add(name); else attributes.delete(name); } },
         querySelectorAll() { scans++; return []; } };
-    const page = { setTimeout() {}, setInterval(fn) { timers.set(++serial, fn); return serial; },
+    const page = { location: { origin: 'https://tankionline.com' }, setTimeout() {}, setInterval(fn) { timers.set(++serial, fn); return serial; },
         clearInterval(id) { timers.delete(id); }, postMessage() {},
         addEventListener(name, handler) { handlers[name] = handler; } };
     const module = load('src/core/gameAugments.ts', { document,
@@ -386,7 +433,7 @@ test('late metadata binds mounted cards and native resets refresh the UI without
     image.__reactFiber$test = { memoizedProps: { id: long('1') } };
     const frames = [], messages = [], events = [];
     let scan, observeCards;
-    const page = { setTimeout: fn => frames.push(fn), setInterval: fn => { scan = fn; },
+    const page = { location: { origin: 'https://tankionline.com' }, setTimeout: fn => frames.push(fn), setInterval: fn => { scan = fn; },
         addEventListener() {}, postMessage: message => messages.push(message), dispatchEvent: event => events.push(event.type) };
     const module = load('src/core/gameAugments.ts', { HTMLImageElement: Image,
         MutationObserver: class { constructor(callback) { observeCards = callback; } observe() {} },
@@ -462,7 +509,7 @@ test('tooltips preserve descriptions and show other parameters only when classif
             querySelectorAll: selector => selector === dom.augments.cardImage ? [image] : [],
             createElement: () => ({ dataset: {}, handlers: {}, addEventListener(name, fn) { this.handlers[name] = fn; } }) };
         const module = { exports: {} };
-        vm.runInNewContext(transformSync(fs.readFileSync(path.join(root, 'src/modules/augmentSpecs.ts'), 'utf8'),
+        runFeatureContext(transformSync(fs.readFileSync(path.join(root, 'src/modules/augmentSpecs.ts'), 'utf8'),
             { loader: 'ts', format: 'cjs' }).code, { module, exports: module.exports, document,
             window: { innerWidth: 1000, innerHeight: 1000, getComputedStyle: () => ({ position: 'relative' }), addEventListener() {} },
             requestAnimationFrame: fn => frames.push(fn), queueMicrotask: fn => frames.push(fn), require: name => {
@@ -558,7 +605,7 @@ test('unavailable previews restore on native card changes, loading errors and mo
             card.children = card.children.filter(node => node !== this); this.parentElement = null;
         } }) };
     const module = { exports: {} };
-    vm.runInNewContext(transformSync(fs.readFileSync(path.join(root, 'src/modules/augmentSpecs.ts'), 'utf8'), { loader: 'ts', format: 'cjs' }).code,
+    runFeatureContext(transformSync(fs.readFileSync(path.join(root, 'src/modules/augmentSpecs.ts'), 'utf8'), { loader: 'ts', format: 'cjs' }).code,
         { module, exports: module.exports, document,
             window: { getComputedStyle: () => ({ position: 'relative' }), addEventListener: (name, fn) => { handlers[name] = fn; } },
             requestAnimationFrame: fn => frames.push(fn), queueMicrotask: fn => frames.push(fn), require: name => {
@@ -700,7 +747,7 @@ test('zero deltas and unchanged absolute values do not create an unresolved para
 
 test('collector saves equipment baselines alongside devices and invalid data clears the previous baseline', () => {
     const frames = [], messages = [];
-    const page = { setTimeout: fn => frames.push(fn), setInterval() {}, addEventListener() {}, postMessage: m => messages.push(m) };
+    const page = { location: { origin: 'https://tankionline.com' }, setTimeout: fn => frames.push(fn), setInterval() {}, addEventListener() {}, postMessage: m => messages.push(m) };
     const module = load('src/core/gameAugments.ts', { document: { documentElement: { lang: 'en' } }, localStorage: { getItem: () => 'en' } });
     module.installGameAugments(page);
     page.__kaspAugmentConfigure(schema);
@@ -723,7 +770,7 @@ test('rejects malformed bridge snapshots before lookup or persistence', () => {
 
 test('rewrites private JSON on page initialization and saves newer snapshots in order without reading old data', async () => {
     const writes = [], handlers = {}, session = new Map();
-    const page = { addEventListener: (name, callback) => { handlers[name] = callback; },
+    const page = { location: { origin: 'https://tankionline.com' }, addEventListener: (name, callback) => { handlers[name] = callback; },
         dispatchEvent() {}, postMessage() {} };
     page.top = page;
     load('src/core/augmentCatalog.ts', { window: page, CustomEvent: class {},
@@ -733,8 +780,8 @@ test('rewrites private JSON on page initialization and saves newer snapshots in 
             return { createWritable: async () => ({ write: async value => writes.push(value), close: async () => {}, abort: async () => {} }) };
         } }) } },
     });
-    handlers.message({ source: page, data: { type: game.AUGMENTS_MESSAGE, detail: snapshot([device()], 1) } });
-    handlers.message({ source: page, data: { type: game.AUGMENTS_MESSAGE, detail: snapshot([device('2')], 2) } });
+    handlers.message({ origin: 'https://tankionline.com', source: page, data: { type: game.AUGMENTS_MESSAGE, detail: snapshot([device()], 1) } });
+    handlers.message({ origin: 'https://tankionline.com', source: page, data: { type: game.AUGMENTS_MESSAGE, detail: snapshot([device('2')], 2) } });
     await tick();
     assert.equal(JSON.parse(writes[0]).devices.length, 0);
     assert.equal(JSON.parse(writes.at(-1)).devices[0].id, '2');
@@ -743,11 +790,11 @@ test('rewrites private JSON on page initialization and saves newer snapshots in 
 
 test('unsupported file storage retains the session JSON and does not reject game data', async () => {
     const handlers = {}, session = new Map();
-    const page = { addEventListener: (name, callback) => { handlers[name] = callback; }, dispatchEvent() {}, postMessage() {} };
+    const page = { location: { origin: 'https://tankionline.com' }, addEventListener: (name, callback) => { handlers[name] = callback; }, dispatchEvent() {}, postMessage() {} };
     page.top = page;
     const module = load('src/core/augmentCatalog.ts', { window: page, CustomEvent: class {}, navigator: { storage: {} },
         sessionStorage: { setItem: (key, value) => session.set(key, value) } });
-    handlers.message({ source: page, data: { type: game.AUGMENTS_MESSAGE, detail: snapshot([device()]) } });
+    handlers.message({ origin: 'https://tankionline.com', source: page, data: { type: game.AUGMENTS_MESSAGE, detail: snapshot([device()]) } });
     await tick();
     assert.equal(JSON.parse(session.get(catalog.AUGMENTS_JSON_KEY)).devices.length, 1);
     assert.ok(module.AugmentCatalog.storageStatus().fileError);

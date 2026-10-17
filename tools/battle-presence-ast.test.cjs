@@ -1,3 +1,4 @@
+const runFeatureContext = require('./test-feature-context.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -9,7 +10,7 @@ const { analyzeBattlePresence } = require('./battle-presence-ast.cjs');
 const patches = require('./test-client-patches.cjs');
 const loaded = { exports: {} };
 const compiled = transformSync(fs.readFileSync(path.join(__dirname, '../src/core/battlePresence.ts'), 'utf8'), { loader: 'ts', format: 'cjs' }).code;
-vm.runInNewContext(compiled, { module: loaded, crypto: webcrypto, TextEncoder,
+runFeatureContext(compiled, { module: loaded, crypto: webcrypto, TextEncoder,
     require: id => id === './clientPatches' ? patches : { gameDOM: { presence: { timer: '.timer' } } } });
 const { selectBattlePresencePlan, patchBattlePresence } = loaded.exports;
 const fixture = `
@@ -17,6 +18,39 @@ function Settings(){this.idSlot=new Value("battleId"),this.maxSlot=new Value("ma
 var getter=function(){var q=Scope;return this.changedField.resolve(this,descriptor("store",1,q,function(x){return x.renamedGetter()},null))};
 function load(t,n){return settings(t).idSlot.set(runtime().current().id()),settings(t).maxSlot.set(n.limit)}
 `;
+test('account diagnostics adapt store hooks independently of obsolete battle-capacity settings', async () => {
+    const plan = analyzeBattlePresence(fixture);
+    const changed = fixture.replace('"maxPeople"', '"newUnrelatedSetting"').replace('changedField', 'renamedField');
+    assert.equal(await selectBattlePresencePlan(changed, [plan]), undefined);
+    const selected = await selectBattlePresencePlan(changed, [plan], 'store');
+    assert.ok(selected);
+    assert.equal(selected.profile, 'store');
+    assert.equal(selected.status.capacityHooks, 0);
+    const store = {}, captures = [];
+    const context = { Scope: {}, descriptor() {}, window: { __kaspPresenceStore: value => captures.push(value) } };
+    runFeatureContext(patchBattlePresence(changed, undefined, selected), context);
+    assert.equal(context.getter.call({ renamedField: { resolve: () => store } }), store);
+    assert.equal(captures[0], store);
+    assert.equal(selected.edits.some(edit => edit.text.includes('__kaspPresenceCapacity(')), false);
+    const exact = await selectBattlePresencePlan(fixture, [plan], 'store');
+    assert.ok(exact);
+    assert.equal(exact.edits.some(edit => edit.text.includes('__kaspPresenceCapacity(')), false);
+});
+
+test('browser store observation preserves native returns and creates no Discord polling', () => {
+    const runtime = { exports: {} };
+    runFeatureContext(compiled, { module: runtime, navigator: { userAgent: 'Chrome' },
+        require: id => id === './clientPatches' ? patches : { gameDOM: {} } });
+    const page = { setInterval() { throw Error('browser must not poll Discord presence'); } };
+    const captured = [];
+    runtime.exports.installBattlePresence(page, value => captured.push(value));
+    const store = {};
+    assert.equal(page.__kaspPresenceStore(store), store);
+    assert.equal(captured[0], store);
+    runtime.exports.installBattlePresence(page, () => { throw Error('observer failure'); });
+    assert.equal(page.__kaspPresenceStore(store), store);
+});
+
 function setup(source = fixture, options = {}) {
     const values = {}, captures = [], reads = { id: 0, limit: 0, settings: 0, store: 0 };
     const store = {}, context = {
@@ -25,7 +59,7 @@ function setup(source = fixture, options = {}) {
         window: { __kaspPresenceStore(value) { captures.push(value); if (options.observerError) throw Error('observer failed'); },
             __kaspPresenceCapacity(id, limit) { captures.push([id, limit]); if (options.observerError) throw Error('observer failed'); } },
     };
-    vm.runInNewContext(patchBattlePresence(source, undefined, analyzeBattlePresence(source)), context);
+    runFeatureContext(patchBattlePresence(source, undefined, analyzeBattlePresence(source)), context);
     const settings = new context.Settings(); context.settings = () => { reads.settings++; return settings; };
     const component = { changedField: { resolve() { reads.store++; return store; } } };
     const argument = { get limit() { reads.limit++; return 20; } };
@@ -68,7 +102,7 @@ test('known hashes and compatible renamed or reformatted builds select complete 
     new vm.Script(patchBattlePresence(changed, undefined, adapted));
     const context = { Scope: {}, descriptor() {}, Value: function() { this.set = value => value; }, clientState: () => ({ current: () => ({ id: () => 'new-battle' }) }),
         window: { captured: [], __kaspPresenceCapacity(...args) { this.captured.push(args); }, __kaspPresenceStore(value) { this.store = value; } } };
-    vm.runInNewContext(patchBattlePresence(changed, undefined, adapted), context);
+    runFeatureContext(patchBattlePresence(changed, undefined, adapted), context);
     const settings = new context.Settings(); context.configuration = () => settings;
     const store = {}; assert.equal(context.getter.call({ container: { lookup: () => store } }), store);
     assert.equal(context.window.store, store); assert.equal(context.load({}, { limit: 24 }), 24);
@@ -93,7 +127,7 @@ test('statement pairs, nested getters and injected local names preserve strict n
     const adapted = await selectBattlePresencePlan(changed, [plan]); assert.ok(adapted);
     const c = { Scope: {}, descriptor() {}, Value: function() { this.set = v => v; }, runtime: () => ({ current: () => ({ id: () => 'battle-2' }) }),
         window: { __kaspPresenceCapacity(id, limit) { this.result = [id, limit]; } } };
-    vm.runInNewContext(patchBattlePresence(changed, undefined, adapted), c);
+    runFeatureContext(patchBattlePresence(changed, undefined, adapted), c);
     const settings = new c.Settings(); c.settings = () => settings;
     assert.equal(c.load({}, { limit: 16 }), 16); assert.deepEqual(c.window.result, ['battle-2', 16]);
     assert.equal(c._kaspBonusResult, 5); assert.equal(c.__kaspPresenceId, 7); assert.equal(c.__kaspPresenceLimit, 9);
@@ -120,13 +154,13 @@ test('Electron store capture feeds map, mode, server capacity and remaining time
         setInterval(callback, ms) { assert.equal(ms, 1000); poll = callback; },
         postMessage(message, origin) { assert.equal(origin, this.location.origin); this.messages.push(message); } };
     const module = { exports: {} };
-    vm.runInNewContext(compiled, { module, navigator: { userAgent: 'Electron' }, Date: { now: () => now },
+    runFeatureContext(compiled, { module, navigator: { userAgent: 'Electron' }, Date: { now: () => now },
         document: { querySelector: () => timer }, require: id => id === './clientPatches' ? patches : { gameDOM: { presence: { timer: '.timer' } } } });
     module.exports.installBattlePresence(target);
     const stats = { a: 'battle-1', b: 'Osa', c: 120, d: true, e: 'CP',
         toString() { return 'BattleStatistics(battleId=' + this.a + ', mapNameWithoutMode=' + this.b + ', remainingTimeInSec=' + this.c + ', battleLoaded=' + this.d + ', mode=' + this.e + ')'; } };
     const c = { ...setup().context, window: target };
-    vm.runInNewContext(patchBattlePresence(fixture, undefined, analyzeBattlePresence(fixture)), c);
+    runFeatureContext(patchBattlePresence(fixture, undefined, analyzeBattlePresence(fixture)), c);
     const settings = new c.Settings(); c.settings = () => settings;
     c.getter.call({ changedField: { resolve: () => ({ stats }) } }); c.load({}, { limit: 20 }); poll();
     let battle = target.messages.at(-1).battle;
@@ -136,7 +170,7 @@ test('Electron store capture feeds map, mode, server capacity and remaining time
     stats.d = false; poll(); assert.equal(target.messages.at(-1).battle, null);
     assert.equal(target.__kaspPresenceStoreDebug().captured, true); assert.equal(target.__kaspPresenceStoreDebug().error, null);
     // Browser use remains inactive, including background timers.
-    vm.runInNewContext(compiled, { module, navigator: { userAgent: 'Chrome' }, require: id => id === './clientPatches' ? patches : { gameDOM: {} } });
+    runFeatureContext(compiled, { module, navigator: { userAgent: 'Chrome' }, require: id => id === './clientPatches' ? patches : { gameDOM: {} } });
     module.exports.installBattlePresence({ setInterval() { throw Error('browser timer must not start'); } });
 });
 

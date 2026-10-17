@@ -1,3 +1,4 @@
+const runFeatureContext = require('./test-feature-context.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -9,7 +10,7 @@ const { analyzeUserAction } = require('./user-action-ast.cjs');
 const patches = require('./test-client-patches.cjs');
 const loaded = { exports: {} };
 const compile = source => transformSync(source, { loader: 'ts', format: 'cjs' }).code;
-vm.runInNewContext(compile(fs.readFileSync(path.join(__dirname, '../src/core/userActions.ts'), 'utf8')),
+runFeatureContext(compile(fs.readFileSync(path.join(__dirname, '../src/core/userActions.ts'), 'utf8')),
     { module: loaded, crypto: webcrypto, TextEncoder, require: () => patches });
 const { selectUserActionPlan, patchUserActions, readUserAction, installUserActions } = loaded.exports;
 
@@ -21,11 +22,11 @@ proto(Action).toString=function(){if(window.failDiagnostics)throw Error("diagnos
 window.actionClass=Action;window.labelClass=Label;
 `;
 function setup(source = fixture, plan = analyzeUserAction(source), override = {}) {
-    const target = { messages: [], postMessage(message, origin) { assert.equal(origin, '*'); this.messages.push(message); } };
+    const target = { location: { origin: 'https://tankionline.com' }, messages: [], postMessage(message, origin) { assert.equal(origin, 'https://tankionline.com'); this.messages.push(message); } };
     installUserActions(target); target.failDiagnostics = true;
     let initializes = 0;
     const context = { window: target, proto: type => type.prototype, nativeInitialize() { initializes++; }, ...override };
-    vm.runInNewContext(patchUserActions(source, undefined, plan), context);
+    runFeatureContext(patchUserActions(source, undefined, plan), context);
     return { target, context, Action: target.actionClass, Label: target.labelClass, initializes: () => initializes };
 }
 
@@ -106,9 +107,9 @@ test('reader ignores accessors, inherited data and unrelated graphs and handles 
 test('mapped actions reach the existing change counter once per equipment change and under the actual nickname', () => {
     const f = setup(), listeners = [], stored = new Map();
     f.target.addEventListener = (type, callback) => { if (type === 'message') listeners.push(callback); };
-    f.target.postMessage = message => { f.target.messages.push(message); listeners.forEach(callback => callback({ source: f.target, data: message })); };
+    f.target.postMessage = message => { f.target.messages.push(message); listeners.forEach(callback => callback({ origin: 'https://tankionline.com', source: f.target, data: message })); };
     const counter = { exports: {} };
-    vm.runInNewContext(compile(fs.readFileSync(path.join(__dirname, '../src/modules/changeCounter.ts'), 'utf8')), {
+    runFeatureContext(compile(fs.readFileSync(path.join(__dirname, '../src/modules/changeCounter.ts'), 'utf8')), {
         module: counter, window: f.target, document: { addEventListener() {}, querySelector: () => null },
         sessionStorage: { getItem: key => stored.get(key) ?? null, setItem: (key, value) => stored.set(key, value), removeItem: key => stored.delete(key) },
         require: () => ({ gameDOM: { statistics: { container: '.stats' }, screens: { battleCanvas: '.canvas' } } }),

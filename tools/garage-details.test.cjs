@@ -1,10 +1,11 @@
+const runFeatureContext = require('./test-feature-context.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const { test } = require('node:test');
 const { transformSync } = require('esbuild');
 const moduleUnderTest = { exports: {} };
-vm.runInNewContext(transformSync(fs.readFileSync('src/core/garageDetails.ts', 'utf8'), { loader: 'ts', format: 'cjs' }).code,
+runFeatureContext(transformSync(fs.readFileSync('src/core/garageDetails.ts', 'utf8'), { loader: 'ts', format: 'cjs' }).code,
     { module: moduleUnderTest, exports: moduleUnderTest.exports, crypto: require('crypto').webcrypto, TextEncoder, require: () => require('./test-client-patches.cjs') });
 const { analyzeGarageDetails } = require('./garage-details-ast.cjs');
 const patchUnavailableGarageDetails = (code, report, plan) => moduleUnderTest.exports.patchUnavailableGarageDetails(code, report, plan || analyzeGarageDetails(code));
@@ -31,7 +32,7 @@ function run(source, enabled, unknown, section, isStandard = false, options = {}
     context[options.filterHelper || 'RE'] = context.RE;
     context[options.standardHelper || 'standard'] = context.standard;
     context[options.descriptionHelper || 'describe'] = context.describe;
-    vm.runInNewContext(source, context);
+    runFeatureContext(source, context);
     const item = { [options.unknownMethod || 'lrf']: () => { counts.unknown++; return unknown; }, name: 'Название / Name', description: 'Описание / Description',
         preview: { [options.imageURL || 'w93']: () => 'real-preview' }, large: { [options.imageURL || 'w93']: () => 'real-large-skin' } };
     const component = { state: { [options.deviceField || 'device']: item, [options.skinField || 'skin']: item }, props: { skinType: { equals: () => section === 'shot-color' } } };
@@ -136,7 +137,7 @@ test('temporary-name collisions and unrelated leading code preserve native stric
     const adapted = await moduleUnderTest.exports.selectGarageDetailsPlan(changed, [plan]); assert.ok(adapted);
     const patched = patchUnavailableGarageDetails(changed, undefined, adapted);
     assert.ok(patched.includes('var __kaspDetailsUnavailable_=false;'));
-    const context = {}; vm.runInNewContext(patched, context);
+    const context = {}; runFeatureContext(patched, context);
     assert.equal(context.__kaspDetailsUnavailable, 123); assert.equal((0, context.nativeStrict)(), true);
     assert.equal(run(patched, true, true, 'skin').descriptions.length, 1);
 });

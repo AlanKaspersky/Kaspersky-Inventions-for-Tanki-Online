@@ -6,6 +6,7 @@ const { compileTemplates } = require('./overdrive-templates.cjs');
 const { analyzeArcade } = require('./arcade-ast.cjs');
 const { addCriticalEvents } = require('./critical-events-ast.cjs');
 const { addSupercharge } = require('./critical-supercharge.cjs');
+const { criticalVehicle } = require('./critical-vehicle.cjs');
 
 const FORMAT = 'ki-critical-ast-v1', MARKER = '/*ki-critical-ast:v1:';
 const fn = n => n && ['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression'].includes(n.type);
@@ -105,6 +106,7 @@ function analyzeCritical(input) {
         addCriticalEvents({ source, methods, functions, calls, assignments, variables, returns, scope, direct, parents,
             hudScope, dispatch, unique, fail, observe, edit, schema });
         addSupercharge({ methods, calls, variables, returns, scope, direct, dispatch, unique, fail, observe, edit, schema });
+        const vehicle = criticalVehicle({ functions, methods, assignments, variables, direct, unique, observe, contract: c });
         const equipCandidates = functions.filter(f => f.type === 'FunctionDeclaration' && scope(f) === hudScope && f.params.length <= 4 &&
             direct(calls, f).some(n => n.callee.name === c.localTank) &&
             source.slice(f.start, f.end).includes('.' + schema.deviceField));
@@ -126,10 +128,15 @@ function analyzeCritical(input) {
         const ownerAt = offset => unique(methods.filter(m => m.f.start < offset && m.f.end > offset), 'critical-hud-hook-owner-ambiguous').node;
         observe(hudUnit.node); observe(ownerAt(c.frameAt)); observe(ownerAt(c.cleanupEnd - 1));
         edit(c.createAt, c.createAt, `,(function(${ownerName}){try{window.__kaspCriticalBridge.attach(${ownerName},${ownerName}.${c.barField},${generate({ ...foreground, arguments: [{ type: 'Literal', value: 16711680 }] })})}catch(__kaspCriticalIgnored){}})(${c.createOwner})`);
-        edit(c.frameAt, c.frameAt, `,(function(${ownerName}){try{window.__kaspCriticalBridge.frame(${ownerName},${c.localTank}(${ownerName}.${c.world}()))}catch(__kaspCriticalIgnored){}})(${c.frameOwner})`);
+        const entityName = fresh('__kaspCriticalEntity');
+        const terminator = `${entityName}.${c.optional}(${c.token ? `${c.token}(${vehicle.type})` : vehicle.type})`;
+        edit(c.frameAt, c.frameAt, `,(function(${ownerName}){try{var ${entityName}=${c.localTank}(${ownerName}.${c.world}());window.__kaspCriticalBridge.juggernaut(${entityName},!!(${entityName}&&${terminator}));window.__kaspCriticalBridge.frame(${ownerName},${entityName})}catch(__kaspCriticalIgnored){try{window.__kaspCriticalBridge.frame(${ownerName},null)}catch(__kaspCriticalIgnored){}}})(${c.frameOwner})`);
         edit(c.cleanupEnd - 1, c.cleanupEnd - 1, ';try{window.__kaspCriticalBridge.detach(this)}catch(__kaspCriticalIgnored){}');
         const local = unique(functions.filter(f => f.type === 'FunctionDeclaration' && f.id.name === c.localTank && scope(f) === hudScope), 'critical-local-tank-lookup-ambiguous'); observe(local);
         const shared = new Map([[`identifier:${c.localTank}`, 'localTank'], [`property:${c.world}`, 'world'], [`property:${c.barField}`, 'barField'], [`identifier:${foreground.callee.name}`, 'colorFactory']]);
+        shared.set(`identifier:${vehicle.type}`, 'terminatorWeapon');
+        shared.set(`property:${c.optional}`, 'optionalComponent');
+        if (c.token) shared.set(`identifier:${c.token}`, 'componentToken');
         for (const [node, roles] of owners) walk.fullAncestor(node, (n, _, a) => {
             if (n.type === 'MemberExpression' && shared.has(`property:${prop(n)}`)) roles[shared.get(`property:${prop(n)}`)] = `property:${prop(n)}`;
             if (n.type !== 'Identifier') return;
@@ -138,6 +145,7 @@ function analyzeCritical(input) {
         });
         if (Object.values(schema).some(s => typeof s !== 'string' || !/^[$A-Z_a-z][$\w]*$/.test(s))) fail('critical-invalid-schema');
         status.hooked = status.ready = true;
+        status.juggernautHook = true;
         const strict = ast.body.slice(0, ast.body.findIndex(n => !n.directive) < 0 ? ast.body.length : ast.body.findIndex(n => !n.directive)).some(n => n.directive === 'use strict');
         edit(0, 0, MARKER + JSON.stringify(status) + '*/\n' + (strict ? '"use strict";\n' : '') + 'try{window.__kaspCriticalBridge.configure(' + JSON.stringify(schema) + ')}catch(__kaspCriticalIgnored){}\n');
         plan.edits = edits.sort((a, b) => a.start - b.start || a.end - b.end);

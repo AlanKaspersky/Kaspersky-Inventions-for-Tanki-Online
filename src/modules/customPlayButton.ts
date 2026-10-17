@@ -1,12 +1,15 @@
+import { featureScope } from '../core/featureRuntime';
+const lifecycle = featureScope('customPlayButton');
 import { gameDOM } from '../core/gameDOM';
 import { state } from '../core/state';
 import { utils } from '../core/utils';
 
-export const customPlayButton = (() => {
+export const customPlayButton = lifecycle.initialize(() => {
     let initialized = false;
     let buttonsCreated = false;
     let autoQueueState = 0;
-    let targetMode: any = null;
+    type QueueMode = { names: string[]; isDirect: boolean };
+    let targetMode: QueueMode | null = null;
     let lastSearchingState: boolean | null = null;
     let failSafeTimer: number | null = null;
 
@@ -80,15 +83,15 @@ export const customPlayButton = (() => {
         }
     }
 
-    function startAutoQueue(modeData: any) {
+    function startAutoQueue(modeData: QueueMode) {
         if (isSearching()) return;
         targetMode = modeData;
         const playButton = document.querySelector(gameDOM.play.container) as HTMLElement;
         if (playButton && !playButton.classList.contains(gameDOM.classes.disabledPlay)) {
             autoQueueState = 1;
             document.body.classList.add('kasp-autoqueue-active');
-            if (failSafeTimer) window.clearTimeout(failSafeTimer);
-            failSafeTimer = window.setTimeout(() => {
+            if (failSafeTimer) lifecycle.cancelTimeout(failSafeTimer);
+            failSafeTimer = lifecycle.timeout(() => {
                 autoQueueState = 0;
                 document.body.classList.remove('kasp-autoqueue-active');
             }, 1500);
@@ -191,7 +194,7 @@ export const customPlayButton = (() => {
         document.querySelectorAll('.wide-mode-btn-text').forEach(spanEl => {
             const span = spanEl as HTMLElement;
             const modeIndex = parseInt(span.dataset.index || '0', 10);
-            if (wideModes[modeIndex]) span.textContent = (wideModes[modeIndex].labels as any)[currentLang];
+            if (wideModes[modeIndex]) span.textContent = wideModes[modeIndex].labels[currentLang];
         });
 
         const quickWrapper = document.getElementById('quick-play-wrapper');
@@ -246,12 +249,12 @@ export const customPlayButton = (() => {
             const text = document.createElement('span');
             text.className = 'wide-mode-btn-text';
             text.dataset.index = index.toString();
-            text.textContent = (mode.labels as any)[currentLang];
+            text.textContent = mode.labels[currentLang];
             text.style.cssText = 'font-size: 1.2em; font-weight: 500; font-family: BaseFontMedium, FallbackFontMedium; transition: color 0.2s ease-in-out;';
             contentWrapper.appendChild(img); contentWrapper.appendChild(text); el.appendChild(contentWrapper);
-            el.addEventListener('mouseenter', () => { if (!isSearching()) el.style.boxShadow = 'rgb(255, 255, 255) 0 0 0 0.2em'; });
-            el.addEventListener('mouseleave', () => { if (!isSearching()) el.style.boxShadow = 'rgba(255, 255, 255, 0.25) 0 0 0 0.0625em'; });
-            el.addEventListener('click', (e) => { e.stopPropagation(); startAutoQueue(mode); });
+            lifecycle.listen(el, 'mouseenter', () => { if (!isSearching()) el.style.boxShadow = 'rgb(255, 255, 255) 0 0 0 0.2em'; });
+            lifecycle.listen(el, 'mouseleave', () => { if (!isSearching()) el.style.boxShadow = 'rgba(255, 255, 255, 0.25) 0 0 0 0.0625em'; });
+            lifecycle.listen(el, 'click', (e) => { e.stopPropagation(); startAutoQueue(mode); });
             row2.appendChild(el);
         });
 
@@ -269,12 +272,12 @@ export const customPlayButton = (() => {
             el.appendChild(bgLayer);
             const img = document.createElement('div');
             img.className = 'mode-icon-el';
-            img.title = (mode.labels as any)[currentLang];
+            img.title = mode.labels[currentLang];
             img.style.cssText = `width: 1.8em; height: 1.8em; pointer-events: none; flex-shrink: 0; position: relative; z-index: 2; -webkit-mask-image: url(${mode.icon}); -webkit-mask-size: contain; -webkit-mask-position: center; -webkit-mask-repeat: no-repeat; mask-image: url(${mode.icon}); mask-size: contain; mask-position: center; mask-repeat: no-repeat; transition: background-color 0.2s ease-in-out;`;
             el.appendChild(img);
-            el.addEventListener('mouseenter', () => { if (!isSearching()) el.style.boxShadow = 'rgb(255, 255, 255) 0 0 0 0.2em'; });
-            el.addEventListener('mouseleave', () => { if (!isSearching()) el.style.boxShadow = 'rgba(255, 255, 255, 0.25) 0 0 0 0.0625em'; });
-            el.addEventListener('click', (e) => { e.stopPropagation(); startAutoQueue(mode); });
+            lifecycle.listen(el, 'mouseenter', () => { if (!isSearching()) el.style.boxShadow = 'rgb(255, 255, 255) 0 0 0 0.2em'; });
+            lifecycle.listen(el, 'mouseleave', () => { if (!isSearching()) el.style.boxShadow = 'rgba(255, 255, 255, 0.25) 0 0 0 0.0625em'; });
+            lifecycle.listen(el, 'click', (e) => { e.stopPropagation(); startAutoQueue(mode); });
             row3.appendChild(el);
         });
 
@@ -286,20 +289,25 @@ export const customPlayButton = (() => {
         const container = (playButton.closest(gameDOM.common.flexDiv) || playButton.parentElement?.parentElement) as HTMLElement;
         const mainMenu = document.querySelector(gameDOM.play.mainMenu) as HTMLElement;
         if (container) {
+            const commit = lifecycle.preserve(container, ['margin-left', 'height', 'margin-top', 'width', 'flex-direction', 'align-items', 'overflow', 'z-index', 'position']);
             container.style.marginLeft = '5em'; container.style.height = 'auto';
             container.style.marginTop = '10em'; container.style.width = '31.25em';
             container.style.flexDirection = 'column'; container.style.alignItems = 'flex-start';
             container.style.overflow = 'visible'; container.style.zIndex = '5';
             container.style.position = 'relative';
+            commit();
         }
         if (playButton) {
+            const commit = lifecycle.preserve(playButton, ['width', 'height', 'position', 'overflow', 'border-radius', 'transition', 'box-shadow']);
             playButton.style.width = `${MAIN_WIDTH}em`; playButton.style.height = `${MAIN_HEIGHT}em`;
             playButton.style.position = 'relative'; playButton.style.overflow = 'hidden';
             playButton.style.borderRadius = '0.5rem'; playButton.style.transition = 'box-shadow 0.2s ease-in-out, opacity 0.2s ease-in';
-            playButton.addEventListener('mouseenter', () => { if (!isSearching()) playButton.style.boxShadow = 'rgb(255, 255, 255) 0 0 0 0.2em'; });
-            playButton.addEventListener('mouseleave', () => { if (!isSearching()) playButton.style.boxShadow = 'rgba(255, 255, 255, 0.25) 0 0 0 0.0625em'; });
+            lifecycle.listen(playButton, 'mouseenter', () => { if (!isSearching()) { playButton.style.boxShadow = 'rgb(255, 255, 255) 0 0 0 0.2em'; commit(); } });
+            lifecycle.listen(playButton, 'mouseleave', () => { if (!isSearching()) { playButton.style.boxShadow = 'rgba(255, 255, 255, 0.25) 0 0 0 0.0625em'; commit(); } });
             const innerBtn = (playButton.querySelector(gameDOM.play.button) || playButton) as HTMLElement;
+            const commitInner = lifecycle.preserve(innerBtn, ['background-image'], ['custom-inner-btn']);
             innerBtn.style.backgroundImage = 'none'; innerBtn.classList.add('custom-inner-btn');
+            commitInner();
             let bgLayer = innerBtn.querySelector('.custom-main-bg-layer') as HTMLElement;
             if (!bgLayer) {
                 bgLayer = document.createElement('div'); bgLayer.className = 'custom-main-bg-layer';
@@ -313,16 +321,19 @@ export const customPlayButton = (() => {
                 innerBtn.appendChild(customText);
             }
             if (!playButton.dataset.overridden) {
-                playButton.addEventListener('click', (e) => {
+                lifecycle.listen(playButton, 'click', (e) => {
                     if (e.isTrusted && !isSearching()) { targetMode = quickBattleMode; autoQueueState = 1; }
                 });
             }
+            commit();
         }
-        if (mainMenu) mainMenu.style.marginTop = '1em';
+        if (mainMenu) { const commit = lifecycle.preserve(mainMenu, ['margin-top']); mainMenu.style.marginTop = '1em'; commit(); }
         createQuickButtons(playButton);
         playButton.dataset.overridden = 'true';
         syncButtonStates(true);
     }
+
+    lifecycle.onCleanup(() => { autoQueueState=0;targetMode=null;document.body.classList.remove('kasp-autoqueue-active');document.getElementById('kasp-playbtn-styles')?.remove();document.getElementById('quick-play-wrapper')?.remove();document.querySelectorAll<HTMLElement>('[data-overridden="true"]').forEach(node=>{node.querySelectorAll('.custom-main-bg-layer, .custom-main-text, .main-lock-icon').forEach(child=>child.remove());node.removeAttribute('data-overridden');}); });
 
     return () => {
         if (!utils.getSetting('k_ext_btn', false)) return;
@@ -332,22 +343,18 @@ export const customPlayButton = (() => {
         if (!initialized) {
             initialized = true;
             utils.injectStyle(`
-                        .MainScreenComponentStyle-playButtonContainer div[class*="ksc-"],
-                        .MainScreenComponentStyle-playButtonContainer [class*="lock"]:not(.main-lock-icon),
-                        .MainScreenComponentStyle-playButtonContainer img[src*="lock"] { display: none !important; }
+                        ${gameDOM.play.hiddenNativeDecorations} { display: none !important; }
                         .custom-inner-btn > *:not(.custom-main-bg-layer):not(.main-lock-icon):not(.custom-main-text) { display: none !important; }
-                        .MainScreenComponentStyle-playButtonContainer:not([data-overridden="true"]) { opacity: 0 !important; pointer-events: none !important; }
+                        ${gameDOM.play.untreatedContainer} { opacity: 0 !important; pointer-events: none !important; }
                         
-                        body.kasp-autoqueue-active [class*="BattlePickComponentStyle"],
-                        body.kasp-autoqueue-active [class*="blockCard"],
-                        body.kasp-autoqueue-active [class*="commonStyleBlock"] { 
+                        ${gameDOM.play.autoQueueCards.split(', ').map(selector => `body.kasp-autoqueue-active ${selector}`).join(', ')} {
                             opacity: 0 !important; visibility: hidden !important; transition: none !important; animation: none !important;
                         }
                     `, 'kasp-playbtn-styles');
 
-            document.addEventListener('keydown', handleModeHotkey);
+            lifecycle.listen(document, 'keydown', handleModeHotkey);
 
-            window.setInterval(() => {
+            lifecycle.interval(() => {
                 if (autoQueueState !== 0) processAutoQueue();
             }, 50);
         }
@@ -362,4 +369,4 @@ export const customPlayButton = (() => {
             syncButtonStates();
         }
     };
-})();
+}, () => {});

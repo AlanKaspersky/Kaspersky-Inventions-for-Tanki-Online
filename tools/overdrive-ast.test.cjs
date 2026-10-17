@@ -1,3 +1,4 @@
+const runFeatureContext = require('./test-feature-context.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -11,7 +12,7 @@ const { parse, tokenizer } = require('acorn');
 const { analyzeOverdrive } = require('./overdrive-ast.cjs');
 
 const moduleRef = { exports: {} };
-vm.runInNewContext(transformSync(fs.readFileSync(path.join(__dirname, '../src/core/bonusPickup.ts'), 'utf8'),
+runFeatureContext(transformSync(fs.readFileSync(path.join(__dirname, '../src/core/bonusPickup.ts'), 'utf8'),
     { loader: 'ts', format: 'cjs' }).code, { module: moduleRef, crypto: webcrypto, TextEncoder, require: () => require('./test-client-patches.cjs') });
 const runtime = moduleRef.exports;
 
@@ -50,7 +51,7 @@ test('offline AST plans handle renamed/computed fields, minification and both pi
             play$: (...args) => { plays.push(args); return 123; } };
         const patched = runtime.patchBonusPickups(input, undefined, plan);
         parse(patched, { ecmaVersion: 'latest' });
-        vm.runInNewContext(patched, context);
+        runFeatureContext(patched, context);
         const { Vector, Bonus, Receiver, own, teammate } = window.fixture;
         const resource = Object.assign(Object.create({ toString: () => runtime.OVERDRIVE_BOX_MODEL }), { low: 1, high: 2 });
         const data = new Bonus({ id: resource }, 42);
@@ -112,7 +113,7 @@ test('prepared templates relocate hooks after renaming and formatting without re
         const window = { failDiagnostics: true, __kaspBonusType: runtime.registerBonusType, __kaspBonusContext: bridge.context,
             __kaspBonusPrepare: bridge.prepare, __kaspBonusRegister: (...args) => { order.push('observe'); bridge.register(...args); } };
         const context = { window, getNew$: item => { reads++; return item.data; }, playNew$: () => 123 };
-        vm.runInNewContext(patched, context);
+        runFeatureContext(patched, context);
         const { Vector, Bonus, Receiver, own, teammate } = window.fixture;
         const resource = Object.assign(Object.create({ toString: () => runtime.OVERDRIVE_BOX_MODEL }), { low: 1, high: 2 });
         const data = new Bonus({ id: resource }, 42);

@@ -2,13 +2,15 @@
 
 ## Complete Documentation
 
-**Extension version:** 2.9.5 (`manifest.json`)
+**Extension version:** 2.9.6 (`manifest.json`)
 
-**Documentation updated:** October 14, 2026
+**Documentation updated:** October 17, 2026
 
 **Interface languages:** English and Russian
 
-**Extension format:** Chromium Manifest V3
+**Extension format:** Manifest V3 for Chromium and Firefox (Firefox 128.0 minimum declared in the manifest)
+
+**Project terms:** Proprietary; package metadata: `UNLICENSED`. See [LICENSE.txt](LICENSE.txt).
 
 This document describes the current source implementation, installation procedure, configuration, data storage, and maintenance workflow. The version displayed by the browser and the welcome window is obtained from the extension manifest.
 
@@ -62,14 +64,14 @@ For implementation details, module logic, and workflows, see
 
 ## Overview
 
-Kaspersky's Inventions is a browser extension that extends the Tanki Online interface with equipment information, navigation shortcuts, local battle history, privacy controls, and visual improvements. It integrates with the existing game client rather than providing a separate game interface.
+Kaspersky's Inventions is a browser extension for Chromium and Firefox that extends the Tanki Online interface with equipment information, navigation shortcuts, local battle history, privacy controls, and visual improvements. It integrates with the existing game client rather than providing a separate game interface.
 
 The implementation consists of TypeScript modules, CSS files, HTML templates, and bundled JSON reference databases. JavaScript bundles in `dist/` are generated from the TypeScript entry points. The browser loads those bundles; it does not execute files in `src/` directly.
 
 There are two categories of functionality:
 
-- **Configurable features:** nine options exposed through the in-game KASPERSKY settings tab. All nine are disabled by default on a fresh storage context.
-- **Automatically integrated features:** garage button styling, trophy favorites, garage skin image handling, equipment tracking, resistance presentation, equipment-change indicators, native arcade reload and critical shot indicators, the version welcome window, and Discord presence in a compatible Electron client. These do not have individual switches in the current settings panel.
+- **Configurable features:** eleven options exposed through the in-game KASPERSKY settings tab. Nine default to disabled; arcade reload and critical indicators default to enabled.
+- **Automatically integrated features:** garage button styling, trophy favorites, garage skin image handling, equipment tracking, resistance presentation, equipment-change indicators, the version welcome window, and Discord presence in a compatible Electron client. Arcade reload and critical indicators have their own live switches. The remaining automatic integrations have no individual switches in the current settings panel.
 
 Most features affect presentation or maintain local records. The enhanced Play interface and Auto-Upgrade module also initiate ordinary game-interface actions. Auto-Upgrade can perform actual equipment purchases through the game's confirmation controls; its initial confirmation is therefore part of the workflow.
 
@@ -89,9 +91,9 @@ The project is an independent interface modification. Its relationship to Tanki 
 | Privacy | Visual masking of nickname, XP, client UID, and supported currency displays |
 | Garage presentation | Equipped skin artwork learned from the native skins interface |
 | Battle statistics | Equipment-change indicators, resistance summaries, and captured equipment icons |
-| Battle history | Result capture, cards, detailed player statistics, pagination, JSON import/export, linking, and clearing |
+| Battle history | Result capture, cards, detailed player statistics, pagination, ID-scoped JSON import/export and clearing |
 | Arcade reload | An additional native HUD bar for the local Shaft or Scorpio, driven by game cooldown state |
-| Critical shots | Native reload-bar coloring for Thunder/Strict Ammunition Load, Smoky/Sorted Ammunition, and Hammer/Revolver, with Supercharge handling |
+| Critical shots | Native reload-bar coloring for Thunder/Strict Ammunition Load, Smoky/Sorted Ammunition, and Hammer/Revolver; Supercharge handling and a Terminator guard during Juggernaut transformations |
 | Overdrive boxes | Automatic pickup-based 85-second countdowns for up to two learned positions |
 | Discord presence | English map/mode, nickname or Hidden, battle countdown, and player capacity in a compatible Electron client |
 | Interface styling | Garage icons, headers, navigation, dialogs, loading visuals, and layout adjustments |
@@ -102,9 +104,12 @@ Availability depends on the corresponding game elements being present and recogn
 
 ### Browser Compatibility
 
-The project targets Chromium-based browsers capable of loading Manifest V3 extensions. Google Chrome is the primary browser named by the installation workflow. Other Chromium browsers may provide an equivalent extensions page and unpacked-extension loader; identical behavior is not guaranteed across browser variants.
+The manifest supports Chromium-based desktop browsers with Manifest V3 and declares Firefox support through `browser_specific_settings.gecko`:
 
-The JavaScript build targets `chrome100` syntax. This target is not a statement that every browser version has been tested. Firefox and mobile-browser installations are not documented or validated by this repository.
+- **Chromium:** install through the browser's unpacked-extension loader; Chrome instructions are provided below.
+- **Firefox:** minimum declared version **128.0**, with add-on ID `kaspersky-inventions@tankionline.local`. Local testing and signed installation use different workflows, described below.
+
+The JavaScript build still targets `chrome100` syntax and produces the same two bundles for both browsers. The manifest declaration is not evidence that every feature has been tested on every browser version. Firefox should be checked in the live game, including page-world injection, packaged resources, settings, and local storage. Mobile-browser installation is not covered by this project.
 
 An Electron-specific mouse-navigation adapter is included. Its presence does not provide a standalone desktop installer or guarantee that every Electron client can load this extension.
 
@@ -136,6 +141,8 @@ Release packaging additionally requires Windows `tar` with ZIP support, or the `
 
 ### Installing a Prepared Release
 
+#### Chromium
+
 1. Extract the release archive to a persistent directory.
 2. Locate the extracted folder containing `manifest.json` and `dist/`. Release ZIP files contain a versioned outer folder; select the extension folder inside it.
 3. Open `chrome://extensions/`, or the corresponding extensions page in another compatible browser.
@@ -145,6 +152,19 @@ Release packaging additionally requires Windows `tar` with ZIP support, or the `
 7. Configure the KASPERSKY tab in the game's settings.
 
 Keep the extracted directory in place. An unpacked extension loads its resources from that directory; moving or deleting it can break the installation. A prepared release does not require Node.js or npm on the player's machine.
+
+#### Firefox
+
+For local testing with Firefox 128 or newer:
+
+1. Extract the archive and locate the inner folder containing `manifest.json` and `dist/`.
+2. Open `about:debugging#/runtime/this-firefox`.
+3. Select **Load Temporary Add-on** and choose that folder's `manifest.json`.
+4. Open or fully reload Tanki Online and configure the KASPERSKY settings tab.
+
+A temporary add-on remains installed until Firefox restarts or it is removed. See Mozilla's [temporary installation instructions](https://www.extensionworkshop.com/documentation/develop/temporary-installation-in-firefox/).
+
+For persistent installation in standard Firefox, use an author-provided Mozilla-signed add-on, through its published listing or **Install Add-on From File** in `about:addons`. See Mozilla's [signed self-distribution instructions](https://extensionworkshop.com/documentation/publish/install-self-distributed/). This repository's `build:zip` creates a distribution archive with an outer folder; it does not create or sign a Firefox XPI. Adding the Gecko ID does not sign the extension.
 
 ### Installing from Source
 
@@ -156,13 +176,15 @@ npm run typecheck
 npm run build:js
 ```
 
-Then load the project root as an unpacked extension. The package manifest and lockfile currently agree; see [Dependency installation](#dependency-installation).
+Then load the project root using the Chromium unpacked-extension workflow or select its `manifest.json` as a temporary Firefox add-on. The package manifest and lockfile currently agree; see [Dependency installation](#dependency-installation).
 
 A checkout may already contain `dist/`, but its bundles can be older than the source files. Building JavaScript is required to apply TypeScript changes.
 
 ### Updating an Existing Installation
 
 Replace or rebuild the files in the installed extension directory, reload the extension from the browser's extensions page, and reload the game tab. Updating source files alone does not update an already loaded page.
+
+For a temporary Firefox installation, use **Reload** in `about:debugging`; load it again after restarting Firefox. For a signed installation, install the updated signed package through its distribution channel.
 
 Reloading the extension or rebuilding JavaScript does not intentionally clear stored data. Clearing game site data or changing browser profiles can remove or separate those records. Export important battle history before changing storage contexts.
 
@@ -175,7 +197,7 @@ Reloading the extension or rebuilding JavaScript does not intentionally clear st
 3. Enable the required features.
 4. Close settings to apply the configuration workflow.
 
-The module compares the final switch values with the values present when the panel was created. If the final configuration differs, closing settings reloads the page. Returning every switch to its original value avoids that reload.
+The module compares the final switch values with the values present when the panel was created. If the final configuration differs for a setting that requires reload, closing settings reloads the page. The arcade reload and critical indicator switches apply immediately and do not by themselves request that reload. Returning every switch to its original value avoids that reload.
 
 Nickname privacy also updates its root CSS state immediately when switched on or off. Other modules may respond during their update cycle, but the settings-close reload remains the normal way to establish a consistent configuration.
 
@@ -192,6 +214,10 @@ Nickname privacy also updates its root CSS state immediately when switched on or
 | `k_hideNicknameXP` | Hide nickname and score | Disabled | Nickname, XP, self-player fields, and client UID |
 | `k_history` | Keep a history of battles | Disabled | Result capture and Battle History |
 | `k_overdrive_timer` | Overdrive box timer | Disabled | Automatic 85-second box countdown during battles |
+| `k_arcade_reload` | Arcade reload indicator | Enabled | Additional Shaft/Scorpio bar; live switch |
+| `k_critical_indicator` | Critical shot indicator | Enabled | Native reload-bar coloring; live switch |
+
+The Russian label for `k_augments` is **«Отображение недоступных предметов и характеристики устройств»**. The English interface currently uses **Augment specifications**. Both labels control the same setting and storage key.
 
 Keys are case-sensitive and stored as the strings `true` or `false`. The general `k_` naming convention does not mean keys can be freely renamed; the exact keys above are used by the implementation.
 
@@ -335,7 +361,7 @@ The module filters the collection already available in the client. It does not r
 
 Available filters are All, Online, Offline, Clan, Purple, Yellow, and Red. Clan detection uses the current account's identifiable clan tag. Color assignments are managed through the supported player context menu; assigning the same category again removes that assignment.
 
-Categories are stored under `tankiCustomCategories_{nickname}` and are not synchronized with the native friend service. Renaming or changing accounts does not automatically migrate the old category key.
+Categories are stored under `tankiCustomCategories_uid_<userId>`, with friend user IDs as keys. Renaming either account preserves assignments. Labels remain local and are not synchronized with the native friend service. Legacy nickname-based keys remain untouched and are not imported automatically.
 
 The module reads real identity through the shared helper. Nickname masking therefore does not intentionally change the account key to `Hidden` or `Скрыто`.
 
@@ -349,7 +375,7 @@ Recognition uses `database/trophies.json`. Displayed progress is the latest obse
 
 The panel waits for the trophy dictionary before its first render and refreshes when language, favorites, or observed progress change. This prevents an initial panel with untranslated equipment IDs while the dictionary is still loading.
 
-Favorites are saved as one origin-wide list under `kasp_trophies_favorites`; this list is not keyed by nickname. There is no dedicated settings switch.
+Favorites are saved per account under `kasp_trophies_favorites_uid_<userId>`. The panel and in-memory cache reset on account changes. The legacy shared list remains untouched and is not imported automatically. There is no dedicated settings switch.
 
 ### Auto-Upgrade Module
 
@@ -387,7 +413,7 @@ Covered locations include:
 
 - Header nickname and XP.
 - The current player's nickname in native battle statistics and results.
-- The current-player name in Battle History details and the linking dialog's target nickname.
+- The current-player name in Battle History details.
 - The client information parameter `UID: <nickname>`.
 
 TYPE, VER, UPD, and SRV are not intentionally masked. Other players' names are not generally hidden.
@@ -412,13 +438,15 @@ Coverage follows supported selectors, including displays used for rubies, crysta
 
 The current implementation learns from the native skins interface. It does not provide a separate arbitrary skin-picker or unlock unowned skins. Equipment names and known stock images come from `database/skins.json`.
 
-Learning requires the selected title to match the equipped nonstandard skin. Artwork from another selected preview is not treated as the equipped skin. A candidate must remain consistent across at least two observations before being written.
+Learning reads the committed native React card state. The selected card must have the exact equipped skin ID, be owned, and not be unknown; matching names alone are insufficient, including when XT HD and XT Classic share a title. Artwork from another selected preview is not treated as the equipped skin. A candidate must remain consistent across at least two observations before being written. Missing or ambiguous native card data leaves the saved artwork unchanged.
+
+The page-world injector reads the native card state and passes only card metadata through DOM attributes to the content script. This bridge is automatic and does not require enabling Augment specifications or loading its catalog.
 
 Recognized HTTPS game `.webp` artwork is stored when readable. Otherwise, a known stock image can be saved as a fallback and marked `unknown skin`. Equipping the standard skin clears the corresponding override after stabilization.
 
 The module records recognized original image URLs and generates CSS replacements for supported thumbnails and mounted previews. It does not change the battle-rendered tank model or account ownership.
 
-Artwork and base-image caches are origin-wide. Coverage depends on database entries and readable cards, rather than guaranteed support for every skin series. Garage checks include a 250 ms periodic pass alongside ordinary updates.
+Equipped artwork is stored under `kasp_equipped_skins_uid_<userId>` using the verified native account ID. Account changes and unavailable identity clear active replacements, unknown-skin labels, and pending learning; renaming the same account retains its selections. The old shared `kasp_equipped_skins` data remains separate and is not migrated automatically. Open the equipped skin in the native skins interface to learn it for the current account. The base-image cache remains shared because it stores original equipment artwork rather than account selections. Coverage depends on database entries and readable cards, rather than guaranteed support for every skin series. Garage checks include a 250 ms periodic pass alongside ordinary updates.
 
 ### Weapon Augment Tracker Module
 
@@ -428,9 +456,9 @@ Prepared AST plans identify the native local HUD factory and layout through sema
 
 The extra row has a fixed zero gap. In the centered HUD, the lower native active-effect/supply row moves down by the added bar's height only while the local Shaft or Scorpion arcade bar is visible. The upper status row and other weapons keep their native positions; offsets are recalculated each layout pass.
 
-Scorpion progress comes from its primary-shot recharge state, independently of its secondary missile indicator. Shaft progress comes from its current native cooldown-state instance, deadline and duration (the registered state ID is not a timer object); observed progress is retained while its native stun/pause flags are active. The module uses game data without garage visits, MK tables, device image URLs, input listeners, or a separate animation loop. It does not use the old saved reload configuration. There is no settings-panel toggle.
+Scorpion progress comes from its primary-shot recharge state, independently of its secondary missile indicator. Shaft progress comes from its current native cooldown-state instance, deadline and duration (the registered state ID is not a timer object); observed progress is retained while its native stun/pause flags are active. The module uses game data without garage visits, MK tables, device image URLs, input listeners, or a separate animation loop. It does not use the old saved reload configuration. The Arcade reload indicator setting applies immediately.
 
-Run `window.__kaspArcadeReloadDebug.status()` in the game console to inspect the mapping strategy, observed weapon/progress, mesh creation/visibility and latest runtime error. For diagnosis, `window.__kaspArcadeReloadDebug.setEnabled(false)` persists a separate disable flag; reload the game to apply it. Restore with `setEnabled(true)` and another reload. There is no settings-panel switch or gap-adjustment command in the current implementation.
+Run `window.__kaspArcadeReloadDebug.status()` in the game console to inspect the mapping strategy, observed weapon/progress, mesh creation/visibility and latest runtime error. For diagnosis, `window.__kaspArcadeReloadDebug.setEnabled(false)` persists a separate disable flag; reload the game to apply it. Restore with `setEnabled(true)` and another reload. Use the settings switch for live display changes; no gap-adjustment command is provided.
 
 ### Critical Shot Indicator
 
@@ -448,7 +476,9 @@ Transparent spawn, death, and other inactive tank states suppress the indicator.
 
 Hornet/Dictator Supercharge forces critical readiness, including when the ordinary device cycle is unsupported or unknown. After it ends, supported device cycles use the recovery offsets above and can synchronize from the first accepted critical damage acknowledgement. Delayed forced hits are filtered, and shots fired while an acknowledgement is in flight are preserved. The post-effect offsets reflect observed behavior, not a server-side calculation exposed by the game; upstream mechanic changes can require adjustment.
 
-Inspect `window.__kaspCriticalDebug.status()` for equipment IDs, recognized weapon/device, readiness source, shot/lifecycle counters, Supercharge recovery, HUD attachment, mapping status, and errors. Outside forced Supercharge, missing metadata or unsupported devices leave normal reload color in use; incomplete mappings skip this interception. No settings-panel switch is provided.
+The local tank is checked for the native Terminator weapon component on each HUD update. During a Juggernaut transformation, the ordinary equipped augment cycle is disabled and its stale readiness/recovery state is discarded. Supercharge still takes priority; after it ends, Terminator retains normal reload color. Returning to the ordinary tank resumes from its own lifecycle or confirmed critical state.
+
+Inspect `window.__kaspCriticalDebug.status()` for the `juggernaut` flag, equipment IDs, recognized weapon/device, readiness source, shot/lifecycle counters, Supercharge recovery, HUD attachment, mapping status, and errors. Outside forced Supercharge, missing metadata or unsupported devices leave normal reload color in use; incomplete mappings skip this interception. The Critical shot indicator setting applies immediately.
 
 ### Discord Rich Presence
 
@@ -509,7 +539,7 @@ The module records the native result screen after identifying the current player
 
 - The timestamp is the local capture time, not the official battle start time.
 - Results are captured while the extension is running and the module is enabled. Earlier battles are not downloaded automatically.
-- Account identity comes from the shared nickname reader; visual nickname hiding does not change the identity used for storage.
+- Ownership comes from the loaded native `User.id`, preserved as an exact decimal string. Nicknames are display metadata. Missing or stale identity postpones storage operations; there is no nickname fallback.
 - Missing required result data delays capture until it becomes available. A failed database write allows another attempt.
 - A processed-result guard prevents repeated capture during the same observed result-screen lifecycle. It is not a persistent duplicate detector across reloads.
 - Mode, matchmaking/PRO kind, team membership, and victory status depend on recognizable native UI or available injector information. Missing information may use implementation defaults.
@@ -517,13 +547,13 @@ The module records the native result screen after identifying the current player
 
 #### List and detailed view
 
-The list shows records for the current nickname, newest first, with 15 records per page. Cards include the result, map, mode, date, and key statistics. Map names and artwork use the bundled map database when a match is available.
+The list shows records for the current account user ID, newest first, with 15 records per page. Cards include the result, map, mode, date, and key statistics. Map names and artwork use the bundled map database when a match is available.
 
 The detailed view provides captured player statistics, team grouping where applicable, and the current player's equipment icons. Missing optional data uses placeholders. Dates follow the browser's locale and time zone.
 
 Deathmatch (DM) results show all players in one centered table: opponents use red row backgrounds and the current player is highlighted in blue. Saved player order is preserved. Team modes retain separate team tables.
 
-The **All battles** button returns from details to the list. Back navigation also supports Escape, Z, and the mouse back button. These controls apply to the history view; an active confirmation or account-linking dialog handles its own interaction.
+The **All battles** button returns from details to the list. Back navigation also supports Escape, Z, and the mouse back button. These controls apply to the history view; an active confirmation dialog handles its own interaction.
 
 History integrates with the native settings window when the expected structure is available and can provide its own header otherwise. Its observer releases the view when the native window closes or navigation moves elsewhere. Async rendering checks the active account and current view before displaying results, preventing a completed older request from replacing a newer view.
 
@@ -531,14 +561,13 @@ History integrates with the native settings window when the expected structure i
 
 | Action | Behavior |
 | --- | --- |
-| Export | Writes the current nickname's records to a JSON file. An empty history produces no export. |
-| Import | Validates a non-empty JSON array and stores all accepted records in one transaction. Imported nickname ownership is retained. |
-| Clear | Requires confirmation and deletes records belonging to the current nickname. Other nicknames remain stored. |
-| Link account | Moves records from a selected stored nickname to the current nickname. This changes ownership; it does not copy records. |
+| Export | Writes the current account ID's records to a JSON file. An empty history produces no export. |
+| Import | Validates a non-empty JSON array and stores all accepted records in one transaction. Every record must carry the current account user ID; foreign-account and legacy files without IDs are rejected. |
+| Clear | Requires confirmation and deletes records belonging to the current user ID. Other accounts and legacy records remain stored. |
 
-Linking is useful after a nickname change or when importing records belonging to an earlier nickname. It does not merge friend categories, equipment caches, or other settings. The source nickname becomes empty after a successful move, and there is no dedicated undo operation. Export a backup before linking or clearing records.
+Changing a nickname keeps the same history because ownership uses the immutable account ID. Linking histories by nickname has been removed. Old records without an ID remain stored separately and are not assigned automatically.
 
-Repeated imports create additional records: the module does not deduplicate by timestamp, score, or imported ID. Records imported under another nickname may therefore be present in the database without appearing in the current account's list.
+Imports add only missing battle record IDs for the current user ID. Duplicate IDs within a file are also skipped, and existing records are never overwritten. New captures receive a portable UUID `battleId`; older exports use their numeric `id` as a stable legacy identity. This is a local history record ID, not a server battle ID. Historical nicknames within the same account ID remain visible; they do not establish ownership.
 
 #### Internal organization
 
@@ -589,12 +618,15 @@ An origin includes scheme, hostname, and port. Different game origins, browser p
 | `k_hideNicknameXP` | Hide Nickname/XP setting | Shared across accounts |
 | `k_history` | Battle History setting | Shared across accounts |
 | `k_overdrive_timer` | Overdrive box timer setting | Shared across accounts |
+| `k_arcade_reload` | Live arcade indicator switch; defaults to enabled | Shared across accounts |
+| `k_critical_indicator` | Live critical indicator switch; defaults to enabled | Shared across accounts |
 | `kasp_arcade_reload_enabled` | Diagnostic arcade hook override; absent means enabled | Shared across accounts; requires a page reload |
 | `kasp_bonus_debug` | Opt-in bonus diagnostic collection | Shared across accounts; journal itself is page-local |
-| `kasp_last_nickname` | Battle History identity fallback | Shared across accounts |
-| `tankiCustomCategories_<nickname>` | Friend category assignments | Partitioned by the recognized nickname |
-| `kasp_trophies_favorites` | Trophy favorite selections and cached presentation data | Shared across accounts |
-| `kasp_equipped_skins` | Observed custom skin selections | Shared across accounts |
+| `kasp_last_nickname` | Legacy history nickname cache, no longer read or written | Retained separately |
+| `tankiCustomCategories_uid_<userId>` | Friend user ID to category assignments | Per account user ID |
+| `kasp_trophies_favorites_uid_<userId>` | Trophy favorite selections and cached presentation data | Per account user ID |
+| `kasp_equipped_skins_uid_<userId>` | Observed equipped-skin artwork | Per account user ID |
+| `kasp_equipped_skins` | Legacy shared skin selections, no longer read or written | Retained separately |
 | `kasp_base_images` | Base artwork used for skin replacement | Shared across accounts |
 | `kasp_weapon_augment_tracker` | Legacy reload configuration; no longer read or written | Shared across accounts |
 | `kasp_my_equipment` | Latest observed self-equipment icons | Shared across accounts |
@@ -623,28 +655,30 @@ copy(window.__kaspAugmentsDebug.export());
 | Property | Value |
 | --- | --- |
 | Database | `TankiBattlesDB` |
-| Schema version | `4` |
+| Schema version | `5` |
 | Object store | `battles` |
 | Primary key | Auto-generated `id` |
-| Non-unique indexes | `date`, `map`, `mode`, `top`, `nickname` |
+| Non-unique indexes | `date`, `map`, `mode`, `top`, `userId` |
 
-History records are partitioned logically by their `nickname` field in a shared database. Schema upgrades preserve existing records rather than deliberately recreating an empty database. Read/write helpers close their connections and handle version changes; write operations report completion after the transaction commits.
+History records are partitioned by their `userId` field in a shared database. The obsolete nickname index is removed; legacy records without IDs are preserved separately and are not shown in the new history. Schema upgrades preserve existing records rather than deliberately recreating an empty database. Read/write helpers close their connections and handle version changes; write operations report completion after the transaction commits.
 
 ### Persistence and backups
 
 Reloading the page normally preserves persistent settings and battle records. Clearing site data, resetting a browser profile, or using a different origin can remove or separate them. Uninstalling and reinstalling the extension is not a substitute for a data backup.
 
-Battle History export covers battle records for the current nickname. It does not export all settings, friend categories, or every nickname in the shared database. Export each relevant account before changing profiles or clearing site data.
+Battle History export covers battle records for the current user ID. It does not export all settings, friend categories, or every account in the shared database. Export each relevant account before changing profiles or clearing site data.
 
 ## Battle History Import and Export Format
 
-Exports are UTF-8 JSON arrays with readable indentation. The filename follows `Tanki_BattleHistory_<nickname>_<YYYY-MM-DD>.json`; the filename date uses UTC, while the history UI formats dates in the browser's local time zone.
+Exports are UTF-8 JSON arrays with readable indentation. The filename follows `Tanki_BattleHistory_<userId>_<YYYY-MM-DD>.json`; the filename date uses UTC, while the history UI formats dates in the browser's local time zone.
 
 The following example illustrates the accepted structure:
 
 ```json
 [
   {
+    "battleId": "a8a3b866-4b34-4e83-a651-4d29cb04e33d",
+    "userId": "3074457415316504379",
     "nickname": "ExamplePlayer",
     "date": 1790899200000,
     "status": "Victory",
@@ -667,7 +701,9 @@ The following example illustrates the accepted structure:
 
 | Fields | Requirement |
 | --- | --- |
-| `nickname`, `status`, `map`, `mode`, `top` | Strings |
+| `battleId` | Portable record ID; older files may supply a positive safe-integer `id` instead |
+| `userId` | Exact decimal ID string matching the current account |
+| `nickname`, `status`, `map`, `mode`, `top` | Strings; nickname is historical display text |
 | `date` | A finite number greater than zero, in milliseconds |
 | `reputation`, `kills`, `deaths`, `kd`, `crystals`, `stars` | Finite numbers |
 | `kind` | Optional; when present, `MM` or `PRO` |
@@ -683,7 +719,7 @@ Validation checks the expected structure and types. It does not prove that a bat
 
 The top-level value must be a non-empty array. Every record is validated before writing begins. A validation error rejects the import; a transaction failure rolls back the write operation. Imported IDs and unrelated extra fields are not used as stored primary keys.
 
-Nickname ownership is retained. Importing another account's backup does not silently reassign it to the logged-in account; use the history linking action when reassignment is intended.
+Account ID ownership is enforced. Records for another user ID and legacy records without an ID are rejected before any write. There is no ownership reassignment action.
 
 Text from imported or existing records is escaped for HTML rendering. Player names and other stored text cannot become executable markup through the history templates.
 
@@ -692,6 +728,8 @@ Image URLs are restricted to HTTPS URLs on `tankionline.com` or its subdomains, 
 ## Privacy and Data Handling
 
 Feature settings and history data are stored locally in the game origin. The implementation does not provide cloud synchronization, a remote backup service, or an extension-owned analytics backend.
+
+The Firefox manifest declares `data_collection_permissions.required: ["none"]`. This is the extension's collection declaration; local history and favorites still exist, and ordinary game traffic and optional Electron-to-Discord presence are described here separately.
 
 The injector requests the game's own bundle. Modules load bundled templates and databases, and some presentation uses game-hosted artwork. These operations should not be confused with a fully offline runtime.
 
@@ -814,11 +852,13 @@ The package manifest and lockfile root agree on `@types/chrome` `^0.3.0`, esbuil
 | Command | Operation |
 | --- | --- |
 | `npm run typecheck` | Runs `tsc --noEmit` with TypeScript strict checking enabled. |
+| `npm test` | Runs every `tools/**/*.test.cjs` file, including Discord companion tests. |
+| `npm run check` | Runs strict type checking and the full test suite locally. |
 | `npm run parse:client -- <main.js>` | Parses a local game bundle with Acorn; optionally exports its AST with `--ast <output.json>`. |
 | `npm run prepare:<feature> -- <main.js>` | Generates or refreshes that feature's AST plan and templates; see the ten feature names below. |
 | `npm run build:js` | Bundles both TypeScript entry points into `dist/`. |
-| `npm run build:zip` | Packages the files currently present into a release archive. |
-| `npm run build` | Runs type checking, JavaScript bundling, and packaging in sequence. |
+| `npm run build:zip` | Runs local checks, then packages the files currently present into a release archive. |
+| `npm run build` | Runs local checks, JavaScript bundling, and packaging in sequence. |
 | `npm run release` | Alias for the complete build command. |
 | `npm run watch` | Watches and rebuilds the JavaScript entry points. |
 
@@ -873,7 +913,7 @@ After rebuilding, reload the unpacked extension and then reload the game page. A
 
 ### Version metadata
 
-The current manifest, package, and lockfile package versions are **2.9.5**. The browser, welcome window, and release-folder naming use the manifest version. Keep these metadata values aligned when preparing another version.
+The current manifest, package, and lockfile package versions are **2.9.6**. The browser, welcome window, and release-folder naming use the manifest version. Keep these metadata values aligned when preparing another version.
 
 ### Release output
 
@@ -883,13 +923,13 @@ For the current manifest version, output is:
 
 ```text
 release/
-├── Kaspersky's Inventions 2.9.5/
+├── Kaspersky's Inventions 2.9.6/
 │   ├── manifest.json
 │   ├── LICENSE.txt
 │   ├── README.md
 │   ├── DOCUMENTATION.md
 │   └── ... runtime directories
-└── Kaspersky's Inventions 2.9.5.zip
+└── Kaspersky's Inventions 2.9.6.zip
 ```
 
 The archive contains the versioned outer folder. Extract it and select the folder containing `manifest.json` when loading the extension. Source files, tests, `node_modules`, the local game bundle, and raw generated-plan JSON are not separately included. The two root documentation files are included.
@@ -898,7 +938,7 @@ Packaging replaces the existing output folder and ZIP for the same version. Pres
 
 On Windows, packaging invokes `tar -a`; on other platforms it invokes `zip`. The required archiver must be available on the command path.
 
-`build:zip` does not regenerate JavaScript or run type checking. It also skips missing configured files/directories and only performs broad copy-count checks. Inspect the output contents and packaging log before distributing an archive; a successful archive operation does not prove that every required resource was included.
+`build:zip` runs type checking and tests but does not regenerate JavaScript. It also skips missing configured files/directories and only performs broad copy-count checks. Inspect the output contents and packaging log before distributing an archive; a successful archive operation does not prove that every required resource was included.
 
 ## Testing and Verification
 
@@ -916,7 +956,7 @@ The repository includes focused Node regression tests under `tools/`:
 | `injector-auto-upgrade.test.cjs` | Bundle-fetch recovery and recognized/unknown upgrade dialogs |
 | `arcade-reload.test.cjs` | Native bar reuse, independent arcade progress, equipment changes, pause/stun, renamed/minified bundles and failure isolation |
 | `overdrive-timer.test.cjs` | Bonus hooks, independent spawn locations, countdowns, and timer visibility |
-| `critical-indicator.test.cjs` | Supported devices, shot/lifecycle telemetry, native readiness, Supercharge recovery, and HUD color restoration |
+| `critical-indicator.test.cjs` | Supported devices, shot/lifecycle telemetry, native readiness, Supercharge recovery, Terminator transitions, and HUD color restoration |
 | `client-patches.test.cjs` | Lexical filtering, shared hashing, strict directives, and compatible header merging |
 | `client-parser.test.cjs` | Non-executing parser CLI, syntax errors, output protection, and AST serialization |
 | `*-ast.test.cjs`, `garage-*.test.cjs` | Exact/adaptive mappings, renamed contracts, ambiguities, native behavior preservation, and preparation CLI failures |
@@ -931,15 +971,17 @@ $tests = @(Get-ChildItem -Path tools -Recurse -Filter '*.test.cjs' | ForEach-Obj
 node --test $tests
 ```
 
-There is no `npm test` script, and the full build does not invoke these tests. The tests use controlled fixtures and mocks; they do not replace verification against the current live game interface.
+`npm test` discovers all `.test.cjs` files recursively. `npm run check`, `npm run build`, `npm run release`, and `npm run build:zip` require successful tests and strict type checking before proceeding. Checks run locally; no GitHub Actions workflow is installed. The tests use controlled fixtures and mocks; they do not replace verification against the current live game interface. Source contracts also reject explicit TypeScript `any` and native selector/class literals outside `src/core/gameDOM.ts` (including embedded CSS templates). Static `styles/*.css` retain their native stylesheet selectors.
 
 ### Browser verification
 
 For changes affecting multiple modules, verify the relevant flows after rebuilding and reloading:
 
+Repeat the affected checks in Chromium and Firefox. Manifest support does not substitute for testing the current build in each browser.
+
 1. Open extension settings, change a switch, close settings, and confirm that the expected reload and feature state occur.
 2. Visit the lobby, garage, friends list, and trophy screen. Check native navigation and dialogs as well as extension controls.
-3. With nickname hiding enabled, check the header, supported self rows, history, and client `UID` line. Confirm that identity-dependent features still use the actual nickname.
+3. With nickname hiding enabled, check the header, supported self rows, history, and client `UID` line. Confirm that history/favorites ownership still uses the native account ID.
 4. Repeatedly open devices, skins, and shot colors on different equipment. Check late card filling, gray unavailable previews, standard/owned artwork, native descriptions, tooltip closure, and that Possible Rewards remains untouched.
 5. Check the Auto Upgrade setup dialog and recognized confirmation flow. Use fixtures or a controlled environment for unknown-dialog handling; actual confirmation can spend account resources.
 6. Capture a battle result and inspect both the history list and details. Check pagination and back navigation.
@@ -965,15 +1007,22 @@ For changes affecting multiple modules, verify the relevant flows after rebuildi
 - Ordinary critical-cycle indication supports the three specified weapon/augment pairs. Post-Supercharge phase assumptions require verification if the game changes its mechanics.
 - Device tooltips use mouse hover. Equivalent keyboard, gamepad, and mobile tooltip interaction is not implemented.
 - AST compatibility templates reduce dependence on symbol names but still depend on native structure. A runtime exception is not automatically rolled back by the injector's preparation guards.
-- An intermittent missing local tank after entering a loaded map has been reported. Its cause and relationship to the extension remain unconfirmed; it is not listed as fixed in 2.9.5.
+- An intermittent missing local tank after entering a loaded map has been reported. Its cause and relationship to the extension remain unconfirmed; it is not listed as fixed in 2.9.6.
 - Auto Upgrade depends on recognized native dialogs and stops on an unknown confirmation. Its local confirmation count is not an independently verified purchase ledger.
 - Third-party UI modifications can alter the same elements and introduce selector, style, or event conflicts.
+
+## Failure Isolation and Recovery
+
+Feature updates and owned callbacks now have independent failure scopes. Three errors within ten seconds, or five consecutive synchronous budget overruns, stop that feature for the page session and run its cleanup. A failure in one entry does not skip other module updates. Healthy native indicators can be toggled off/on immediately; a quarantined feature requires reloading the game. Time limits cannot interrupt a callback that never returns.
+
+When account ID is missing, existing records remain untouched. Complete results may be held separately in a bounded, unassigned session buffer; earlier pending records are never assigned by nickname. See the [manual maintenance and recovery guide](MAINTENANCE.md) for diagnostics, cleanup boundaries, recovery-buffer export, and repair without AI.
 
 ## Troubleshooting
 
 | Symptom | Checks and corrective action |
 | --- | --- |
 | Extension cannot be loaded | Select the extracted folder containing `manifest.json`; inspect browser extension errors and confirm runtime resources exist. |
+| Firefox add-on disappears after restart | A temporary add-on loaded through `about:debugging` must be loaded again; use an author-provided signed package for persistent installation. |
 | Source edit has no effect | Rebuild `dist/`, reload the extension, and reload the game page. |
 | A switch appears inactive | Confirm the switch is enabled, close settings to apply the reload, and revisit the appropriate game screen. |
 | UI breaks after a game update | Inspect the affected module's native selectors, stylesheet, and reference-data matches. |
@@ -988,9 +1037,10 @@ For changes affecting multiple modules, verify the relevant flows after rebuildi
 | Map loads but the local tank does not appear | Preserve the first console error and stack, weapon/augment, browser/client and game build; inspect critical/arcade statuses and compare equivalent entries with the extension disabled. No confirmed fix is currently documented. |
 | Discord lacks battle details | Check the Electron bridge and `__kaspPresenceStoreDebug()` / `__kaspPresenceBattleDebug()`; English map data, valid capacity, and fresh snapshots are required. |
 | Auto Upgrade stops unexpectedly | Inspect whether the current item/dialog is recognized, a ruby-related condition is detected, MAX is reached, or navigation interrupted the sequence. |
-| History is empty after import | Check the current nickname and the imported records' `nickname` values; use linking if a transfer is intended. |
-| History contains duplicates | Repeated import and reload capture do not provide persistent deduplication. Preserve a backup before clearing/reimporting a corrected set. |
+| History is empty after import | Check that every imported record has the current account's `userId`. Old backups without IDs remain separate. |
+| History contains duplicates | Re-importing the same IDs now skips existing records. Earlier duplicates and separately captured records with different IDs are not removed automatically. |
 | History equipment is missing or outdated | Open native battle statistics during play and allow Equipment Tracker to refresh its cache. |
+| History shows a reload notice or `Extension context invalidated` | Fully reload the game tab after reloading/updating the extension. The old page cannot restore its invalidated extension context. |
 | Database access fails | Check browser site-storage availability and console errors. Back up accessible records before clearing site data. |
 | Settings/history differ between clients | Compare game origin, browser profile, and host application; storage is not synchronized globally. |
 | Game loads but tracking is incomplete | Inspect injector errors and whether native fallback loaded the game without instrumentation. |
@@ -1006,7 +1056,7 @@ Avoid clearing all game-origin storage as the first troubleshooting step. It can
 
 1. Modify TypeScript sources under `src/` and regenerate the runtime bundles through the documented build commands.
 2. Keep configuration keys and defaults consistent with Core Settings. Document any storage migration when renaming a key.
-3. Preserve native identity text. Use the shared nickname reader for account-dependent features and CSS masking for privacy presentation.
+3. Preserve native identity text. Use verified native user IDs for history/favorites ownership, the shared nickname reader for display/self-row recognition, and CSS masking for privacy presentation.
 4. Make DOM updates idempotent: compare current state before changing text, attributes, or inserted nodes.
 5. Release observers, listeners, timers, and overlays when their view or game context ends.
 6. Guard asynchronous rendering against account changes and superseded requests.
@@ -1021,7 +1071,7 @@ Review changes in the final generated and packaged output as well as in the sour
 
 The governing project terms are supplied in [LICENSE.txt](LICENSE.txt). That file identifies the software as proprietary and confidential, reserves rights to the author, and describes express integration rights for the official developers and maintainers of **Tanki Tweaks**. It also contains the warranty disclaimer and user agreement.
 
-The `ISC` value currently present in `package.json` does not match the proprietary text supplied in `LICENSE.txt`. This metadata discrepancy should be resolved by the maintainer; this documentation does not grant additional distribution or modification rights.
+`package.json` and the lockfile root declare `UNLICENSED`. This metadata does not grant an open-source license or replace the proprietary terms in `LICENSE.txt`. The package is also marked `private: true`.
 
 Kaspersky's Inventions is an independent extension for the Tanki Online interface. Its presence in a project or client should not be presented as official endorsement by the game's developers.
 
@@ -1035,4 +1085,4 @@ For the in-game presentation of release information and credits, see [the welcom
 
 ---
 
-Documentation aligned with extension manifest version **2.9.5**, updated **October 14, 2026**.
+Documentation aligned with extension manifest version **2.9.6**, updated **October 17, 2026**.

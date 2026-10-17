@@ -141,6 +141,7 @@ export function createBonusPickupBridge(
     emit: (model: string, position?: BonusPosition | null) => void,
     diagnose?: (record: BonusDiagnosticRecord) => void,
     diagnosticEnabled: () => boolean = () => !!diagnose,
+    observePreparation: (callback: () => void) => unknown = callback => callback(),
 ) {
     const soundModels = new Map<string, string | null>();
     const registrations = new WeakMap<object, { model: string; position: BonusPosition }>();
@@ -182,6 +183,7 @@ export function createBonusPickupBridge(
         },
         prepare(data: unknown, field: string, instance?: unknown): unknown {
             const sound = (data as Record<string, unknown>)[field];
+            observePreparation(() => {
             try {
                 const model = resolve(data, field);
                 const registration = instance && typeof instance === 'object' ? registrations.get(instance) : null;
@@ -198,6 +200,7 @@ export function createBonusPickupBridge(
                     if (!stack.length) pending.delete(sound);
                 });
             } catch { }
+            });
             return sound;
         },
         context(first: unknown, second: unknown): void {

@@ -116,11 +116,13 @@
         "k_hideCurrency",
         "k_hideNicknameXP",
         "k_history",
-        "k_overdrive_timer"
+        "k_overdrive_timer",
+        "k_arcade_reload",
+        "k_critical_indicator"
       ];
       settingsCache = /* @__PURE__ */ new Map();
       for (const key of SETTINGS_KEYS) {
-        settingsCache.set(key, readSetting(key, false));
+        settingsCache.set(key, readSetting(key, key === "k_arcade_reload" || key === "k_critical_indicator"));
       }
       window.addEventListener("storage", (e) => {
         if (e.key && SETTINGS_KEYS.includes(e.key))
@@ -163,6 +165,296 @@
     }
   });
 
+  // src/core/featureRuntime.ts
+  function createFeatureScope(id, options = {}) {
+    const now = options.now || (() => performance.now());
+    const budget = options.budgetMs ?? 16;
+    const status = {
+      id,
+      disabled: false,
+      reason: null,
+      error: null,
+      calls: 0,
+      failures: 0,
+      slowCalls: 0,
+      lastMs: 0,
+      maxMs: 0,
+      cleanupErrors: 0,
+      resources: 0
+    };
+    const cleanups = /* @__PURE__ */ new Set();
+    let consecutiveSlow = 0;
+    const failuresAt = [];
+    const dispose = (reason = "manual") => {
+      if (status.disabled) return;
+      status.disabled = true;
+      status.reason = reason;
+      for (const cleanup of [...cleanups].reverse()) {
+        try {
+          cleanup();
+        } catch {
+          status.cleanupErrors++;
+        }
+      }
+      cleanups.clear();
+      status.resources = 0;
+    };
+    const onCleanup = (cleanup) => {
+      if (status.disabled) {
+        try {
+          cleanup();
+        } catch {
+          status.cleanupErrors++;
+        }
+        return () => {
+        };
+      }
+      cleanups.add(cleanup);
+      status.resources = cleanups.size;
+      return () => {
+        cleanups.delete(cleanup);
+        status.resources = cleanups.size;
+      };
+    };
+    const fail = (error) => {
+      status.failures++;
+      const time = now();
+      while (failuresAt.length && time - failuresAt[0] > 1e4) failuresAt.shift();
+      failuresAt.push(time);
+      status.error = error instanceof Error ? error.message : String(error);
+      if (failuresAt.length >= (options.failureLimit ?? 3)) dispose("repeated-error");
+    };
+    const run = (callback) => {
+      if (status.disabled) return;
+      const start = now();
+      status.calls++;
+      try {
+        const value = callback();
+        if (value && typeof value.then === "function") {
+          return Promise.resolve(value).then((result) => {
+            return status.disabled ? void 0 : result;
+          }, (error) => {
+            fail(error);
+            return void 0;
+          });
+        }
+        return value;
+      } catch (error) {
+        fail(error);
+        return void 0;
+      } finally {
+        status.lastMs = Math.max(0, now() - start);
+        status.maxMs = Math.max(status.maxMs, status.lastMs);
+        if (status.lastMs > budget) {
+          status.slowCalls++;
+          if (++consecutiveSlow >= 5) dispose("repeated-budget-overrun");
+        } else consecutiveSlow = 0;
+      }
+    };
+    const guard = (callback) => (...args) => run(() => callback(...args));
+    const initialize = (callback, fallback) => {
+      try {
+        return callback();
+      } catch (error) {
+        fail(error);
+        dispose("initialization-error");
+        return fallback;
+      }
+    };
+    const listeners = /* @__PURE__ */ new Set();
+    let lastPrune = 0;
+    const unlisten = (target, type, listener, options2) => {
+      if (!target) return;
+      const capture = typeof options2 === "boolean" ? options2 : !!options2?.capture;
+      for (const entry of listeners) if (entry.target === target && entry.type === type && entry.original === listener && (typeof entry.options === "boolean" ? entry.options : !!entry.options?.capture) === capture) {
+        target.removeEventListener?.(type, entry.wrapped, entry.options);
+        entry.release();
+        listeners.delete(entry);
+      }
+    };
+    const listen = (target, type, listener, options2) => {
+      if (!target || status.disabled) return;
+      const time = now();
+      if (time - lastPrune > 1e3) {
+        lastPrune = time;
+        for (const entry2 of listeners) if (time - entry2.since > 1e3 && "isConnected" in entry2.target && entry2.target.isConnected === false) {
+          entry2.target.removeEventListener(entry2.type, entry2.wrapped, entry2.options);
+          entry2.release();
+          listeners.delete(entry2);
+        }
+      }
+      if (listeners.size >= 4096) {
+        dispose("listener-limit");
+        return;
+      }
+      const wrapped = (event) => {
+        if (typeof options2 === "object" && options2.once) unlisten(target, type, listener, options2);
+        return run(() => listener.call(target, event));
+      };
+      target.addEventListener(type, wrapped, options2);
+      const entry = { target, type, original: listener, wrapped, options: options2, since: time, release: () => {
+      } };
+      entry.release = onCleanup(() => {
+        target.removeEventListener(type, wrapped, options2);
+        listeners.delete(entry);
+      });
+      listeners.add(entry);
+    };
+    const timeouts = /* @__PURE__ */ new Map(), intervals = /* @__PURE__ */ new Map(), frames = /* @__PURE__ */ new Map();
+    const cancelTimeout = (handle) => {
+      window.clearTimeout(handle);
+      timeouts.get(handle)?.();
+      timeouts.delete(handle);
+    };
+    const cancelInterval = (handle) => {
+      if (handle === void 0) return;
+      window.clearInterval(handle);
+      intervals.get(handle)?.();
+      intervals.delete(handle);
+    };
+    const cancelFrame = (handle) => {
+      window.cancelAnimationFrame(handle);
+      frames.get(handle)?.();
+      frames.delete(handle);
+    };
+    const timeout = (callback, delay = 0) => {
+      if (status.disabled) return 0;
+      let release = () => {
+      };
+      let handle = 0, fired = false;
+      handle = window.setTimeout(() => {
+        fired = true;
+        release();
+        timeouts.delete(handle);
+        run(callback);
+      }, delay);
+      if (!fired) {
+        release = onCleanup(() => {
+          window.clearTimeout(handle);
+          timeouts.delete(handle);
+        });
+        timeouts.set(handle, release);
+      }
+      return handle;
+    };
+    const interval = (callback, delay) => {
+      if (status.disabled) return 0;
+      const handle = window.setInterval(() => run(callback), delay);
+      const release = onCleanup(() => {
+        window.clearInterval(handle);
+        intervals.delete(handle);
+      });
+      intervals.set(handle, release);
+      return handle;
+    };
+    const frame = (callback) => {
+      if (status.disabled) return 0;
+      let release = () => {
+      };
+      const handle = window.requestAnimationFrame((time) => {
+        release();
+        frames.delete(handle);
+        run(() => callback(time));
+      });
+      release = onCleanup(() => {
+        window.cancelAnimationFrame(handle);
+        frames.delete(handle);
+      });
+      frames.set(handle, release);
+      return handle;
+    };
+    const microtask = (callback) => {
+      if (!status.disabled) queueMicrotask(() => run(callback));
+    };
+    const observer = (callback) => {
+      const instance = new MutationObserver((records, observer2) => {
+        run(() => callback(records, observer2));
+      });
+      onCleanup(() => instance.disconnect());
+      return instance;
+    };
+    const presentations = /* @__PURE__ */ new WeakMap();
+    const preserve = (element, styles = [], classes = []) => {
+      let saved = presentations.get(element);
+      if (!saved) {
+        saved = { styles: /* @__PURE__ */ new Map(), classes: /* @__PURE__ */ new Map() };
+        presentations.set(element, saved);
+        const entry = saved;
+        onCleanup(() => {
+          for (const [key, value] of entry.styles) if (element.style.getPropertyValue(key) === value.after && element.style.getPropertyPriority(key) === value.afterPriority) {
+            if (value.before) element.style.setProperty(key, value.before, value.priority);
+            else element.style.removeProperty(key);
+          }
+          for (const [key, value] of entry.classes) if (element.classList.contains(key) === value.after) element.classList.toggle(key, value.before);
+        });
+      }
+      for (const key of styles) if (!saved.styles.has(key)) saved.styles.set(key, {
+        before: element.style.getPropertyValue(key),
+        priority: element.style.getPropertyPriority(key),
+        after: element.style.getPropertyValue(key),
+        afterPriority: element.style.getPropertyPriority(key)
+      });
+      for (const key of classes) if (!saved.classes.has(key)) saved.classes.set(key, { before: element.classList.contains(key), after: element.classList.contains(key) });
+      return () => {
+        for (const key of styles) {
+          const value = saved.styles.get(key);
+          value.after = element.style.getPropertyValue(key);
+          value.afterPriority = element.style.getPropertyPriority(key);
+        }
+        for (const key of classes) saved.classes.get(key).after = element.classList.contains(key);
+      };
+    };
+    return {
+      run,
+      guard,
+      initialize,
+      fail,
+      dispose,
+      onCleanup,
+      listen,
+      unlisten,
+      timeout,
+      interval,
+      frame,
+      microtask,
+      observer,
+      cancelTimeout,
+      cancelInterval,
+      cancelFrame,
+      preserve,
+      get disabled() {
+        return status.disabled;
+      },
+      status: () => ({ ...status })
+    };
+  }
+  function featureScope(id, options) {
+    let scope = scopes.get(id);
+    if (!scope) {
+      scope = createFeatureScope(id, options);
+      scopes.set(id, scope);
+    }
+    return scope;
+  }
+  function installFeatureDiagnostics(page, world) {
+    const target = page;
+    const debug = {
+      status: () => [...scopes.values()].map((scope) => scope.status()),
+      disable(id) {
+        scopes.get(id)?.dispose("manual");
+      }
+    };
+    if (world === "page") target.__kaspPageModulesDebug = debug;
+    else target.__kaspModulesDebug = debug;
+  }
+  var scopes;
+  var init_featureRuntime = __esm({
+    "src/core/featureRuntime.ts"() {
+      "use strict";
+      scopes = /* @__PURE__ */ new Map();
+    }
+  });
+
   // src/core/gameDOM.ts
   var gameDOM;
   var init_gameDOM = __esm({
@@ -170,6 +462,7 @@
       "use strict";
       gameDOM = {
         battleCreate: {
+          joinButton: ".JoinToBattleComponentStyle-buttonJoin",
           root: ".BattleCreateComponentStyle-mainContainer",
           formats: ".BattleCreateComponentStyle-scrollBattlePick",
           formatCard: ".FormatsSectionComponentStyle-card",
@@ -206,12 +499,17 @@
           boldSpan: "span.-bold"
         },
         account: {
+          headerName: ".UserInfoContainerStyle-userNameRank",
+          resultName: '#selfUserBg [class*="BattleKillBoardComponentStyle-col1"] span.-whiteSpaceNoWrap',
           privateHeaderFields: ".UserInfoContainerStyle-userNameRank, .UserInfoContainerStyle-progressValue",
           clientParameter: ".ClientInfoComponentStyle-parameterText",
           currencyIcon: ".HeaderCommonStyle-icons",
           currencyValues: ".UserScoreComponentStyle-coinBlock span, .HeaderCommonStyle-icons span"
         },
         screens: {
+          loader: ".ApplicationLoaderComponentStyle-container",
+          garageOrLootBox: ".GarageCommonStyle-positionContent, .ContainerInfoComponentStyle-lootBoxContainer",
+          friends: ".FriendListComponentStyle-containerFriends, .InvitationWindowsComponentStyle-centerBlock",
           battleHud: ".BattleHudComponentStyle-hudContainer, .BattleHudComponentStyle-container, .BattleComponentStyle-canvasContainer",
           loadingBackground: ".ApplicationLoaderComponentStyle-container.-background",
           battleCanvas: ".BattleComponentStyle-canvasContainer",
@@ -231,6 +529,7 @@
           rubyImage: 'img[src*="rubyBlack"], img[src*="ruby"]'
         },
         navigation: {
+          garageTabs: ".MenuComponentStyle-blockButtonsQECommunity .MenuComponentStyle-mainMenuItem",
           garageCategory: ".MenuComponentStyle-mainMenuItem",
           activeGarageCategory: ".MenuComponentStyle-mainMenuItem.-activeMenu",
           mountedBlock: '[class*="MountedItemsStyle-commonBlock"]',
@@ -246,6 +545,7 @@
           footerList: ".FooterComponentStyle-footer ul"
         },
         garage: {
+          skinArt: [".GarageItemComponentStyle-mainImg", ".garage-item img", ".MountedItemsStyle-itemPreview"],
           item: ".garage-item",
           itemImage: ".GarageItemComponentStyle-mainImg",
           itemName: ".ItemDescriptionComponentStyle-nameItem",
@@ -291,6 +591,8 @@
           contextPlayer: ".ContextMenuStyle-menuItemRank"
         },
         play: {
+          hiddenNativeDecorations: '.MainScreenComponentStyle-playButtonContainer div[class*="ksc-"], .MainScreenComponentStyle-playButtonContainer [class*="lock"]:not(.main-lock-icon), .MainScreenComponentStyle-playButtonContainer img[src*="lock"]',
+          autoQueueCards: '[class*="BattlePickComponentStyle"], [class*="blockCard"], [class*="commonStyleBlock"]',
           disabled: ".MainScreenComponentStyle-disabledButtonPlay",
           cards: '.BattlePickComponentStyle-commonStyleBlock, .blockCard, [class*="commonStyleBlock"]',
           container: ".MainScreenComponentStyle-playButtonContainer",
@@ -307,6 +609,7 @@
           lobbyAnchor: ".BattlePassLobbyComponentStyle-menuBattlePass"
         },
         statistics: {
+          killBoardHead: ".BattleKillBoardComponentStyle-tableContainer table > thead",
           container: ".BattleTabStatisticComponentStyle-container",
           nickname: ".BattleTabStatisticComponentStyle-nicknameCell",
           nicknameText: ".BattleTabStatisticComponentStyle-nicknameCell span",
@@ -339,6 +642,11 @@
           secondTeamScore: ".BattleResultHeaderComponentStyle-twoTeamAccount .BattleResultHeaderComponentStyle-teamAccount"
         },
         classes: {
+          formatSelected: "FormatsSectionComponentStyle-selectedCard",
+          formatUnselected: "FormatsSectionComponentStyle-unSelectedCard",
+          settingsTab: "SettingsMenuComponentStyle-menuItemOptions",
+          settingsActive: "SettingsMenuComponentStyle-activeItemOptions",
+          settingsSlider: "SettingsMenuComponentStyle-slideMenuOptions",
           wideGarageButton: "-widthHeightButtonGarage",
           activeMenu: "-activeMenu",
           upgradeTransition: "GarageCommonStyle-animatedBlurredRightBlock",
@@ -363,39 +671,186 @@
         fragments: {
           nicknameText: "whiteSpaceNoWrap",
           header: "header"
+        },
+        settings: {
+          root: ".SettingsComponentStyle-blockContentOptions",
+          nativeTabs: ".SettingsMenuComponentStyle-menuItemOptions:not(#kaspersky-tab)",
+          tab: ".SettingsMenuComponentStyle-menuItemOptions",
+          content: ".SettingsComponentStyle-containerBlock"
         }
       };
     }
   });
 
+  // src/core/accountId.ts
+  function normalizeAccountId(value) {
+    try {
+      if (typeof value === "number" && !Number.isSafeInteger(value)) return null;
+      if (!["string", "number", "bigint", "object"].includes(typeof value) || value === null) return null;
+      const text2 = String(value);
+      if (!/^-?[1-9]\d{0,19}$/.test(text2)) return null;
+      const id = BigInt(text2);
+      return id >= -(1n << 63n) && id < 1n << 64n ? text2 : null;
+    } catch {
+      return null;
+    }
+  }
+  var ACCOUNT_IDENTITY_MESSAGE, ACCOUNT_IDENTITY_REQUEST;
+  var init_accountId = __esm({
+    "src/core/accountId.ts"() {
+      "use strict";
+      ACCOUNT_IDENTITY_MESSAGE = "kasp:account-identity";
+      ACCOUNT_IDENTITY_REQUEST = "kasp:account-identity:request";
+    }
+  });
+
+  // src/core/pageMessages.ts
+  function identity(value) {
+    if (!object(value) || !text(value.userId, 21) || !/^-?[1-9]\d{0,19}$/.test(value.userId) || !text(value.nickname, 128)) return false;
+    const id = BigInt(value.userId);
+    return id >= -(1n << 63n) && id < 1n << 64n;
+  }
+  function valid(message) {
+    const detail = message.detail;
+    switch (message.type) {
+      case "kasp:account-identity:request":
+      case "kasp:game-augments-request":
+        return true;
+      case "kasp:account-identity": {
+        const snapshot = message.snapshot;
+        return object(snapshot) && (snapshot.account === null || identity(snapshot.account) && object(snapshot.account) && typeof snapshot.account.clanTag === "string" && snapshot.account.clanTag.length <= 128) && Array.isArray(snapshot.players) && snapshot.players.length <= 6e3 && snapshot.players.every(identity);
+      }
+      case "kasp:game-augments":
+        return object(detail) && detail.format === "kasp-augments-v1" && Array.isArray(detail.devices) && detail.devices.length <= 2e4;
+      case "kasp:battle-kind":
+        return detail === "MM" || detail === "PRO";
+      case "kasp:battle-mode":
+        return typeof detail === "string" && modes.test(detail);
+      case "kasp:useraction":
+        return Array.isArray(detail) && detail.length >= 3 && detail.length <= 4 && detail[0] === "TankUserActionLog" && text(detail[1], 29) && detail[1].trim().length >= 2 && typeof detail[2] === "string" && /^[A-Z][A-Z0-9_]{1,63}$/.test(detail[2]) && (detail.length === 3 || typeof detail[3] === "string" && /^[A-Z][A-Z0-9_]{1,63}$/.test(detail[3]));
+      case "kasp:bonus-pickup": {
+        if (typeof detail === "string") return /^\d{1,20}$/.test(detail);
+        if (!object(detail) || typeof detail.model !== "string" || !/^\d{1,20}$/.test(detail.model)) return false;
+        const position = detail.position;
+        return position === null || object(position) && ["x", "y", "z"].every((axis) => finite(position[axis], -1e8, 1e8));
+      }
+      case "kasp:battle-presence": {
+        const battle = message.battle;
+        return finite(message.at, 0, Number.MAX_SAFE_INTEGER) && (battle === null || object(battle) && typeof battle.map === "string" && battle.map.length <= 128 && (battle.mode === void 0 || typeof battle.mode === "string" && modes.test(battle.mode)) && (battle.remaining === void 0 || finite(battle.remaining, 0, 86400)) && (battle.players === void 0 || Number.isInteger(battle.players) && finite(battle.players, 0, 1e3)) && (battle.maxPlayers === void 0 || Number.isInteger(battle.maxPlayers) && finite(battle.maxPlayers, 1, 1e3)));
+      }
+      case "kasp:discord-presence": {
+        const presence = message.presence;
+        if (message.version !== 1) return false;
+        return presence === null || object(presence) && text(presence.details, 128) && text(presence.state, 128) && (presence.timestamps === void 0 || object(presence.timestamps) && finite(presence.timestamps.end, 0, Number.MAX_SAFE_INTEGER)) && (presence.party === void 0 || object(presence.party) && Array.isArray(presence.party.size) && presence.party.size.length === 2 && presence.party.size.every((n) => Number.isInteger(n) && finite(n, 0, 1e3)) && presence.party.size[1] > 0 && presence.party.size[0] <= presence.party.size[1]);
+      }
+      default:
+        return false;
+    }
+  }
+  function readPageMessage(event, page, type) {
+    if (event.source !== page || event.origin !== page.location.origin || !object(event.data) || event.data.type !== type) return null;
+    return valid(event.data) ? event.data : null;
+  }
+  function postPageMessage(page, message) {
+    if (valid(message)) page.postMessage(message, page.location.origin);
+  }
+  var object, text, finite, modes;
+  var init_pageMessages = __esm({
+    "src/core/pageMessages.ts"() {
+      "use strict";
+      object = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+      text = (value, max) => typeof value === "string" && value.length > 0 && value.length <= max;
+      finite = (value, min, max) => typeof value === "number" && Number.isFinite(value) && value >= min && value <= max;
+      modes = /^(?:TDM|DM|CTF|CP|SGE|RGB|JGR|TJR|ASL|AR|AS|RUGBY|SUR|HOLIDAY|TAR|TUTORIAL)$/;
+    }
+  });
+
   // src/core/accountIdentity.ts
-  function parseAccountIdentity(text) {
-    const displayName = text.trim();
+  function parseAccountIdentity(text2) {
+    const displayName = text2.trim();
     const clanTag = /^\[.*?\]/.exec(displayName)?.[0] || "";
     const nickname = displayName.replace(/^\[.*?\]\s*/, "").trim();
     return nickname ? { nickname, clanTag, displayName } : null;
   }
   function getAccountIdentity() {
-    const header = document.querySelector(".UserInfoContainerStyle-userNameRank");
-    const identity = parseAccountIdentity(header?.textContent || "");
-    if (identity) return identity;
-    for (const parameter of document.querySelectorAll(".ClientInfoComponentStyle-parameterText")) {
+    const header = document.querySelector(gameDOM.account.headerName);
+    const identity2 = parseAccountIdentity(header?.textContent || "");
+    if (identity2) return identity2;
+    for (const parameter of document.querySelectorAll(gameDOM.account.clientParameter)) {
       const uid = /^UID:\s*(.+)$/i.exec(parameter.textContent?.trim() || "");
       if (uid) return parseAccountIdentity(uid[1]);
     }
-    const selfName = document.querySelector('#selfUserBg [class*="BattleKillBoardComponentStyle-col1"] span.-whiteSpaceNoWrap');
+    const selfName = document.querySelector(gameDOM.account.resultName);
     return parseAccountIdentity(selfName?.textContent || "");
   }
+  function setupAccountIdentity() {
+    if (initialized) return;
+    initialized = true;
+    const lifecycle23 = featureScope("accountIdentity");
+    lifecycle23.onCleanup(() => {
+      nativeAccount = null;
+      players.clear();
+      receivedAt = 0;
+    });
+    lifecycle23.listen(window, "message", (event) => {
+      const message = readPageMessage(event, window, ACCOUNT_IDENTITY_MESSAGE);
+      if (!message) return;
+      const snapshot = message.snapshot;
+      nativeAccount = null;
+      players = /* @__PURE__ */ new Map();
+      receivedAt = Date.now();
+      const account = snapshot?.account;
+      const userId = typeof account?.userId === "string" ? normalizeAccountId(account.userId) : null;
+      if (!account || !userId || typeof account.nickname !== "string" || !account.nickname.trim() || typeof account.clanTag !== "string") return;
+      nativeAccount = { userId, nickname: account.nickname, clanTag: account.clanTag };
+      if (!Array.isArray(snapshot.players) || snapshot.players.length > 6e3) return;
+      for (const player of snapshot.players) {
+        const id = typeof player?.userId === "string" ? normalizeAccountId(player.userId) : null;
+        if (!id || typeof player.nickname !== "string" || !player.nickname.trim()) continue;
+        const previous = players.get(player.nickname);
+        players.set(player.nickname, previous === void 0 || previous === id ? id : null);
+      }
+      const key = JSON.stringify([nativeAccount, [...players]]);
+      if (key !== identityKey) {
+        identityKey = key;
+        identityRevision++;
+      }
+    });
+    postPageMessage(window, { type: ACCOUNT_IDENTITY_REQUEST });
+  }
+  function getVerifiedAccount() {
+    if (!nativeAccount || Date.now() - receivedAt > 5e3) return null;
+    const visible = getAccountIdentity();
+    if (visible && visible.nickname !== nativeAccount.nickname) return null;
+    return { ...nativeAccount };
+  }
+  function getPlayerUserId(nickname) {
+    return getVerifiedAccount() ? players.get(nickname) || null : null;
+  }
+  function getAccountIdentityRevision() {
+    return identityRevision;
+  }
+  var nativeAccount, receivedAt, players, initialized, identityRevision, identityKey;
   var init_accountIdentity = __esm({
     "src/core/accountIdentity.ts"() {
       "use strict";
+      init_accountId();
+      init_featureRuntime();
+      init_gameDOM();
+      init_pageMessages();
+      nativeAccount = null;
+      receivedAt = 0;
+      players = /* @__PURE__ */ new Map();
+      initialized = false;
+      identityRevision = 0;
+      identityKey = "";
     }
   });
 
   // src/modules/hideNickname.ts
-  function setTooltip(element, text) {
-    if (element.getAttribute("data-kasp-private-tooltip") !== text) {
-      element.setAttribute("data-kasp-private-tooltip", text);
+  function setTooltip(element, text2) {
+    if (element.getAttribute("data-kasp-private-tooltip") !== text2) {
+      element.setAttribute("data-kasp-private-tooltip", text2);
     }
   }
   function hideNickname() {
@@ -435,10 +890,11 @@
     });
   }
   function setupNicknamePrivacy() {
+    if (lifecycle.disabled) return;
     if (!utils.getSetting("k_hideNicknameXP", false)) return;
     hideNickname();
     if (privacyObserver) return;
-    privacyObserver = new MutationObserver(hideNickname);
+    privacyObserver = lifecycle.observer(hideNickname);
     privacyObserver.observe(document.documentElement, {
       childList: true,
       subtree: true,
@@ -447,15 +903,21 @@
       attributeFilter: ["class", "id"]
     });
   }
-  var privacyObserver;
+  var lifecycle, privacyObserver;
   var init_hideNickname = __esm({
     "src/modules/hideNickname.ts"() {
       "use strict";
+      init_featureRuntime();
       init_gameDOM();
       init_state();
       init_utils();
       init_accountIdentity();
+      lifecycle = featureScope("hideNickname");
       privacyObserver = null;
+      lifecycle.onCleanup(() => {
+        privacyObserver?.disconnect();
+        document.documentElement.classList.remove("kasp-hide-nickname");
+      });
     }
   });
 
@@ -465,10 +927,13 @@
     "src/core/coreSettings.ts"() {
       "use strict";
       init_state();
+      init_gameDOM();
       init_utils();
       init_hideNickname();
+      init_accountIdentity();
       coreSettings = /* @__PURE__ */ (() => {
         let needsReload = false;
+        const liveSettings = /* @__PURE__ */ new Set(["k_arcade_reload", "k_critical_indicator"]);
         let initialSettingsState = {};
         let stylesInjected = false;
         const t = {
@@ -483,21 +948,23 @@
         };
         const MY_SETTINGS = [
           { id: "k_ext_btn", label: { RU: "\u0420\u0430\u0441\u0448\u0438\u0440\u0435\u043D\u043D\u0430\u044F \u043A\u043D\u043E\u043F\u043A\u0430 \xAB\u0418\u0433\u0440\u0430\u0442\u044C\xBB", EN: "Enhanced \xABPlay\xBB button" }, default: false },
-          { id: "k_augments", label: { RU: "\u0425\u0430\u0440\u0430\u043A\u0442\u0435\u0440\u0438\u0441\u0442\u0438\u043A\u0438 \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432", EN: "Augment specifications" }, default: false },
+          { id: "k_augments", label: { RU: "\u041E\u0442\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u044B\u0445 \u043F\u0440\u0435\u0434\u043C\u0435\u0442\u043E\u0432 \u0438 \u0445\u0430\u0440\u0430\u043A\u0442\u0435\u0440\u0438\u0441\u0442\u0438\u043A\u0438 \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432", EN: "Augment specifications" }, default: false },
           { id: "k_auto_upgrade", label: { RU: "\u0411\u044B\u0441\u0442\u0440\u043E\u0435 \u0443\u043B\u0443\u0447\u0448\u0435\u043D\u0438\u0435 \u0432\u043E\u043E\u0440\u0443\u0436\u0435\u043D\u0438\u044F", EN: "Quick weapon upgrades" }, default: false },
           { id: "k_friends", label: { RU: "\u041C\u0435\u0442\u043A\u0438 \u0438 \u043A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u0438 \u0434\u0440\u0443\u0437\u0435\u0439", EN: "Friend tags & categories" }, default: false },
           { id: "k_paints", label: { RU: "\u0423\u043C\u043D\u044B\u0439 \u043F\u043E\u0438\u0441\u043A \u043A\u0440\u0430\u0441\u043E\u043A", EN: "Smart paint search" }, default: false },
           { id: "k_hideCurrency", label: { RU: "\u0421\u043A\u0440\u044B\u0442\u044C \u0432\u0430\u043B\u044E\u0442\u0443", EN: "Hide currency" }, default: false },
           { id: "k_hideNicknameXP", label: { RU: "\u0421\u043A\u0440\u044B\u0442\u044C \u043D\u0438\u043A\u043D\u0435\u0439\u043C \u0438 \u043E\u043F\u044B\u0442", EN: "Hide nickname and score" }, default: false },
           { id: "k_history", label: { RU: "\u0412\u0435\u0441\u0442\u0438 \u0438\u0441\u0442\u043E\u0440\u0438\u044E \u0431\u0438\u0442\u0432", EN: "Keep a history of battles" }, default: false },
-          { id: "k_overdrive_timer", label: { RU: "\u0422\u0430\u0439\u043C\u0435\u0440 \u043A\u043E\u0440\u043E\u0431\u043A\u0438 \u043E\u0432\u0435\u0440\u0434\u0440\u0430\u0439\u0432\u0430", EN: "Overdrive box timer" }, default: false }
+          { id: "k_overdrive_timer", label: { RU: "\u0422\u0430\u0439\u043C\u0435\u0440 \u043A\u043E\u0440\u043E\u0431\u043A\u0438 \u043E\u0432\u0435\u0440\u0434\u0440\u0430\u0439\u0432\u0430", EN: "Overdrive box timer" }, default: false },
+          { id: "k_arcade_reload", label: { RU: "\u041F\u043E\u043B\u043E\u0441\u0430 \u0430\u0440\u043A\u0430\u0434\u043D\u043E\u0439 \u043F\u0435\u0440\u0435\u0437\u0430\u0440\u044F\u0434\u043A\u0438", EN: "Arcade reload indicator" }, default: true },
+          { id: "k_critical_indicator", label: { RU: "\u0418\u043D\u0434\u0438\u043A\u0430\u0442\u043E\u0440 \u043A\u0440\u0438\u0442\u0438\u0447\u0435\u0441\u043A\u043E\u0433\u043E \u0432\u044B\u0441\u0442\u0440\u0435\u043B\u0430", EN: "Critical shot indicator" }, default: true }
         ];
         return {
           inject: () => {
             if (!stylesInjected) {
               stylesInjected = true;
             }
-            const mainBlock = document.querySelector(".SettingsComponentStyle-blockContentOptions");
+            const mainBlock = document.querySelector(gameDOM.settings.root);
             if (!mainBlock) return;
             const ulMenu = mainBlock.querySelector("ul");
             if (!ulMenu || document.getElementById("kaspersky-tab")) return;
@@ -513,7 +980,7 @@
             }
             const kTab = document.createElement("li");
             kTab.id = "kaspersky-tab";
-            kTab.className = "SettingsMenuComponentStyle-menuItemOptions";
+            kTab.className = gameDOM.classes.settingsTab;
             kTab.innerHTML = `<div class="kasp-fake-highlight"><div class="kasp-fake-line"></div></div><span>KASPERSKY</span>`;
             ulMenu.appendChild(kTab);
             const kContent = document.createElement("div");
@@ -537,12 +1004,21 @@
                     `;
             });
             kContent.innerHTML = togglesHTML;
+            if (!getVerifiedAccount()) {
+              const notice = document.createElement("p");
+              notice.textContent = lang === "RU" ? "ID \u0430\u043A\u043A\u0430\u0443\u043D\u0442\u0430 \u043F\u043E\u043A\u0430 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D. \u0418\u0441\u0442\u043E\u0440\u0438\u044F \u0438 \u043B\u0438\u0447\u043D\u043E\u0435 \u0438\u0437\u0431\u0440\u0430\u043D\u043D\u043E\u0435 \u0432\u0440\u0435\u043C\u0435\u043D\u043D\u043E \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u044B; \u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u0435 \u0434\u0430\u043D\u043D\u044B\u0435 \u043E\u0441\u0442\u0430\u044E\u0442\u0441\u044F \u043D\u0430 \u043C\u0435\u0441\u0442\u0435." : "Account ID is unavailable. History and personal favorites are temporarily unavailable; saved data is preserved.";
+              kContent.appendChild(notice);
+            }
             mainBlock.appendChild(kContent);
             kContent.querySelectorAll(".kasp-toggle-row").forEach((node) => {
               const row = node;
               const label = row.querySelector(".kasp-toggle-label");
               const switchBtn = row.querySelector(".kasp-toggle-switch");
               label.addEventListener("mousemove", (e) => {
+                if (liveSettings.has(row.getAttribute("data-id") || "")) {
+                  tooltip?.classList.add("kasp-hidden");
+                  return;
+                }
                 if (tooltip) {
                   tooltip.style.left = e.clientX + "px";
                   tooltip.style.top = e.clientY + "px";
@@ -568,6 +1044,7 @@
                     utils.setSetting(id, true);
                   }
                   needsReload = MY_SETTINGS.some((s) => {
+                    if (liveSettings.has(s.id)) return false;
                     const currentVal = utils.getSetting(s.id, s.default);
                     return currentVal !== initialSettingsState[s.id];
                   });
@@ -581,22 +1058,22 @@
             });
             kTab.addEventListener("click", (e) => {
               e.stopPropagation();
-              const allTabs = ulMenu.querySelectorAll(".SettingsMenuComponentStyle-menuItemOptions:not(#kaspersky-tab)");
-              allTabs.forEach((t2) => t2.classList.remove("SettingsMenuComponentStyle-activeItemOptions"));
-              kTab.classList.add("SettingsMenuComponentStyle-activeItemOptions");
+              const allTabs = ulMenu.querySelectorAll(gameDOM.settings.nativeTabs);
+              allTabs.forEach((t2) => t2.classList.remove(gameDOM.classes.settingsActive));
+              kTab.classList.add(gameDOM.classes.settingsActive);
               ulMenu.classList.add("kasp-hide-native-slider");
-              const nativeContent = mainBlock.querySelector(".SettingsComponentStyle-containerBlock");
+              const nativeContent = mainBlock.querySelector(gameDOM.settings.content);
               if (nativeContent) nativeContent.style.display = "none";
               kContent.classList.remove("kasp-hidden");
             });
             ulMenu.addEventListener("click", (e) => {
               const target = e.target;
-              const clickedTab = target.closest(".SettingsMenuComponentStyle-menuItemOptions");
-              if (clickedTab && clickedTab.id !== "kaspersky-tab" && !clickedTab.classList.contains("SettingsMenuComponentStyle-slideMenuOptions")) {
-                kTab.classList.remove("SettingsMenuComponentStyle-activeItemOptions");
+              const clickedTab = target.closest(gameDOM.settings.tab);
+              if (clickedTab && clickedTab.id !== "kaspersky-tab" && !clickedTab.classList.contains(gameDOM.classes.settingsSlider)) {
+                kTab.classList.remove(gameDOM.classes.settingsActive);
                 ulMenu.classList.remove("kasp-hide-native-slider");
                 kContent.classList.add("kasp-hidden");
-                const nativeContent = mainBlock.querySelector(".SettingsComponentStyle-containerBlock");
+                const nativeContent = mainBlock.querySelector(gameDOM.settings.content);
                 if (nativeContent) nativeContent.style.display = "";
               }
             });
@@ -629,13 +1106,13 @@
   // src/core/augmentLabels.ts
   function augmentPropertyLabel(property, language) {
     if (language === "RU" && russian[property]) return russian[property];
-    const text = property.replace(/^ISIS_/, "ISIDA_").replace(/^MACHINE_GUN_/, "VULCAN_").replace(/^SHOTGUN_/, "HAMMER_").replace(/^ROCKET_LAUNCHER_/, "STRIKER_").replace(/^SCORPIO_/, "SCORPION_").toLowerCase().replace(/_/g, " ");
-    return text.charAt(0).toUpperCase() + text.slice(1);
+    const text2 = property.replace(/^ISIS_/, "ISIDA_").replace(/^MACHINE_GUN_/, "VULCAN_").replace(/^SHOTGUN_/, "HAMMER_").replace(/^ROCKET_LAUNCHER_/, "STRIKER_").replace(/^SCORPIO_/, "SCORPION_").toLowerCase().replace(/_/g, " ");
+    return text2.charAt(0).toUpperCase() + text2.slice(1);
   }
   function resolveAugmentProperty(input) {
-    const text = input.trim();
-    if (/^[A-Z][A-Z0-9_]{0,100}$/.test(text)) return text;
-    const normalized = text.toLowerCase().replace(/\s+/g, " ");
+    const text2 = input.trim();
+    if (/^[A-Z][A-Z0-9_]{0,100}$/.test(text2)) return text2;
+    const normalized = text2.toLowerCase().replace(/\s+/g, " ");
     const matches = Object.keys(russian).filter((property) => ["RU", "EN"].some((language) => augmentPropertyLabel(property, language).toLowerCase().replace(/\s+/g, " ") === normalized));
     return matches.length === 1 ? matches[0] : null;
   }
@@ -998,9 +1475,9 @@
 
   // src/core/gameAugments.ts
   function activeGarageCardSection(root) {
-    const tabs = Array.from(root.querySelectorAll(".MenuComponentStyle-blockButtonsQECommunity .MenuComponentStyle-mainMenuItem"));
+    const tabs = Array.from(root.querySelectorAll(gameDOM.navigation.garageTabs));
     if (tabs.length < 2 || tabs.length > 3) return null;
-    const active = tabs.findIndex((tab) => tab.classList.contains("-activeMenu"));
+    const active = tabs.findIndex((tab) => tab.classList.contains(gameDOM.classes.activeMenu));
     return ["augments", "skins", "shot-color"][active] || null;
   }
   function isAugmentPreviewUrl(value) {
@@ -1012,16 +1489,19 @@
       return false;
     }
   }
-  var AUGMENTS_MESSAGE, AUGMENTS_REQUEST, AUGMENT_CARDS_UPDATED;
+  var AUGMENTS_MESSAGE, AUGMENTS_REQUEST, AUGMENT_CARDS_UPDATED, GARAGE_SKIN_CARDS_REQUEST;
   var init_gameAugments = __esm({
     "src/core/gameAugments.ts"() {
       "use strict";
+      init_featureRuntime();
+      init_pageMessages();
       init_clientPatches();
       init_gameDOM();
       init_augmentLabels();
       AUGMENTS_MESSAGE = "kasp:game-augments";
       AUGMENTS_REQUEST = "kasp:game-augments-request";
       AUGMENT_CARDS_UPDATED = "kasp:augment-cards-updated";
+      GARAGE_SKIN_CARDS_REQUEST = "kasp:garage-skin-cards-request";
     }
   });
 
@@ -1216,6 +1696,7 @@
       init_gameAugments();
       init_augmentLabels();
       init_augmentRules();
+      init_pageMessages();
       AUGMENTS_JSON_FILE = "kasp-augments.json";
       AUGMENTS_JSON_KEY = "kasp_augments_session_json";
       AUGMENTS_UPDATED = "kasp:augments-updated";
@@ -1256,11 +1737,12 @@
         }
         void persist(catalog.export());
         window.addEventListener("message", (event) => {
-          if (event.source !== window || event.data?.type !== AUGMENTS_MESSAGE || !catalog.accept(event.data.detail)) return;
+          const message = readPageMessage(event, window, AUGMENTS_MESSAGE);
+          if (!message || !catalog.accept(message.detail)) return;
           void persist(catalog.export());
           window.dispatchEvent(new CustomEvent(AUGMENTS_UPDATED));
         });
-        window.postMessage({ type: AUGMENTS_REQUEST }, "*");
+        postPageMessage(window, { type: AUGMENTS_REQUEST });
       }
       AugmentCatalog = {
         getDevice(url, element) {
@@ -1344,18 +1826,27 @@
   });
 
   // src/modules/customPaints.ts
-  var customPaints;
+  var lifecycle2, customPaints;
   var init_customPaints = __esm({
     "src/modules/customPaints.ts"() {
       "use strict";
+      init_featureRuntime();
       init_gameDOM();
       init_state();
       init_utils();
       init_dataLoader();
-      customPaints = /* @__PURE__ */ (() => {
-        function normalizeText(text) {
-          if (!text) return "";
-          return text.toLowerCase().replace(/ё/g, "\u0435");
+      lifecycle2 = featureScope("customPaints");
+      customPaints = lifecycle2.initialize(() => {
+        const displays = /* @__PURE__ */ new Map();
+        const display = (element, value) => {
+          const previous = displays.get(element);
+          const before = previous && element.style.display === previous.after ? previous.before : element.style.display;
+          displays.set(element, { before, after: value });
+          element.style.display = value;
+        };
+        function normalizeText(text2) {
+          if (!text2) return "";
+          return text2.toLowerCase().replace(/ё/g, "\u0435");
         }
         function applySearch() {
           if (!DataLoader.isReady()) return;
@@ -1367,7 +1858,7 @@
           items.forEach((itemEl) => {
             const item = itemEl;
             if (queryWords.length === 0) {
-              item.style.display = "";
+              display(item, "");
               return;
             }
             const imgElement = item.querySelector(gameDOM.garage.itemImage);
@@ -1380,13 +1871,13 @@
               const combinedNames = normalizeText(paintInfo.ru + " " + paintInfo.en);
               isMatch = queryWords.every((word) => combinedNames.includes(word));
             }
-            item.style.display = isMatch ? "" : "none";
+            display(item, isMatch ? "" : "none");
           });
           const columns = document.querySelectorAll(".kasp-paints-container > div");
           columns.forEach((colEl) => {
             const col = colEl;
             const visibleItems = Array.from(col.querySelectorAll(gameDOM.garage.item)).filter((i) => i.style.display !== "none");
-            col.style.display = visibleItems.length === 0 ? "none" : "";
+            display(col, visibleItems.length === 0 ? "none" : "");
           });
         }
         function addSearchInput() {
@@ -1408,7 +1899,7 @@
           input.type = "text";
           input.placeholder = state.lang === "RU" ? "\u041D\u0430\u0439\u0442\u0438" : "Search";
           input.className = gameDOM.classes.normal;
-          input.addEventListener("input", applySearch);
+          lifecycle2.listen(input, "input", applySearch);
           const searchIcon = document.createElement("div");
           searchIcon.className = "kasp-search-icon";
           searchInputDiv.appendChild(input);
@@ -1417,6 +1908,12 @@
           searchWrapper.appendChild(searchContainer);
           parentBlock.appendChild(searchWrapper);
         }
+        lifecycle2.onCleanup(() => {
+          document.querySelectorAll(".kasp-search-wrapper").forEach((node) => node.remove());
+          for (const [element, value] of displays) if (element.style.display === value.after) element.style.display = value.before;
+          displays.clear();
+          document.querySelectorAll(".kasp-paints-container").forEach((node) => node.classList.remove("kasp-paints-container"));
+        });
         return () => {
           if (!utils.getSetting("k_paints", false)) return;
           if (state.currentScreen !== "garage") return;
@@ -1426,23 +1923,26 @@
             applySearch();
           }
         };
-      })();
+      }, () => {
+      });
     }
   });
 
   // src/modules/augmentSpecs.ts
-  var augmentSpecs;
+  var lifecycle3, augmentSpecs;
   var init_augmentSpecs = __esm({
     "src/modules/augmentSpecs.ts"() {
       "use strict";
+      init_featureRuntime();
       init_gameDOM();
       init_state();
       init_utils();
       init_dataLoader();
       init_augmentCatalog();
       init_gameAugments();
-      augmentSpecs = /* @__PURE__ */ (() => {
-        let initialized = false;
+      lifecycle3 = featureScope("augmentSpecs");
+      augmentSpecs = lifecycle3.initialize(() => {
+        let initialized2 = false;
         let updateQueued = false;
         const previewImages = /* @__PURE__ */ new Map();
         const failedPreviews = /* @__PURE__ */ new Set();
@@ -1589,11 +2089,11 @@
               btn.dataset.url = url;
               btn.dataset.deviceId = device.id;
               btn.innerHTML = `<div class="custom-card-specs-icon"></div>`;
-              btn.addEventListener("click", (e) => {
+              lifecycle3.listen(btn, "click", (e) => {
                 e.stopPropagation();
                 e.preventDefault();
               });
-              btn.addEventListener("mouseenter", (e) => {
+              lifecycle3.listen(btn, "mouseenter", (e) => {
                 const deviceUrl = btn.dataset.url;
                 const deviceData = deviceUrl ? DataLoader.getDevice(deviceUrl, card) : void 0;
                 if (!deviceData) {
@@ -1622,8 +2122,8 @@
                 hoverTooltip.style.display = "block";
                 updateTooltipPos(e);
               });
-              btn.addEventListener("mousemove", updateTooltipPos);
-              btn.addEventListener("mouseleave", () => {
+              lifecycle3.listen(btn, "mousemove", updateTooltipPos);
+              lifecycle3.listen(btn, "mouseleave", () => {
                 hoverTooltip.style.display = "none";
               });
               card.appendChild(btn);
@@ -1651,7 +2151,7 @@
               if (preview?.replacement !== data.previewIcon) {
                 const replacement = data.previewIcon;
                 previewImages.set(img, { original, replacement, id, section });
-                img.addEventListener("error", () => {
+                lifecycle3.listen(img, "error", () => {
                   if (previewImages.get(img)?.replacement !== replacement || img.src !== replacement) return;
                   failedPreviews.add(replacement);
                   restorePreview(img);
@@ -1678,11 +2178,11 @@
           const allSpans = modifiers ? Array.from(document.querySelectorAll("span")).filter((s) => !s.closest(".custom-live-stat")) : [];
           allSpans.forEach((nameSpan) => {
             if (!modifiers) return;
-            const text = nameSpan.textContent?.trim().toLowerCase() || "";
+            const text2 = nameSpan.textContent?.trim().toLowerCase() || "";
             let matchedTag = null;
             for (const [tag, translations] of Object.entries(STAT_DICT)) {
               const allVariants = [translations.RU, translations.EN].flat().filter(Boolean).map((s) => s.toLowerCase());
-              if (tag in modifiers && allVariants.includes(text)) {
+              if (tag in modifiers && allVariants.includes(text2)) {
                 matchedTag = tag;
                 break;
               }
@@ -1736,7 +2236,7 @@
         const scheduleUpdate = () => {
           if (updateQueued) return;
           updateQueued = true;
-          queueMicrotask(() => {
+          lifecycle3.microtask(() => {
             updateQueued = false;
             if (!utils.getSetting("k_augments", false)) return;
             const isGarage = state.currentScreen === "garage";
@@ -1746,6 +2246,18 @@
             updateLiveStats();
           });
         };
+        lifecycle3.onCleanup(() => {
+          for (const img of previewImages.keys()) restorePreview(img);
+          for (const img of emptyCards.keys()) restoreEmptyCard(img);
+          for (const [original, entry] of liveStats) {
+            entry.replacement.remove();
+            original.classList.remove("hidden-by-script");
+            original.style.display = entry.originalDisplay;
+          }
+          liveStats.clear();
+          document.querySelectorAll(".custom-card-specs-btn").forEach((node) => node.remove());
+          document.getElementById("kasp-specs-tooltip")?.remove();
+        });
         return function sync() {
           if (!utils.getSetting("k_augments", false)) {
             for (const img of previewImages.keys()) restorePreview(img);
@@ -1761,23 +2273,23 @@
             if (tooltip) tooltip.style.display = "none";
             return;
           }
-          if (!initialized) {
-            initialized = true;
-            window.addEventListener("kasp:settings-changed", sync);
-            window.addEventListener("storage", sync);
-            window.addEventListener(AUGMENTS_UPDATED, scheduleUpdate);
-            window.addEventListener(AUGMENT_CARDS_UPDATED, scheduleUpdate);
+          if (!initialized2) {
+            initialized2 = true;
+            lifecycle3.listen(window, "kasp:settings-changed", sync);
+            lifecycle3.listen(window, "storage", sync);
+            lifecycle3.listen(window, AUGMENTS_UPDATED, scheduleUpdate);
+            lifecycle3.listen(window, AUGMENT_CARDS_UPDATED, scheduleUpdate);
             const forceHideTooltip = () => {
               const hoverTooltip = document.getElementById("kasp-specs-tooltip");
               if (hoverTooltip) hoverTooltip.style.display = "none";
             };
-            window.addEventListener("keydown", (e) => {
+            lifecycle3.listen(window, "keydown", (e) => {
               if (e.code === "Escape" || e.key === "Escape" || e.code === "KeyZ" || e.key.toLowerCase() === "z") {
                 if (document.activeElement && ["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
                 forceHideTooltip();
               }
             }, true);
-            window.addEventListener("mousedown", (e) => {
+            lifecycle3.listen(window, "mousedown", (e) => {
               if (e.button === 3) {
                 forceHideTooltip();
               }
@@ -1794,20 +2306,23 @@
             scheduleUpdate();
           }
         };
-      })();
+      }, () => {
+      });
     }
   });
 
   // src/modules/customPlayButton.ts
-  var customPlayButton;
+  var lifecycle4, customPlayButton;
   var init_customPlayButton = __esm({
     "src/modules/customPlayButton.ts"() {
       "use strict";
+      init_featureRuntime();
       init_gameDOM();
       init_state();
       init_utils();
-      customPlayButton = (() => {
-        let initialized = false;
+      lifecycle4 = featureScope("customPlayButton");
+      customPlayButton = lifecycle4.initialize(() => {
+        let initialized2 = false;
         let buttonsCreated = false;
         let autoQueueState = 0;
         let targetMode = null;
@@ -1828,7 +2343,7 @@
           { labels: { RU: "PRO-\u0411\u0418\u0422\u0412\u042B", EN: "PRO BATTLES" }, names: ["PRO-\u0411\u0418\u0422\u0412\u042B", "PRO BATTLES"], icon: "https://s.eu.tankionline.com/static/images/qb_mode.71a6ec19.svg", isDirect: true },
           { labels: { RU: "\u0421\u041F\u0415\u0426\u0420\u0415\u0416\u0418\u041C", EN: "FESTIVE MODE" }, names: ["\u0421\u043F\u0435\u0446\u0438\u0430\u043B\u044C\u043D\u044B\u0439 \u0440\u0435\u0436\u0438\u043C", "Festive mode"], icon: "https://s.eu.tankionline.com/static/images/score.b3ca71b2.svg", isDirect: true }
         ];
-        const modes = [
+        const modes2 = [
           { icon: "https://s.eu.tankionline.com/static/images/tdm_mode.ef239dba.svg", labels: { RU: "\u041A\u041E\u041C\u0410\u041D\u0414\u041D\u042B\u0419 \u0411\u041E\u0419", EN: "TEAM DEATHMATCH" }, names: ["\u041A\u041E\u041C\u0410\u041D\u0414\u041D\u042B\u0419 \u0411\u041E\u0419", "TEAM DEATHMATCH"], isDirect: false },
           { icon: "https://s.eu.tankionline.com/static/images/cp_mode.9d327fbc.svg", labels: { RU: "\u041A\u041E\u041D\u0422\u0420\u041E\u041B\u042C \u0422\u041E\u0427\u0415\u041A", EN: "CONTROL POINTS" }, names: ["\u041A\u041E\u041D\u0422\u0420\u041E\u041B\u042C \u0422\u041E\u0427\u0415\u041A", "CONTROL POINTS"], isDirect: false },
           { icon: "https://s.eu.tankionline.com/static/images/ctf_mode.fba37902.svg", labels: { RU: "\u0417\u0410\u0425\u0412\u0410\u0422 \u0424\u041B\u0410\u0413\u0410", EN: "CAPTURE THE FLAG" }, names: ["\u0417\u0410\u0425\u0412\u0410\u0422 \u0424\u041B\u0410\u0413\u0410", "CAPTURE THE FLAG"], isDirect: false },
@@ -1848,8 +2363,8 @@
           el.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true }));
           return true;
         }
-        function matchText(text, names) {
-          const upper = text.trim().toUpperCase();
+        function matchText(text2, names) {
+          const upper = text2.trim().toUpperCase();
           return names.some((n) => upper === n.toUpperCase());
         }
         function clickSpecificCard(modeNames) {
@@ -1887,8 +2402,8 @@
           if (playButton && !playButton.classList.contains(gameDOM.classes.disabledPlay)) {
             autoQueueState = 1;
             document.body.classList.add("kasp-autoqueue-active");
-            if (failSafeTimer) window.clearTimeout(failSafeTimer);
-            failSafeTimer = window.setTimeout(() => {
+            if (failSafeTimer) lifecycle4.cancelTimeout(failSafeTimer);
+            failSafeTimer = lifecycle4.timeout(() => {
               autoQueueState = 0;
               document.body.classList.remove("kasp-autoqueue-active");
             }, 1500);
@@ -1919,7 +2434,7 @@
             const m = e.code.match(/^Digit([1-7])$/) || e.code.match(/^Numpad([1-7])$/);
             if (m) {
               const idx = parseInt(m[1], 10) - 1;
-              const mode = modes[idx];
+              const mode = modes2[idx];
               if (mode) {
                 startAutoQueue(mode);
                 handled = true;
@@ -2021,21 +2536,21 @@
             const img = document.createElement("div");
             img.className = "mode-icon-el";
             img.style.cssText = `width: 1.8em; height: 1.8em; pointer-events: none; flex-shrink: 0; -webkit-mask-image: url(${mode.icon}); -webkit-mask-size: contain; -webkit-mask-position: center; -webkit-mask-repeat: no-repeat; mask-image: url(${mode.icon}); mask-size: contain; mask-position: center; mask-repeat: no-repeat; transition: background-color 0.2s ease-in-out;`;
-            const text = document.createElement("span");
-            text.className = "wide-mode-btn-text";
-            text.dataset.index = index.toString();
-            text.textContent = mode.labels[currentLang];
-            text.style.cssText = "font-size: 1.2em; font-weight: 500; font-family: BaseFontMedium, FallbackFontMedium; transition: color 0.2s ease-in-out;";
+            const text2 = document.createElement("span");
+            text2.className = "wide-mode-btn-text";
+            text2.dataset.index = index.toString();
+            text2.textContent = mode.labels[currentLang];
+            text2.style.cssText = "font-size: 1.2em; font-weight: 500; font-family: BaseFontMedium, FallbackFontMedium; transition: color 0.2s ease-in-out;";
             contentWrapper.appendChild(img);
-            contentWrapper.appendChild(text);
+            contentWrapper.appendChild(text2);
             el.appendChild(contentWrapper);
-            el.addEventListener("mouseenter", () => {
+            lifecycle4.listen(el, "mouseenter", () => {
               if (!isSearching()) el.style.boxShadow = "rgb(255, 255, 255) 0 0 0 0.2em";
             });
-            el.addEventListener("mouseleave", () => {
+            lifecycle4.listen(el, "mouseleave", () => {
               if (!isSearching()) el.style.boxShadow = "rgba(255, 255, 255, 0.25) 0 0 0 0.0625em";
             });
-            el.addEventListener("click", (e) => {
+            lifecycle4.listen(el, "click", (e) => {
               e.stopPropagation();
               startAutoQueue(mode);
             });
@@ -2044,7 +2559,7 @@
           const row3 = document.createElement("div");
           row3.style.cssText = `display: flex; gap: ${ROW_GAP}em; width: 100%; height: ${BUTTON_HEIGHT}em;`;
           const yOffsetRow3 = -(MAIN_HEIGHT + ROW_GAP + BUTTON_HEIGHT + ROW_GAP);
-          modes.forEach((mode, index) => {
+          modes2.forEach((mode, index) => {
             const el = document.createElement("div");
             el.className = "custom-mode-button";
             const xOffset = -index * (BUTTON_WIDTH + ROW_GAP);
@@ -2058,13 +2573,13 @@
             img.title = mode.labels[currentLang];
             img.style.cssText = `width: 1.8em; height: 1.8em; pointer-events: none; flex-shrink: 0; position: relative; z-index: 2; -webkit-mask-image: url(${mode.icon}); -webkit-mask-size: contain; -webkit-mask-position: center; -webkit-mask-repeat: no-repeat; mask-image: url(${mode.icon}); mask-size: contain; mask-position: center; mask-repeat: no-repeat; transition: background-color 0.2s ease-in-out;`;
             el.appendChild(img);
-            el.addEventListener("mouseenter", () => {
+            lifecycle4.listen(el, "mouseenter", () => {
               if (!isSearching()) el.style.boxShadow = "rgb(255, 255, 255) 0 0 0 0.2em";
             });
-            el.addEventListener("mouseleave", () => {
+            lifecycle4.listen(el, "mouseleave", () => {
               if (!isSearching()) el.style.boxShadow = "rgba(255, 255, 255, 0.25) 0 0 0 0.0625em";
             });
-            el.addEventListener("click", (e) => {
+            lifecycle4.listen(el, "click", (e) => {
               e.stopPropagation();
               startAutoQueue(mode);
             });
@@ -2078,6 +2593,7 @@
           const container = playButton.closest(gameDOM.common.flexDiv) || playButton.parentElement?.parentElement;
           const mainMenu = document.querySelector(gameDOM.play.mainMenu);
           if (container) {
+            const commit = lifecycle4.preserve(container, ["margin-left", "height", "margin-top", "width", "flex-direction", "align-items", "overflow", "z-index", "position"]);
             container.style.marginLeft = "5em";
             container.style.height = "auto";
             container.style.marginTop = "10em";
@@ -2087,23 +2603,33 @@
             container.style.overflow = "visible";
             container.style.zIndex = "5";
             container.style.position = "relative";
+            commit();
           }
           if (playButton) {
+            const commit = lifecycle4.preserve(playButton, ["width", "height", "position", "overflow", "border-radius", "transition", "box-shadow"]);
             playButton.style.width = `${MAIN_WIDTH}em`;
             playButton.style.height = `${MAIN_HEIGHT}em`;
             playButton.style.position = "relative";
             playButton.style.overflow = "hidden";
             playButton.style.borderRadius = "0.5rem";
             playButton.style.transition = "box-shadow 0.2s ease-in-out, opacity 0.2s ease-in";
-            playButton.addEventListener("mouseenter", () => {
-              if (!isSearching()) playButton.style.boxShadow = "rgb(255, 255, 255) 0 0 0 0.2em";
+            lifecycle4.listen(playButton, "mouseenter", () => {
+              if (!isSearching()) {
+                playButton.style.boxShadow = "rgb(255, 255, 255) 0 0 0 0.2em";
+                commit();
+              }
             });
-            playButton.addEventListener("mouseleave", () => {
-              if (!isSearching()) playButton.style.boxShadow = "rgba(255, 255, 255, 0.25) 0 0 0 0.0625em";
+            lifecycle4.listen(playButton, "mouseleave", () => {
+              if (!isSearching()) {
+                playButton.style.boxShadow = "rgba(255, 255, 255, 0.25) 0 0 0 0.0625em";
+                commit();
+              }
             });
             const innerBtn = playButton.querySelector(gameDOM.play.button) || playButton;
+            const commitInner = lifecycle4.preserve(innerBtn, ["background-image"], ["custom-inner-btn"]);
             innerBtn.style.backgroundImage = "none";
             innerBtn.classList.add("custom-inner-btn");
+            commitInner();
             let bgLayer = innerBtn.querySelector(".custom-main-bg-layer");
             if (!bgLayer) {
               bgLayer = document.createElement("div");
@@ -2119,39 +2645,51 @@
               innerBtn.appendChild(customText);
             }
             if (!playButton.dataset.overridden) {
-              playButton.addEventListener("click", (e) => {
+              lifecycle4.listen(playButton, "click", (e) => {
                 if (e.isTrusted && !isSearching()) {
                   targetMode = quickBattleMode;
                   autoQueueState = 1;
                 }
               });
             }
+            commit();
           }
-          if (mainMenu) mainMenu.style.marginTop = "1em";
+          if (mainMenu) {
+            const commit = lifecycle4.preserve(mainMenu, ["margin-top"]);
+            mainMenu.style.marginTop = "1em";
+            commit();
+          }
           createQuickButtons(playButton);
           playButton.dataset.overridden = "true";
           syncButtonStates(true);
         }
+        lifecycle4.onCleanup(() => {
+          autoQueueState = 0;
+          targetMode = null;
+          document.body.classList.remove("kasp-autoqueue-active");
+          document.getElementById("kasp-playbtn-styles")?.remove();
+          document.getElementById("quick-play-wrapper")?.remove();
+          document.querySelectorAll('[data-overridden="true"]').forEach((node) => {
+            node.querySelectorAll(".custom-main-bg-layer, .custom-main-text, .main-lock-icon").forEach((child) => child.remove());
+            node.removeAttribute("data-overridden");
+          });
+        });
         return () => {
           if (!utils.getSetting("k_ext_btn", false)) return;
           if (state.currentScreen === "battle") return;
-          if (!initialized) {
-            initialized = true;
+          if (!initialized2) {
+            initialized2 = true;
             utils.injectStyle(`
-                        .MainScreenComponentStyle-playButtonContainer div[class*="ksc-"],
-                        .MainScreenComponentStyle-playButtonContainer [class*="lock"]:not(.main-lock-icon),
-                        .MainScreenComponentStyle-playButtonContainer img[src*="lock"] { display: none !important; }
+                        ${gameDOM.play.hiddenNativeDecorations} { display: none !important; }
                         .custom-inner-btn > *:not(.custom-main-bg-layer):not(.main-lock-icon):not(.custom-main-text) { display: none !important; }
-                        .MainScreenComponentStyle-playButtonContainer:not([data-overridden="true"]) { opacity: 0 !important; pointer-events: none !important; }
+                        ${gameDOM.play.untreatedContainer} { opacity: 0 !important; pointer-events: none !important; }
                         
-                        body.kasp-autoqueue-active [class*="BattlePickComponentStyle"],
-                        body.kasp-autoqueue-active [class*="blockCard"],
-                        body.kasp-autoqueue-active [class*="commonStyleBlock"] { 
+                        ${gameDOM.play.autoQueueCards.split(", ").map((selector) => `body.kasp-autoqueue-active ${selector}`).join(", ")} {
                             opacity: 0 !important; visibility: hidden !important; transition: none !important; animation: none !important;
                         }
                     `, "kasp-playbtn-styles");
-            document.addEventListener("keydown", handleModeHotkey);
-            window.setInterval(() => {
+            lifecycle4.listen(document, "keydown", handleModeHotkey);
+            lifecycle4.interval(() => {
               if (autoQueueState !== 0) processAutoQueue();
             }, 50);
           }
@@ -2164,20 +2702,26 @@
             syncButtonStates();
           }
         };
-      })();
+      }, () => {
+      });
     }
   });
 
   // src/modules/customFriends.ts
-  var customFriends;
+  var lifecycle5, customFriends;
   var init_customFriends = __esm({
     "src/modules/customFriends.ts"() {
       "use strict";
+      init_featureRuntime();
       init_gameDOM();
       init_state();
       init_utils();
       init_accountIdentity();
-      customFriends = /* @__PURE__ */ (() => {
+      lifecycle5 = featureScope("customFriends");
+      customFriends = lifecycle5.initialize(() => {
+        const originalDisplays = /* @__PURE__ */ new Map();
+        let filterAccount = null;
+        let filterRevision = -1;
         const filtersConfig = [
           { url: "https://s.eu.tankionline.com/static/images/allPaints.741c65e1.svg", type: "all" },
           { url: "https://s.eu.tankionline.com/static/images/uncommon.ca77d7da.svg", type: "online" },
@@ -2187,27 +2731,26 @@
           { url: "https://s.eu.tankionline.com/static/images/iconLegendaryGold.7c76cb29.svg", type: "yellow" },
           { url: "https://s.eu.tankionline.com/static/images/iconCustomiseRed.2b5c8828.svg", type: "red" }
         ];
-        const getCurrentNickname = () => {
-          return getAccountIdentity()?.nickname || "Unknown";
-        };
+        const getCurrentUserId = () => getVerifiedAccount()?.userId || null;
         const getCustomCategories = () => {
-          const myNick = getCurrentNickname();
+          const userId = getCurrentUserId();
+          if (!userId) return {};
           try {
-            return JSON.parse(localStorage.getItem(`tankiCustomCategories_${myNick}`) || "{}");
+            const value = JSON.parse(localStorage.getItem(`tankiCustomCategories_uid_${userId}`) || "{}");
+            return value && typeof value === "object" && !Array.isArray(value) ? value : {};
           } catch (e) {
             return {};
           }
         };
-        const setCustomCategory = (friendNickname, colorType) => {
-          const myNick = getCurrentNickname();
-          if (myNick === "Unknown") return;
+        const setCustomCategory = (ownerId, friendId, colorType) => {
+          if (ownerId !== getCurrentUserId()) return;
           const cats = getCustomCategories();
-          if (cats[friendNickname] === colorType) {
-            delete cats[friendNickname];
+          if (cats[friendId] === colorType) {
+            delete cats[friendId];
           } else {
-            cats[friendNickname] = colorType;
+            cats[friendId] = colorType;
           }
-          localStorage.setItem(`tankiCustomCategories_${myNick}`, JSON.stringify(cats));
+          localStorage.setItem(`tankiCustomCategories_uid_${ownerId}`, JSON.stringify(cats));
           document.querySelectorAll(".custom-friends-sidebar").forEach((node) => {
             const sidebar = node;
             const activeBtn = sidebar.querySelector(".custom-filter-btn.active");
@@ -2224,7 +2767,8 @@
           const clanTag = getMyClanTag();
           const isClan = Boolean(clanTag && cardText.includes(clanTag));
           const cats = getCustomCategories();
-          const customColor = cats[nickText];
+          const friendId = getPlayerUserId(nickText);
+          const customColor = friendId ? cats[friendId] : void 0;
           let rarityType = null;
           if (customColor) {
             rarityType = customColor;
@@ -2271,23 +2815,30 @@
             else if (filterType === "offline") match = isOffline;
             else if (filterType === "clan") match = Boolean(clanTag && cardText.includes(clanTag));
             else if (["purple", "yellow", "red"].includes(filterType)) {
-              match = cats[nickText] === filterType;
+              const friendId = getPlayerUserId(nickText);
+              match = !!friendId && cats[friendId] === filterType;
             }
+            if (!originalDisplays.has(el)) originalDisplays.set(el, el.style.display);
             el.style.display = match ? "" : "none";
           });
         };
         const injectCategoriesMenu = (menu) => {
-          if (menu.dataset.customCategoriesInjected === "true") return;
-          menu.dataset.customCategoriesInjected = "true";
           const rankItem = menu.querySelector(gameDOM.friends.contextPlayer);
           if (!rankItem) return;
           const span = Array.from(rankItem.querySelectorAll("span")).find((s) => s.className.includes(gameDOM.fragments.nicknameText));
           if (!span) return;
           const nickname = span.innerText.trim();
+          const ownerId = getCurrentUserId(), friendId = getPlayerUserId(nickname);
+          const binding = ownerId && friendId ? `${ownerId}:${friendId}` : "";
+          if (binding && menu.dataset.customCategoriesInjected === binding) return;
+          menu.querySelector(".custom-category-row")?.remove();
+          delete menu.dataset.customCategoriesInjected;
+          if (!ownerId || !friendId) return;
+          menu.dataset.customCategoriesInjected = binding;
           const row = document.createElement("div");
           row.className = "custom-category-row";
           const cats = getCustomCategories();
-          const currentColor = cats[nickname];
+          const currentColor = cats[friendId];
           const customButtons = [
             { type: "purple", url: "https://s.eu.tankionline.com/static/images/iconEpicFiolet.d91b1151.svg" },
             { type: "yellow", url: "https://s.eu.tankionline.com/static/images/iconLegendaryGold.7c76cb29.svg" },
@@ -2297,19 +2848,20 @@
             const btn = document.createElement("div");
             btn.className = `custom-category-menu-btn ${currentColor === c.type ? "active" : ""}`;
             btn.innerHTML = `<img src="${c.url}">`;
-            btn.onclick = (e) => {
+            btn.onclick = lifecycle5.guard((e) => {
               e.stopPropagation();
-              setCustomCategory(nickname, c.type);
+              if (ownerId !== getCurrentUserId() || getPlayerUserId(span.innerText.trim()) !== friendId) return;
+              setCustomCategory(ownerId, friendId, c.type);
               row.querySelectorAll(".custom-category-menu-btn").forEach((b) => b.classList.remove("active"));
               const newCats = getCustomCategories();
-              if (newCats[nickname] === c.type) {
+              if (newCats[friendId] === c.type) {
                 btn.classList.add("active");
               }
-            };
+            });
             row.appendChild(btn);
           });
           menu.appendChild(row);
-          requestAnimationFrame(() => {
+          lifecycle5.frame(() => {
             const rect = menu.getBoundingClientRect();
             const overflow = rect.bottom - window.innerHeight;
             if (overflow > 0) {
@@ -2338,7 +2890,7 @@
               if (index === 0) btn.classList.add("active");
               const img = document.createElement("img");
               img.src = config.url;
-              btn.addEventListener("click", () => {
+              lifecycle5.listen(btn, "click", () => {
                 sidebar.querySelectorAll(".custom-filter-btn").forEach((b) => b.classList.remove("active"));
                 btn.classList.add("active");
                 applyFilter(scrollBlock, config.type);
@@ -2361,7 +2913,7 @@
               if (index === 0) btn.classList.add("active");
               const img = document.createElement("img");
               img.src = config.url;
-              btn.addEventListener("click", () => {
+              lifecycle5.listen(btn, "click", () => {
                 sidebar.querySelectorAll(".custom-filter-btn").forEach((b) => b.classList.remove("active"));
                 btn.classList.add("active");
                 applyFilter(scrollBlock, config.type);
@@ -2372,9 +2924,23 @@
             parent.insertBefore(sidebar, scrollBlock);
           }
         };
+        lifecycle5.onCleanup(() => {
+          document.querySelectorAll(".custom-friends-sidebar, .custom-rarity-badge, .custom-category-row").forEach((node) => node.remove());
+          for (const [row, display] of originalDisplays) row.style.display = display;
+          originalDisplays.clear();
+          document.querySelectorAll("[data-sidebar-injected]").forEach((node) => node.removeAttribute("data-sidebar-injected"));
+          document.querySelectorAll(".custom-friends-wrapper").forEach((wrapper) => wrapper.replaceWith(...Array.from(wrapper.childNodes)));
+        });
         return () => {
           if (!utils.getSetting("k_friends", false)) return;
           if (state.currentScreen === "battle") return;
+          const userId = getCurrentUserId();
+          const revision = getAccountIdentityRevision();
+          if (filterAccount !== userId || filterRevision !== revision) {
+            filterAccount = userId;
+            filterRevision = revision;
+            document.querySelectorAll(".custom-friends-sidebar .custom-filter-btn.active").forEach((button) => button.click());
+          }
           const scrollBlocks = document.querySelectorAll(gameDOM.friends.lists);
           scrollBlocks.forEach((node) => {
             const scrollBlock = node;
@@ -2388,21 +2954,24 @@
           const contextMenus = document.querySelectorAll(gameDOM.friends.contextMenu);
           contextMenus.forEach((node) => {
             const menu = node;
-            if (menu.dataset.customCategoriesInjected !== "true") injectCategoriesMenu(menu);
+            injectCategoriesMenu(menu);
           });
         };
-      })();
+      }, () => {
+      });
     }
   });
 
   // src/modules/garageButtons.ts
-  var garageButtons;
+  var lifecycle6, garageButtons;
   var init_garageButtons = __esm({
     "src/modules/garageButtons.ts"() {
       "use strict";
+      init_featureRuntime();
       init_gameDOM();
       init_state();
-      garageButtons = /* @__PURE__ */ (() => {
+      lifecycle6 = featureScope("garageButtons");
+      garageButtons = lifecycle6.initialize(() => {
         const ICONS = {
           UPGRADE: "https://s.eu.tankionline.com/static/images/max_level.e31e0825.svg",
           MOUNT: "https://s.eu.tankionline.com/static/images/ic_mount.4175dc0c.svg",
@@ -2423,12 +2992,12 @@
           return "default";
         }
         function computeButtonSig(btn, category) {
-          const text = (btn.textContent || "").trim().slice(0, 80);
+          const text2 = (btn.textContent || "").trim().slice(0, 80);
           const kidCount = btn.children.length;
           const hasIcon = btn.querySelector(gameDOM.common.icon) ? 1 : 0;
           const hasKaspActive = btn.classList.contains("kasp-active-btn") ? 1 : 0;
           const hasKaspDisabled = btn.classList.contains("kasp-disabled-btn") ? 1 : 0;
-          return `${text}|${category}|${kidCount}|${hasIcon}|${hasKaspActive}|${hasKaspDisabled}`;
+          return `${text2}|${category}|${kidCount}|${hasIcon}|${hasKaspActive}|${hasKaspDisabled}`;
         }
         function applyButtonFixes() {
           const buttons = document.querySelectorAll(gameDOM.garage.styledActions);
@@ -2436,6 +3005,7 @@
             return;
           const currentCategory = getActiveTabCategory();
           buttons.forEach((btn) => {
+            const commit = lifecycle6.preserve(btn, [], ["kasp-active-btn", "kasp-disabled-btn", "kasp-hover-up", "kasp-hover-down", "kasp-btn-white", "kasp-btn-gray"]);
             const textHTML = btn.innerHTML.toLowerCase();
             const textContent = btn.textContent?.toLowerCase() || "";
             const hasHotKey = btn.querySelector(gameDOM.common.hotkeyFragment);
@@ -2483,8 +3053,11 @@
             }
             const iconDiv = btn.querySelector(gameDOM.common.icon);
             if (iconDiv) {
+              const commitIcon = lifecycle6.preserve(iconDiv, ["background-image", "background-color", "-webkit-mask-image", "mask-image", "-webkit-mask-size", "mask-size", "-webkit-mask-repeat", "mask-repeat", "-webkit-mask-position", "mask-position", "opacity"]);
               applyMask(iconDiv, targetIcon, iconColor);
+              commitIcon();
             }
+            commit();
           });
         }
         function applyMask(element, url, color) {
@@ -2524,17 +3097,20 @@
             processedSigs.set(buttons[i], computeButtonSig(buttons[i], category));
           }
         };
-      })();
+      }, () => {
+      });
     }
   });
 
   // src/modules/welcomeModal.ts
-  var welcomeModal;
+  var lifecycle7, welcomeModal;
   var init_welcomeModal = __esm({
     "src/modules/welcomeModal.ts"() {
       "use strict";
+      init_featureRuntime();
       init_state();
-      welcomeModal = (() => {
+      lifecycle7 = featureScope("welcomeModal");
+      welcomeModal = lifecycle7.initialize(() => {
         const CURRENT_VERSION = chrome.runtime.getManifest().version;
         const STORAGE_KEY = "kasp_last_version";
         let hasChecked = false;
@@ -2568,6 +3144,7 @@
             const response = await fetch(templateUrl);
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             let html = await response.text();
+            if (lifecycle7.disabled) return;
             html = html.replace(/{{version}}/g, dict.version).replace(/{{intro}}/g, dict.intro).replace(/{{role1}}/g, dict.role1).replace(/{{role2}}/g, dict.role2).replace(/{{role3}}/g, dict.role3).replace(/{{role4}}/g, dict.role4).replace(/{{outro}}/g, dict.outro).replace(/{{close}}/g, dict.close);
             const overlay = document.createElement("div");
             overlay.id = "kasp-welcome-overlay";
@@ -2592,7 +3169,7 @@
             document.body.appendChild(overlay);
             const closeBtn = document.getElementById("kasp-welcome-close");
             if (closeBtn) {
-              closeBtn.addEventListener("click", () => {
+              lifecycle7.listen(closeBtn, "click", () => {
                 overlay.remove();
                 localStorage.setItem(STORAGE_KEY, CURRENT_VERSION);
               });
@@ -2601,6 +3178,9 @@
             console.error("[Kaspersky Inventions] Failed to load welcome modal template:", error);
           }
         }
+        lifecycle7.onCleanup(() => {
+          document.getElementById("kasp-welcome-overlay")?.remove();
+        });
         return () => {
           if (hasChecked) return;
           const savedVersion = localStorage.getItem(STORAGE_KEY);
@@ -2612,32 +3192,35 @@
           hasChecked = true;
           showWelcomeModal();
         };
-      })();
+      }, () => {
+      });
     }
   });
 
   // src/modules/hideCurrency.ts
-  var hideCurrency;
+  var lifecycle8, hideCurrency;
   var init_hideCurrency = __esm({
     "src/modules/hideCurrency.ts"() {
       "use strict";
+      init_featureRuntime();
       init_gameDOM();
       init_state();
       init_utils();
-      hideCurrency = /* @__PURE__ */ (() => {
-        let initialized = false;
+      lifecycle8 = featureScope("hideCurrency");
+      hideCurrency = lifecycle8.initialize(() => {
+        let initialized2 = false;
         function getHiddenText() {
           return state.lang === "RU" ? "\u0421\u043A\u0440\u044B\u0442\u043E" : "Hidden";
         }
         function processSpan(span) {
-          const text = span.textContent?.trim() || "";
+          const text2 = span.textContent?.trim() || "";
           const targetText = getHiddenText();
           const parentElement = span.closest(gameDOM.account.currencyIcon) || span.parentElement;
-          if (text && text !== targetText && text !== "\u0421\u043A\u0440\u044B\u0442\u043E" && text !== "Hidden" && /\d/.test(text)) {
-            span.dataset.originalValue = text;
+          if (text2 && text2 !== targetText && text2 !== "\u0421\u043A\u0440\u044B\u0442\u043E" && text2 !== "Hidden" && /\d/.test(text2)) {
+            span.dataset.originalValue = text2;
             span.textContent = targetText;
             if (parentElement) {
-              parentElement.setAttribute("data-tooltip", text);
+              parentElement.setAttribute("data-tooltip", text2);
             }
           } else if (span.dataset.originalValue && parentElement && !parentElement.hasAttribute("data-tooltip")) {
             parentElement.setAttribute("data-tooltip", span.dataset.originalValue);
@@ -2646,12 +3229,22 @@
             parentElement.classList.add("currency-masked");
           }
         }
+        lifecycle8.onCleanup(() => {
+          document.querySelectorAll("[data-original-value]").forEach((node) => {
+            if (node.dataset.originalValue && ["Hidden", "\u0421\u043A\u0440\u044B\u0442\u043E"].includes(node.textContent?.trim() || "")) node.textContent = node.dataset.originalValue;
+            delete node.dataset.originalValue;
+          });
+          document.querySelectorAll(".currency-masked").forEach((node) => {
+            node.classList.remove("currency-masked");
+            node.removeAttribute("data-tooltip");
+          });
+        });
         return () => {
           if (!utils.getSetting("k_hideCurrency", false)) return;
           if (state.currentScreen === "battle") return;
-          if (!initialized) {
-            initialized = true;
-            window.setInterval(() => {
+          if (!initialized2) {
+            initialized2 = true;
+            lifecycle8.interval(() => {
               if (state.currentScreen === "battle") return;
               const spans2 = document.querySelectorAll(gameDOM.account.currencyValues);
               spans2.forEach((node) => processSpan(node));
@@ -2660,20 +3253,44 @@
           const spans = document.querySelectorAll(gameDOM.account.currencyValues);
           spans.forEach((node) => processSpan(node));
         };
-      })();
+      }, () => {
+      });
+    }
+  });
+
+  // src/core/imageUrl.ts
+  function getTankiImageUrl(value) {
+    if (typeof value !== "string" || !value || value.length > 2048 || /[\s"'<>\\]/.test(value)) return "";
+    try {
+      const url = new URL(value);
+      if (url.protocol !== "https:" || url.username || url.password || url.port) return "";
+      if (url.hostname !== "tankionline.com" && !url.hostname.endsWith(".tankionline.com")) return "";
+      if (!/\.(svg|webp|png|jpe?g|gif|avif|ico)$/i.test(url.pathname)) return "";
+      return url.href;
+    } catch {
+      return "";
+    }
+  }
+  var init_imageUrl = __esm({
+    "src/core/imageUrl.ts"() {
+      "use strict";
     }
   });
 
   // src/modules/customTrophies.ts
-  var customTrophies;
+  var lifecycle9, customTrophies;
   var init_customTrophies = __esm({
     "src/modules/customTrophies.ts"() {
       "use strict";
+      init_featureRuntime();
       init_gameDOM();
       init_state();
-      customTrophies = /* @__PURE__ */ (() => {
+      init_accountIdentity();
+      init_imageUrl();
+      lifecycle9 = featureScope("customTrophies");
+      customTrophies = lifecycle9.initialize(() => {
         let initialization = null;
-        const STORAGE_KEY = "kasp_trophies_favorites";
+        const STORAGE_PREFIX = "kasp_trophies_favorites_uid_";
         const ICON_UNFAV = "https://s.eu.tankionline.com/static/images/unfavoriteStar.0e39d67a.svg";
         const ICON_FAV = "https://s.eu.tankionline.com/static/images/favoriteStar.1ce58570.svg";
         let trophyDictionary = {};
@@ -2691,18 +3308,34 @@
           }
         }
         let cachedFavs = null;
+        let favoritesOwner = null;
+        function syncOwner() {
+          const userId = getVerifiedAccount()?.userId || null;
+          if (favoritesOwner !== userId) {
+            cachedFavs = null;
+            favoritesOwner = userId;
+            document.getElementById("custom-trophy-panel")?.remove();
+            document.querySelectorAll(gameDOM.trophies.favorite).forEach((star) => star.remove());
+          }
+          return userId;
+        }
         function getFavs() {
+          const userId = syncOwner();
+          if (!userId) return [];
           if (cachedFavs) return cachedFavs;
           try {
-            cachedFavs = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+            const value = JSON.parse(localStorage.getItem(STORAGE_PREFIX + userId) || "[]");
+            cachedFavs = Array.isArray(value) ? value.filter((item) => item && typeof item === "object" && typeof item.id === "string" && item.id.length > 0 && item.id.length <= 128 && ["turret", "hull"].includes(item.type) && typeof item.icon === "string" && Number.isFinite(item.current) && item.current >= 0 && Number.isFinite(item.max) && item.max > 0).slice(0, 4).map((item) => ({ ...item, icon: getTankiImageUrl(item.icon) })) : [];
           } catch {
             cachedFavs = [];
           }
           return cachedFavs || [];
         }
         function saveFavs(favs) {
+          const owner = favoritesOwner;
+          if (!owner || syncOwner() !== owner) return;
           cachedFavs = favs;
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(favs));
+          localStorage.setItem(STORAGE_PREFIX + owner, JSON.stringify(favs));
         }
         function parseItem(rawText) {
           const lower = rawText.toLowerCase();
@@ -2745,6 +3378,8 @@
           if (cards.length > 0) processGarageMissions(Array.from(cards));
         }
         function processGarageMissions(garageCards) {
+          const owner = syncOwner();
+          if (!owner) return;
           let favs = getFavs();
           let favsUpdated = false;
           const favTurrets = favs.filter((f) => f.type === "turret").length;
@@ -2780,18 +3415,19 @@
             if (!starContainer) {
               starContainer = document.createElement("div");
               starContainer.className = gameDOM.classes.favorite;
+              starContainer.setAttribute("data-kasp-trophy-star", "");
               starContainer.innerHTML = `<img src="${favItem ? ICON_FAV : ICON_UNFAV}">`;
-              starContainer.addEventListener("click", (e) => {
-                e.stopPropagation();
-                const iconUrl = extractIcon(card);
-                toggleFavorite(itemInfo.id, type, iconUrl, currentPoints, maxPoints);
-              });
               card.appendChild(starContainer);
             } else {
               const img = starContainer.querySelector("img");
               const expectedIcon = favItem ? ICON_FAV : ICON_UNFAV;
               if (img && img.src !== expectedIcon) img.src = expectedIcon;
             }
+            starContainer.onclick = lifecycle9.guard((e) => {
+              e.stopPropagation();
+              if (syncOwner() !== owner || parseItem(card.textContent || "")?.id !== itemInfo.id) return;
+              toggleFavorite(itemInfo.id, type, extractIcon(card), currentPoints, maxPoints);
+            });
             if (limitReached) starContainer.classList.add("star-limit-reached");
             else starContainer.classList.remove("star-limit-reached");
           });
@@ -2806,12 +3442,12 @@
             let rawText = "";
             let rawProgress = "";
             textElements.forEach((el) => {
-              const text = el.textContent || "";
+              const text2 = el.textContent || "";
               const style = el.getAttribute("style") || "";
-              if (text.includes(" / ")) {
-                if (!style.includes("opacity: 0")) rawProgress = text;
-              } else if (text.length > 15 && !text.includes("\u0412\u042B\u041F\u041E\u041B\u041D\u0415\u041D\u041E") && !text.includes("COMPLETED")) {
-                rawText = text;
+              if (text2.includes(" / ")) {
+                if (!style.includes("opacity: 0")) rawProgress = text2;
+              } else if (text2.length > 15 && !text2.includes("\u0412\u042B\u041F\u041E\u041B\u041D\u0415\u041D\u041E") && !text2.includes("COMPLETED")) {
+                rawText = text2;
               }
             });
             if (!rawText || !rawProgress) return;
@@ -2844,19 +3480,30 @@
             const percent = Math.min(100, Math.max(0, trophy.current / trophy.max * 100));
             const match = Object.values(trophyDictionary).find((d) => d.id === trophy.id);
             const displayName = match ? state.lang === "RU" ? match.ru : match.en : trophy.id;
-            const itemHTML = `
-                        <div class="custom-trophy-item">
-                            <img class="custom-trophy-icon" src="${trophy.icon}" alt="${displayName}">
-                            <div class="custom-trophy-info">
-                                <div class="custom-trophy-title">${displayName}</div>
-                                <div class="custom-trophy-bar-bg">
-                                    <div class="custom-trophy-bar-fill" style="width: ${percent}%;"></div>
-                                </div>
-                                <div class="custom-trophy-text">${formatNumber2(trophy.current)} / ${formatNumber2(trophy.max)}</div>
-                            </div>
-                        </div>
-                    `;
-            panel.insertAdjacentHTML("beforeend", itemHTML);
+            const item = document.createElement("div");
+            item.className = "custom-trophy-item";
+            const image = document.createElement("img");
+            image.className = "custom-trophy-icon";
+            const icon = getTankiImageUrl(trophy.icon);
+            if (icon) image.src = icon;
+            image.alt = displayName;
+            const info = document.createElement("div");
+            info.className = "custom-trophy-info";
+            const title = document.createElement("div");
+            title.className = "custom-trophy-title";
+            title.textContent = displayName;
+            const bar = document.createElement("div");
+            bar.className = "custom-trophy-bar-bg";
+            const fill = document.createElement("div");
+            fill.className = "custom-trophy-bar-fill";
+            fill.style.width = `${percent}%`;
+            bar.appendChild(fill);
+            const progress = document.createElement("div");
+            progress.className = "custom-trophy-text";
+            progress.textContent = `${formatNumber2(trophy.current)} / ${formatNumber2(trophy.max)}`;
+            info.append(title, bar, progress);
+            item.append(image, info);
+            panel.appendChild(item);
           });
           return panel;
         }
@@ -2864,7 +3511,7 @@
           const challengesBlock = document.querySelector(gameDOM.trophies.lobbyAnchor);
           const panel = document.getElementById("custom-trophy-panel");
           if (challengesBlock) {
-            const key = JSON.stringify([state.lang, getFavs()]);
+            const key = JSON.stringify([favoritesOwner, state.lang, getFavs()]);
             if (getFavs().length === 0) panel?.remove();
             else if (challengesBlock.parentElement && (!panel || panel.dataset.trophiesKey !== key)) {
               const replacement = createPanel();
@@ -2878,10 +3525,17 @@
           const cards = document.querySelectorAll(gameDOM.trophies.cards);
           if (cards.length > 0) processGarageMissions(Array.from(cards));
         }
+        lifecycle9.onCleanup(() => {
+          cachedFavs = null;
+          favoritesOwner = null;
+          document.querySelectorAll(".custom-trophy-panel, [data-kasp-trophy-star]").forEach((node) => node.remove());
+        });
         return async () => {
+          const owner = syncOwner();
           if (!initialization) initialization = loadTrophyDictionary();
           await initialization;
-          if (!trophyDictionaryLoaded) return;
+          if (lifecycle9.disabled) return;
+          if (!trophyDictionaryLoaded || !owner || syncOwner() !== owner) return;
           if (state.currentScreen === "lobby" || state.currentScreen === "garage") {
             updateInterface();
           } else if (state.currentScreen === "match_results") {
@@ -2889,7 +3543,8 @@
             if (battleCards.length > 0) processBattleResults(Array.from(battleCards));
           }
         };
-      })();
+      }, () => {
+      });
     }
   });
 
@@ -3023,16 +3678,18 @@
   });
 
   // src/modules/autoUpgrade.ts
-  var autoUpgrade;
+  var lifecycle10, autoUpgrade;
   var init_autoUpgrade = __esm({
     "src/modules/autoUpgrade.ts"() {
       "use strict";
+      init_featureRuntime();
       init_gameDOM();
       init_state();
       init_utils();
       init_modal();
-      autoUpgrade = /* @__PURE__ */ (() => {
-        let initialized = false;
+      lifecycle10 = featureScope("autoUpgrade");
+      autoUpgrade = lifecycle10.initialize(() => {
+        let initialized2 = false;
         let isRunning = false;
         let upgradeQueue = 0;
         let unavailableRetries = 0;
@@ -3073,30 +3730,30 @@
           activationEvent = event;
           pressedGamepadButtons = gamepadButtons();
           for (const type of ["keydown", "pointerdown", "mousedown", "click"]) {
-            document.addEventListener(type, stopOnInput, true);
+            lifecycle10.listen(document, type, stopOnInput, true);
           }
           const poll = () => {
             inputFrame = null;
             if (!isRunning) return;
             checkGamepadInput();
-            if (isRunning) inputFrame = window.requestAnimationFrame(poll);
+            if (isRunning) inputFrame = lifecycle10.frame(poll);
           };
-          inputFrame = window.requestAnimationFrame(poll);
+          inputFrame = lifecycle10.frame(poll);
         }
         function finish() {
           isRunning = false;
           upgradeQueue = 0;
           unavailableRetries = 0;
           if (timer !== null) {
-            window.clearTimeout(timer);
+            lifecycle10.cancelTimeout(timer);
             timer = null;
           }
           if (inputFrame !== null) {
-            window.cancelAnimationFrame(inputFrame);
+            lifecycle10.cancelFrame(inputFrame);
             inputFrame = null;
           }
           for (const type of ["keydown", "pointerdown", "mousedown", "click"]) {
-            document.removeEventListener(type, stopOnInput, true);
+            lifecycle10.unlisten(document, type, stopOnInput, true);
           }
           activationEvent = void 0;
           pressedGamepadButtons.clear();
@@ -3124,8 +3781,8 @@
           }
           const btn = document.querySelector(gameDOM.dialogs.confirmation);
           if (!btn) return false;
-          const text = btn.textContent?.toLowerCase() || "";
-          if (text.includes("\u0437\u0430 ") || text.includes("for ") || text.includes("\u0440\u0443\u0431\u0438\u043D") || text.includes("ruby") || text.includes("\u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C") || text.includes("get")) return true;
+          const text2 = btn.textContent?.toLowerCase() || "";
+          if (text2.includes("\u0437\u0430 ") || text2.includes("for ") || text2.includes("\u0440\u0443\u0431\u0438\u043D") || text2.includes("ruby") || text2.includes("\u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C") || text2.includes("get")) return true;
           const rubyImg = btn.querySelector(gameDOM.dialogs.rubyImage);
           if (rubyImg) return true;
           return false;
@@ -3147,8 +3804,8 @@
           const buttons = document.querySelectorAll(gameDOM.dialogs.contents);
           for (let i = 0; i < buttons.length; i++) {
             const el = buttons[i];
-            const text = el.textContent?.trim().toLowerCase() || "";
-            if (text === "\u043E\u0442\u043C\u0435\u043D\u0430" || text === "cancel") {
+            const text2 = el.textContent?.trim().toLowerCase() || "";
+            if (text2 === "\u043E\u0442\u043C\u0435\u043D\u0430" || text2 === "cancel") {
               el.click();
               return true;
             }
@@ -3166,8 +3823,8 @@
             const btn = btns[i];
             const span = btn.querySelector(gameDOM.common.boldSpan);
             if (span) {
-              const text = span.textContent?.trim().toUpperCase() || "";
-              if (text === "\u0417\u0410\u0412\u0415\u0420\u0428\u0415\u041D\u041E" || text === "COMPLETED") return true;
+              const text2 = span.textContent?.trim().toUpperCase() || "";
+              if (text2 === "\u0417\u0410\u0412\u0415\u0420\u0428\u0415\u041D\u041E" || text2 === "COMPLETED") return true;
             }
           }
           return false;
@@ -3178,8 +3835,8 @@
             const btn = btns[i];
             if (btn.closest(gameDOM.garage.mountContainer))
               continue;
-            const text = (btn.textContent || "").toLowerCase();
-            if (text.includes("\u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u043E") || text.includes("unavailable"))
+            const text2 = (btn.textContent || "").toLowerCase();
+            if (text2.includes("\u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u043E") || text2.includes("unavailable"))
               return true;
           }
           return false;
@@ -3188,10 +3845,10 @@
           if (document.querySelector(gameDOM.garage.established)) return true;
           const titleNodes = document.querySelectorAll(gameDOM.garage.upgradeTitles);
           for (let i = 0; i < titleNodes.length; i++) {
-            const text = titleNodes[i].textContent?.trim().toUpperCase() || "";
-            if (/(MK|МК)7[- ]?20/.test(text)) return true;
-            if (/(УР|LVL)[- ]?(20|45)/.test(text)) return true;
-            if (text.includes("MAX")) return true;
+            const text2 = titleNodes[i].textContent?.trim().toUpperCase() || "";
+            if (/(MK|МК)7[- ]?20/.test(text2)) return true;
+            if (/(УР|LVL)[- ]?(20|45)/.test(text2)) return true;
+            if (text2.includes("MAX")) return true;
           }
           const maxBtn = document.querySelector(gameDOM.garage.maxPriceTitle);
           if (maxBtn && maxBtn.textContent?.trim().toUpperCase() === "MAX") return true;
@@ -3263,8 +3920,8 @@
           };
           modal.onClose(() => {
             isClosing = true;
-            document.removeEventListener("keydown", onKeyDown, true);
-            window.setTimeout(() => document.removeEventListener("keyup", onKeyUp, true), 700);
+            lifecycle10.unlisten(document, "keydown", onKeyDown, true);
+            lifecycle10.timeout(() => lifecycle10.unlisten(document, "keyup", onKeyUp, true), 700);
           });
           const onKeyDown = (event) => {
             if (event.key !== "Enter" || isClosing) return;
@@ -3281,14 +3938,14 @@
               event.stopImmediatePropagation();
             }
           };
-          confirmBtn.addEventListener("click", (event) => {
+          lifecycle10.listen(confirmBtn, "click", (event) => {
             if (isClosing) return;
             closeDialog();
             callback(event);
           });
-          cancelBtn.addEventListener("click", closeDialog);
-          document.addEventListener("keydown", onKeyDown, true);
-          document.addEventListener("keyup", onKeyUp, true);
+          lifecycle10.listen(cancelBtn, "click", closeDialog);
+          lifecycle10.listen(document, "keydown", onKeyDown, true);
+          lifecycle10.listen(document, "keyup", onKeyUp, true);
         }
         function performAction(count) {
           if (isRunning) return;
@@ -3307,7 +3964,7 @@
               }
               if (isWaitingForDialogClose) {
                 if (isDialogOpen()) {
-                  timer = window.setTimeout(doStep, DELAY);
+                  timer = lifecycle10.timeout(doStep, DELAY);
                   return;
                 }
                 isWaitingForDialogClose = false;
@@ -3323,7 +3980,7 @@
               if (!shouldShowQuickButtons() && !isDialogOpen()) {
                 if (unavailableRetries < MAX_UNAVAILABLE_RETRIES) {
                   unavailableRetries++;
-                  timer = window.setTimeout(doStep, RETRY_DELAY);
+                  timer = lifecycle10.timeout(doStep, RETRY_DELAY);
                   return;
                 }
                 finish();
@@ -3347,16 +4004,16 @@
                   }
                   upgraded++;
                   isWaitingForDialogClose = true;
-                  timer = window.setTimeout(doStep, DELAY);
+                  timer = lifecycle10.timeout(doStep, DELAY);
                   return;
                 }
                 finish();
                 return;
               }
               pressEnter();
-              timer = window.setTimeout(doStep, DELAY);
+              timer = lifecycle10.timeout(doStep, DELAY);
             }
-            timer = window.setTimeout(doStep, DELAY);
+            timer = lifecycle10.timeout(doStep, DELAY);
           });
         }
         function createButtons() {
@@ -3387,11 +4044,11 @@
             const el = document.createElement("div");
             el.className = gameDOM.classes.upgradeButton;
             el.style.cssText = `cursor: pointer; background-color: rgb(218, 218, 218) !important; transition: background-color 0.2s, box-shadow 0.2s; box-shadow: rgba(255, 255, 255, 0.25) 0em 0em 0em 0.063em; border-radius: 0.75em; display: flex; min-width: 0; align-items: center; justify-content: center; height: 3em; box-sizing: border-box;`;
-            el.addEventListener("mouseenter", () => {
+            lifecycle10.listen(el, "mouseenter", () => {
               el.style.backgroundColor = "rgb(197, 197, 197)";
               el.style.boxShadow = "rgb(255, 255, 255) 0em 0em 0em 1.4px";
             });
-            el.addEventListener("mouseleave", () => {
+            lifecycle10.listen(el, "mouseleave", () => {
               el.style.backgroundColor = "rgb(218, 218, 218)";
               el.style.boxShadow = "rgba(255, 255, 255, 0.25) 0em 0em 0em 0.063em";
             });
@@ -3400,7 +4057,7 @@
             span.textContent = btn.label;
             el.appendChild(span);
             el.title = btn.value === Infinity ? tooltipMax : tooltipSteps.replace("{n}", btn.value.toString());
-            el.addEventListener("click", (e) => {
+            lifecycle10.listen(el, "click", (e) => {
               e.stopPropagation();
               if (typeof isRunning !== "undefined" && !isRunning) performAction(btn.value);
             });
@@ -3408,15 +4065,22 @@
           });
           panel.appendChild(quickButtonsWrapper);
         }
+        lifecycle10.onCleanup(() => {
+          finish();
+          if (categorySwitchTimeout !== null) lifecycle10.cancelTimeout(categorySwitchTimeout);
+          const overlay = document.getElementById("quick-upgrade-overlay");
+          overlay?.closeDialogMethod?.();
+          document.getElementById("quick-buttons")?.remove();
+        });
         return () => {
           if (!utils.getSetting("k_auto_upgrade", false)) return;
           if (state.currentScreen !== "garage") return;
-          if (!initialized) {
-            initialized = true;
-            categorySwitchTimeout = window.setTimeout(() => {
+          if (!initialized2) {
+            initialized2 = true;
+            categorySwitchTimeout = lifecycle10.timeout(() => {
               isCategorySwitch = false;
             }, 2e3);
-            document.addEventListener("click", (e) => {
+            lifecycle10.listen(document, "click", (e) => {
               const target = e.target;
               if (!(target instanceof Element))
                 return;
@@ -3431,40 +4095,40 @@
               const backButton = target.closest(gameDOM.navigation.backControls);
               if (menuCategory || mainGarageBlock || backButton) {
                 isCategorySwitch = true;
-                if (categorySwitchTimeout) window.clearTimeout(categorySwitchTimeout);
-                categorySwitchTimeout = window.setTimeout(() => {
+                if (categorySwitchTimeout) lifecycle10.cancelTimeout(categorySwitchTimeout);
+                categorySwitchTimeout = lifecycle10.timeout(() => {
                   isCategorySwitch = false;
                 }, 1e3);
               } else if (itemElement) {
                 isCategorySwitch = false;
-                if (categorySwitchTimeout) window.clearTimeout(categorySwitchTimeout);
+                if (categorySwitchTimeout) lifecycle10.cancelTimeout(categorySwitchTimeout);
               }
               if (menuCategory || mainGarageBlock || itemElement || backButton) {
                 if (isRunning) finish();
                 lastItemSignature = "";
                 const existing = document.getElementById("quick-buttons");
                 if (existing) existing.remove();
-                window.setTimeout(createButtons, 10);
+                lifecycle10.timeout(createButtons, 10);
               }
             }, true);
-            document.addEventListener("keydown", (e) => {
+            lifecycle10.listen(document, "keydown", (e) => {
               if (document.getElementById("quick-upgrade-overlay")) return;
               if (e.key === "Escape" || e.code === "KeyZ" || e.key.toLowerCase() === "z") {
                 if (document.activeElement && ["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
                 isCategorySwitch = true;
-                if (categorySwitchTimeout) window.clearTimeout(categorySwitchTimeout);
-                categorySwitchTimeout = window.setTimeout(() => {
+                if (categorySwitchTimeout) lifecycle10.cancelTimeout(categorySwitchTimeout);
+                categorySwitchTimeout = lifecycle10.timeout(() => {
                   isCategorySwitch = false;
                 }, 1e3);
                 lastItemSignature = "";
               }
             }, true);
-            document.addEventListener("mousedown", (e) => {
+            lifecycle10.listen(document, "mousedown", (e) => {
               if (document.getElementById("quick-upgrade-overlay")) return;
               if (e.button === 3 || e.button === 4) {
                 isCategorySwitch = true;
-                if (categorySwitchTimeout) window.clearTimeout(categorySwitchTimeout);
-                categorySwitchTimeout = window.setTimeout(() => {
+                if (categorySwitchTimeout) lifecycle10.cancelTimeout(categorySwitchTimeout);
+                categorySwitchTimeout = lifecycle10.timeout(() => {
                   isCategorySwitch = false;
                 }, 1e3);
                 lastItemSignature = "";
@@ -3497,17 +4161,21 @@
             if (existing) existing.remove();
           }
         };
-      })();
+      }, () => {
+      });
     }
   });
 
   // src/modules/changeCounter.ts
-  var changeCounter;
+  var lifecycle11, changeCounter;
   var init_changeCounter = __esm({
     "src/modules/changeCounter.ts"() {
       "use strict";
+      init_featureRuntime();
       init_gameDOM();
-      changeCounter = (() => {
+      init_pageMessages();
+      lifecycle11 = featureScope("changeCounter");
+      changeCounter = lifecycle11.initialize(() => {
         const CACHE_KEY = "kasp_player_changes_cache";
         const playerChanges = /* @__PURE__ */ new Map();
         let isUpdating = false;
@@ -3533,21 +4201,15 @@
           playerChanges.clear();
           sessionStorage.removeItem(CACHE_KEY);
         };
-        window.addEventListener("message", (e) => {
-          const data = e.data;
-          if (e.source !== window) return;
-          if (!data || data.type !== "kasp:battle-kind") return;
-          if (data.detail === "MM" || data.detail === "PRO") window.__kaspBattleKind = data.detail;
+        lifecycle11.listen(window, "message", (e) => {
+          const message = readPageMessage(e, window, "kasp:battle-kind");
+          if (message) window.__kaspBattleKind = message.detail;
         });
-        window.addEventListener("message", (e) => {
-          const data = e.data;
-          if (!data || data.type !== "kasp:useraction") return;
-          const detail = data.detail;
-          if (!Array.isArray(detail)) return;
-          if (detail[0] !== "TankUserActionLog" || !detail.includes("CHANGE_EQUIPMENT")) return;
-          const nickname = detail.find(
-            (item) => typeof item === "string" && item !== "TankUserActionLog" && item !== "CHANGE_EQUIPMENT" && item !== "ALLY" && item !== "ENEMIES" && !item.startsWith("-") && /[a-zA-Z]/.test(item) && item.length >= 2 && item.length < 30
-          );
+        lifecycle11.listen(window, "message", (e) => {
+          const message = readPageMessage(e, window, "kasp:useraction");
+          if (!message || message.detail[2] !== "CHANGE_EQUIPMENT") return;
+          const detail = message.detail;
+          const nickname = detail[1];
           if (!nickname) return;
           playerChanges.set(nickname, (playerChanges.get(nickname) ?? 0) + 1);
           saveCache();
@@ -3555,7 +4217,7 @@
             update();
           }
         });
-        document.addEventListener("kasp:battle:id", () => {
+        lifecycle11.listen(document, "kasp:battle:id", () => {
           clearCache();
           update();
         });
@@ -3604,6 +4266,9 @@
         function update() {
           sync();
         }
+        lifecycle11.onCleanup(() => {
+          document.querySelectorAll(".kasp-change-th, .kasp-change-td").forEach((node) => node.remove());
+        });
         return {
           onTick: () => {
             checkBattleCanvas();
@@ -3611,22 +4276,33 @@
           sync,
           update
         };
-      })();
+      }, { onTick() {
+      }, sync() {
+      }, update() {
+      } });
     }
   });
 
   // src/modules/customGarageSkins.ts
-  var customGarageSkins;
+  var lifecycle12, customGarageSkins;
   var init_customGarageSkins = __esm({
     "src/modules/customGarageSkins.ts"() {
       "use strict";
+      init_featureRuntime();
       init_gameDOM();
-      customGarageSkins = (() => {
-        const STORAGE_KEY = "kasp_equipped_skins";
+      init_accountIdentity();
+      init_gameAugments();
+      init_imageUrl();
+      lifecycle12 = featureScope("customGarageSkins");
+      customGarageSkins = lifecycle12.initialize(() => {
+        const STORAGE_PREFIX = "kasp_equipped_skins_uid_";
         const BASE_IMG_KEY = "kasp_base_images";
+        let ownerId = null;
         let NAME_TRANSLATE = null;
         let PREFILLED_DEFAULTS = null;
         let dataReadyPromise = null;
+        const parsedStorage = /* @__PURE__ */ new Map();
+        let cssInputs = null;
         function loadSkinsData() {
           if (dataReadyPromise) return dataReadyPromise;
           dataReadyPromise = fetch(chrome.runtime.getURL("database/skins.json")).then((res) => {
@@ -3642,14 +4318,21 @@
         loadSkinsData();
         function safeParseJSON(raw) {
           if (!raw) return null;
+          if (parsedStorage.has(raw)) return parsedStorage.get(raw);
           try {
-            return JSON.parse(raw);
+            const value = JSON.parse(raw);
+            if (parsedStorage.size >= 3) parsedStorage.clear();
+            parsedStorage.set(raw, value);
+            return value;
           } catch (e) {
             return null;
           }
         }
         function getSavedSkins() {
-          return safeParseJSON(localStorage.getItem(STORAGE_KEY)) || {};
+          if (!ownerId) return {};
+          const stored = safeParseJSON(localStorage.getItem(STORAGE_PREFIX + ownerId));
+          if (!stored || typeof stored !== "object" || Array.isArray(stored)) return {};
+          return Object.fromEntries(Object.entries(stored).filter((entry) => typeof entry[1] === "string" && SAFE_ART_URL.test(entry[1])));
         }
         function getDefaultImages() {
           try {
@@ -3663,10 +4346,12 @@
               const val = stored[key];
               if (Array.isArray(val)) {
                 val.forEach((v) => {
-                  if (v && !merged[key].includes(v)) merged[key].push(v);
+                  const url = getTankiImageUrl(v);
+                  if (url && !merged[key].includes(url)) merged[key].push(url);
                 });
               } else if (val) {
-                if (!merged[key].includes(val)) merged[key].push(val);
+                const url = getTankiImageUrl(val);
+                if (url && !merged[key].includes(url)) merged[key].push(url);
               }
             }
             return merged;
@@ -3677,6 +4362,12 @@
           }
         }
         function updateGlobalCSS() {
+          const inputs = {
+            owner: ownerId,
+            skins: ownerId ? localStorage.getItem(STORAGE_PREFIX + ownerId) : null,
+            bases: localStorage.getItem(BASE_IMG_KEY)
+          };
+          if (cssInputs && cssInputs.owner === inputs.owner && cssInputs.skins === inputs.skins && cssInputs.bases === inputs.bases && document.getElementById("kasp-skins-global-css")) return;
           const savedSkins = getSavedSkins();
           const defaultImages = getDefaultImages();
           let css = "";
@@ -3686,7 +4377,7 @@
             const finalUrls = defaultImages[item].filter((url) => url !== targetUrl);
             if (finalUrls.length > 0) {
               const selectors = finalUrls.map(
-                (url) => `.GarageItemComponentStyle-mainImg[src="${url}"], .garage-item img[src="${url}"], .MountedItemsStyle-itemPreview[src="${url}"]`
+                (url) => gameDOM.garage.skinArt.map((selector) => `${selector}[src="${url}"]`).join(", ")
               ).join(",\n");
               css += `${selectors} {
     content: url("${targetUrl}") !important;
@@ -3706,6 +4397,7 @@
           if (styleEl.textContent !== css) {
             styleEl.textContent = css;
           }
+          cssInputs = inputs;
         }
         function hasUnknownSkin(itemNameEN, savedSkins, prefilledDefaults) {
           const saved = savedSkins[itemNameEN];
@@ -3734,25 +4426,21 @@
         }
         function readSkinCards(row) {
           const cards = [];
-          row.querySelectorAll(gameDOM.skins.cardTitle).forEach((titleEl) => {
-            const card = titleEl.parentElement;
-            if (!card) return;
-            const icon = card.querySelector(gameDOM.skins.cardIcon);
+          if (window.dispatchEvent(new Event(GARAGE_SKIN_CARDS_REQUEST, { cancelable: true }))) return cards;
+          row.querySelectorAll(gameDOM.skins.cardIcon).forEach((icon) => {
+            const native = safeParseJSON(icon.getAttribute("data-kasp-skin-card"));
+            if (!native || typeof native.id !== "string" || !/^\d{1,20}$/.test(native.id) || typeof native.name !== "string" || typeof native.isMounted !== "boolean" || typeof native.isSelected !== "boolean" || typeof native.isOwned !== "boolean" || typeof native.isUnknown !== "boolean" || typeof native.isStandard !== "boolean") return;
             cards.push({
-              title: (titleEl.textContent ?? "").trim(),
-              isStandard: (icon?.getAttribute("src") ?? "").includes("ic_standard"),
-              isEquipped: !!card.querySelector(gameDOM.skins.equippedIcon)
+              id: native.id,
+              title: native.name.trim(),
+              isStandard: native.isStandard || (icon.getAttribute("src") ?? "").includes("ic_standard"),
+              isEquipped: native.isMounted,
+              isSelected: native.isSelected,
+              isOwned: native.isOwned,
+              isUnknown: native.isUnknown
             });
           });
           return cards;
-        }
-        function readSelectedTitle(menu, row, cardTitles) {
-          for (const el of menu.querySelectorAll("*")) {
-            if (el.children.length > 0 || row.contains(el)) continue;
-            const text = (el.textContent ?? "").trim();
-            if (cardTitles.has(text.toLowerCase())) return text;
-          }
-          return null;
         }
         function readPreviewArt(menu, row) {
           for (const el of menu.querySelectorAll(gameDOM.common.background)) {
@@ -3767,7 +4455,10 @@
           const menu = document.querySelector(gameDOM.garage.submenu);
           if (!row || !menu) return { kind: "absent" };
           const cards = readSkinCards(row);
-          const equippedCard = cards.find((card) => card.isEquipped);
+          const mounted = cards.filter((card) => card.isEquipped);
+          const selected = cards.filter((card) => card.isSelected);
+          const equippedCard = mounted.length === 1 ? mounted[0] : void 0;
+          const selectedCard = selected.length === 1 ? selected[0] : void 0;
           const namedCard = equippedCard && !equippedCard.isStandard ? equippedCard : cards.find((card) => !card.isStandard);
           if (!equippedCard || !namedCard) return { kind: "absent" };
           const words = namedCard.title.toLowerCase().split(/\s+/);
@@ -3777,7 +4468,8 @@
             kind: "ready",
             item: nameTranslate[matchedWord],
             equipped: equippedCard.isStandard ? { kind: "standard" } : { kind: "skin", title: equippedCard.title },
-            selectedTitle: readSelectedTitle(menu, row, new Set(cards.map((card) => card.title.toLowerCase()))),
+            selectedTitle: selectedCard?.title ?? null,
+            selectionIsEquipped: !!selectedCard && selectedCard.id === equippedCard.id && !selectedCard.isUnknown && (selectedCard.isOwned || selectedCard.isStandard),
             artUrl: readPreviewArt(menu, row)
           };
         }
@@ -3800,7 +4492,7 @@
         function decideLearnAction(state2, stockUrl) {
           if (state2.kind === "absent") return { kind: "none", reason: null };
           if (state2.equipped.kind === "standard") return { kind: "clear", item: state2.item };
-          const selectedIsEquipped = state2.selectedTitle !== null && state2.selectedTitle.toLowerCase() === state2.equipped.title.toLowerCase();
+          const selectedIsEquipped = state2.selectionIsEquipped;
           if (!selectedIsEquipped) {
             return {
               kind: "none",
@@ -3824,8 +4516,9 @@
           return action.source === "art" ? `equipped skin art ${art} for ${action.item}` : `equipped skin art is unreadable, storing stock ${art} for ${action.item}`;
         }
         function writeSavedSkins(savedSkins) {
+          if (!ownerId || getVerifiedAccount()?.userId !== ownerId) return;
           try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(savedSkins));
+            localStorage.setItem(STORAGE_PREFIX + ownerId, JSON.stringify(savedSkins));
           } catch (e) {
             console.warn("[KI-test][garage-skins] could not save skins:", e instanceof Error ? e.message : e);
           }
@@ -3861,6 +4554,20 @@
           );
         }
         function tick() {
+          const nextOwnerId = getVerifiedAccount()?.userId ?? null;
+          if (nextOwnerId !== ownerId) {
+            ownerId = nextOwnerId;
+            cssInputs = null;
+            parsedStorage.clear();
+            pendingLearn = null;
+            lastSkinsSummary = null;
+            lastLearnNote = null;
+            const style = document.getElementById("kasp-skins-global-css");
+            if (style) style.textContent = "";
+            document.querySelectorAll(".kasp-unknown-skin").forEach((label) => label.remove());
+            if (NAME_TRANSLATE && PREFILLED_DEFAULTS) updateGlobalCSS();
+          }
+          if (!ownerId) return;
           if (!NAME_TRANSLATE || !PREFILLED_DEFAULTS) return;
           if (!isGarageScreen()) return;
           const nameTranslate = NAME_TRANSLATE;
@@ -3879,7 +4586,7 @@
               const rawTitle = (titleSpan.textContent ?? "").trim().toLowerCase();
               const itemNameEN = nameTranslate[rawTitle.split(/\s+/)[0]] || rawTitle.split(/\s+/)[0];
               const originalSrc = imgMain.getAttribute("src") || "";
-              if (originalSrc && originalSrc.includes("tankionline.com") && originalSrc !== savedSkinsForList[itemNameEN]) {
+              if (getTankiImageUrl(originalSrc) && originalSrc !== savedSkinsForList[itemNameEN]) {
                 if (!defaultImages[itemNameEN]) defaultImages[itemNameEN] = [];
                 if (!defaultImages[itemNameEN].includes(originalSrc)) {
                   defaultImages[itemNameEN].push(originalSrc);
@@ -3895,19 +4602,30 @@
           }
           updateGlobalCSS();
         }
+        lifecycle12.onCleanup(() => {
+          pendingLearn = null;
+          ownerId = null;
+          parsedStorage.clear();
+          cssInputs = null;
+          document.getElementById("kasp-skins-global-css")?.remove();
+          document.querySelectorAll(".kasp-unknown-skin").forEach((node) => node.remove());
+        });
         return tick;
-      })();
+      }, () => {
+      });
     }
   });
 
   // src/modules/zeroResists.ts
-  var zeroResists;
+  var lifecycle13, zeroResists;
   var init_zeroResists = __esm({
     "src/modules/zeroResists.ts"() {
       "use strict";
+      init_featureRuntime();
       init_gameDOM();
       init_state();
-      zeroResists = (() => {
+      lifecycle13 = featureScope("zeroResists");
+      zeroResists = lifecycle13.initialize(() => {
         const SHIELD_ICON_URL = chrome.runtime.getURL("assets/modulesTAB.svg");
         const RESISTANCE_MAP = {
           "mine": "https://s.eu.tankionline.com/static/images/mine_resistance.dd581c90.svg",
@@ -4115,7 +4833,7 @@
           btn.className = isTabExpanded ? "kasp-active-toggle" : "";
           btn.title = state.lang === "RU" ? "\u0412\u0441\u0435\u0433\u0434\u0430 \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u0432\u0441\u0435 \u043C\u043E\u0434\u0443\u043B\u0438" : "Always show all modules";
           btn.innerHTML = `<div class="kasp-toggle-icon" style="-webkit-mask-image: url('${SHIELD_ICON_URL}'); mask-image: url('${SHIELD_ICON_URL}');"></div>`;
-          btn.addEventListener("click", (e) => {
+          lifecycle13.listen(btn, "click", (e) => {
             e.stopPropagation();
             isTabExpanded = !isTabExpanded;
             localStorage.setItem("kasp_tab_expanded", String(isTabExpanded));
@@ -4139,19 +4857,27 @@
         function update() {
           sync();
         }
+        lifecycle13.onCleanup(() => {
+          document.body.classList.remove("kasp-tab-expanded");
+          document.querySelectorAll(".kasp-defence-th, .kasp-compact-cell, .kasp-zero-summary, #kasp-tab-toggle-btn, .kasp-custom-summary-row").forEach((node) => node.remove());
+        });
         return { sync, update };
-      })();
+      }, { sync() {
+      }, update() {
+      } });
     }
   });
 
   // src/modules/equipmentTracker.ts
-  var equipmentTracker;
+  var lifecycle14, equipmentTracker;
   var init_equipmentTracker = __esm({
     "src/modules/equipmentTracker.ts"() {
       "use strict";
+      init_featureRuntime();
       init_gameDOM();
       init_accountIdentity();
-      equipmentTracker = /* @__PURE__ */ (() => {
+      lifecycle14 = featureScope("equipmentTracker");
+      equipmentTracker = lifecycle14.initialize(() => {
         const STORAGE_KEY = "kasp_my_equipment";
         let lastSignature = "";
         const urlFrom = (el) => {
@@ -4232,8 +4958,15 @@
           localStorage.removeItem(STORAGE_KEY);
           lastSignature = "";
         };
-        return { sync, get, clear };
-      })();
+        lifecycle14.onCleanup(() => {
+          clear();
+        });
+        return { sync: lifecycle14.guard(sync), get: lifecycle14.guard(get), clear };
+      }, { sync() {
+      }, get() {
+        return null;
+      }, clear() {
+      } });
     }
   });
 
@@ -4247,18 +4980,6 @@
       "'": "&#39;"
     })[char]);
   }
-  function getHistoryImageUrl(value) {
-    if (typeof value !== "string" || !value || /[\s"'<>\\]/.test(value)) return "";
-    try {
-      const url = new URL(value);
-      if (url.protocol !== "https:" || url.username || url.password || url.port) return "";
-      if (url.hostname !== "tankionline.com" && !url.hostname.endsWith(".tankionline.com")) return "";
-      if (!/\.(svg|webp|png|jpe?g|gif|avif|ico)$/i.test(url.pathname)) return "";
-      return url.href;
-    } catch {
-      return "";
-    }
-  }
   function renderHistoryTemplate(template, values, markupKeys = []) {
     const markup = new Set(markupKeys);
     return template.replace(/\{\{(\w+)\}\}/g, (placeholder, key) => {
@@ -4269,6 +4990,7 @@
   var init_historyMarkup = __esm({
     "src/core/historyMarkup.ts"() {
       "use strict";
+      init_imageUrl();
     }
   });
 
@@ -4279,13 +5001,10 @@
   function getClearHistoryDictionary(language) {
     return language === "RU" ? clearHistoryTranslations.RU : clearHistoryTranslations.EN;
   }
-  function getLinkHistoryDictionary(language) {
-    return language === "RU" ? linkHistoryTranslations.RU : linkHistoryTranslations.EN;
-  }
   function getHistoryMessages(language) {
     return language === "RU" ? historyMessages.RU : historyMessages.EN;
   }
-  var historyTranslations, clearHistoryTranslations, linkHistoryTranslations, historyMessages;
+  var historyTranslations, clearHistoryTranslations, historyMessages;
   var init_localization = __esm({
     "src/modules/battleHistory/localization.ts"() {
       "use strict";
@@ -4313,11 +5032,12 @@
           dm: "\u041A\u0430\u0436\u0434\u044B\u0439 \u0441\u0430\u043C \u0437\u0430 \u0441\u0435\u0431\u044F",
           teamScore: "\u0421\u0447\u0451\u0442",
           clear: "\u041E\u0447\u0438\u0441\u0442\u0438\u0442\u044C",
-          link: "\u0421\u0432\u044F\u0437\u0430\u0442\u044C",
           export: "\u042D\u043A\u0441\u043F\u043E\u0440\u0442",
           import: "\u0418\u043C\u043F\u043E\u0440\u0442",
           battles: "\u0411\u043E\u0451\u0432",
           noBattles: "\u041F\u043E\u043A\u0430 \u043D\u0435\u0442 \u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u0445 \u0431\u043E\u0451\u0432",
+          accountUnavailable: "ID \u0430\u043A\u043A\u0430\u0443\u043D\u0442\u0430 \u043F\u043E\u043A\u0430 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D. \u0421\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u0430\u044F \u0438\u0441\u0442\u043E\u0440\u0438\u044F \u043D\u0435 \u0443\u0434\u0430\u043B\u0435\u043D\u0430. \u0414\u043E\u0436\u0434\u0438\u0442\u0435\u0441\u044C \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 \u0430\u043A\u043A\u0430\u0443\u043D\u0442\u0430 \u0438\u043B\u0438 \u043F\u0435\u0440\u0435\u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u0435 \u0438\u0433\u0440\u0443.",
+          contextExpired: "\u0420\u0430\u0441\u0448\u0438\u0440\u0435\u043D\u0438\u0435 \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u043E \u0438\u043B\u0438 \u043E\u0442\u043A\u043B\u044E\u0447\u0435\u043D\u043E. \u041F\u0435\u0440\u0435\u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u0435 \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u0443 \u0438\u0433\u0440\u044B, \u0447\u0442\u043E\u0431\u044B \u043E\u0442\u043A\u0440\u044B\u0442\u044C \u0438\u0441\u0442\u043E\u0440\u0438\u044E.",
           player: "\u0418\u0433\u0440\u043E\u043A",
           gs: "GS",
           diamond: "DIAMOND",
@@ -4351,11 +5071,12 @@
           dm: "Deathmatch",
           teamScore: "Score",
           clear: "Clear",
-          link: "Link",
           export: "Export",
           import: "Import",
           battles: "Battles",
           noBattles: "No saved battles yet",
+          accountUnavailable: "Account ID is unavailable. Saved history has not been deleted. Wait for account data or reload the game.",
+          contextExpired: "The extension was updated or disabled. Reload the game page to open battle history.",
           player: "Player",
           gs: "GS",
           diamond: "DIAMOND",
@@ -4371,44 +5092,14 @@
         RU: { title: "\u041E\u0427\u0418\u0421\u0422\u041A\u0410 \u0418\u0421\u0422\u041E\u0420\u0418\u0418", text: "\u0412\u044B \u0443\u0432\u0435\u0440\u0435\u043D\u044B, \u0447\u0442\u043E \u0445\u043E\u0442\u0438\u0442\u0435 \u0443\u0434\u0430\u043B\u0438\u0442\u044C \u0432\u0441\u044E \u0438\u0441\u0442\u043E\u0440\u0438\u044E \u043C\u0430\u0442\u0447\u0435\u0439?", cancel: "\u041E\u0442\u043C\u0435\u043D\u0430", confirm: "\u0423\u0414\u0410\u041B\u0418\u0422\u042C" },
         EN: { title: "CLEAR HISTORY", text: "Are you sure you want to delete all match history?", cancel: "Cancel", confirm: "DELETE" }
       };
-      linkHistoryTranslations = {
-        RU: {
-          title: "\u0421\u0412\u042F\u0417\u0410\u0422\u042C \u0418\u0421\u0422\u041E\u0420\u0418\u0418",
-          description: "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043D\u0438\u043A, \u0438\u0441\u0442\u043E\u0440\u0438\u044E \u043A\u043E\u0442\u043E\u0440\u043E\u0433\u043E \u043D\u0443\u0436\u043D\u043E \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043A \u0442\u0435\u043A\u0443\u0449\u0435\u0439 \u0438\u0441\u0442\u043E\u0440\u0438\u0438.",
-          target: "\u0422\u0435\u043A\u0443\u0449\u0430\u044F \u0438\u0441\u0442\u043E\u0440\u0438\u044F:",
-          select: "\u0418\u0441\u0442\u043E\u0440\u0438\u044F \u0434\u043B\u044F \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u0438\u044F",
-          placeholder: "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043D\u0438\u043A\u043D\u0435\u0439\u043C",
-          empty: "\u0414\u0440\u0443\u0433\u0438\u0445 \u043D\u0438\u043A\u043D\u0435\u0439\u043C\u043E\u0432 \u0441 \u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u043C\u0438 \u0431\u043E\u044F\u043C\u0438 \u043D\u0435\u0442.",
-          cancel: "\u041E\u0442\u043C\u0435\u043D\u0430",
-          confirm: "\u0421\u0432\u044F\u0437\u0430\u0442\u044C",
-          success: (count) => `\u0418\u0441\u0442\u043E\u0440\u0438\u0438 \u0441\u0432\u044F\u0437\u0430\u043D\u044B. \u0414\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043E \u0431\u043E\u0451\u0432: ${count}.`,
-          failed: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u0432\u044F\u0437\u0430\u0442\u044C \u0438\u0441\u0442\u043E\u0440\u0438\u0438."
-        },
-        EN: {
-          title: "LINK HISTORIES",
-          description: "Choose the nickname whose history should be added to the current history.",
-          target: "Current history:",
-          select: "History to add",
-          placeholder: "Select a nickname",
-          empty: "No other nicknames have saved battles.",
-          cancel: "Cancel",
-          confirm: "Link",
-          success: (count) => `Histories linked. Battles added: ${count}.`,
-          failed: "Could not link the histories."
-        }
-      };
       historyMessages = {
         RU: {
-          unknownNickname: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u043F\u0440\u0435\u0434\u0435\u043B\u0438\u0442\u044C \u0442\u0435\u043A\u0443\u0449\u0438\u0439 \u043D\u0438\u043A.",
-          listFailed: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0441\u043F\u0438\u0441\u043E\u043A \u0438\u0441\u0442\u043E\u0440\u0438\u0439.",
           imported: (count) => `\u0418\u043C\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u043D\u043E \u0431\u043E\u0451\u0432: ${count}.`,
-          importFailed: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0438\u043C\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0444\u0430\u0439\u043B. \u041F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435, \u0447\u0442\u043E \u044D\u0442\u043E JSON-\u0444\u0430\u0439\u043B \u0438\u0441\u0442\u043E\u0440\u0438\u0438 \u0431\u0438\u0442\u0432."
+          importFailed: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0438\u043C\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0444\u0430\u0439\u043B. \u041D\u0443\u0436\u0435\u043D JSON-\u0444\u0430\u0439\u043B \u0438\u0441\u0442\u043E\u0440\u0438\u0438 \u0441 user ID \u0442\u0435\u043A\u0443\u0449\u0435\u0433\u043E \u0430\u043A\u043A\u0430\u0443\u043D\u0442\u0430. \u0421\u0442\u0430\u0440\u044B\u0435 \u0437\u0430\u043F\u0438\u0441\u0438 \u0431\u0435\u0437 ID \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u044B \u043E\u0442\u0434\u0435\u043B\u044C\u043D\u043E."
         },
         EN: {
-          unknownNickname: "Could not detect the current nickname.",
-          listFailed: "Could not load the history list.",
           imported: (count) => `Imported battles: ${count}.`,
-          importFailed: "Could not import this file. Check that it is a valid battle history JSON file."
+          importFailed: "Could not import this file. Use a battle history JSON file with the current account user ID. Legacy records without an ID remain separate."
         }
       };
     }
@@ -4454,7 +5145,7 @@
       const gsFormatted = formatNumber(p.gs);
       const scoreFormatted = formatNumber(p.score);
       const crystalsFormatted = formatNumber(p.crystals);
-      const rankUrl = getHistoryImageUrl(p.rank);
+      const rankUrl = getTankiImageUrl(p.rank);
       const rowHtml = `
                     <tr class="${isMeClass}">
                         <td class="player-cell">
@@ -4550,15 +5241,15 @@
     const mapInfo = DataLoader.getMapInfo(b.map);
     const localizedMap = (mapInfo ? lang === "RU" ? mapInfo.ru : mapInfo.en : translateMapName(b.map, lang)) || "Unknown";
     const mapUpper = String(localizedMap).toUpperCase();
-    const mapImage = getHistoryImageUrl(mapInfo?.image);
+    const mapImage = getTankiImageUrl(mapInfo?.image);
     const modeUpper = String(b.mode || "MM").toUpperCase();
     const topDisplay = b.top && b.top !== "-" ? `#${b.top}` : "\u2014";
     const hasTeamScore = !isDM && typeof b.teamScoreMy === "number" && typeof b.teamScoreEnemy === "number";
     const teamScoreStat = hasTeamScore ? `<div class="bh-stat"><span class="bh-stat-value">${escapeHistoryHtml(b.teamScoreMy)}<span class="bh-stat-sep">/</span>${escapeHistoryHtml(b.teamScoreEnemy)}</span><span class="bh-stat-label bh-stat-label--team-score">${escapeHistoryHtml(dict.teamScore)}</span></div>` : "";
-    const turretUrl = getHistoryImageUrl(b.turretIcon);
-    const turretAugUrl = getHistoryImageUrl(b.turretAugmentIcon);
-    const hullUrl = getHistoryImageUrl(b.hullIcon);
-    const hullAugUrl = getHistoryImageUrl(b.hullAugmentIcon);
+    const turretUrl = getTankiImageUrl(b.turretIcon);
+    const turretAugUrl = getTankiImageUrl(b.turretAugmentIcon);
+    const hullUrl = getTankiImageUrl(b.hullIcon);
+    const hullAugUrl = getTankiImageUrl(b.hullAugmentIcon);
     const turretIcon = turretUrl ? `<img class="bh-equip-img" src="${escapeHistoryHtml(turretUrl)}" alt="">` : `<div class="bh-equip-placeholder">\u25B0</div>`;
     const turretAugIcon = turretAugUrl ? `<img class="bh-equip-img" src="${escapeHistoryHtml(turretAugUrl)}" alt="">` : `<div class="bh-equip-placeholder">\u25C7</div>`;
     const hullIcon = hullUrl ? `<img class="bh-equip-img" src="${escapeHistoryHtml(hullUrl)}" alt="">` : `<div class="bh-equip-placeholder">\u25B1</div>`;
@@ -4642,6 +5333,19 @@
     }
   });
 
+  // src/modules/battleHistory/battleIdentity.ts
+  function getBattleIdentity(battle) {
+    if (battle.battleId !== void 0) {
+      return typeof battle.battleId === "string" && /^[A-Za-z0-9:_-]{1,128}$/.test(battle.battleId) ? battle.battleId : null;
+    }
+    return typeof battle.id === "number" && Number.isSafeInteger(battle.id) && battle.id > 0 ? `legacy:${battle.id}` : null;
+  }
+  var init_battleIdentity = __esm({
+    "src/modules/battleHistory/battleIdentity.ts"() {
+      "use strict";
+    }
+  });
+
   // src/modules/battleHistory/repository.ts
   function openDatabase() {
     return new Promise((resolve, reject) => {
@@ -4652,6 +5356,7 @@
         for (const index of INDEXES) {
           if (!store.indexNames.contains(index)) store.createIndex(index, index, { unique: false });
         }
+        if (store.indexNames.contains("nickname")) store.deleteIndex("nickname");
       };
       request.onsuccess = () => {
         const db = request.result;
@@ -4691,54 +5396,47 @@
     }
   }
   function addBattle(battle) {
+    if (typeof battle.userId !== "string" || normalizeAccountId(battle.userId) !== battle.userId) return Promise.reject(new Error("account-id-required"));
     return transaction("readwrite", (store, setResult) => {
-      const request = store.add(battle);
+      const request = store.add({ ...battle, battleId: battle.battleId || crypto.randomUUID() });
       request.onsuccess = () => setResult(request.result);
     });
   }
-  async function addBattles(battles) {
-    if (!battles.length) return;
-    await transaction("readwrite", (store) => {
-      for (const battle of battles) store.add(battle);
-    });
-  }
-  function getAllBattles(nickname) {
-    return transaction("readonly", (store, setResult) => {
-      const request = nickname && store.indexNames.contains("nickname") ? store.index("nickname").getAll(nickname) : store.getAll();
-      request.onsuccess = () => setResult(request.result || []);
-    });
-  }
-  function getNicknameHistory() {
-    return transaction("readonly", (store, setResult) => {
-      const request = store.getAll();
-      request.onsuccess = () => {
-        const counts = /* @__PURE__ */ new Map();
-        for (const battle of request.result) {
-          if (battle.nickname) counts.set(battle.nickname, (counts.get(battle.nickname) || 0) + 1);
-        }
-        setResult(Array.from(counts, ([nickname, count]) => ({ nickname, count })).sort((a, b) => a.nickname.localeCompare(b.nickname)));
-      };
-    });
-  }
-  function mergeNicknameHistory(source, target) {
+  async function addBattles(battles, userId) {
+    if (!battles.length) return 0;
+    if (normalizeAccountId(userId) !== userId || battles.some((battle) => battle.userId !== userId)) throw new Error("history-owner-mismatch");
+    if (battles.some((battle) => !getBattleIdentity(battle))) throw new Error("battle-id-required");
     return transaction("readwrite", (store, setResult) => {
-      let count = 0;
-      setResult(count);
-      const request = store.index("nickname").openCursor(IDBKeyRange.only(source));
-      request.onsuccess = () => {
-        const cursor = request.result;
-        if (!cursor) return;
-        const battle = cursor.value;
-        battle.nickname = target;
-        cursor.update(battle);
-        setResult(++count);
-        cursor.continue();
+      const existing = store.index("userId").getAll(userId);
+      existing.onsuccess = () => {
+        const known = new Set(existing.result.map(getBattleIdentity));
+        let added = 0;
+        for (const battle of battles) {
+          const battleId = getBattleIdentity(battle);
+          if (known.has(battleId)) continue;
+          known.add(battleId);
+          const { id: _sourceKey, ...record } = battle;
+          store.add({ ...record, battleId });
+          added++;
+        }
+        setResult(added);
       };
     });
   }
-  function clearNicknameHistory(nickname) {
+  function getAllBattles(userId) {
+    if (!userId || normalizeAccountId(userId) !== userId) return Promise.resolve([]);
+    return transaction("readonly", (store, setResult) => {
+      const request = store.index("userId").getAll(userId);
+      request.onsuccess = () => setResult((request.result || []).map((battle) => ({
+        ...battle,
+        battleId: getBattleIdentity(battle) || void 0
+      })));
+    });
+  }
+  function clearAccountHistory(userId) {
+    if (normalizeAccountId(userId) !== userId) return Promise.reject(new Error("account-id-required"));
     return transaction("readwrite", (store) => {
-      const request = store.index("nickname").getAllKeys(nickname);
+      const request = store.index("userId").getAllKeys(userId);
       request.onsuccess = () => {
         for (const key of request.result) store.delete(key);
       };
@@ -4748,10 +5446,49 @@
   var init_repository = __esm({
     "src/modules/battleHistory/repository.ts"() {
       "use strict";
+      init_accountId();
+      init_battleIdentity();
       DATABASE_NAME = "TankiBattlesDB";
-      DATABASE_VERSION = 4;
+      DATABASE_VERSION = 5;
       STORE_NAME = "battles";
-      INDEXES = ["date", "map", "mode", "top", "nickname"];
+      INDEXES = ["date", "map", "mode", "top", "userId"];
+    }
+  });
+
+  // src/modules/battleHistory/context.ts
+  var historyContext;
+  var init_context = __esm({
+    "src/modules/battleHistory/context.ts"() {
+      "use strict";
+      init_localization();
+      historyContext = {
+        invalidated: false,
+        handle(error, language) {
+          const message = error && typeof error === "object" && "message" in error ? String(error.message) : String(error);
+          if (!/extension context invalidated/i.test(message)) return false;
+          if (!this.invalidated) {
+            this.invalidated = true;
+            const message2 = getHistoryDictionary(language).contextExpired;
+            document.querySelector(".bh-detailed-view")?.remove();
+            const panel = document.querySelector(".bh-left-panel");
+            if (panel) panel.style.display = "flex";
+            const list = document.querySelector(".bh-list");
+            if (list) {
+              const notice = document.createElement("div");
+              notice.className = "bh-empty";
+              notice.textContent = message2;
+              list.innerHTML = "";
+              list.appendChild(notice);
+            }
+            document.querySelectorAll(".bh-control-btn").forEach((button) => {
+              button.disabled = true;
+            });
+            const entry = document.querySelector(".custom-history-button");
+            if (entry) entry.title = message2;
+          }
+          return true;
+        }
+      };
     }
   });
 
@@ -4784,8 +5521,8 @@
       const finish = () => {
         if (finished) return;
         finished = true;
-        window.clearTimeout(timer);
-        element.removeEventListener("animationend", onAnimationEnd);
+        lifecycle15.cancelTimeout(timer);
+        lifecycle15.unlisten(element, "animationend", onAnimationEnd);
         element.classList.remove(className);
         resolve();
       };
@@ -4794,20 +5531,21 @@
       };
       element.classList.remove(className);
       void element.offsetWidth;
-      element.addEventListener("animationend", onAnimationEnd);
+      lifecycle15.listen(element, "animationend", onAnimationEnd);
       element.classList.add(className);
-      timer = window.setTimeout(finish, duration + 50);
+      timer = lifecycle15.timeout(finish, duration + 50);
     });
     const renderDetailedMatch = async (b, dict, lang) => {
+      if (historyContext.invalidated) return;
       const contentBlock = document.querySelector(".custom-history-content");
       if (!contentBlock) return;
       const revision = ++detailRevision;
-      const isCurrent = () => revision === detailRevision && document.querySelector(".custom-history-content") === contentBlock;
+      const isCurrent = () => !historyContext.invalidated && revision === detailRevision && document.querySelector(".custom-history-content") === contentBlock;
       let template;
       try {
         template = await loadTemplate("detail");
       } catch (error) {
-        console.error("[Tanki Battle History] Failed to load detail template:", error);
+        if (!historyContext.handle(error, lang)) console.error("[Tanki Battle History] Failed to load detail template:", error);
         return;
       }
       if (!isCurrent()) return;
@@ -4845,7 +5583,7 @@
       const card = document.createElement("article");
       card.innerHTML = buildCardMarkup(b, dict, lang, await loadTemplate("card"));
       card.style.cursor = "pointer";
-      card.addEventListener("click", () => renderDetailedMatch(b, dict, lang));
+      lifecycle15.listen(card, "click", () => renderDetailedMatch(b, dict, lang));
       return card;
     };
     const buildPageNumbers = (current, total) => {
@@ -4873,7 +5611,7 @@
       prev.className = "bh-page bh-page-arrow";
       prev.textContent = "\u2039";
       prev.disabled = current <= 1;
-      prev.addEventListener("click", () => renderBattleList(current - 1));
+      lifecycle15.listen(prev, "click", () => renderBattleList(current - 1));
       list.appendChild(prev);
       const pages = buildPageNumbers(current, total);
       for (const p of pages) {
@@ -4888,7 +5626,7 @@
         btn.type = "button";
         btn.className = "bh-page" + (p === current ? " bh-page-active" : "");
         btn.textContent = String(p);
-        btn.addEventListener("click", () => renderBattleList(p));
+        lifecycle15.listen(btn, "click", () => renderBattleList(p));
         list.appendChild(btn);
       }
       const next = document.createElement("button");
@@ -4896,7 +5634,7 @@
       next.className = "bh-page bh-page-arrow";
       next.textContent = "\u203A";
       next.disabled = current >= total;
-      next.addEventListener("click", () => renderBattleList(current + 1));
+      lifecycle15.listen(next, "click", () => renderBattleList(current + 1));
       list.appendChild(next);
     };
     const getBattleKey = (battle) => battle.id !== void 0 ? `id:${battle.id}` : `date:${battle.date}|${battle.map}|${battle.mode}`;
@@ -4907,7 +5645,7 @@
         listEl.classList.add("bh-list--animations-ready");
         listEl.querySelectorAll(".bh-card--rise-in").forEach((card) => {
           const delay = parseFloat(card.style.animationDelay) || 0;
-          window.setTimeout(() => {
+          lifecycle15.timeout(() => {
             card.classList.remove("bh-card--rise-in");
             card.style.removeProperty("animation-delay");
             card.style.removeProperty("z-index");
@@ -4930,19 +5668,24 @@
       pendingBattleListAnimation = false;
     };
     const renderBattleList = async (page = 1, animateNewMatches = false) => {
-      account.updateNickname();
+      if (historyContext.invalidated) return;
+      account.updateIdentity();
       const listEl = document.querySelector(".bh-list");
       if (!listEl) return;
       const revision = ++listRevision;
-      const nickname = account.getNickname();
-      const isCurrent = () => revision === listRevision && nickname === account.getNickname() && document.querySelector(".bh-list") === listEl;
+      const userId = account.getUserId();
+      const isCurrent = () => !historyContext.invalidated && revision === listRevision && userId === account.getUserId() && document.querySelector(".bh-list") === listEl;
       const lang = state.lang;
       const dict = getHistoryDictionary(lang);
       let battles;
+      if (!userId) {
+        listEl.textContent = dict.accountUnavailable;
+        return;
+      }
       try {
-        battles = await getAllBattles(nickname);
+        battles = await getAllBattles(userId);
       } catch (error) {
-        console.error("[BattleHistory] Failed to load battles:", error);
+        if (!historyContext.handle(error, lang)) console.error("[BattleHistory] Failed to load battles:", error);
         return;
       }
       if (!isCurrent()) return;
@@ -4965,7 +5708,7 @@
       try {
         cards = await Promise.all(pageBattles.map((b) => buildBattleCard(b, dict, lang)));
       } catch (error) {
-        console.error("[BattleHistory] Failed to render battles:", error);
+        if (!historyContext.handle(error, lang)) console.error("[BattleHistory] Failed to render battles:", error);
         return;
       }
       if (!isCurrent()) return;
@@ -5023,23 +5766,28 @@
       }
     };
   }
+  var lifecycle15;
   var init_views = __esm({
     "src/modules/battleHistory/views.ts"() {
       "use strict";
+      init_featureRuntime();
       init_state();
       init_presentation();
       init_repository();
       init_localization();
+      init_context();
+      lifecycle15 = featureScope("battleHistory");
     }
   });
 
   // src/modules/battleHistory/validation.ts
-  function parseHistoryImport(text) {
-    const data = JSON.parse(text);
+  function parseHistoryImport(text2, userId) {
+    if (normalizeAccountId(userId) !== userId) throw new Error("account-id-required");
+    const data = JSON.parse(text2);
     if (!Array.isArray(data) || data.length === 0) throw new Error("empty-or-invalid-list");
     return data.map((value) => {
       const battle = validateImportedBattle(value);
-      if (!battle) throw new Error("invalid-battle-record");
+      if (!battle || battle.userId !== userId) throw new Error("invalid-battle-record-or-owner");
       return battle;
     });
   }
@@ -5048,9 +5796,14 @@
     "src/modules/battleHistory/validation.ts"() {
       "use strict";
       init_historyMarkup();
+      init_accountId();
+      init_battleIdentity();
       validateImportedBattle = (value) => {
         if (!value || typeof value !== "object" || Array.isArray(value)) return null;
         const battle = value;
+        const battleId = getBattleIdentity(battle);
+        if (!battleId) return null;
+        if (typeof battle.userId !== "string" || normalizeAccountId(battle.userId) !== battle.userId) return null;
         const requiredStrings = ["nickname", "status", "map", "mode", "top"];
         const requiredNumbers = ["date", "reputation", "kills", "deaths", "kd", "crystals", "stars"];
         if (requiredStrings.some((key) => typeof battle[key] !== "string")) return null;
@@ -5061,7 +5814,7 @@
         if (iconFields.some((key) => battle[key] !== void 0 && typeof battle[key] !== "string")) return null;
         const teamFields = ["teamScoreMy", "teamScoreEnemy"];
         if (teamFields.some((key) => battle[key] !== void 0 && (typeof battle[key] !== "number" || !Number.isFinite(battle[key])))) return null;
-        let players = [];
+        let players2 = [];
         if (battle.players !== void 0) {
           if (!Array.isArray(battle.players)) return null;
           for (const value2 of battle.players) {
@@ -5071,9 +5824,9 @@
             const numericFields = ["gs", "score", "kills", "deaths", "kd", "crystals", "stars"];
             if (numericFields.some((key) => typeof player[key] !== "number" || !Number.isFinite(player[key]))) return null;
             if (typeof player.isEnemy !== "boolean" || typeof player.isMe !== "boolean") return null;
-            players.push({
+            players2.push({
               name: player.name,
-              rank: getHistoryImageUrl(player.rank),
+              rank: getTankiImageUrl(player.rank),
               gs: player.gs,
               score: player.score,
               kills: player.kills,
@@ -5087,6 +5840,8 @@
           }
         }
         return {
+          battleId,
+          userId: battle.userId,
           nickname: battle.nickname,
           date: battle.date,
           status: battle.status,
@@ -5100,13 +5855,13 @@
           kd: battle.kd,
           crystals: battle.crystals,
           stars: battle.stars,
-          turretIcon: getHistoryImageUrl(battle.turretIcon),
-          turretAugmentIcon: getHistoryImageUrl(battle.turretAugmentIcon),
-          hullIcon: getHistoryImageUrl(battle.hullIcon),
-          hullAugmentIcon: getHistoryImageUrl(battle.hullAugmentIcon),
+          turretIcon: getTankiImageUrl(battle.turretIcon),
+          turretAugmentIcon: getTankiImageUrl(battle.turretAugmentIcon),
+          hullIcon: getTankiImageUrl(battle.hullIcon),
+          hullAugmentIcon: getTankiImageUrl(battle.hullAugmentIcon),
           teamScoreMy: battle.teamScoreMy,
           teamScoreEnemy: battle.teamScoreEnemy,
-          players
+          players: players2
         };
       };
     }
@@ -5117,9 +5872,9 @@
     const button = document.createElement("button");
     button.type = "button";
     button.className = "kasp-modal-button" + (secondary ? " kasp-modal-button--secondary" : "");
-    const text = document.createElement("span");
-    text.textContent = label;
-    button.appendChild(text);
+    const text2 = document.createElement("span");
+    text2.textContent = label;
+    button.appendChild(text2);
     return button;
   }
   function createHistoryActions(account, renderBattleList) {
@@ -5138,8 +5893,8 @@
         const confirmButton = createActionButton(dict.confirm);
         modal.actions.append(cancelButton, confirmButton);
         let confirmed = false;
-        cancelButton.addEventListener("click", modal.close);
-        confirmButton.addEventListener("click", () => {
+        lifecycle16.listen(cancelButton, "click", modal.close);
+        lifecycle16.listen(confirmButton, "click", () => {
           if (confirmed) return;
           confirmed = true;
           modal.close();
@@ -5149,100 +5904,15 @@
         console.error("[Kaspersky Inventions] Failed to load clear history modal template:", error);
       }
     }
-    const openLinkHistoryDialog = async () => {
-      account.updateNickname();
-      const nickname = account.getNickname();
-      if (nickname === "Unknown") {
-        window.alert(getHistoryMessages(state.lang).unknownNickname);
-        return;
-      }
-      const existing = document.getElementById("link-history-overlay");
-      if (existing) return;
-      try {
-        const dict = getLinkHistoryDictionary(state.lang);
-        const nicknames = (await getNicknameHistory()).filter((item) => item.nickname !== nickname && item.nickname !== "Unknown");
-        if (nickname !== account.getNickname()) return;
-        const modal = await createKaspModal({ id: "link-history-overlay", title: dict.title, closeLabel: dict.cancel });
-        if (!modal) return;
-        if (nickname !== account.getNickname()) {
-          modal.close();
-          return;
-        }
-        const { body, actions, close } = modal;
-        const description = document.createElement("p");
-        description.className = "kasp-modal-copy";
-        description.textContent = dict.description;
-        const target = document.createElement("p");
-        target.className = "kasp-modal-copy";
-        const targetLabel = document.createElement("span");
-        targetLabel.textContent = `${dict.target} `;
-        const targetNickname = document.createElement("strong");
-        targetNickname.className = "bh-link-target";
-        targetNickname.textContent = nickname;
-        target.append(targetLabel, targetNickname);
-        const selectLabel = document.createElement("label");
-        selectLabel.className = "bh-link-select-label";
-        const selectLabelText = document.createElement("span");
-        selectLabelText.textContent = dict.select;
-        const select = document.createElement("select");
-        select.className = "bh-link-select";
-        select.setAttribute("aria-label", dict.select);
-        const placeholder = document.createElement("option");
-        placeholder.value = "";
-        placeholder.textContent = dict.placeholder;
-        select.appendChild(placeholder);
-        for (const item of nicknames) {
-          const option = document.createElement("option");
-          option.value = item.nickname;
-          option.textContent = `${item.nickname} (${item.count})`;
-          select.appendChild(option);
-        }
-        selectLabel.append(selectLabelText, select);
-        const empty = document.createElement("p");
-        empty.className = "bh-link-empty";
-        empty.textContent = dict.empty;
-        empty.hidden = nicknames.length > 0;
-        selectLabel.hidden = nicknames.length === 0;
-        const cancelButton = createActionButton(dict.cancel, true);
-        const confirmButton = createActionButton(dict.confirm);
-        confirmButton.disabled = true;
-        confirmButton.hidden = nicknames.length === 0;
-        actions.append(cancelButton, confirmButton);
-        body.append(description, target, selectLabel, empty);
-        let isLinking = false;
-        cancelButton.addEventListener("click", close);
-        select.addEventListener("change", () => {
-          confirmButton.disabled = select.value === "";
-        });
-        confirmButton.addEventListener("click", async () => {
-          const sourceNickname = select.value;
-          if (!sourceNickname || isLinking || nickname !== account.getNickname()) return;
-          isLinking = true;
-          confirmButton.disabled = true;
-          cancelButton.disabled = true;
-          try {
-            const moved = await mergeNicknameHistory(sourceNickname, nickname);
-            close();
-            await renderBattleList(1);
-            window.setTimeout(() => window.alert(dict.success(moved)), 220);
-          } catch (error) {
-            console.error("[Tanki Battle History] Error linking histories:", error);
-            isLinking = false;
-            confirmButton.disabled = false;
-            cancelButton.disabled = false;
-            window.alert(dict.failed);
-          }
-        });
-        modal.closeButton.focus();
-      } catch (error) {
-        console.error("[Tanki Battle History] Failed to open link history dialog:", error);
-        window.alert(getHistoryMessages(state.lang).listFailed);
-      }
-    };
     const clearHistoryDb = () => {
+      account.updateIdentity();
+      const userId = account.getUserId();
+      if (!userId) return;
       void showClearConfirmModal(async () => {
         try {
-          await clearNicknameHistory(account.getNickname());
+          account.updateIdentity();
+          if (lifecycle16.disabled || userId !== account.getUserId()) return;
+          await clearAccountHistory(userId);
           await renderBattleList(1);
         } catch (error) {
           console.error("[Tanki Battle History] Error clearing DB:", error);
@@ -5250,17 +5920,19 @@
       });
     };
     const exportHistoryData = async () => {
-      account.updateNickname();
-      const nickname = account.getNickname();
+      account.updateIdentity();
+      const userId = account.getUserId();
+      if (!userId) return;
       try {
-        const battles = await getAllBattles(nickname);
-        if (battles.length === 0) return;
+        const battles = await getAllBattles(userId);
+        account.updateIdentity();
+        if (lifecycle16.disabled || userId !== account.getUserId() || battles.length === 0) return;
         const blob = new Blob([JSON.stringify(battles, null, 2)], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         try {
           const link = document.createElement("a");
           link.href = url;
-          link.download = `Tanki_BattleHistory_${nickname}_${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.json`;
+          link.download = `Tanki_BattleHistory_${userId}_${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.json`;
           link.click();
         } finally {
           URL.revokeObjectURL(url);
@@ -5274,39 +5946,49 @@
       window.alert(getHistoryMessages(state.lang).importFailed);
     };
     const importHistoryData = () => {
+      account.updateIdentity();
+      const userId = account.getUserId();
+      if (!userId) return;
       const input = document.createElement("input");
       input.type = "file";
       input.accept = ".json";
-      input.onchange = (e) => {
+      input.onchange = lifecycle16.guard((e) => {
         const target = e.target;
         const file = target.files?.[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = async (ev) => {
+        reader.onload = lifecycle16.guard(async (ev) => {
           try {
-            const battles = parseHistoryImport(String(ev.target?.result ?? ""));
-            await addBattles(battles);
+            account.updateIdentity();
+            if (lifecycle16.disabled || userId !== account.getUserId()) return;
+            const battles = parseHistoryImport(String(ev.target?.result ?? ""), userId);
+            const added = await addBattles(battles, userId);
+            if (lifecycle16.disabled) return;
             await renderBattleList(1);
-            window.alert(getHistoryMessages(state.lang).imported(battles.length));
+            if (lifecycle16.disabled) return;
+            window.alert(getHistoryMessages(state.lang).imported(added));
           } catch (err) {
             showImportError(err);
           }
-        };
-        reader.onerror = () => showImportError(reader.error);
+        });
+        reader.onerror = lifecycle16.guard(() => showImportError(reader.error));
         reader.readAsText(file);
-      };
+      });
       input.click();
     };
-    return { clearHistoryDb, openLinkHistoryDialog, exportHistoryData, importHistoryData };
+    return { clearHistoryDb, exportHistoryData, importHistoryData };
   }
+  var lifecycle16;
   var init_actions = __esm({
     "src/modules/battleHistory/actions.ts"() {
       "use strict";
+      init_featureRuntime();
       init_state();
       init_modal();
       init_repository();
       init_validation();
       init_localization();
+      lifecycle16 = featureScope("battleHistory");
     }
   });
 
@@ -5364,7 +6046,7 @@
       overlay.style.setProperty("transition", "opacity 0.1s ease", "important");
       void overlay.offsetHeight;
       overlay.style.setProperty("opacity", "0", "important");
-      window.setTimeout(() => overlay.remove(), 120);
+      lifecycle17.timeout(() => overlay.remove(), 120);
     };
     const flashHideSettings = () => {
       if (document.getElementById("bh-flash-cover")) return;
@@ -5380,26 +6062,26 @@
             transition: opacity 0.15s ease;
         `;
       document.body.appendChild(cover);
-      const watch = new MutationObserver(() => {
+      const watch = lifecycle17.observer(() => {
         if (!document.querySelector(gameDOM.navigation.header)) {
           cover.style.opacity = "0";
-          window.setTimeout(() => {
+          lifecycle17.timeout(() => {
             watch.disconnect();
             cover.remove();
           }, 200);
         }
       });
       watch.observe(document.body, { childList: true, subtree: true });
-      window.setTimeout(() => {
+      lifecycle17.timeout(() => {
         watch.disconnect();
         cover.remove();
       }, 2e3);
     };
     const disarmReturnWatcher = () => {
       exitAfterReturn = false;
-      window.clearTimeout(returnTimer);
-      window.clearTimeout(returnBackTimer);
-      window.clearTimeout(returnLoaderTimer);
+      lifecycle17.cancelTimeout(returnTimer);
+      lifecycle17.cancelTimeout(returnBackTimer);
+      lifecycle17.cancelTimeout(returnLoaderTimer);
       returnLoaderObserver?.disconnect();
       returnLoaderObserver = null;
       returnObserver?.disconnect();
@@ -5408,7 +6090,7 @@
     const armExitAfterReturn = () => {
       disarmReturnWatcher();
       exitAfterReturn = true;
-      returnObserver = new MutationObserver(() => {
+      returnObserver = lifecycle17.observer(() => {
         if (!exitAfterReturn) return;
         if (!document.querySelector(gameDOM.navigation.header)) {
           disarmReturnWatcher();
@@ -5417,24 +6099,24 @@
         const titleEl = document.querySelector(
           gameDOM.navigation.title
         );
-        const text = (titleEl?.textContent?.trim() ?? "").toUpperCase();
-        if (text === "SETTINGS" || text === "\u041D\u0410\u0421\u0422\u0420\u041E\u0419\u041A\u0418") {
+        const text2 = (titleEl?.textContent?.trim() ?? "").toUpperCase();
+        if (text2 === "SETTINGS" || text2 === "\u041D\u0410\u0421\u0422\u0420\u041E\u0419\u041A\u0418") {
           disarmReturnWatcher();
           showFakeLoader();
           const finishLoading = () => {
             returnLoaderObserver?.disconnect();
             returnLoaderObserver = null;
-            window.clearTimeout(returnLoaderTimer);
+            lifecycle17.cancelTimeout(returnLoaderTimer);
             hideFakeLoader();
           };
-          returnLoaderObserver = new MutationObserver(() => {
+          returnLoaderObserver = lifecycle17.observer(() => {
             if (!document.querySelector(gameDOM.navigation.header)) {
               finishLoading();
             }
           });
           returnLoaderObserver.observe(document.body, { childList: true, subtree: true });
-          returnLoaderTimer = window.setTimeout(finishLoading, 2e3);
-          returnBackTimer = window.setTimeout(() => {
+          returnLoaderTimer = lifecycle17.timeout(finishLoading, 2e3);
+          returnBackTimer = lifecycle17.timeout(() => {
             const backBtn = document.querySelector(
               gameDOM.navigation.back
             );
@@ -5447,7 +6129,7 @@
         subtree: true,
         characterData: true
       });
-      returnTimer = window.setTimeout(() => {
+      returnTimer = lifecycle17.timeout(() => {
         if (exitAfterReturn) {
           disarmReturnWatcher();
         }
@@ -5458,17 +6140,15 @@
     let nativeContent = null;
     let previousNativeDisplay = "";
     const releasePage = (overlay) => {
-      for (const id of ["link-history-overlay", "clear-confirm-overlay"]) {
-        const modal = document.getElementById(id);
-        modal?.closeDialogMethod?.();
-      }
+      const modal = document.getElementById("clear-confirm-overlay");
+      modal?.closeDialogMethod?.();
       overlay.style.display = "none";
       restoreContainerBackground();
       if (nativeContent) nativeContent.style.display = previousNativeDisplay;
       nativeContent = null;
       pageObserver?.disconnect();
       pageObserver = null;
-      if (resizeHandler) window.removeEventListener("resize", resizeHandler);
+      if (resizeHandler) lifecycle17.unlisten(window, "resize", resizeHandler);
       resizeHandler = null;
     };
     const closeHistoryOverlay = (overlay, auto = false) => {
@@ -5482,7 +6162,7 @@
     };
     const watchNativePage = (overlay, ourTitle) => {
       pageObserver?.disconnect();
-      pageObserver = new MutationObserver(() => {
+      pageObserver = lifecycle17.observer(() => {
         if (!document.querySelector(gameDOM.navigation.header)) {
           releasePage(overlay);
           return;
@@ -5506,15 +6186,15 @@
         let timer = 0;
         const finish = (element) => {
           obs.disconnect();
-          window.clearTimeout(timer);
+          lifecycle17.cancelTimeout(timer);
           resolve(element);
         };
-        const obs = new MutationObserver(() => {
+        const obs = lifecycle17.observer(() => {
           const el = document.querySelector(selector);
           if (el) finish(el);
         });
         obs.observe(document.body, { childList: true, subtree: true });
-        timer = window.setTimeout(() => finish(null), timeoutMs);
+        timer = lifecycle17.timeout(() => finish(null), timeoutMs);
       });
     };
     const bindOverlayToHeader = (overlay, header) => {
@@ -5524,9 +6204,9 @@
         overlay.style.height = `calc(100vh - ${r.bottom}px)`;
       };
       update();
-      if (resizeHandler) window.removeEventListener("resize", resizeHandler);
+      if (resizeHandler) lifecycle17.unlisten(window, "resize", resizeHandler);
       resizeHandler = update;
-      window.addEventListener("resize", update);
+      lifecycle17.listen(window, "resize", update);
     };
     const openAsNativePage = async (overlay) => {
       const dict = getHistoryDictionary(state.lang);
@@ -5581,7 +6261,7 @@
       btn.className = gameDOM.classes.footerEntry + " custom-history-button";
       btn.innerHTML = "<div></div>";
       btn.title = dict.title;
-      btn.addEventListener("click", async () => {
+      lifecycle17.listen(btn, "click", async () => {
         if (opening) return;
         opening = true;
         const hidden = [];
@@ -5617,7 +6297,7 @@
           if (!overlay) return;
           await renderBattleList(1, true);
           const duration = 500 + Math.random() * 2500;
-          await new Promise((r) => window.setTimeout(r, duration));
+          await new Promise((r) => lifecycle17.timeout(r, duration));
           if (document.querySelector(".custom-history-overlay") !== overlay) return;
           const ok = await openAsNativePage(overlay);
           if (document.querySelector(".custom-history-overlay") !== overlay) return;
@@ -5635,9 +6315,9 @@
             const tick = () => {
               frames++;
               if (frames >= 3) resolve();
-              else requestAnimationFrame(tick);
+              else lifecycle17.frame(tick);
             };
-            requestAnimationFrame(tick);
+            lifecycle17.frame(tick);
           });
         } catch (error) {
           console.error("[BattleHistory] Failed to open history:", error);
@@ -5652,7 +6332,7 @@
     const bindShortcuts = () => {
       if (shortcutsBound) return;
       shortcutsBound = true;
-      document.addEventListener("keydown", (e) => {
+      lifecycle17.listen(document, "keydown", (e) => {
         const overlay = document.querySelector(".custom-history-overlay");
         const isHistoryOpen = overlay && window.getComputedStyle(overlay).display !== "none";
         if (!isHistoryOpen) return;
@@ -5663,8 +6343,8 @@
           e.stopImmediatePropagation();
         }
       }, true);
-      window.addEventListener("keydown", (e) => {
-        if (document.getElementById("clear-confirm-overlay") || document.getElementById("link-history-overlay")) return;
+      lifecycle17.listen(window, "keydown", (e) => {
+        if (document.getElementById("clear-confirm-overlay")) return;
         const overlay = document.querySelector(".custom-history-overlay");
         if (overlay && overlay.style.display === "flex") {
           if (e.code === "Escape" || e.code === "KeyZ" || e.key.toLowerCase() === "z") {
@@ -5674,7 +6354,7 @@
           }
         }
       });
-      document.addEventListener("mousedown", (e) => {
+      lifecycle17.listen(document, "mousedown", (e) => {
         const overlay = document.querySelector(".custom-history-overlay");
         if (overlay && overlay.style.display === "flex" && e.button === 3) {
           closeHistoryOverlay(overlay);
@@ -5692,12 +6372,53 @@
       }
     };
   }
+  var lifecycle17;
   var init_navigation = __esm({
     "src/modules/battleHistory/navigation.ts"() {
       "use strict";
+      init_featureRuntime();
       init_gameDOM();
       init_state();
       init_localization();
+      lifecycle17 = featureScope("battleHistory");
+    }
+  });
+
+  // src/modules/battleHistory/unassigned.ts
+  function readUnassignedResults() {
+    try {
+      const raw = sessionStorage.getItem(UNASSIGNED_HISTORY_KEY);
+      if (!raw || raw.length > 2e6) return [];
+      const entries = JSON.parse(raw);
+      return Array.isArray(entries) ? entries.filter((entry) => !!entry && entry.owner === null && typeof entry.id === "string" && typeof entry.savedAt === "number" && Date.now() - entry.savedAt < 864e5 && !!entry.result && typeof entry.result === "object").slice(-20) : [];
+    } catch {
+      return [];
+    }
+  }
+  function stashUnassignedResult(battle) {
+    try {
+      const { userId: _owner, id: _localKey, ...result } = battle;
+      const id = crypto.randomUUID();
+      const entries = [...readUnassignedResults(), { id, owner: null, savedAt: Date.now(), result }].slice(-20);
+      const raw = JSON.stringify(entries);
+      if (raw.length > 2e6) return null;
+      sessionStorage.setItem(UNASSIGNED_HISTORY_KEY, raw);
+      return id;
+    } catch {
+      return null;
+    }
+  }
+  function removeUnassignedResult(id) {
+    try {
+      sessionStorage.setItem(UNASSIGNED_HISTORY_KEY, JSON.stringify(readUnassignedResults().filter((entry) => entry.id !== id)));
+    } catch {
+    }
+  }
+  var UNASSIGNED_HISTORY_KEY;
+  var init_unassigned = __esm({
+    "src/modules/battleHistory/unassigned.ts"() {
+      "use strict";
+      UNASSIGNED_HISTORY_KEY = "kasp_history_unassigned_v1";
     }
   });
 
@@ -5706,7 +6427,7 @@
     return parseInt((row.querySelector(gameDOM.results.columnPrefix + column)?.textContent || "0").replace(/\s/g, "")) || 0;
   }
   function readPlayers(tbody) {
-    const players = [];
+    const players2 = [];
     if (tbody) {
       const allRows = Array.from(tbody.children);
       let isEnemyTeam = false;
@@ -5730,7 +6451,7 @@
         const pCrystals = readInteger(row, 7);
         const pStars = readInteger(row, 8);
         const isMe = row.id === gameDOM.ids.selfRow;
-        players.push({
+        players2.push({
           name: rawNick,
           rank: rankSrc,
           gs: parseInt(gs || "0") || 0,
@@ -5745,7 +6466,7 @@
         });
       }
     }
-    return players;
+    return players2;
   }
   function readPlacement(selfRow) {
     let firstTeam = true;
@@ -5765,7 +6486,7 @@
     }
     return { top: topVal, firstTeam };
   }
-  function readBattleResult(selfRow, nickname) {
+  function readBattleResult(selfRow, nickname, userId) {
     const scoreEl = selfRow.querySelector(gameDOM.results.score);
     const killsEl = selfRow.querySelector(gameDOM.results.kills);
     const deathsEl = selfRow.querySelector(gameDOM.results.deaths);
@@ -5774,14 +6495,14 @@
     const killsText = (killsEl.textContent || "").trim();
     const deathsText = (deathsEl.textContent || "").trim();
     if (!scoreText || !killsText || !deathsText) return null;
-    const players = readPlayers(document.querySelector(gameDOM.results.body));
+    const players2 = readPlayers(document.querySelector(gameDOM.results.body));
     const mapEl = document.querySelector(gameDOM.results.mapName);
     const rawMapText = mapEl ? mapEl.textContent?.trim() || "" : "Unknown Map";
     const parsedMapData = parseMapAndMode(rawMapText);
     const statusEl = document.querySelector(gameDOM.results.status) || document.querySelector(gameDOM.results.statusFallback);
     const isDM = parsedMapData.mode.toUpperCase() === "DM" || statusEl && statusEl.textContent?.trim() === "";
     if (isDM) {
-      for (const p of players) {
+      for (const p of players2) {
         p.isEnemy = !p.isMe;
       }
     }
@@ -5811,6 +6532,7 @@
     const stars = parseInt(selfRow.querySelector(gameDOM.results.stars)?.textContent || "0") || 0;
     const eq = equipmentTracker.get();
     return {
+      userId,
       nickname,
       date: Date.now(),
       status: statusText,
@@ -5830,43 +6552,51 @@
       hullAugmentIcon: eq?.hullAugment ?? "",
       teamScoreMy,
       teamScoreEnemy,
-      players
+      players: players2
     };
   }
   function createResultCapture(account) {
-    let battleProcessed = false;
+    let processedFor = null;
     let resultGeneration = 0;
+    let saveAttempt = 0;
+    let unassignedId = null;
     const capture = async () => {
-      account.updateNickname();
+      account.updateIdentity();
+      const userId = account.getUserId();
       const selfRow = document.querySelector(gameDOM.results.selfRow);
-      if (!selfRow || battleProcessed) return;
-      if (account.getNickname() === "Unknown") {
-        const nickCell = selfRow.querySelector(gameDOM.results.nicknameCell);
-        if (nickCell) {
-          const raw = (nickCell.textContent || "").trim();
-          const clean = raw.replace(/^\[.*?\]\s*/, "").trim();
-          if (clean && clean !== "Unknown") {
-            account.setNickname(clean);
-          }
+      if (!selfRow || userId !== null && processedFor === userId) return;
+      const resultNickname = selfRow.querySelector(gameDOM.results.nicknameCell)?.textContent?.trim().replace(/^\[.*?\]\s*/, "").trim();
+      if (!userId) {
+        if (processedFor !== null) return;
+        if (!unassignedId) {
+          const battle = readBattleResult(selfRow, resultNickname || "Unknown", "");
+          if (battle) unassignedId = stashUnassignedResult(battle);
         }
+        return;
       }
-      if (account.getNickname() === "Unknown") return;
+      if (resultNickname && resultNickname !== account.getNickname()) return;
       const generation = resultGeneration;
+      const attempt = ++saveAttempt;
       try {
-        const battle = readBattleResult(selfRow, account.getNickname());
+        const battle = readBattleResult(selfRow, account.getNickname(), userId);
         if (!battle) return;
-        battleProcessed = true;
+        processedFor = userId;
         await addBattle(battle);
+        if (generation === resultGeneration && unassignedId) {
+          removeUnassignedResult(unassignedId);
+          unassignedId = null;
+        }
       } catch (error) {
         console.error("[Tanki Battle History] Error saving battle result:", error);
-        if (generation === resultGeneration) battleProcessed = false;
+        if (generation === resultGeneration && attempt === saveAttempt) processedFor = null;
       }
     };
     return {
       capture,
       reset() {
         resultGeneration++;
-        battleProcessed = false;
+        processedFor = null;
+        unassignedId = null;
       }
     };
   }
@@ -5877,30 +6607,32 @@
       init_gameDOM();
       init_equipmentTracker();
       init_repository();
+      init_unassigned();
       parseMapAndMode = (rawMapText) => {
         if (!rawMapText) return { map: "Unknown Map", mode: "MM" };
-        let text = rawMapText.trim();
+        let text2 = rawMapText.trim();
         const modesList = ["CTF", "TDM", "DM", "CP", "SGE", "RGB", "JGR", "TJR", "ASL", "AR"];
         let foundMode = "MM";
-        const parts = text.split(/\s+/);
+        const parts = text2.split(/\s+/);
         if (parts.length > 0) {
           const lastWord = parts[parts.length - 1].toUpperCase();
           if (modesList.includes(lastWord)) {
             foundMode = parts.pop() || "MM";
-            text = parts.join(" ");
+            text2 = parts.join(" ");
           }
         }
-        const cleanMapName = text.replace(/\s+/g, " ").trim();
+        const cleanMapName = text2.replace(/\s+/g, " ").trim();
         return { map: cleanMapName || "Unknown", mode: foundMode };
       };
     }
   });
 
   // src/modules/battleHistory.ts
-  var battleHistory;
+  var lifecycle18, battleHistory;
   var init_battleHistory = __esm({
     "src/modules/battleHistory.ts"() {
       "use strict";
+      init_featureRuntime();
       init_gameDOM();
       init_utils();
       init_state();
@@ -5911,42 +6643,33 @@
       init_actions();
       init_navigation();
       init_capture();
-      battleHistory = (() => {
-        const NICK_KEY = "kasp_last_nickname";
-        let initialized = false;
-        let currentNickname = (() => {
-          try {
-            return localStorage.getItem(NICK_KEY) || "Unknown";
-          } catch {
-            return "Unknown";
-          }
-        })();
+      init_context();
+      lifecycle18 = featureScope("battleHistory");
+      battleHistory = lifecycle18.initialize(() => {
+        let initialized2 = false;
+        let currentUserId = null;
+        let currentNickname = "Unknown";
         let historyPagePromise = null;
-        const setNickname = (nickname) => {
-          if (nickname === currentNickname) return;
-          const overlay = document.querySelector(".custom-history-overlay");
-          if (overlay) {
-            navigation.release(overlay);
-            overlay.remove();
+        const updateIdentity = () => {
+          const identity2 = getVerifiedAccount();
+          const userId = identity2?.userId || null;
+          if (userId !== currentUserId) {
+            const overlay = document.querySelector(".custom-history-overlay");
+            if (overlay) {
+              navigation.release(overlay);
+              overlay.remove();
+            }
+            views.reset();
+            historyPagePromise = null;
+            currentUserId = userId;
           }
-          views.reset();
-          historyPagePromise = null;
-          currentNickname = nickname;
-          try {
-            localStorage.setItem(NICK_KEY, nickname);
-          } catch {
-          }
-        };
-        const updateNickname = () => {
-          const nickname = getAccountIdentity()?.nickname;
-          if (!nickname || nickname === "Unknown") return false;
-          setNickname(nickname);
-          return true;
+          currentNickname = identity2?.nickname || "Unknown";
+          return userId !== null;
         };
         const account = {
+          getUserId: () => getVerifiedAccount()?.userId === currentUserId ? currentUserId : null,
           getNickname: () => currentNickname,
-          updateNickname,
-          setNickname
+          updateIdentity
         };
         const views = createHistoryViews(account);
         const actions = createHistoryActions(account, views.renderBattleList);
@@ -5958,7 +6681,7 @@
         const results = createResultCapture(account);
         const createHistoryPage = async () => {
           if (document.querySelector(".custom-history-overlay")) return;
-          const nickname = currentNickname;
+          const userId = account.getUserId();
           const lang = state.lang;
           const dict = getHistoryDictionary(lang);
           const templateUrl = chrome.runtime.getURL("templates/battle-history-overlay.html");
@@ -5967,11 +6690,10 @@
             throw new Error(`Failed to load history template: ${response.status}`);
           }
           const template = await response.text();
-          if (nickname !== currentNickname || document.querySelector(".custom-history-overlay")) return;
+          if (lifecycle18.disabled || historyContext.invalidated || userId !== account.getUserId() || document.querySelector(".custom-history-overlay")) return;
           const replacements = {
             title: String(dict.title ?? ""),
             clear: String(dict.clear ?? ""),
-            link: String(dict.link ?? ""),
             export: String(dict.export ?? ""),
             import: String(dict.import ?? ""),
             battles: String(dict.battles ?? "\u0411\u043E\u0451\u0432")
@@ -5986,39 +6708,55 @@
             navigation.closeHistoryOverlay(overlay);
           });
           document.getElementById("bh-clear-btn")?.addEventListener("click", actions.clearHistoryDb);
-          document.getElementById("bh-link-btn")?.addEventListener("click", actions.openLinkHistoryDialog);
           document.getElementById("bh-export-btn")?.addEventListener("click", actions.exportHistoryData);
           document.getElementById("bh-import-btn")?.addEventListener("click", actions.importHistoryData);
         };
         const ensureHistoryPage = () => {
-          updateNickname();
+          if (historyContext.invalidated) return Promise.resolve();
+          updateIdentity();
           if (document.querySelector(".custom-history-overlay")) return Promise.resolve();
           if (!historyPagePromise) {
-            const pending = createHistoryPage().catch((error) => console.error("[BattleHistory] Failed to create history page:", error)).finally(() => {
+            const pending = createHistoryPage().catch((error) => {
+              if (!historyContext.handle(error, state.lang)) console.error("[BattleHistory] Failed to create history page:", error);
+            }).finally(() => {
               if (historyPagePromise === pending) historyPagePromise = null;
             });
             historyPagePromise = pending;
           }
           return historyPagePromise;
         };
+        lifecycle18.onCleanup(() => {
+          historyContext.invalidated = true;
+          results.reset();
+          views.reset();
+          const overlay = document.querySelector(".custom-history-overlay");
+          if (overlay) {
+            navigation.release(overlay);
+            overlay.remove();
+          }
+          document.querySelector(".custom-history-button")?.remove();
+        });
         return () => {
+          if (historyContext.invalidated) return;
           if (!utils.getSetting("k_history", false)) return;
+          updateIdentity();
           const inResults = document.querySelector(gameDOM.results.status);
           if (document.querySelector(gameDOM.results.selfRow) && inResults) {
-            void results.capture();
+            void results.capture().catch((error) => lifecycle18.fail(error));
           } else if (!inResults) {
             results.reset();
           }
           if (!inResults && ["battle", "loading", "garage"].includes(state.currentScreen)) return;
-          if (!initialized) {
-            initialized = true;
+          if (!initialized2) {
+            initialized2 = true;
             navigation.bindShortcuts();
-            setTimeout(updateNickname, 5e3);
+            lifecycle18.timeout(updateIdentity, 5e3);
           }
           navigation.injectFooterButton();
           void ensureHistoryPage();
         };
-      })();
+      }, () => {
+      });
     }
   });
 
@@ -6108,24 +6846,27 @@
       }
     };
   }
-  var OVERDRIVE_COOLDOWN_MS, OVERDRIVE_POINT_RADIUS, overdriveTimer;
+  var lifecycle19, OVERDRIVE_COOLDOWN_MS, OVERDRIVE_POINT_RADIUS, overdriveTimer;
   var init_overdriveTimer = __esm({
     "src/modules/overdriveTimer.ts"() {
       "use strict";
+      init_featureRuntime();
+      init_pageMessages();
       init_bonusPickup();
       init_gameDOM();
       init_state();
       init_utils();
+      lifecycle19 = featureScope("overdriveTimer");
       OVERDRIVE_COOLDOWN_MS = 85e3;
       OVERDRIVE_POINT_RADIUS = 1e3;
-      overdriveTimer = (() => {
+      overdriveTimer = lifecycle19.initialize(() => {
         const locations = createOverdriveLocations();
         const timers = locations.timers.map((location2) => ({
           location: location2,
           panel: null,
           time: null
         }));
-        let initialized = false;
+        let initialized2 = false;
         let battleCanvas = null;
         let sectionOpen = false;
         let resumeUntil = 0;
@@ -6165,7 +6906,7 @@
         function render() {
           const enabled = utils.getSetting("k_overdrive_timer", false);
           if (!enabled) {
-            if (renderInterval !== void 0) window.clearInterval(renderInterval);
+            if (renderInterval !== void 0) lifecycle19.cancelInterval(renderInterval);
             renderInterval = void 0;
             previewObserver?.disconnect();
             battleCanvas = null;
@@ -6178,14 +6919,14 @@
             }
             return;
           }
-          if (initialized && renderInterval === void 0) {
+          if (initialized2 && renderInterval === void 0) {
             previewObserver?.observe(document.documentElement, {
               childList: true,
               attributes: true,
               attributeFilter: ["class", "style", "hidden"],
               subtree: true
             });
-            renderInterval = window.setInterval(render, 250);
+            renderInterval = lifecycle19.interval(render, 250);
           }
           const inBattle = syncBattle();
           if (!inBattle) reset();
@@ -6218,33 +6959,41 @@
           if (panel.title !== hint) panel.title = hint;
         }
         function setup() {
-          if (initialized) return;
-          initialized = true;
-          window.addEventListener("message", (event) => {
-            if (event.source !== window || !utils.getSetting("k_overdrive_timer", false)) return;
-            const message = event.data;
-            if (!message || typeof message !== "object") return;
-            const { type, detail } = message;
-            if (type !== BONUS_PICKUP_MESSAGE || !syncBattle()) return;
-            const pickup = typeof detail === "string" ? { model: detail, position: null } : detail && typeof detail === "object" ? detail : null;
-            if (!pickup || typeof pickup.model !== "string") return;
+          if (initialized2) return;
+          initialized2 = true;
+          lifecycle19.listen(window, "message", (event) => {
+            if (!utils.getSetting("k_overdrive_timer", false)) return;
+            const message = readPageMessage(event, window, BONUS_PICKUP_MESSAGE);
+            if (!message || !syncBattle()) return;
+            const pickup = typeof message.detail === "string" ? { model: message.detail, position: null } : message.detail;
             if (locations.pickup(pickup.model, pickup.position)) render();
           });
-          document.addEventListener("kasp:battle:id", () => {
+          lifecycle19.listen(document, "kasp:battle:id", () => {
             reset();
             render();
           });
-          window.addEventListener("kasp:settings-changed", render);
-          window.addEventListener("storage", render);
-          previewObserver = new MutationObserver((records) => {
+          lifecycle19.listen(window, "kasp:settings-changed", render);
+          lifecycle19.listen(window, "storage", render);
+          previewObserver = lifecycle19.observer((records) => {
             if (!utils.getSetting("k_overdrive_timer", false)) return;
             const selector = `${gameDOM.screens.tankPreview}, ${gameDOM.common.container}`;
             if (records.some((record) => record.type === "childList" ? [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)].some((node) => node.matches?.(selector) || node.querySelector?.(selector)) : record.target.matches(selector))) render();
           });
           render();
         }
+        lifecycle19.onCleanup(() => {
+          previewObserver?.disconnect();
+          renderInterval = void 0;
+          reset();
+          for (const timer of timers) {
+            timer.panel?.remove();
+            timer.panel = timer.time = null;
+          }
+        });
         return { setup, sync: render };
-      })();
+      }, { setup() {
+      }, sync() {
+      } });
     }
   });
 
@@ -6253,6 +7002,7 @@
   var init_cybersportNative = __esm({
     "src/core/cybersportNative.ts"() {
       "use strict";
+      init_featureRuntime();
       init_gameDOM();
       CYBERSPORT_ACTIVE = "data-kasp-esports-active";
       CYBERSPORT_SYNC = "kasp:cybersport:sync";
@@ -6298,7 +7048,7 @@
       control?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
     };
     const finishRank = (close = false) => {
-      if (rankTimer !== null) clearTimeout(rankTimer);
+      if (rankTimer !== null) lifecycle20.cancelTimeout(rankTimer);
       rankTimer = null;
       if (close && rankJob?.opened && rankJob.dropdown.isConnected && rankJob.dropdown.querySelector(dom.dropdownMenu)) {
         const previousWriting = writing2;
@@ -6329,7 +7079,7 @@
       finishRank(true);
       observer?.disconnect();
       observer = null;
-      events.forEach((type) => root?.removeEventListener(type, onInteraction, true));
+      events.forEach((type) => lifecycle20.unlisten(root, type, onInteraction, true));
       releaseLocks();
       creationRoot?.removeAttribute(CYBERSPORT_ACTIVE);
       creationRoot = null;
@@ -6415,7 +7165,7 @@
         rankJob.clicked = true;
         firstOption.click();
       }
-      if (rankTimer === null) rankTimer = setTimeout(() => {
+      if (rankTimer === null) rankTimer = lifecycle20.timeout(() => {
         rankTimer = null;
         schedule();
       }, 100);
@@ -6433,8 +7183,8 @@
       if (root !== panel) {
         clear();
         root = panel;
-        events.forEach((type) => panel.addEventListener(type, onInteraction, true));
-        observer = new MutationObserver(schedule);
+        events.forEach((type) => lifecycle20.listen(panel, type, onInteraction, true));
+        observer = lifecycle20.observer(schedule);
         observer.observe(panel, {
           subtree: true,
           childList: true,
@@ -6463,25 +7213,31 @@
         writing2 = false;
       }
     };
-    return { sync, clear };
+    lifecycle20.onCleanup(clear);
+    return { sync: lifecycle20.guard(sync), clear };
   }
+  var lifecycle20;
   var init_cybersportSettings = __esm({
     "src/modules/cybersportSettings.ts"() {
       "use strict";
+      init_featureRuntime();
       init_gameDOM();
       init_cybersportNative();
+      lifecycle20 = featureScope("cybersportSettings");
     }
   });
 
   // src/modules/cybersport.ts
-  var cybersport;
+  var lifecycle21, cybersport;
   var init_cybersport = __esm({
     "src/modules/cybersport.ts"() {
       "use strict";
+      init_featureRuntime();
       init_gameDOM();
       init_state();
       init_cybersportSettings();
-      cybersport = (() => {
+      lifecycle21 = featureScope("cybersport");
+      cybersport = lifecycle21.initialize(() => {
         let row = null;
         let sport = null;
         let card = null;
@@ -6511,7 +7267,7 @@
           RU: { name: "\u041A\u0438\u0431\u0435\u0440\u0441\u043F\u043E\u0440\u0442", select: "\u0412\u044B\u0431\u0440\u0430\u0442\u044C", selected: "\u0412\u044B\u0431\u0440\u0430\u043D\u043E" },
           EN: { name: "Esports", select: "Choose", selected: "Chosen" }
         };
-        const text = (element, value) => {
+        const text2 = (element, value) => {
           if (element && element.textContent !== value) element.textContent = value;
         };
         const findSport = (container) => {
@@ -6526,7 +7282,7 @@
         const schedule = () => {
           if (scheduled) return;
           scheduled = true;
-          requestAnimationFrame(() => {
+          lifecycle21.frame(() => {
             scheduled = false;
             sync();
           });
@@ -6534,7 +7290,7 @@
         const settings = createCybersportSettings(schedule);
         const cancelModeSelection = () => {
           modeUntil = 0;
-          if (modeTimer !== null) clearTimeout(modeTimer);
+          if (modeTimer !== null) lifecycle21.cancelTimeout(modeTimer);
           modeTimer = null;
         };
         const selectMode = (container) => {
@@ -6548,7 +7304,7 @@
             cancelModeSelection();
             ctf.click();
           } else if (modeTimer === null) {
-            modeTimer = setTimeout(() => {
+            modeTimer = lifecycle21.timeout(() => {
               modeTimer = null;
               sync();
             }, 100);
@@ -6593,7 +7349,7 @@
           if (mapRow !== container) {
             clearMaps();
             mapRow = container;
-            mapObserver = new MutationObserver(schedule);
+            mapObserver = lifecycle21.observer(schedule);
             mapObserver.observe(container, {
               childList: true,
               subtree: true,
@@ -6654,7 +7410,7 @@
         const cleanup = () => {
           observer?.disconnect();
           observer = null;
-          row?.removeEventListener("click", onNativeClick, true);
+          lifecycle21.unlisten(row, "click", onNativeClick, true);
           sport?.removeAttribute("data-kasp-cybersport-source-active");
           sport?.lastElementChild?.querySelector("h2")?.removeAttribute("data-kasp-select-label");
           card?.remove();
@@ -6705,20 +7461,20 @@
             card.setAttribute("role", "button");
             card.tabIndex = 0;
             card.style.setProperty("--kasp-cybersport-image", `url("${chrome.runtime.getURL("assets/cybersport.png")}")`);
-            card.addEventListener("click", (event) => {
+            lifecycle21.listen(card, "click", (event) => {
               event.preventDefault();
               event.stopPropagation();
               select();
             });
-            card.addEventListener("keydown", (event) => {
+            lifecycle21.listen(card, "keydown", (event) => {
               if (event.key !== "Enter") return;
               event.preventDefault();
               event.stopPropagation();
               if (!event.repeat) select();
             });
             row.insertBefore(card, nativeSport.nextSibling);
-            row.addEventListener("click", onNativeClick, true);
-            observer = new MutationObserver(schedule);
+            lifecycle21.listen(row, "click", onNativeClick, true);
+            observer = lifecycle21.observer(schedule);
             observer.observe(row, {
               childList: true,
               subtree: true,
@@ -6727,23 +7483,23 @@
               attributeFilter: ["class"]
             });
           }
-          const nativeSelected = sport.classList.contains("FormatsSectionComponentStyle-selectedCard");
+          const nativeSelected = sport.classList.contains(gameDOM.classes.formatSelected);
           if (nativeSelected) selectionUntil = 0;
           else if (Date.now() >= selectionUntil) cancelEsports();
           const active = chosen && nativeSelected;
           const label = labels[state.lang];
-          text(card.querySelector(gameDOM.battleCreate.formatName), label.name);
-          text(
+          text2(card.querySelector(gameDOM.battleCreate.formatName), label.name);
+          text2(
             card.querySelector(gameDOM.battleCreate.formatDescription),
             sport.querySelector(gameDOM.battleCreate.formatDescription)?.textContent || ""
           );
-          text(
+          text2(
             card.querySelector(gameDOM.battleCreate.formatCount),
             sport.querySelector(gameDOM.battleCreate.formatCount)?.textContent || ""
           );
-          text(card.lastElementChild?.querySelector("h2") || null, active ? label.selected : label.select);
-          card.classList.toggle("FormatsSectionComponentStyle-selectedCard", active);
-          card.classList.toggle("FormatsSectionComponentStyle-unSelectedCard", !active);
+          text2(card.lastElementChild?.querySelector("h2") || null, active ? label.selected : label.select);
+          card.classList.toggle(gameDOM.classes.formatSelected, active);
+          card.classList.toggle(gameDOM.classes.formatUnselected, !active);
           const pressed = String(active);
           if (card.getAttribute("aria-pressed") !== pressed) card.setAttribute("aria-pressed", pressed);
           sport.toggleAttribute("data-kasp-cybersport-source-active", active);
@@ -6754,16 +7510,30 @@
           if (sport.nextSibling !== card) row.insertBefore(card, sport.nextSibling);
           if (chosen && !nativeSelected && Date.now() < selectionUntil) schedule();
         }
+        lifecycle21.onCleanup(() => {
+          cancelEsports();
+          cleanup();
+        });
         return sync;
-      })();
+      }, () => {
+      });
     }
   });
 
   // src/modules/index.ts
-  var modules;
+  function protect(id, value) {
+    const scope = featureScope(id);
+    if (typeof value === "function") return scope.guard(value);
+    return Object.fromEntries(Object.entries(value).map(([key, method]) => [
+      key,
+      typeof method === "function" ? scope.guard(method.bind(value)) : method
+    ]));
+  }
+  var implementations, modules;
   var init_modules = __esm({
     "src/modules/index.ts"() {
       "use strict";
+      init_featureRuntime();
       init_customPaints();
       init_augmentSpecs();
       init_customPlayButton();
@@ -6781,7 +7551,7 @@
       init_battleHistory();
       init_overdriveTimer();
       init_cybersport();
-      modules = {
+      implementations = {
         customPaints,
         augmentSpecs,
         customPlayButton,
@@ -6800,6 +7570,7 @@
         overdriveTimer,
         cybersport
       };
+      modules = Object.fromEntries(Object.entries(implementations).map(([id, value]) => [id, protect(id, value)]));
     }
   });
 
@@ -6821,30 +7592,29 @@
     const runHeavyModules = () => {
       lastFullRefresh = performance.now();
       refreshScheduled = false;
+      if (document.querySelector(gameDOM.screens.garageOrLootBox)) {
+        modules.augmentSpecs();
+      }
       modules.changeCounter.onTick();
       modules.overdriveTimer.sync();
       modules.welcomeModal();
       modules.hideNickname();
       modules.hideCurrency();
       modules.customGarageSkins();
-      try {
-        modules.cybersport();
-        if (state.currentScreen === "lobby" || state.currentScreen === "loading") {
-          modules.customPlayButton();
-        }
-        if (state.friendsMenuOpen) {
-          modules.customFriends();
-        }
-        if (state.currentScreen === "lobby" || state.currentScreen === "garage" || state.currentScreen === "match_results") {
-          modules.customTrophies();
-        }
-        if (state.currentScreen === "garage") {
-          modules.autoUpgrade();
-          modules.augmentSpecs();
-          modules.customPaints();
-        }
-      } catch (e) {
-        console.error("[Kaspersky's Inventions] \u041E\u0448\u0438\u0431\u043A\u0430 \u0432 \u043C\u043E\u0434\u0443\u043B\u0435:", e);
+      modules.cybersport();
+      if (state.currentScreen === "lobby" || state.currentScreen === "loading") {
+        modules.customPlayButton();
+      }
+      if (state.friendsMenuOpen) {
+        modules.customFriends();
+      }
+      if (state.currentScreen === "lobby" || state.currentScreen === "garage" || state.currentScreen === "match_results") {
+        modules.customTrophies();
+      }
+      if (state.currentScreen === "garage") {
+        modules.autoUpgrade();
+        modules.augmentSpecs();
+        modules.customPaints();
       }
     };
     const scheduleHeavyModules = () => {
@@ -6863,7 +7633,7 @@
       }, wait);
     };
     function syncKillBoardDoubleHeader() {
-      const thead = document.querySelector(".BattleKillBoardComponentStyle-tableContainer table > thead");
+      const thead = document.querySelector(gameDOM.statistics.killBoardHead);
       if (!thead) return;
       if (thead.children.length === 1) {
         const headRow = thead.children[0];
@@ -6880,13 +7650,13 @@
       let newScreen = state.currentScreen;
       if (document.querySelector(gameDOM.results.status)) {
         newScreen = "match_results";
-      } else if (document.querySelector(".ApplicationLoaderComponentStyle-container")) {
+      } else if (document.querySelector(gameDOM.screens.loader)) {
         newScreen = "loading";
       } else if (document.querySelector(gameDOM.screens.garage)) {
         newScreen = "garage";
       } else if (document.querySelector(gameDOM.screens.battleHud)) {
         newScreen = "battle";
-      } else if (document.querySelector(".MainScreenComponentStyle-blockMainMenu")) {
+      } else if (document.querySelector(gameDOM.play.mainMenu)) {
         newScreen = "lobby";
       }
       const screenChanged = newScreen !== state.currentScreen;
@@ -6909,16 +7679,16 @@
           }
         }
       }
-      const isFriendsMenuOpen = !!document.querySelector(".FriendListComponentStyle-containerFriends, .InvitationWindowsComponentStyle-centerBlock");
+      const isFriendsMenuOpen = !!document.querySelector(gameDOM.screens.friends);
       const friendsChanged = isFriendsMenuOpen !== state.friendsMenuOpen;
       state.friendsMenuOpen = isFriendsMenuOpen;
-      const isSettingsOpen = !!document.querySelector(".SettingsComponentStyle-blockContentOptions");
+      const isSettingsOpen = !!document.querySelector(gameDOM.settings.root);
       if (isSettingsOpen !== state.settingsOpen) {
         state.settingsOpen = isSettingsOpen;
         if (isSettingsOpen) {
-          coreSettings.inject();
+          featureScope("settings").run(coreSettings.inject);
         } else {
-          coreSettings.onClose();
+          featureScope("settings").run(coreSettings.onClose);
         }
       }
       if (screenChanged || friendsChanged) {
@@ -6938,13 +7708,12 @@
       }
     };
     const masterObserver = new MutationObserver(() => {
-      if (document.querySelector(".BattleTabStatisticComponentStyle-container")) {
+      if (document.querySelector(gameDOM.statistics.container)) {
         modules.changeCounter.sync();
         modules.zeroResists.sync();
         modules.equipmentTracker.sync();
       }
-      if (document.querySelector(".GarageCommonStyle-positionContent, .ContainerInfoComponentStyle-lootBoxContainer")) {
-        modules.augmentSpecs();
+      if (document.querySelector(gameDOM.garage.actionContainer)) {
         modules.autoUpgrade();
       }
       if (!isMasterUpdateScheduled) {
@@ -6970,7 +7739,7 @@
         const oldTooltip = document.getElementById("kaspersky-reload-tooltip");
         if (oldTooltip)
           oldTooltip.remove();
-        coreSettings.inject();
+        featureScope("settings").run(coreSettings.inject);
       }
       if (!isMasterUpdateScheduled) {
         isMasterUpdateScheduled = true;
@@ -7010,6 +7779,7 @@
   var init_boot = __esm({
     "src/boot.ts"() {
       "use strict";
+      init_featureRuntime();
       init_state();
       init_gameDOM();
       init_utils();
@@ -7023,6 +7793,8 @@
   var init_battlePresence = __esm({
     "src/core/battlePresence.ts"() {
       "use strict";
+      init_featureRuntime();
+      init_pageMessages();
       init_gameDOM();
       init_clientPatches();
       BATTLE_PRESENCE_MESSAGE = "kasp:battle-presence";
@@ -7040,26 +7812,26 @@
       match_results: "Battle results"
     };
     const screenLabels = new Map(Object.entries(labels));
-    let battle = null, receivedAt = 0, end;
-    window.addEventListener("message", (event) => {
-      if (event.source !== window || event.origin !== window.location.origin || event.data?.type !== BATTLE_PRESENCE_MESSAGE) return;
-      const next = event.data.battle;
-      if (next !== null && (!next || typeof next.map !== "string" || next.map.length > 128 || next.mode !== void 0 && (typeof next.mode !== "string" || !/^(?:TDM|DM|CTF|CP|SGE|RGB|JGR|TJR|ASL|AR|AS|RUGBY|SUR|HOLIDAY|TAR|TUTORIAL)$/.test(next.mode)) || next.remaining !== void 0 && (!Number.isFinite(next.remaining) || next.remaining < 0 || next.remaining > 86400) || next.players !== void 0 && (!Number.isInteger(next.players) || next.players < 0 || next.players > 1e3) || next.maxPlayers !== void 0 && (!Number.isInteger(next.maxPlayers) || next.maxPlayers <= 0 || next.maxPlayers > 1e3))) return;
+    let battle = null, receivedAt2 = 0, end;
+    lifecycle22.listen(window, "message", (event) => {
+      const message = readPageMessage(event, window, BATTLE_PRESENCE_MESSAGE);
+      if (!message) return;
+      const next = message.battle;
       const now = Date.now();
       const candidate = next?.remaining === void 0 ? void 0 : Math.floor(now / 1e3) + Math.ceil(next.remaining);
       if (next?.map !== battle?.map || candidate === void 0 || end === void 0 || Math.abs(candidate - end) > 3) end = candidate;
       battle = next;
-      receivedAt = now;
+      receivedAt2 = now;
     });
     const send = () => {
       const hidden = utils.getSetting("k_hideNicknameXP", false);
       const account = hidden ? null : getAccountIdentity();
-      const active = state.currentScreen === "battle" && battle && Date.now() - receivedAt < 5e3 ? battle : null;
+      const active = state.currentScreen === "battle" && battle && Date.now() - receivedAt2 < 5e3 ? battle : null;
       const rawMap = active?.map.replace(/\s+(?:TDM|DM|CTF|CP|SGE|RGB|JGR|TJR|ASL|AR|AS|RUGBY|SUR|HOLIDAY|TAR|TUTORIAL)$/i, "").trim();
       const translated = rawMap ? DataLoader.translateMap(rawMap, "EN") : null;
       const mode = active?.mode || /\s+(TDM|DM|CTF|CP|SGE|RGB|JGR|TJR|ASL|AR|AS|RUGBY|SUR|HOLIDAY|TAR|TUTORIAL)$/i.exec(active?.map || "")?.[1]?.toUpperCase();
       const details = translated && !/[\u0400-\u04ff]/.test(translated) ? `${translated}${mode ? ` ${mode}` : ""}` : screenLabels.get(state.currentScreen) || labels.lobby;
-      window.postMessage({
+      postPageMessage(window, {
         type: "kasp:discord-presence",
         version: 1,
         presence: {
@@ -7068,38 +7840,45 @@
           ...active && end !== void 0 ? { timestamps: { end } } : {},
           ...active && active.players !== void 0 && active.maxPlayers !== void 0 && active.players <= active.maxPlayers ? { party: { size: [active.players, active.maxPlayers] } } : {}
         }
-      }, window.location.origin);
+      });
     };
     let timer;
     const start = () => {
       if (timer !== void 0) return;
       send();
-      timer = window.setInterval(send, 3e3);
+      timer = lifecycle22.interval(send, 3e3);
     };
+    lifecycle22.onCleanup(() => {
+      postPageMessage(window, { type: "kasp:discord-presence", version: 1, presence: null });
+    });
     start();
     const refreshPrivacy = () => {
       if (timer !== void 0) send();
     };
-    window.addEventListener("kasp:settings-changed", refreshPrivacy);
-    window.addEventListener("storage", (event) => {
+    lifecycle22.listen(window, "kasp:settings-changed", refreshPrivacy);
+    lifecycle22.listen(window, "storage", (event) => {
       if (event.key === "k_hideNicknameXP") refreshPrivacy();
     });
-    window.addEventListener("pageshow", start);
-    window.addEventListener("pagehide", () => {
-      window.clearInterval(timer);
+    lifecycle22.listen(window, "pageshow", start);
+    lifecycle22.listen(window, "pagehide", () => {
+      lifecycle22.cancelInterval(timer);
       timer = void 0;
-      window.postMessage({ type: "kasp:discord-presence", version: 1, presence: null }, window.location.origin);
+      postPageMessage(window, { type: "kasp:discord-presence", version: 1, presence: null });
     });
   }
+  var lifecycle22;
   var init_discordPresence = __esm({
     "src/modules/discordPresence.ts"() {
       "use strict";
+      init_featureRuntime();
       init_electron();
       init_accountIdentity();
       init_state();
       init_utils();
       init_dataLoader();
       init_battlePresence();
+      init_pageMessages();
+      lifecycle22 = featureScope("discordPresence");
     }
   });
 
@@ -7112,14 +7891,18 @@
       init_boot();
       init_hideNickname();
       init_discordPresence();
+      init_accountIdentity();
+      init_featureRuntime();
       if (window === window.top) {
-        setupElectronZKey();
+        installFeatureDiagnostics(window, "content");
+        featureScope("accountIdentity").run(setupAccountIdentity);
+        featureScope("electronNavigation").run(setupElectronZKey);
         const loaderBg = chrome.runtime.getURL("assets/background.png");
         document.documentElement.style.setProperty("--kasp-loader-bg", `url("${loaderBg}")`);
         state.lang = utils.getLang();
-        setupNicknamePrivacy();
+        featureScope("hideNickname").run(setupNicknamePrivacy);
         startBoot();
-        setupDiscordPresence();
+        featureScope("discordPresence").run(setupDiscordPresence);
       }
     }
   });

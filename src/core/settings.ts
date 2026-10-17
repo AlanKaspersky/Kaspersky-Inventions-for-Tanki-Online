@@ -3,6 +3,7 @@ import { state } from './state';
 export const SETTINGS_KEYS = [
   'k_ext_btn', 'k_augments', 'k_auto_upgrade', 'k_friends',
   'k_paints', 'k_hideCurrency', 'k_hideNicknameXP', 'k_history', 'k_overdrive_timer',
+  'k_arcade_reload', 'k_critical_indicator',
 ] as const;
 
 export type SettingKey = typeof SETTINGS_KEYS[number];
@@ -20,7 +21,7 @@ export function invalidateSetting(id?: string) {
 }
 
 for (const key of SETTINGS_KEYS) {
-  settingsCache.set(key, readSetting(key, false));
+  settingsCache.set(key, readSetting(key, key === 'k_arcade_reload' || key === 'k_critical_indicator'));
 }
 
 window.addEventListener('storage', (e) => {

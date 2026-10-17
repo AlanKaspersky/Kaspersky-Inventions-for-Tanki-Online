@@ -1,7 +1,9 @@
+import { featureScope } from '../core/featureRuntime';
+const lifecycle = featureScope('zeroResists');
 import { gameDOM } from '../core/gameDOM';
 import { state } from '../core/state';
 
-export const zeroResists = (() => {
+export const zeroResists = lifecycle.initialize(() => {
 
     const SHIELD_ICON_URL = chrome.runtime.getURL("assets/modulesTAB.svg");
 
@@ -50,8 +52,8 @@ export const zeroResists = (() => {
 
     function getCssUrl(el: Element | null): string | null {
         if (!el) return null;
-        const cs = window.getComputedStyle(el) as any;
-        for (const prop of ['maskImage', 'webkitMaskImage', 'backgroundImage']) {
+        const cs = window.getComputedStyle(el);
+        for (const prop of ['maskImage', 'webkitMaskImage', 'backgroundImage'] as const) {
             const val = cs[prop];
             if (val && val !== 'none' && val !== 'initial' && val !== '') return val;
         }
@@ -244,7 +246,7 @@ export const zeroResists = (() => {
         btn.className = isTabExpanded ? 'kasp-active-toggle' : '';
         btn.title = state.lang === 'RU' ? 'Всегда показывать все модули' : 'Always show all modules';
         btn.innerHTML = `<div class="kasp-toggle-icon" style="-webkit-mask-image: url('${SHIELD_ICON_URL}'); mask-image: url('${SHIELD_ICON_URL}');"></div>`;
-        btn.addEventListener('click', (e) => {
+        lifecycle.listen(btn, 'click', (e) => {
             e.stopPropagation();
             isTabExpanded = !isTabExpanded;
             localStorage.setItem('kasp_tab_expanded', String(isTabExpanded));
@@ -270,5 +272,7 @@ export const zeroResists = (() => {
     }
 
     function update(): void { sync(); }
+    lifecycle.onCleanup(() => { document.body.classList.remove('kasp-tab-expanded');document.querySelectorAll('.kasp-defence-th, .kasp-compact-cell, .kasp-zero-summary, #kasp-tab-toggle-btn, .kasp-custom-summary-row').forEach(node=>node.remove()); });
+
     return { sync, update };
-})();
+}, { sync() {}, update() {} });

@@ -1,5 +1,6 @@
 export const gameDOM = {
     battleCreate: {
+        joinButton: '.JoinToBattleComponentStyle-buttonJoin',
         root: '.BattleCreateComponentStyle-mainContainer',
         formats: '.BattleCreateComponentStyle-scrollBattlePick',
         formatCard: '.FormatsSectionComponentStyle-card',
@@ -36,12 +37,17 @@ export const gameDOM = {
         boldSpan: "span.-bold",
     },
     account: {
+        headerName: '.UserInfoContainerStyle-userNameRank',
+        resultName: '#selfUserBg [class*="BattleKillBoardComponentStyle-col1"] span.-whiteSpaceNoWrap',
         privateHeaderFields: ".UserInfoContainerStyle-userNameRank, .UserInfoContainerStyle-progressValue",
         clientParameter: ".ClientInfoComponentStyle-parameterText",
         currencyIcon: ".HeaderCommonStyle-icons",
         currencyValues: ".UserScoreComponentStyle-coinBlock span, .HeaderCommonStyle-icons span",
     },
     screens: {
+        loader: '.ApplicationLoaderComponentStyle-container',
+        garageOrLootBox: '.GarageCommonStyle-positionContent, .ContainerInfoComponentStyle-lootBoxContainer',
+        friends: '.FriendListComponentStyle-containerFriends, .InvitationWindowsComponentStyle-centerBlock',
         battleHud: '.BattleHudComponentStyle-hudContainer, .BattleHudComponentStyle-container, .BattleComponentStyle-canvasContainer',
         loadingBackground: ".ApplicationLoaderComponentStyle-container.-background",
         battleCanvas: ".BattleComponentStyle-canvasContainer",
@@ -61,6 +67,7 @@ export const gameDOM = {
         rubyImage: "img[src*=\"rubyBlack\"], img[src*=\"ruby\"]",
     },
     navigation: {
+        garageTabs: '.MenuComponentStyle-blockButtonsQECommunity .MenuComponentStyle-mainMenuItem',
         garageCategory: ".MenuComponentStyle-mainMenuItem",
         activeGarageCategory: ".MenuComponentStyle-mainMenuItem.-activeMenu",
         mountedBlock: "[class*=\"MountedItemsStyle-commonBlock\"]",
@@ -76,6 +83,7 @@ export const gameDOM = {
         footerList: ".FooterComponentStyle-footer ul",
     },
     garage: {
+        skinArt: ['.GarageItemComponentStyle-mainImg', '.garage-item img', '.MountedItemsStyle-itemPreview'],
         item: ".garage-item",
         itemImage: ".GarageItemComponentStyle-mainImg",
         itemName: ".ItemDescriptionComponentStyle-nameItem",
@@ -121,6 +129,8 @@ export const gameDOM = {
         contextPlayer: ".ContextMenuStyle-menuItemRank",
     },
     play: {
+        hiddenNativeDecorations: '.MainScreenComponentStyle-playButtonContainer div[class*="ksc-"], .MainScreenComponentStyle-playButtonContainer [class*="lock"]:not(.main-lock-icon), .MainScreenComponentStyle-playButtonContainer img[src*="lock"]',
+        autoQueueCards: '[class*="BattlePickComponentStyle"], [class*="blockCard"], [class*="commonStyleBlock"]',
         disabled: ".MainScreenComponentStyle-disabledButtonPlay",
         cards: ".BattlePickComponentStyle-commonStyleBlock, .blockCard, [class*=\"commonStyleBlock\"]",
         container: ".MainScreenComponentStyle-playButtonContainer",
@@ -137,6 +147,7 @@ export const gameDOM = {
         lobbyAnchor: ".BattlePassLobbyComponentStyle-menuBattlePass",
     },
     statistics: {
+        killBoardHead: '.BattleKillBoardComponentStyle-tableContainer table > thead',
         container: ".BattleTabStatisticComponentStyle-container",
         nickname: ".BattleTabStatisticComponentStyle-nicknameCell",
         nicknameText: ".BattleTabStatisticComponentStyle-nicknameCell span",
@@ -169,6 +180,11 @@ export const gameDOM = {
         secondTeamScore: ".BattleResultHeaderComponentStyle-twoTeamAccount .BattleResultHeaderComponentStyle-teamAccount",
     },
     classes: {
+        formatSelected: 'FormatsSectionComponentStyle-selectedCard',
+        formatUnselected: 'FormatsSectionComponentStyle-unSelectedCard',
+        settingsTab: 'SettingsMenuComponentStyle-menuItemOptions',
+        settingsActive: 'SettingsMenuComponentStyle-activeItemOptions',
+        settingsSlider: 'SettingsMenuComponentStyle-slideMenuOptions',
         wideGarageButton: "-widthHeightButtonGarage",
         activeMenu: "-activeMenu",
         upgradeTransition: "GarageCommonStyle-animatedBlurredRightBlock",
@@ -193,5 +209,11 @@ export const gameDOM = {
     fragments: {
         nicknameText: "whiteSpaceNoWrap",
         header: "header",
+    },
+    settings: {
+        root: '.SettingsComponentStyle-blockContentOptions',
+        nativeTabs: '.SettingsMenuComponentStyle-menuItemOptions:not(#kaspersky-tab)',
+        tab: '.SettingsMenuComponentStyle-menuItemOptions',
+        content: '.SettingsComponentStyle-containerBlock',
     },
 } as const;

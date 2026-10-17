@@ -1,3 +1,4 @@
+const runFeatureContext = require('./test-feature-context.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -7,10 +8,10 @@ const { transformSync } = require('esbuild');
 const compile = file => transformSync(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'),
     { loader: 'ts', format: 'cjs' }).code;
 const domModule = { exports: {} };
-vm.runInNewContext(compile('src/core/gameDOM.ts'), { module: domModule });
+runFeatureContext(compile('src/core/gameDOM.ts'), { module: domModule });
 const code = compile('src/core/cybersportNative.ts');
 const pure = { exports: {} };
-vm.runInNewContext(code, { module: pure, require: () => domModule.exports });
+runFeatureContext(code, { module: pure, require: () => domModule.exports });
 
 test('the original creation callback gets enforced arguments even after map resets before Start', () => {
     const calls = [], reports = [], options = { toString: () => '[Private, ReArmor]' };
@@ -58,7 +59,7 @@ function fixture({ localized = 'Маршал', deferred = false } = {}) {
         closest(key) { return key === '.JoinToBattleComponentStyle-buttonJoin' && this.isStart ? this : null; }
     }
     const module = { exports: {} };
-    vm.runInNewContext(code, { module, require: () => domModule.exports, Node: Element, Element, console: { warn() {} } });
+    runFeatureContext(code, { module, require: () => domModule.exports, Node: Element, Element, console: { warn() {} } });
     const core = module.exports, root = new Element(), panel = new Element(), field = new Element(), dropdown = new Element(), checkbox = new Element(), row = new Element(), start = new Element();
     root.attrs.add(core.CYBERSPORT_ACTIVE); root.queries.set(dom.options, panel);
     panel.queries.set(dom.parameterInputs, [field]); panel.queries.set(dom.rankDropdowns, dropdown);

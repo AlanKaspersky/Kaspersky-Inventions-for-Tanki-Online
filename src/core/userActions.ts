@@ -1,3 +1,5 @@
+import { featureScope } from './featureRuntime';
+import { postPageMessage } from './pageMessages';
 import { clientSourceHash, resolveTemplateEdits, validatePatchEdits } from './clientPatches';
 import type { PreparedPatchPlan } from './clientPatches';
 
@@ -85,8 +87,8 @@ export function installUserActions(target: Window): void {
         if (className !== 'TankUserActionLog') return;
         try {
             const detail = readUserAction(value, schema);
-            if (detail) target.postMessage({ type: 'kasp:useraction', detail }, '*');
-        } catch { }
+            if (detail) postPageMessage(target, { type: 'kasp:useraction', detail });
+        } catch (error) { featureScope('userActions').fail(error); }
     };
 }
 

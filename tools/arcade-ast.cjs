@@ -214,7 +214,7 @@ function analyzeArcade(input, { exposeContract = false } = {}) {
             });
             owners.set(unit,Object.fromEntries([...sharedKeys].filter(([k])=>keys.has(k)).map(([k,role])=>[role,k])));
         }
-        status.hooked=true;status.ready=true;
+        status.hooked=true;status.ready=true;status.runtimeControls=true;
         edits.unshift({start:0,end:0,expected:'',before:'',after:source.slice(0,24),text:`${MARKER}${JSON.stringify(status)}*/\n`});
         edits.sort((a,b)=>a.start-b.start||a.end-b.end);
         for(let i=1;i<edits.length;i++)if(edits[i-1].end>edits[i].start)fail('overlapping-arcade-edits');

@@ -1,3 +1,4 @@
+const runFeatureContext = require('./test-feature-context.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -8,7 +9,7 @@ const { webcrypto } = require('node:crypto');
 const { analyzeBattleStatistics } = require('./battle-statistics-ast.cjs');
 const patches = require('./test-client-patches.cjs');
 const loaded = { exports: {} };
-vm.runInNewContext(transformSync(fs.readFileSync(path.join(__dirname, '../src/core/battleStatistics.ts'), 'utf8'), { loader: 'ts', format: 'cjs' }).code,
+runFeatureContext(transformSync(fs.readFileSync(path.join(__dirname, '../src/core/battleStatistics.ts'), 'utf8'), { loader: 'ts', format: 'cjs' }).code,
     { module: loaded, crypto: webcrypto, TextEncoder, require: () => patches });
 const { selectBattleStatisticsPlan, patchBattleStatistics, installBattleStatistics, readBattleStatistics } = loaded.exports;
 
@@ -18,11 +19,11 @@ proto(Stats).toString=function(){if(window.failDiagnostics)throw Error("diagnost
 window.statsClass=Stats;
 `;
 function setup(source = fixture, plan = analyzeBattleStatistics(source), override = {}) {
-    const target = { messages: [], postMessage(message, origin) { assert.equal(origin, '*'); this.messages.push(message); } };
+    const target = { location: { origin: 'https://tankionline.com' }, messages: [], postMessage(message, origin) { assert.equal(origin, 'https://tankionline.com'); this.messages.push(message); } };
     installBattleStatistics(target); target.failDiagnostics = true;
     let initializes = 0;
     const context = { window: target, proto: type => type.prototype, nativeInitialize() { initializes++; }, ...override };
-    vm.runInNewContext(patchBattleStatistics(source, undefined, plan), context);
+    runFeatureContext(patchBattleStatistics(source, undefined, plan), context);
     return { target, context, Stats: target.statsClass, initializes: () => initializes };
 }
 

@@ -217,7 +217,7 @@
     text-transform: uppercase;
 }
 
-.ModalStyle-shaded .DialogContainerComponentStyle-containerForImg {
+.ModalStyle-shaded .DialogContainerComponentStyle-container .DialogContainerComponentStyle-containerForImg {
     display: grid;
     place-items: center;
     flex: 0 0 2em;
@@ -229,13 +229,13 @@
     transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
-.ModalStyle-shaded .DialogContainerComponentStyle-containerForImg:hover {
+.ModalStyle-shaded .DialogContainerComponentStyle-container .DialogContainerComponentStyle-containerForImg:hover {
     background: rgba(255, 255, 255, 0.22);
     box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8);
     transform: rotate(90deg) scale(1.06);
 }
 
-.ModalStyle-shaded .DialogContainerComponentStyle-imgClose {
+.ModalStyle-shaded .DialogContainerComponentStyle-container .DialogContainerComponentStyle-imgClose {
     display: grid;
     place-items: center;
     width: 100% !important;
@@ -243,7 +243,7 @@
     background: none !important;
 }
 
-.ModalStyle-shaded .DialogContainerComponentStyle-imgClose::before {
+.ModalStyle-shaded .DialogContainerComponentStyle-container .DialogContainerComponentStyle-imgClose::before {
     content: "×";
     color: #ffffff;
     font-family: Arial, sans-serif;

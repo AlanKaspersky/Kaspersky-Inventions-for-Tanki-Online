@@ -14,6 +14,8 @@ export interface PlayerData {
 
 export interface BattleData {
     id?: number;
+    battleId?: string;
+    userId: string;
     nickname: string;
     date: number;
     status: string;
@@ -37,9 +39,9 @@ export interface BattleData {
 }
 
 export interface HistoryAccount {
+    getUserId(): string | null;
     getNickname(): string;
-    updateNickname(): boolean;
-    setNickname(nickname: string): void;
+    updateIdentity(): boolean;
 }
 
 export type RenderBattleList = (page?: number, animateNewMatches?: boolean) => Promise<void>;

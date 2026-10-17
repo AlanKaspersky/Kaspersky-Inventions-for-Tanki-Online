@@ -2,6 +2,7 @@ import { gameDOM } from '../../core/gameDOM';
 import { equipmentTracker } from '../equipmentTracker';
 import { addBattle } from './repository';
 import type { BattleData, PlayerData, HistoryAccount } from './types';
+import { stashUnassignedResult, removeUnassignedResult } from './unassigned';
 
 export const parseMapAndMode = (rawMapText: string) => {
     if (!rawMapText) return { map: 'Unknown Map', mode: 'MM' };
@@ -89,7 +90,7 @@ function readPlacement(selfRow: Element): { top: string; firstTeam: boolean } {
     return { top: topVal, firstTeam };
 }
 
-export function readBattleResult(selfRow: Element, nickname: string): BattleData | null {
+export function readBattleResult(selfRow: Element, nickname: string, userId: string): BattleData | null {
     const scoreEl = selfRow.querySelector(gameDOM.results.score);
     const killsEl = selfRow.querySelector(gameDOM.results.kills);
     const deathsEl = selfRow.querySelector(gameDOM.results.deaths);
@@ -148,6 +149,7 @@ export function readBattleResult(selfRow: Element, nickname: string): BattleData
     const eq = equipmentTracker.get();
 
     return {
+        userId,
         nickname,
         date: Date.now(),
         status: statusText,
@@ -172,35 +174,37 @@ export function readBattleResult(selfRow: Element, nickname: string): BattleData
 }
 
 export function createResultCapture(account: HistoryAccount) {
-    let battleProcessed = false;
+    let processedFor: string | null = null;
     let resultGeneration = 0;
+    let saveAttempt = 0;
+    let unassignedId: string | null = null;
 
     const capture = async () => {
-        account.updateNickname();
+        account.updateIdentity();
+        const userId = account.getUserId();
         const selfRow = document.querySelector(gameDOM.results.selfRow);
-        if (!selfRow || battleProcessed) return;
-
-        if (account.getNickname() === 'Unknown') {
-            const nickCell = selfRow.querySelector(gameDOM.results.nicknameCell);
-            if (nickCell) {
-                const raw = (nickCell.textContent || '').trim();
-                const clean = raw.replace(/^\[.*?\]\s*/, '').trim();
-                if (clean && clean !== 'Unknown') {
-                    account.setNickname(clean);
-                }
+        if (!selfRow || (userId !== null && processedFor === userId)) return;
+        const resultNickname = selfRow.querySelector(gameDOM.results.nicknameCell)?.textContent?.trim().replace(/^\[.*?\]\s*/, '').trim();
+        if (!userId) {
+            if (processedFor !== null) return;
+            if (!unassignedId) {
+                const battle = readBattleResult(selfRow, resultNickname || 'Unknown', '');
+                if (battle) unassignedId = stashUnassignedResult(battle);
             }
+            return;
         }
-        if (account.getNickname() === 'Unknown') return;
-
+        if (resultNickname && resultNickname !== account.getNickname()) return;
         const generation = resultGeneration;
+        const attempt = ++saveAttempt;
         try {
-            const battle = readBattleResult(selfRow, account.getNickname());
+            const battle = readBattleResult(selfRow, account.getNickname(), userId);
             if (!battle) return;
-            battleProcessed = true;
+            processedFor = userId;
             await addBattle(battle);
+            if (generation === resultGeneration && unassignedId) { removeUnassignedResult(unassignedId); unassignedId = null; }
         } catch (error) {
             console.error('[Tanki Battle History] Error saving battle result:', error);
-            if (generation === resultGeneration) battleProcessed = false;
+            if (generation === resultGeneration && attempt === saveAttempt) processedFor = null;
         }
     };
 
@@ -208,7 +212,8 @@ export function createResultCapture(account: HistoryAccount) {
         capture,
         reset() {
             resultGeneration++;
-            battleProcessed = false;
+            processedFor = null;
+            unassignedId = null;
         },
     };
 }

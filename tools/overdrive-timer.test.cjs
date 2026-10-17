@@ -1,3 +1,4 @@
+const runFeatureContext = require('./test-feature-context.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -8,7 +9,7 @@ const { transformSync } = require('esbuild');
 function load(file, dependencies = {}, globals = {}) {
     const module = { exports: {} };
     const source = fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
-    vm.runInNewContext(transformSync(source, { loader: 'ts', format: 'cjs' }).code, {
+    runFeatureContext(transformSync(source, { loader: 'ts', format: 'cjs' }).code, {
         ...globals, module, require: id => {
             if (!(id in dependencies)) throw new Error(`Unexpected import: ${id}`);
             return dependencies[id];
@@ -116,7 +117,7 @@ test('bundle hooks adapt to renamed symbols and formatting at every pickup call 
     assert.equal(reports[0].pickupCalls, 2);
     assert.equal(reports[0].registrationHooks, 1);
     assert.equal(reports[0].issues.length, 0);
-    vm.runInNewContext(patched, context);
+    runFeatureContext(patched, context);
     const resource = { box: { id: gameId(bonus.OVERDRIVE_BOX_MODEL) }, sound$: 42 };
     const origin = gameVector(1, 2, 3);
     receiver.spawn$('one', resource, origin, 0, false);
@@ -202,7 +203,7 @@ test('patched game pickup emits the model and preserves the original call argume
     const bridge = bonus.createBonusPickupBridge(id => events.push(id));
     const calls = [];
     const receiver = {};
-    vm.runInNewContext(bonus.patchBonusPickups(source), {
+    runFeatureContext(bonus.patchBonusPickups(source), {
         window: { __kaspBonusPrepare: bridge.prepare, __kaspBonusContext: bridge.context }, X: {}, proto: () => receiver,
         receiver, getBonus: () => original, play: (...args) => calls.push(args),
     });
@@ -216,7 +217,7 @@ test('registration patch selects the collision constructor, and unrelated bundle
     const source = 'proto(X).register=function(a,b,c,d,e,f){var g,h,i=this.pool.get();onBonusCollision(b)}';
     const registrations = [];
     const receiver = {};
-    vm.runInNewContext(bonus.patchBonusPickups(source), {
+    runFeatureContext(bonus.patchBonusPickups(source), {
         window: { __kaspBonusRegister: (...args) => registrations.push(args) },
         X: {}, proto: () => receiver, onBonusCollision() {},
     });
@@ -251,7 +252,7 @@ test('pooled game bonuses use their registered origin when another player picks 
     const context = { window: { __kaspBonusRegister: bridge.register, __kaspBonusPrepare: bridge.prepare,
         __kaspBonusContext: bridge.context }, X: {}, proto: () => manager, manager,
         getBonus: object => object.data, play: (...args) => plays.push(args) };
-    vm.runInNewContext(patched, context);
+    runFeatureContext(patched, context);
     assert.equal(hooks[0].registrationHooks, 1);
     assert.equal(bonus.patchBonusPickups(patched), patched);
     manager.register('box-1', resource, spawn, 0, false);
@@ -283,7 +284,7 @@ test('registration observation failures leave native initialization and placemen
         'var handler="onBonusCollision";u.place(c,d,e)};receiver.register(1,{}, {},0,false);';
     for (const window of [{}, { __kaspBonusRegister() { throw Error('observer failure'); } }]) {
         instance.initialized = instance.placed = false;
-        vm.runInNewContext(bonus.patchBonusPickups(source), { window, X: {}, proto: () => receiver, receiver });
+        runFeatureContext(bonus.patchBonusPickups(source), { window, X: {}, proto: () => receiver, receiver });
         assert.equal(instance.initialized, true);
         assert.equal(instance.placed, true);
     }
@@ -304,7 +305,7 @@ test('diagnostics capture registration IDs and coordinates plus actual pickup ar
         'receiver.register("box-7",data,100,200,300,0);' +
         'proto(X).take=function(a,b){play(this,this.sound,a,b,"bonus pickup")};' +
         'receiver.take(getBonus(X).sound,position);';
-    vm.runInNewContext(bonus.patchBonusPickups(source, debug.record), {
+    runFeatureContext(bonus.patchBonusPickups(source, debug.record), {
         window: { __kaspBonusRegister: bridge.register, __kaspBonusPrepare: bridge.prepare, __kaspBonusContext: bridge.context },
         X: {}, proto: () => receiver, receiver, data, position,
         getBonus: () => { reads++; return original; },
@@ -344,7 +345,7 @@ test('diagnostics are opt-in and bounded; broken logging cannot interrupt pickup
     const receiver = {};
     let plays = 0;
     const source = 'proto(X).take=function(a,b){play(this,this.sound,a,b,"bonus pickup")};receiver.take(1,2);';
-    vm.runInNewContext(bonus.patchBonusPickups(source), {
+    runFeatureContext(bonus.patchBonusPickups(source), {
         window: { __kaspBonusContext() { throw Error('debug failure'); } },
         X: {}, proto: () => receiver, receiver, play: () => { plays++; },
     });
@@ -395,7 +396,7 @@ test('pickup preparation evaluates the sound getter once and preserves original 
     Object.defineProperty(data, 'sound', { enumerable: true, get() { order.push('sound'); return 42; } });
     const source = 'proto(X).take=function(a,b){play(this,this.sound,a,b,"bonus pickup")};' +
         'receiver.take(getBonus(X).sound,getPosition());';
-    vm.runInNewContext(bonus.patchBonusPickups(source), {
+    runFeatureContext(bonus.patchBonusPickups(source), {
         window: { __kaspBonusPrepare: bridge.prepare, __kaspBonusContext: bridge.context },
         X: {}, proto: () => receiver, receiver,
         getBonus: () => { order.push('data'); return data; },
@@ -474,6 +475,7 @@ test('battle overlay ignores foreign messages, resets between battles and remove
         remove() { this.isConnected = false; }
     }
     const window = {
+        location: { origin: 'https://tankionline.com' },
         addEventListener: (name, handler) => { listeners[name] = handler; },
         setInterval: () => ++intervalCount,
         clearInterval: () => { stoppedIntervals++; },
@@ -499,7 +501,7 @@ test('battle overlay ignores foreign messages, resets between battles and remove
         '../core/utils': { utils: { getSetting: () => enabled } },
     }, { window, document, Date: { now: () => now }, getComputedStyle: element => element.style,
         MutationObserver: class { constructor(callback) { previewCallback = callback; } observe() { observerStarts++; } disconnect() { observerDisconnects++; } } });
-    const send = (detail, source = window) => listeners.message({ source, data: { type: bonus.BONUS_PICKUP_MESSAGE, detail } });
+    const send = (detail, source = window) => listeners.message({ origin: 'https://tankionline.com', source, data: { type: bonus.BONUS_PICKUP_MESSAGE, detail } });
     const activePanel = (id = 'kasp-overdrive-timer') => elements.find(element => element.isConnected && element.id === id);
     const displayed = (id) => activePanel(id)?.children[0].textContent;
     overdriveTimer.setup(); overdriveTimer.setup();

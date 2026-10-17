@@ -1,3 +1,4 @@
+const runFeatureContext = require('./test-feature-context.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -17,7 +18,7 @@ ke(View).toString=function(){return "GarageDevice(id="+this.deviceId.toString()+
 function iconCard(t){var g=t.props.icon;return g==null?null:g.imageURL()}
 `;
 const moduleRef = { exports: {} };
-vm.runInNewContext(transformSync(fs.readFileSync(path.join(root, 'src/core/gameAugments.ts'), 'utf8'), { loader: 'ts', format: 'cjs' }).code, {
+runFeatureContext(transformSync(fs.readFileSync(path.join(root, 'src/core/gameAugments.ts'), 'utf8'), { loader: 'ts', format: 'cjs' }).code, {
     module: moduleRef, crypto: webcrypto, TextEncoder,
     require: id => id === './clientPatches' ? require('./test-client-patches.cjs') : {},
 });
@@ -35,7 +36,7 @@ test('augment AST derives every schema from native diagnostics and binds the wri
         assert.equal(plan.schema.viewRarity, 'rarity');
         assert.equal(plan.schema.upgradeData, 'mch_1');
         assert.equal(plan.schema.baseFinal, 'xch_1');
-        const c = context(); vm.runInNewContext(runtime.patchGameAugments(code, undefined, plan), c);
+        const c = context(); runFeatureContext(runtime.patchGameAugments(code, undefined, plan), c);
         const key = {}, value = {}; new c.model().r7i(key, value); new c.dto('123', '456');
         assert.equal(c.window.data.length, 1); assert.equal(c.window.data[0][0], key);
         assert.deepEqual(Array.from(c.window.links[0]), ['123', '456']);
@@ -62,7 +63,7 @@ test('augment templates adapt renamed fields, methods and classes without evalua
         const patched = runtime.patchGameAugments(changed, undefined, adapted);
         parse(patched, { ecmaVersion: 'latest' });
         const c = context();
-        assert.throws(() => vm.runInNewContext(patched, c), /DO_NOT_EXECUTE/);
+        assert.throws(() => runFeatureContext(patched, c), /DO_NOT_EXECUTE/);
         assert.equal(c.window.schema.properties, 'renamed_ncb_1');
         const object = {}, data = {}, m = new c.renamed_model(); m.renamed_r7i(object, data);
         assert.equal(m.l7j_1.s2a_1.get(object), data);
@@ -98,7 +99,7 @@ test('map call interception preserves its return, receiver, write count and glob
     for (const input of [source, source + '\n/*another-build*/', source.replace('"use strict";', '"use strict"\n')]) {
         const selected = await runtime.selectGameAugmentsPlan(input, [plan]); assert.ok(selected);
         const c = context(); c.window.__kaspAugmentData = c.window.__kaspAugmentLink = () => { throw Error('extension failed'); };
-        vm.runInNewContext(runtime.patchGameAugments(input, undefined, selected), c);
+        runFeatureContext(runtime.patchGameAugments(input, undefined, selected), c);
         let writes = 0; const native = new Map(); const m = new c.model();
         m.l7j_1.s2a_1 = { set(key, data) { assert.equal(this, m.l7j_1.s2a_1); writes++; native.set(key, data); return this; } };
         const key = {}, value = {};

@@ -1,3 +1,4 @@
+const runFeatureContext = require('./test-feature-context.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -6,7 +7,7 @@ const { test } = require('node:test');
 const { transformSync } = require('esbuild');
 
 const moduleRef = { exports: {} };
-vm.runInNewContext(transformSync(fs.readFileSync(path.join(__dirname, '../src/core/arcadeReload.ts'), 'utf8'), {
+runFeatureContext(transformSync(fs.readFileSync(path.join(__dirname, '../src/core/arcadeReload.ts'), 'utf8'), {
     loader: 'ts', format: 'cjs'
 }).code, { module: moduleRef, require: () => require('./test-client-patches.cjs') });
 const { analyzeArcade } = require('./arcade-ast.cjs');
@@ -88,7 +89,7 @@ proto(Title).init=function(){this.healthBar='health';this.weaponBar='weapon';var
 proto(Title).frame=function(time,delta){if(this.caption)this.caption.show(this.nicknameAllowed)};
 `;
 
-function fixture({ renamed = false, minified = false, failExtra = false, initialWeapon = 'Shaft', preparedPlan, prefix = '' } = {}) {
+function fixture({ renamed = false, minified = false, failExtra = false, initialWeapon = 'Shaft', preparedPlan, prefix = '', control } = {}) {
     const identifiers = ['Title', 'LocalHud', 'Shaft', 'Scorpio', 'Reload', 'Sensor', 'ShaftOwner', 'ScorpioOwner', 'proto', 'token',
         'shaft', 'scorpio', 'reload', 'entity', 'required', 'optional', 'world', 'clock', 'end', 'duration', 'weaponBar',
         'show', 'place', 'height', 'fill', 'nativeProgress', 'reloadGetter', 'ShaftCooldown', 'cooldown', 'deadline', 'weapon',
@@ -113,10 +114,10 @@ function fixture({ renamed = false, minified = false, failExtra = false, initial
     } };
     const context = { allocate() { if (failExtra && ++allocations > 1) throw Error('native resource failure'); },
         rectangle: () => ({ [rename('width')]: () => 200 * scale, [rename('height')]: () => 6 * scale, layer: () => 'native layer' }),
-        Event: { progress: .65 }, window: { __kaspArcadeReloadDebug: {
+        Event: { progress: .65 }, window: { __kaspArcadeControl: control, __kaspArcadeReloadDebug: {
             reportError: message => errors.push(message), observe: sample => observations.push(sample)
         } }, [rename('placeRow')]: (_, x, y, row, offset) => { for (const icon of row) icon.y = y + offset; } };
-    vm.runInNewContext(patched, context);
+    runFeatureContext(patched, context);
     const cooldown = new context[rename('ShaftCooldown')](); cooldown[rename('deadline')] = 160;
     const shaft = { [rename('cooldown')]: 3, [rename('active')]: cooldown,
         [rename('reloadDuration')]: 80, [rename('clock')]: () => now, [rename('stunned')]: false, [rename('paused')]: false };
@@ -327,7 +328,7 @@ test('unsupported adaptive structures and stale edits leave the native game unto
 
 test('remote nickname and health rendering retains the original native code and behavior for every local weapon', () => {
     const native = {};
-    vm.runInNewContext(source, native);
+    runFeatureContext(source, native);
     for (const initialWeapon of ['Shaft', 'Scorpio', null]) {
         const f = fixture({ initialWeapon });
         const remote = f.title(), original = new native.Title(); original.init();
@@ -343,4 +344,17 @@ test('remote nickname and health rendering retains the original native code and 
             assert.equal(Object.hasOwn(remote, '__kaspNameplateGhost'), false);
         }
     }
+});
+
+
+test('runtime disable removes the extra mesh and supply offset without stopping native updates', () => {
+    let enabled = true; const owners = new Map();
+    const control = { active: () => enabled, run: callback => enabled ? callback() : undefined,
+        track: (owner, cleanup) => owners.set(owner, cleanup), release: owner => owners.delete(owner) };
+    const f = fixture({ control }); f.tick(); const extra = f.extra;
+    assert.ok(extra); enabled = false; owners.forEach(cleanup => cleanup());
+    f.tick(); assert.equal(f.extra, null); assert.ok(!f.children.includes(extra));
+    f.placeSupplies(0, 0); assert.equal(f.lowerIcons[0].y, 8);
+    assert.equal(f.value(f.weapon, 'progressValue'), .65);
+    enabled = true; f.tick(); assert.ok(f.extra); assert.notEqual(f.extra, extra);
 });

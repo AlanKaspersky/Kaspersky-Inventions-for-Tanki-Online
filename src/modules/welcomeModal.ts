@@ -1,6 +1,8 @@
+import { featureScope } from '../core/featureRuntime';
+const lifecycle = featureScope('welcomeModal');
 import { state } from '../core/state';
 
-export const welcomeModal = (() => {
+export const welcomeModal = lifecycle.initialize(() => {
     const CURRENT_VERSION = chrome.runtime.getManifest().version;
     const STORAGE_KEY = 'kasp_last_version';
     let hasChecked = false;
@@ -37,6 +39,7 @@ export const welcomeModal = (() => {
             const response = await fetch(templateUrl);
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             let html = await response.text();
+            if(lifecycle.disabled) return;
 
             html = html
                 .replace(/{{version}}/g, dict.version)
@@ -74,7 +77,7 @@ export const welcomeModal = (() => {
 
             const closeBtn = document.getElementById('kasp-welcome-close') as HTMLElement | null;
             if (closeBtn) {
-                closeBtn.addEventListener('click', () => {
+                lifecycle.listen(closeBtn, 'click', () => {
                     overlay.remove();
                     localStorage.setItem(STORAGE_KEY, CURRENT_VERSION);
                 });
@@ -83,6 +86,8 @@ export const welcomeModal = (() => {
             console.error('[Kaspersky Inventions] Failed to load welcome modal template:', error);
         }
     }
+
+    lifecycle.onCleanup(() => { document.getElementById('kasp-welcome-overlay')?.remove(); });
 
     return () => {
         if (hasChecked) return;
@@ -98,4 +103,4 @@ export const welcomeModal = (() => {
         hasChecked = true;
         showWelcomeModal();
     };
-})();
+}, () => {});

@@ -6,7 +6,7 @@ import type { ArcadeReloadPatchPlan } from './core/arcadeReload';
 import { mergeClientPatchPlans, releaseClientPatchContext } from './core/clientPatches';
 import type { PreparedPatchPlan } from './core/clientPatches';
 import arcadePlans from './generated/arcade.json';
-import { installGameAugments, patchGameAugments, selectGameAugmentsPlan } from './core/gameAugments';
+import { installGameAugments, installGarageSkinCardsBridge, patchGameAugments, selectGameAugmentsPlan } from './core/gameAugments';
 import type { AugmentPatchPlan, AugmentHookStatus } from './core/gameAugments';
 import augmentPlans from './generated/augments.json';
 import { patchUnavailableGarageDetails, selectGarageDetailsPlan } from './core/garageDetails';
@@ -31,33 +31,42 @@ import { installCriticalIndicator, patchCriticalIndicator, selectCriticalPlan } 
 import type { CriticalPatchPlan, CriticalHookStatus } from './core/criticalIndicator';
 import criticalPlans from './generated/critical.json';
 import { installCybersportNative } from './core/cybersportNative';
+import { installAccountIdentityNative } from './core/accountIdentityNative';
+import { featureScope, installFeatureDiagnostics } from './core/featureRuntime';
+import { createNativeFeature } from './core/nativeFeature';
+import { postPageMessage } from './core/pageMessages';
 
 (function (): void {
     'use strict';
+    installFeatureDiagnostics(window, 'page');
 
-    installGameAugments(window);
-    installCriticalIndicator(window);
-    installBattlePresence(window);
-    installBattleStatistics(window);
-    installUserActions(window);
-    installGarageInventoryDiagnostics(window);
-    installCybersportNative(window);
+    featureScope('augments').run(() => installGameAugments(window));
+    featureScope('garageSkinCards').run(() => installGarageSkinCardsBridge(window));
+    featureScope('criticalIndicator', { budgetMs: 4 }).run(() => installCriticalIndicator(window));
+    const accountIdentity = featureScope('accountIdentity').run(() => installAccountIdentityNative(window));
+    featureScope('battlePresence').run(() => installBattlePresence(window, value => accountIdentity?.capture(value)));
+    featureScope('battleStatistics').run(() => installBattleStatistics(window));
+    featureScope('userActions').run(() => installUserActions(window));
+    featureScope('garageInventory').run(() => installGarageInventoryDiagnostics(window));
+    featureScope('cybersportNative').run(() => installCybersportNative(window));
 
     let arcadeHookStatus: ArcadeReloadHookStatus = { hooked: false, issues: ['pending'] };
     let arcadeError: string | null = null;
     let arcadeSample: import('./core/arcadeReload').ArcadeReloadSample | null = null;
     let arcadeUpdates = 0;
+    window.__kaspArcadeControl = createNativeFeature(window, 'arcadeReload', 'k_arcade_reload');
     window.__kaspArcadeReloadDebug = {
         setEnabled(value): void {
             try { localStorage.setItem('kasp_arcade_reload_enabled', String(value)); } catch { }
         },
         status: () => ({ ...arcadeHookStatus, issues: [...arcadeHookStatus.issues], error: arcadeError,
-            updates: arcadeUpdates, sample: arcadeSample && { ...arcadeSample } }),
+            updates: arcadeUpdates, sample: arcadeSample && { ...arcadeSample }, runtime: window.__kaspArcadeControl?.status() }),
         observe(sample): void {
             arcadeSample = sample;
             arcadeUpdates++;
         },
         reportError(message): void {
+            window.__kaspArcadeControl?.fail(message);
             arcadeError = message;
             console.warn('[KI Arcade reload] Native bar update failed:', message);
         },
@@ -80,13 +89,30 @@ import { installCybersportNative } from './core/cybersportNative';
         status: () => hookStatus ? { ...hookStatus } : { kind: 'hooks', pending: true },
     };
     const bonusBridge = createBonusPickupBridge((model, position) => {
-        window.postMessage({ type: BONUS_PICKUP_MESSAGE, detail: { model, position: position || null } }, '*');
-    }, diagnostics.record, () => debugEnabled);
+        postPageMessage(window, { type: BONUS_PICKUP_MESSAGE, detail: { model, position: position || null } });
+    }, diagnostics.record, () => debugEnabled, callback => featureScope('overdriveHooks').run(callback));
     window.__kaspBonusPickup = bonusBridge.pickup;
     window.__kaspBonusPrepare = bonusBridge.prepare;
     window.__kaspBonusRegister = bonusBridge.register;
     window.__kaspBonusContext = bonusBridge.context;
     window.__kaspBonusType = registerBonusType;
+
+    for (const [id, names] of Object.entries({
+        augments: ['__kaspAugmentConfigure', '__kaspAugmentData', '__kaspAugmentLink'],
+        overdriveHooks: ['__kaspBonusPickup', '__kaspBonusRegister', '__kaspBonusContext', '__kaspBonusType'],
+        battleStatistics: ['__kaspBattleStats'], userActions: ['__kaspSendAction'],
+    })) {
+        const scope = featureScope(id);
+        const page = window as unknown as Record<string, unknown>;
+        for (const name of names) {
+            const original = page[name];
+            if (typeof original !== 'function') continue;
+            page[name] = (...args: unknown[]) => {
+                const result = scope.run(() => original.apply(window, args));
+                return name === '__kaspBonusPickup' && result === undefined ? args[0] : result;
+            };
+        }
+    }
 
     let bundleIntercepted = false;
     const observer = new MutationObserver((mutations: MutationRecord[]) => {
@@ -188,10 +214,15 @@ import { installCybersportNative } from './core/cybersportNative';
                                 reportGarageInventory({ hooked: false, ready: false, strategy: 'ast-plan', issues: ['garage-inventory-patch-error'] });
                             }
                             const reportBattlePresence = (status: BattlePresenceHookStatus) => {
+                                accountIdentity?.reportMapping(status);
                                 if (!status.ready) console.warn('[KI Presence] AST mapping unavailable:', status);
                             };
-                            if (navigator.userAgent.includes('Electron')) try {
-                                battlePresencePlan = await selectBattlePresencePlan(originalCode, battlePresencePlans.plans as BattlePresencePatchPlan[]);
+                            try {
+                                battlePresencePlan = await selectBattlePresencePlan(originalCode, battlePresencePlans.plans as BattlePresencePatchPlan[],
+                                    navigator.userAgent.includes('Electron') ? 'complete' : 'store');
+                                if (!battlePresencePlan && navigator.userAgent.includes('Electron')) {
+                                    battlePresencePlan = await selectBattlePresencePlan(originalCode, battlePresencePlans.plans as BattlePresencePatchPlan[], 'store');
+                                }
                                 if (patchBattlePresence(originalCode, reportBattlePresence, battlePresencePlan) !== originalCode && battlePresencePlan) prepared.push(battlePresencePlan);
                             } catch {
                                 reportBattlePresence({ hooked: false, ready: false, strategy: 'ast-plan', issues: ['battle-presence-patch-error'] });

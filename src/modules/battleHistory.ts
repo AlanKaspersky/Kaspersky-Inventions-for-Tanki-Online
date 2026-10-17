@@ -1,7 +1,9 @@
+import { featureScope } from '../core/featureRuntime';
+const lifecycle = featureScope('battleHistory');
 import { gameDOM } from '../core/gameDOM';
 import { utils } from '../core/utils';
 import { state } from '../core/state';
-import { getAccountIdentity } from '../core/accountIdentity';
+import { getVerifiedAccount } from '../core/accountIdentity';
 import { renderHistoryTemplate } from '../core/historyMarkup';
 import { getHistoryDictionary } from './battleHistory/localization';
 import { createHistoryViews } from './battleHistory/views';
@@ -9,44 +11,30 @@ import { createHistoryActions } from './battleHistory/actions';
 import { createHistoryNavigation } from './battleHistory/navigation';
 import { createResultCapture } from './battleHistory/capture';
 import type { HistoryAccount } from './battleHistory/types';
+import { historyContext } from './battleHistory/context';
 
-export const battleHistory = (() => {
-    const NICK_KEY = 'kasp_last_nickname';
+export const battleHistory = lifecycle.initialize(() => {
     let initialized = false;
-    let currentNickname = (() => {
-        try {
-            return localStorage.getItem(NICK_KEY) || 'Unknown';
-        }
-        catch {
-            return 'Unknown';
-        }
-    })();
-
+    let currentUserId: string | null = null;
+    let currentNickname = 'Unknown';
     let historyPagePromise: Promise<void> | null = null;
-    const setNickname = (nickname: string): void => {
-        if (nickname === currentNickname) return;
-        const overlay = document.querySelector<HTMLElement>('.custom-history-overlay');
-        if (overlay) {
-            navigation.release(overlay);
-            overlay.remove();
+    const updateIdentity = (): boolean => {
+        const identity = getVerifiedAccount();
+        const userId = identity?.userId || null;
+        if (userId !== currentUserId) {
+            const overlay = document.querySelector<HTMLElement>('.custom-history-overlay');
+            if (overlay) { navigation.release(overlay); overlay.remove(); }
+            views.reset();
+            historyPagePromise = null;
+            currentUserId = userId;
         }
-        views.reset();
-        historyPagePromise = null;
-        currentNickname = nickname;
-        try { localStorage.setItem(NICK_KEY, nickname); } catch { }
+        currentNickname = identity?.nickname || 'Unknown';
+        return userId !== null;
     };
-
-    const updateNickname = (): boolean => {
-        const nickname = getAccountIdentity()?.nickname;
-        if (!nickname || nickname === 'Unknown') return false;
-        setNickname(nickname);
-        return true;
-    };
-
     const account: HistoryAccount = {
+        getUserId: () => getVerifiedAccount()?.userId === currentUserId ? currentUserId : null,
         getNickname: () => currentNickname,
-        updateNickname,
-        setNickname,
+        updateIdentity,
     };
     const views = createHistoryViews(account);
     const actions = createHistoryActions(account, views.renderBattleList);
@@ -60,7 +48,7 @@ export const battleHistory = (() => {
     const createHistoryPage = async () => {
         if (document.querySelector('.custom-history-overlay')) return;
 
-        const nickname = currentNickname;
+        const userId = account.getUserId();
         const lang = state.lang;
         const dict = getHistoryDictionary(lang);
 
@@ -70,11 +58,10 @@ export const battleHistory = (() => {
             throw new Error(`Failed to load history template: ${response.status}`);
         }
         const template = await response.text();
-        if (nickname !== currentNickname || document.querySelector('.custom-history-overlay')) return;
+        if (lifecycle.disabled || historyContext.invalidated || userId !== account.getUserId() || document.querySelector('.custom-history-overlay')) return;
         const replacements: Record<string, string> = {
             title: String(dict.title ?? ''),
             clear: String(dict.clear ?? ''),
-            link: String(dict.link ?? ''),
             export: String(dict.export ?? ''),
             import: String(dict.import ?? ''),
             battles: String(dict.battles ?? 'Боёв')
@@ -92,17 +79,19 @@ export const battleHistory = (() => {
         });
 
         document.getElementById('bh-clear-btn')?.addEventListener('click', actions.clearHistoryDb);
-        document.getElementById('bh-link-btn')?.addEventListener('click', actions.openLinkHistoryDialog);
         document.getElementById('bh-export-btn')?.addEventListener('click', actions.exportHistoryData);
         document.getElementById('bh-import-btn')?.addEventListener('click', actions.importHistoryData);
     };
 
     const ensureHistoryPage = (): Promise<void> => {
-        updateNickname();
+        if (historyContext.invalidated) return Promise.resolve();
+        updateIdentity();
         if (document.querySelector('.custom-history-overlay')) return Promise.resolve();
         if (!historyPagePromise) {
             const pending = createHistoryPage()
-                .catch(error => console.error('[BattleHistory] Failed to create history page:', error))
+                .catch(error => {
+                    if (!historyContext.handle(error, state.lang)) console.error('[BattleHistory] Failed to create history page:', error);
+                })
                 .finally(() => {
                     if (historyPagePromise === pending) historyPagePromise = null;
                 });
@@ -111,11 +100,15 @@ export const battleHistory = (() => {
         return historyPagePromise;
     };
 
+    lifecycle.onCleanup(() => { historyContext.invalidated=true;results.reset();views.reset();const overlay=document.querySelector<HTMLElement>('.custom-history-overlay');if(overlay){navigation.release(overlay);overlay.remove();}document.querySelector('.custom-history-button')?.remove(); });
+
     return () => {
+        if (historyContext.invalidated) return;
         if (!utils.getSetting('k_history', false)) return;
+        updateIdentity();
         const inResults = document.querySelector(gameDOM.results.status);
         if (document.querySelector(gameDOM.results.selfRow) && inResults) {
-            void results.capture();
+            void results.capture().catch(error => lifecycle.fail(error));
         } else if (!inResults) {
             results.reset();
         }
@@ -123,10 +116,10 @@ export const battleHistory = (() => {
         if (!initialized) {
             initialized = true;
             navigation.bindShortcuts();
-            setTimeout(updateNickname, 5000);
+            lifecycle.timeout(updateIdentity, 5000);
         }
         navigation.injectFooterButton();
         void ensureHistoryPage();
 
     };
-})();
+}, () => {});

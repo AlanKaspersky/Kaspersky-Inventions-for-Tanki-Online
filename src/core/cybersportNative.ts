@@ -1,3 +1,4 @@
+import { featureScope } from './featureRuntime';
 import { gameDOM } from './gameDOM';
 
 export const CYBERSPORT_ACTIVE = 'data-kasp-esports-active';
@@ -77,6 +78,7 @@ export function guardCybersportSubmission(model: CreationModel, active: () => bo
 }
 
 export function installCybersportNative(page: Window): void {
+    const lifecycle = featureScope('cybersportNative');
     const debugPage = page as Window & { __kaspCybersportDebug?: { status(): CybersportNativeStatus } };
     if (debugPage.__kaspCybersportDebug) return;
     const doc = page.document;
@@ -95,10 +97,13 @@ export function installCybersportNative(page: Window): void {
         guard?.restore(); guard = null; guardedProps = null;
         root = null; model = null; minimum = null; rankMap = undefined;
     };
+    lifecycle.onCleanup(clear);
     const schedule = () => {
         if (queued) return;
         queued = true;
-        page.requestAnimationFrame(() => { queued = false; sync(); });
+        let release = () => {};
+        const handle = page.requestAnimationFrame(() => { release(); lifecycle.run(() => { queued = false; sync(); }); });
+        release = lifecycle.onCleanup(() => page.cancelAnimationFrame(handle));
     };
     function sync(): void {
         const nextRoot = doc.querySelector<HTMLElement>(`${dom.root}[${CYBERSPORT_ACTIVE}]`);
@@ -155,13 +160,13 @@ export function installCybersportNative(page: Window): void {
         minRank: model?.state.selectedMinUserRank ?? null, private: !!model && nativePrivate(model), error,
         lastSubmission: lastSubmission && { ...lastSubmission } });
     debugPage.__kaspCybersportDebug = { status };
-    doc.addEventListener(CYBERSPORT_SYNC, sync);
+    lifecycle.listen(doc, CYBERSPORT_SYNC, sync);
     const beforeStart = (event: Event) => {
         if (event.type === 'keydown') {
             const key = event as KeyboardEvent;
             if (key.code !== 'Space' || key.repeat || key.ctrlKey || key.altKey || key.metaKey ||
                 (event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable="true"]'))) return;
-        } else if (!(event.target instanceof Element) || !event.target.closest('.JoinToBattleComponentStyle-buttonJoin')) return;
+        } else if (!(event.target instanceof Element) || !event.target.closest(gameDOM.battleCreate.joinButton)) return;
         const creation = doc.querySelector(`${dom.root}[${CYBERSPORT_ACTIVE}]`);
         if (!creation || (event.type === 'click' && event.target instanceof Node && !creation.contains(event.target))) return;
         sync();
@@ -171,6 +176,6 @@ export function installCybersportNative(page: Window): void {
             console.warn('[KI Esports] Creation postponed:', error);
         }
     };
-    doc.addEventListener('click', beforeStart, true);
-    page.addEventListener('keydown', beforeStart, true);
+    lifecycle.listen(doc, 'click', beforeStart, true);
+    lifecycle.listen(page, 'keydown', beforeStart, true);
 }

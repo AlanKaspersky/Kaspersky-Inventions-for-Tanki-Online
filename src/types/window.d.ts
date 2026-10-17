@@ -2,6 +2,7 @@ export { };
 
 declare global {
     interface Window {
+        __kaspArcadeControl?: ReturnType<typeof import('../core/nativeFeature').createNativeFeature>;
         __kaspArcadeReloadDebug: {
             setEnabled(value: boolean): void;
             status(): import('../core/arcadeReload').ArcadeReloadHookStatus & { error: string | null; updates: number;

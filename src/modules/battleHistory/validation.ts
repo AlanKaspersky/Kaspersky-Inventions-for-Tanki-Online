@@ -1,9 +1,14 @@
 import { getHistoryImageUrl } from '../../core/historyMarkup';
 import type { BattleData, PlayerData } from './types';
+import { normalizeAccountId } from '../../core/accountId';
+import { getBattleIdentity } from './battleIdentity';
 
 export const validateImportedBattle = (value: unknown): BattleData | null => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
     const battle = value as Record<string, unknown>;
+    const battleId = getBattleIdentity(battle);
+    if (!battleId) return null;
+    if (typeof battle.userId !== 'string' || normalizeAccountId(battle.userId) !== battle.userId) return null;
     const requiredStrings = ['nickname', 'status', 'map', 'mode', 'top'];
     const requiredNumbers = ['date', 'reputation', 'kills', 'deaths', 'kd', 'crystals', 'stars'];
 
@@ -44,6 +49,8 @@ export const validateImportedBattle = (value: unknown): BattleData | null => {
     }
 
     return {
+        battleId,
+        userId: battle.userId,
         nickname: battle.nickname as string,
         date: battle.date as number,
         status: battle.status as string,
@@ -67,12 +74,13 @@ export const validateImportedBattle = (value: unknown): BattleData | null => {
     };
 };
 
-export function parseHistoryImport(text: string): BattleData[] {
+export function parseHistoryImport(text: string, userId: string): BattleData[] {
+    if (normalizeAccountId(userId) !== userId) throw new Error('account-id-required');
     const data: unknown = JSON.parse(text);
     if (!Array.isArray(data) || data.length === 0) throw new Error('empty-or-invalid-list');
     return data.map(value => {
         const battle = validateImportedBattle(value);
-        if (!battle) throw new Error('invalid-battle-record');
+        if (!battle || battle.userId !== userId) throw new Error('invalid-battle-record-or-owner');
         return battle;
     });
 }

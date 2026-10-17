@@ -1,3 +1,4 @@
+const runFeatureContext = require('./test-feature-context.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -8,9 +9,9 @@ const { webcrypto } = require('node:crypto');
 const patches = require('./test-client-patches.cjs');
 const { analyzeCritical } = require('./critical-ast.cjs');
 const devicesModule = { exports: {} };
-vm.runInNewContext(transformSync(fs.readFileSync('src/core/criticalDevices.ts','utf8'), {loader:'ts',format:'cjs'}).code, {module:devicesModule});
+runFeatureContext(transformSync(fs.readFileSync('src/core/criticalDevices.ts','utf8'), {loader:'ts',format:'cjs'}).code, {module:devicesModule});
 const compiled = { exports: {} };
-vm.runInNewContext(transformSync(fs.readFileSync('src/core/criticalIndicator.ts', 'utf8'), { loader: 'ts', format: 'cjs' }).code,
+runFeatureContext(transformSync(fs.readFileSync('src/core/criticalIndicator.ts', 'utf8'), { loader: 'ts', format: 'cjs' }).code,
     { module: compiled, crypto: webcrypto, TextEncoder, require: id => id === './criticalDevices' ? devicesModule.exports : patches });
 const api = compiled.exports;
 const arcadeFixture = fs.readFileSync(path.join(__dirname, 'arcade-reload.test.cjs'), 'utf8').match(/const source = `([\s\S]*?)`;/)[1];
@@ -40,6 +41,9 @@ function KillWire(){}function KillModel(){}
 proto(KillWire).decode=function(packet){var flag=function(t){var c=t.codec;if(c!=null)return c;missing('_kill_isCriticalCodec')}(this).read(packet);this.kill(1,2,3,flag)};
 proto(KillModel).kill=function(killer,incarnation,damage,critical){var entity=this.entity(token(Info));entity.kill(critical)};
 function Info(weapon,device){this.weaponId=weapon;this.deviceId=device}
+function Terminator(){}function TerminatorOwner(){}
+function terminatorGetter(t){var n=t.terminator;if(n!=null)return n;missing('terminatorWeapon')}
+proto(TerminatorOwner).init=function(){this.terminator=this.entity().required(token(Terminator))};
 proto(Info).toString=function(){var text='TankInfoCC [';return (text=text+'weaponBaseId = '+this.weaponId.toString()+' ',text=text+'weaponDeviceId = '+this.deviceId.toString()+' ',text+']')};
 function equipmentScene(owner,info){var id=info==null?null:info.deviceId,local=localTank(owner.world());drawEquipment(owner,id,local)}
 function SuperchargeCC(active){this.enabled=active}
@@ -62,7 +66,7 @@ function setup(code = source, plan = analyzeCritical(code), otherPlans = []) {
         ['400', { id: '400', name: 'Another device', baseItemId: '40' }],
     ]);
     const engine = api.createCriticalIndicator(id => devices.get(id) ?? null);
-    const entity = () => ({ callbacks: new Map(), optional: () => null,
+    const entity = () => ({ callbacks: new Map(), terminatorWeapon: null, optional(type) { return this.terminatorWeapon instanceof type ? this.terminatorWeapon : null; },
         kill() { this.ghost = true; this.nicknameVisible = false; },
         on(type, priority, once, callback) { this.callbacks.set(type, callback); },
         emit(event) { context.NativeEntity.prototype.emit.call(this,event); } });
@@ -73,7 +77,7 @@ function setup(code = source, plan = analyzeCritical(code), otherPlans = []) {
         recordCritical() {}, refresh: () => refreshes++, drawEquipment() {}, color: value => ({ value }), allocate() {}, Event: { progress: .5 },
         rectangle: () => ({ layer: () => 'native', width: () => 100, height: () => 4 }) };
     const patched = otherPlans.length ? patches.mergeClientPatchPlans(code, [...otherPlans, plan]).code : api.patchCriticalIndicator(code, undefined, plan);
-    vm.runInNewContext(patched, context);
+    runFeatureContext(patched, context);
     const hud = new context.LocalHud(); hud.world = () => world; hud.init(); hud.create();
     const createMarker = target => { const marker = new context.Marker(); marker.entity = () => target; marker.world = () => world; marker.active = true; marker.nextCritical = false; marker.init(); return marker; };
     const marker = createMarker(local), remoteMarker = createMarker(remote);
@@ -170,6 +174,90 @@ test('native supercharge overrides every weapon and an unknown device, including
     life(f, 'SEMI_ACTIVE'); model.enable(); f.frame(); assert.equal(f.engine.status().ready, null, 'no indication during transparent spawn');
     life(f, 'ACTIVE'); f.frame(); assert.equal(f.engine.status().ready, true);
     f.killModel.kill(1,2,3,false); f.frame(); assert.equal(f.engine.status().supercharge, false);
+});
+
+test('juggernaut replacement gun cannot inherit any of the three ordinary device cycles or server flags', () => {
+    for (const [weapon, device] of [['920009631123', '1931009774129'], ['920009630969', '921009712832'], ['920009631046', '1931009803197']]) {
+        const f = setup(); equipKnown(f, weapon, device);
+        life(f, 'SEMI_ACTIVE'); life(f, 'ACTIVE'); f.model.prepareFlag(true); f.frame();
+        assert.equal(f.engine.status().ready, true);
+        f.remote.terminatorWeapon = new f.context.Terminator(); f.frame();
+        assert.equal(f.engine.status().juggernaut, false, 'a remote juggernaut cannot change the local gun');
+        f.local.terminatorWeapon = new f.context.Terminator(); f.frame();
+        assert.equal(f.engine.status().juggernaut, true);
+        assert.equal(f.engine.status().weapon, null);
+        assert.equal(f.engine.status().ready, null);
+        assert.equal(f.hud.weaponBar.material.foreground, f.original);
+        for (let i = 0; i < 8; i++) { shot(f); hit(f, true); f.model.prepareFlag(true); }
+        f.frame(); assert.equal(f.engine.status().ready, null);
+        f.local.terminatorWeapon = null; f.frame();
+        assert.equal(f.engine.status().ready, null, 'returning does not reuse the Terminator shots or stale normal-weapon flags');
+        life(f, 'SEMI_ACTIVE'); life(f, 'ACTIVE'); f.frame();
+        assert.equal(f.engine.status().ready, weapon !== '920009631046');
+    }
+});
+
+test('supercharge stays authoritative on a juggernaut and its end cannot start an ordinary device cycle', () => {
+    const f = setup(); equipKnown(f, '920009630969', '921009712832'); life(f, 'ACTIVE');
+    const charge = supercharge(f);
+    f.local.terminatorWeapon = new f.context.Terminator(); f.frame();
+    assert.equal(f.engine.status().source, 'supercharge');
+    assert.equal(f.engine.status().ready, true);
+    shot(f); hit(f, true); charge.disable(); f.frame();
+    assert.equal(f.engine.status().ready, null);
+    assert.equal(f.engine.status().awaitingPostSuperchargeCritical, false);
+    charge.enable(); f.local.terminatorWeapon = null; f.frame();
+    assert.equal(f.engine.status().source, 'supercharge');
+    assert.equal(f.engine.status().ready, true);
+    charge.disable(); f.frame();
+    assert.equal(f.engine.status().awaitingPostSuperchargeCritical, true, 'ordinary gun resumes its own supercharge recovery');
+});
+
+test('a Terminator detected during transparent spawn preserves native lifecycle and visibility', () => {
+    const f = setup(); life(f, 'SEMI_ACTIVE'); supercharge(f);
+    f.local.terminatorWeapon = new f.context.Terminator(); f.frame();
+    assert.equal(f.engine.status().juggernaut, true);
+    assert.equal(f.engine.status().ready, null);
+    assert.equal(f.hud.weaponBar.material.foreground, f.original);
+    life(f, 'ACTIVE'); f.frame();
+    assert.equal(f.engine.status().ready, true);
+    f.local.terminatorWeapon = null; life(f, 'SEMI_ACTIVE'); f.frame();
+    assert.equal(f.engine.status().ready, null);
+});
+
+test('failed actual-weapon lookup restores native color and cannot interrupt reload rendering', () => {
+    const f = setup(); f.model.prepareFlag(true); f.frame();
+    const optional = f.local.optional;
+    f.local.optional = () => { throw Error('component unavailable'); };
+    assert.doesNotThrow(() => f.frame());
+    assert.equal(f.hud.weaponBar.progressValue, .5);
+    assert.equal(f.hud.weaponBar.material.foreground, f.original);
+    f.local.optional = optional; f.frame();
+    assert.equal(f.engine.status().ready, true);
+});
+
+test('Terminator detection adapts renamed component classes, token factories and optional lookups', async () => {
+    const plan = analyzeCritical(source);
+    const changed = source.replace(/\bTerminator\b/g, 'ActualBossWeapon').replace(/\btoken\b/g, 'componentKey')
+        .replace(/\boptional\b/g, 'findComponent').replace(/\bterminator\b/g, 'bossSlot');
+    const adapted = await api.selectCriticalPlan(changed, [plan]);
+    assert.ok(adapted);
+    const f = setup(changed, adapted);
+    f.local.findComponent = f.local.optional;
+    f.local.terminatorWeapon = new f.context.ActualBossWeapon(); f.frame();
+    assert.equal(f.engine.status().juggernaut, true);
+    assert.equal(f.engine.status().ready, null);
+    f.local.terminatorWeapon = null; f.model.prepareFlag(true); f.frame();
+    assert.equal(f.engine.status().juggernaut, false);
+});
+
+test('old critical plans cannot bypass actual-weapon protection', async () => {
+    const current = analyzeCritical(source), old = { ...current, status: { ...current.status, juggernautHook: undefined } };
+    assert.equal(await api.selectCriticalPlan(source, [old]), undefined);
+    assert.equal(api.patchCriticalIndicator(source, undefined, old), source);
+    const missing = source.replace('terminatorWeapon', 'another-weapon-component');
+    assert.equal(analyzeCritical(missing).status.ready, false);
+    assert.equal(await api.selectCriticalPlan(missing, [old, current]), undefined);
 });
 
 test('supercharge starts the observed fourth/fifth-shot phase and ignores forced damage arriving after it ends', () => {
@@ -378,4 +466,17 @@ test('critical preparation is offline and keeps prior plans when a new bundle ca
         fs.writeFileSync(input, source.replace('weaponDeviceId = ', 'anotherId = '));
         assert.equal(run().status, 1); assert.equal(fs.readFileSync(output, 'utf8'), previous);
     } finally { for (const f of [input, output]) if (fs.existsSync(f)) fs.unlinkSync(f); fs.rmdirSync(dir); }
+});
+
+
+test('suspension restores the native color and discards stale ordinary and Supercharge readiness', () => {
+    const f = setup(); f.model.prepareFlag(true); f.frame();
+    assert.equal(f.hud.weaponBar.material.foreground.rgb, 16711680);
+    f.engine.suspend();
+    assert.equal(f.hud.weaponBar.material.foreground, f.original);
+    assert.equal(f.engine.status().painted, false);
+    f.frame(); assert.equal(f.engine.status().ready, null);
+    f.engine.bridge.supercharge(f.local, true); f.frame();
+    assert.equal(f.engine.status().ready, true);
+    f.engine.suspend(); f.frame(); assert.equal(f.engine.status().ready, null);
 });

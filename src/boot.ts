@@ -1,3 +1,4 @@
+import { featureScope } from './core/featureRuntime';
 import { state } from './core/state';
 import { gameDOM } from './core/gameDOM';
 import { utils } from './core/utils';
@@ -25,6 +26,10 @@ export function startBoot() {
         lastFullRefresh = performance.now();
         refreshScheduled = false;
 
+        if (document.querySelector(gameDOM.screens.garageOrLootBox)) {
+            modules.augmentSpecs();
+        }
+
         modules.changeCounter.onTick();
         modules.overdriveTimer.sync();
 
@@ -33,25 +38,20 @@ export function startBoot() {
         modules.hideCurrency();
         modules.customGarageSkins();
 
-        try {
-            modules.cybersport();
-            if (state.currentScreen === 'lobby' || state.currentScreen === 'loading') {
-                modules.customPlayButton();
-            }
-            if (state.friendsMenuOpen) {
-                modules.customFriends();
-            }
-            if (state.currentScreen === 'lobby' || state.currentScreen === 'garage' || state.currentScreen === 'match_results') {
-                modules.customTrophies();
-            }
-            if (state.currentScreen === 'garage') {
-                modules.autoUpgrade();
-                modules.augmentSpecs();
-                modules.customPaints();
-            }
+        modules.cybersport();
+        if (state.currentScreen === 'lobby' || state.currentScreen === 'loading') {
+            modules.customPlayButton();
         }
-        catch (e) {
-            console.error("[Kaspersky's Inventions] Ошибка в модуле:", e);
+        if (state.friendsMenuOpen) {
+            modules.customFriends();
+        }
+        if (state.currentScreen === 'lobby' || state.currentScreen === 'garage' || state.currentScreen === 'match_results') {
+            modules.customTrophies();
+        }
+        if (state.currentScreen === 'garage') {
+            modules.autoUpgrade();
+            modules.augmentSpecs();
+            modules.customPaints();
         }
     };
 
@@ -74,7 +74,7 @@ export function startBoot() {
     };
 
     function syncKillBoardDoubleHeader() {
-        const thead = document.querySelector('.BattleKillBoardComponentStyle-tableContainer table > thead');
+        const thead = document.querySelector(gameDOM.statistics.killBoardHead);
         if (!thead) return;
 
         if (thead.children.length === 1) {
@@ -95,7 +95,7 @@ export function startBoot() {
         if (document.querySelector(gameDOM.results.status)) {
             newScreen = 'match_results';
         }
-        else if (document.querySelector('.ApplicationLoaderComponentStyle-container')) {
+        else if (document.querySelector(gameDOM.screens.loader)) {
             newScreen = 'loading';
         }
         else if (document.querySelector(gameDOM.screens.garage)) {
@@ -104,7 +104,7 @@ export function startBoot() {
         else if (document.querySelector(gameDOM.screens.battleHud)) {
             newScreen = 'battle';
         }
-        else if (document.querySelector('.MainScreenComponentStyle-blockMainMenu')) {
+        else if (document.querySelector(gameDOM.play.mainMenu)) {
             newScreen = 'lobby';
         }
 
@@ -136,18 +136,18 @@ export function startBoot() {
             }
         }
 
-        const isFriendsMenuOpen = !!document.querySelector('.FriendListComponentStyle-containerFriends, .InvitationWindowsComponentStyle-centerBlock');
+        const isFriendsMenuOpen = !!document.querySelector(gameDOM.screens.friends);
         const friendsChanged = isFriendsMenuOpen !== state.friendsMenuOpen;
         state.friendsMenuOpen = isFriendsMenuOpen;
 
-        const isSettingsOpen = !!document.querySelector('.SettingsComponentStyle-blockContentOptions');
+        const isSettingsOpen = !!document.querySelector(gameDOM.settings.root);
         if (isSettingsOpen !== state.settingsOpen) {
             state.settingsOpen = isSettingsOpen;
             if (isSettingsOpen) {
-                coreSettings.inject();
+                featureScope('settings').run(coreSettings.inject);
             }
             else {
-                coreSettings.onClose();
+                featureScope('settings').run(coreSettings.onClose);
             }
         }
 
@@ -171,13 +171,12 @@ export function startBoot() {
     };
 
     const masterObserver = new MutationObserver(() => {
-        if (document.querySelector('.BattleTabStatisticComponentStyle-container')) {
+        if (document.querySelector(gameDOM.statistics.container)) {
             modules.changeCounter.sync();
             modules.zeroResists.sync();
             modules.equipmentTracker.sync();
         }
-        if (document.querySelector('.GarageCommonStyle-positionContent, .ContainerInfoComponentStyle-lootBoxContainer')) {
-            modules.augmentSpecs();
+        if (document.querySelector(gameDOM.garage.actionContainer)) {
             modules.autoUpgrade();
         }
 
@@ -205,7 +204,7 @@ export function startBoot() {
             const oldTooltip = document.getElementById('kaspersky-reload-tooltip');
             if (oldTooltip)
                 oldTooltip.remove();
-            coreSettings.inject();
+            featureScope('settings').run(coreSettings.inject);
         }
         if (!isMasterUpdateScheduled) {
             isMasterUpdateScheduled = true;

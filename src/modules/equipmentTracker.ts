@@ -1,7 +1,9 @@
+import { featureScope } from '../core/featureRuntime';
+const lifecycle = featureScope('equipmentTracker');
 import { gameDOM } from '../core/gameDOM';
 import { getAccountIdentity } from '../core/accountIdentity';
 
-export const equipmentTracker = (() => {
+export const equipmentTracker = lifecycle.initialize(() => {
     const STORAGE_KEY = 'kasp_my_equipment';
     let lastSignature = '';
 
@@ -102,5 +104,7 @@ export const equipmentTracker = (() => {
         lastSignature = '';
     };
 
-    return { sync, get, clear };
-})();
+    lifecycle.onCleanup(() => { clear(); });
+
+    return { sync: lifecycle.guard(sync), get: lifecycle.guard(get), clear };
+}, { sync() {}, get() {return null;}, clear() {} });

@@ -1,5 +1,8 @@
+import { featureScope } from '../core/featureRuntime';
+const lifecycle = featureScope('changeCounter');
 import { gameDOM } from '../core/gameDOM';
-export const changeCounter = (() => {
+import { readPageMessage } from '../core/pageMessages';
+export const changeCounter = lifecycle.initialize(() => {
     const CACHE_KEY = 'kasp_player_changes_cache';
     const playerChanges = new Map<string, number>();
     let isUpdating = false;
@@ -27,30 +30,17 @@ export const changeCounter = (() => {
         sessionStorage.removeItem(CACHE_KEY);
     };
 
-    window.addEventListener('message', (e) => {
-        const data = e.data as { type?: string; detail?: unknown } | null;
-        if (e.source !== window) return;
-        if (!data || data.type !== 'kasp:battle-kind') return;
-        if (data.detail === 'MM' || data.detail === 'PRO') window.__kaspBattleKind = data.detail;
+    lifecycle.listen(window, 'message', (e) => {
+        const message = readPageMessage(e, window, 'kasp:battle-kind');
+        if (message) window.__kaspBattleKind = message.detail;
     });
 
-    window.addEventListener('message', (e) => {
-        const data = e.data as { type?: string; detail?: unknown } | null;
-        if (!data || data.type !== 'kasp:useraction') return;
-        const detail = data.detail;
-        if (!Array.isArray(detail)) return;
-        if (detail[0] !== 'TankUserActionLog' || !detail.includes('CHANGE_EQUIPMENT')) return;
+    lifecycle.listen(window, 'message', (e) => {
+        const message = readPageMessage(e, window, 'kasp:useraction');
+        if (!message || message.detail[2] !== 'CHANGE_EQUIPMENT') return;
+        const detail = message.detail;
 
-        const nickname = detail.find((item): item is string =>
-            typeof item === 'string' &&
-            item !== 'TankUserActionLog' &&
-            item !== 'CHANGE_EQUIPMENT' &&
-            item !== 'ALLY' &&
-            item !== 'ENEMIES' &&
-            !item.startsWith('-') &&
-            /[a-zA-Z]/.test(item) &&
-            item.length >= 2 && item.length < 30
-        );
+        const nickname = detail[1];
         if (!nickname) return;
 
         playerChanges.set(nickname, (playerChanges.get(nickname) ?? 0) + 1);
@@ -60,7 +50,7 @@ export const changeCounter = (() => {
         }
     });
 
-    document.addEventListener('kasp:battle:id', () => {
+    lifecycle.listen(document, 'kasp:battle:id', () => {
         clearCache();
         update();
     });
@@ -113,9 +103,11 @@ export const changeCounter = (() => {
 
     function update(): void { sync(); }
 
+    lifecycle.onCleanup(() => { document.querySelectorAll('.kasp-change-th, .kasp-change-td').forEach(node=>node.remove()); });
+
     return {
         onTick: () => { checkBattleCanvas(); },
         sync,
         update,
     };
-})();
+}, { onTick() {}, sync() {}, update() {} });

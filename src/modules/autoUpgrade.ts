@@ -1,9 +1,11 @@
+import { featureScope } from '../core/featureRuntime';
+const lifecycle = featureScope('autoUpgrade');
 import { gameDOM } from '../core/gameDOM';
 import { state } from '../core/state';
 import { utils } from '../core/utils';
 import { createKaspModal } from '../core/modal';
 
-export const autoUpgrade = (() => {
+export const autoUpgrade = lifecycle.initialize(() => {
     let initialized = false;
     let isRunning = false;
     let upgradeQueue = 0;
@@ -48,15 +50,15 @@ export const autoUpgrade = (() => {
         activationEvent = event;
         pressedGamepadButtons = gamepadButtons();
         for (const type of ['keydown', 'pointerdown', 'mousedown', 'click']) {
-            document.addEventListener(type, stopOnInput, true);
+            lifecycle.listen(document, type, stopOnInput, true);
         }
         const poll = () => {
             inputFrame = null;
             if (!isRunning) return;
             checkGamepadInput();
-            if (isRunning) inputFrame = window.requestAnimationFrame(poll);
+            if (isRunning) inputFrame = lifecycle.frame(poll);
         };
-        inputFrame = window.requestAnimationFrame(poll);
+        inputFrame = lifecycle.frame(poll);
     }
 
     function finish(): void {
@@ -64,15 +66,15 @@ export const autoUpgrade = (() => {
         upgradeQueue = 0;
         unavailableRetries = 0;
         if (timer !== null) {
-            window.clearTimeout(timer);
+            lifecycle.cancelTimeout(timer);
             timer = null;
         }
         if (inputFrame !== null) {
-            window.cancelAnimationFrame(inputFrame);
+            lifecycle.cancelFrame(inputFrame);
             inputFrame = null;
         }
         for (const type of ['keydown', 'pointerdown', 'mousedown', 'click']) {
-            document.removeEventListener(type, stopOnInput, true);
+            lifecycle.unlisten(document, type, stopOnInput, true);
         }
         activationEvent = undefined;
         pressedGamepadButtons.clear();
@@ -201,7 +203,7 @@ export const autoUpgrade = (() => {
 
     async function showConfirmDialog(count: number, callback: (event: Event) => void) {
         const lang = state.lang;
-        const t: any = {
+        const t = {
             RU: { title: 'БЫСТРАЯ ПРОКАЧКА', textPre: 'Вы собираетесь купить улучшение на\u00A0', steps: ' шагов', maxSteps: 'максимум шагов', cancel: 'Отмена', buy: 'КУПИТЬ' },
             EN: { title: 'FAST UPGRADE', textPre: 'You are about to buy an upgrade for\u00A0', steps: ' steps', maxSteps: 'max steps', cancel: 'Cancel', buy: 'BUY' }
         };
@@ -245,8 +247,8 @@ export const autoUpgrade = (() => {
         };
         modal.onClose(() => {
             isClosing = true;
-            document.removeEventListener('keydown', onKeyDown, true);
-            window.setTimeout(() => document.removeEventListener('keyup', onKeyUp, true), 700);
+            lifecycle.unlisten(document, 'keydown', onKeyDown, true);
+            lifecycle.timeout(() => lifecycle.unlisten(document, 'keyup', onKeyUp, true), 700);
         });
 
         const onKeyDown = (event: KeyboardEvent) => {
@@ -265,14 +267,14 @@ export const autoUpgrade = (() => {
             }
         };
 
-        confirmBtn.addEventListener('click', (event) => {
+        lifecycle.listen(confirmBtn, 'click', (event) => {
             if (isClosing) return;
             closeDialog();
             callback(event);
         });
-        cancelBtn.addEventListener('click', closeDialog);
-        document.addEventListener('keydown', onKeyDown, true);
-        document.addEventListener('keyup', onKeyUp, true);
+        lifecycle.listen(cancelBtn, 'click', closeDialog);
+        lifecycle.listen(document, 'keydown', onKeyDown, true);
+        lifecycle.listen(document, 'keyup', onKeyUp, true);
     }
 
     function performAction(count: number) {
@@ -292,7 +294,7 @@ export const autoUpgrade = (() => {
 
                 if (isWaitingForDialogClose) {
                     if (isDialogOpen()) {
-                        timer = window.setTimeout(doStep, DELAY);
+                        timer = lifecycle.timeout(doStep, DELAY);
                         return;
                     }
                     isWaitingForDialogClose = false;
@@ -304,7 +306,7 @@ export const autoUpgrade = (() => {
                 if (!shouldShowQuickButtons() && !isDialogOpen()) {
                     if (unavailableRetries < MAX_UNAVAILABLE_RETRIES) {
                         unavailableRetries++;
-                        timer = window.setTimeout(doStep, RETRY_DELAY);
+                        timer = lifecycle.timeout(doStep, RETRY_DELAY);
                         return;
                     }
                     finish();
@@ -328,7 +330,7 @@ export const autoUpgrade = (() => {
                         if (!clickConfirmButton()) { finish(); return; }
                         upgraded++;
                         isWaitingForDialogClose = true;
-                        timer = window.setTimeout(doStep, DELAY);
+                        timer = lifecycle.timeout(doStep, DELAY);
                         return;
                     }
                     finish();
@@ -336,10 +338,10 @@ export const autoUpgrade = (() => {
                 }
 
                 pressEnter();
-                timer = window.setTimeout(doStep, DELAY);
+                timer = lifecycle.timeout(doStep, DELAY);
             }
 
-            timer = window.setTimeout(doStep, DELAY);
+            timer = lifecycle.timeout(doStep, DELAY);
         });
     }
 
@@ -379,11 +381,11 @@ export const autoUpgrade = (() => {
 
             el.style.cssText = `cursor: pointer; background-color: rgb(218, 218, 218) !important; transition: background-color 0.2s, box-shadow 0.2s; box-shadow: rgba(255, 255, 255, 0.25) 0em 0em 0em 0.063em; border-radius: 0.75em; display: flex; min-width: 0; align-items: center; justify-content: center; height: 3em; box-sizing: border-box;`;
 
-            el.addEventListener('mouseenter', () => {
+            lifecycle.listen(el, 'mouseenter', () => {
                 el.style.backgroundColor = 'rgb(197, 197, 197)';
                 el.style.boxShadow = 'rgb(255, 255, 255) 0em 0em 0em 1.4px';
             });
-            el.addEventListener('mouseleave', () => {
+            lifecycle.listen(el, 'mouseleave', () => {
                 el.style.backgroundColor = 'rgb(218, 218, 218)';
                 el.style.boxShadow = 'rgba(255, 255, 255, 0.25) 0em 0em 0em 0.063em';
             });
@@ -395,7 +397,7 @@ export const autoUpgrade = (() => {
             el.appendChild(span);
 
             el.title = btn.value === Infinity ? tooltipMax : tooltipSteps.replace('{n}', btn.value.toString());
-            el.addEventListener('click', (e) => {
+            lifecycle.listen(el, 'click', (e) => {
                 e.stopPropagation();
                 if (typeof isRunning !== 'undefined' && !isRunning) performAction(btn.value);
             });
@@ -406,6 +408,8 @@ export const autoUpgrade = (() => {
         panel.appendChild(quickButtonsWrapper);
     }
 
+    lifecycle.onCleanup(() => { finish(); if(categorySwitchTimeout !== null) lifecycle.cancelTimeout(categorySwitchTimeout); const overlay=document.getElementById('quick-upgrade-overlay') as (HTMLElement & {closeDialogMethod?:()=>void}) | null; overlay?.closeDialogMethod?.(); document.getElementById('quick-buttons')?.remove(); });
+
     return () => {
         if (!utils.getSetting('k_auto_upgrade', false)) return;
 
@@ -414,9 +418,9 @@ export const autoUpgrade = (() => {
         if (!initialized) {
             initialized = true;
 
-            categorySwitchTimeout = window.setTimeout(() => { isCategorySwitch = false; }, 2000);
+            categorySwitchTimeout = lifecycle.timeout(() => { isCategorySwitch = false; }, 2000);
 
-            document.addEventListener('click', (e) => {
+            lifecycle.listen(document, 'click', (e) => {
                 const target = e.target;
                 if (!(target instanceof Element))
                     return;
@@ -435,11 +439,11 @@ export const autoUpgrade = (() => {
 
                 if (menuCategory || mainGarageBlock || backButton) {
                     isCategorySwitch = true;
-                    if (categorySwitchTimeout) window.clearTimeout(categorySwitchTimeout);
-                    categorySwitchTimeout = window.setTimeout(() => { isCategorySwitch = false; }, 1000);
+                    if (categorySwitchTimeout) lifecycle.cancelTimeout(categorySwitchTimeout);
+                    categorySwitchTimeout = lifecycle.timeout(() => { isCategorySwitch = false; }, 1000);
                 } else if (itemElement) {
                     isCategorySwitch = false;
-                    if (categorySwitchTimeout) window.clearTimeout(categorySwitchTimeout);
+                    if (categorySwitchTimeout) lifecycle.cancelTimeout(categorySwitchTimeout);
                 }
 
                 if (menuCategory || mainGarageBlock || itemElement || backButton) {
@@ -447,27 +451,27 @@ export const autoUpgrade = (() => {
                     lastItemSignature = '';
                     const existing = document.getElementById('quick-buttons');
                     if (existing) existing.remove();
-                    window.setTimeout(createButtons, 10);
+                    lifecycle.timeout(createButtons, 10);
                 }
             }, true);
 
-            document.addEventListener('keydown', (e: KeyboardEvent) => {
+            lifecycle.listen(document, 'keydown', (e: KeyboardEvent) => {
                 if (document.getElementById('quick-upgrade-overlay')) return;
                 if (e.key === 'Escape' || e.code === 'KeyZ' || e.key.toLowerCase() === 'z') {
                     if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
                     isCategorySwitch = true;
-                    if (categorySwitchTimeout) window.clearTimeout(categorySwitchTimeout);
-                    categorySwitchTimeout = window.setTimeout(() => { isCategorySwitch = false; }, 1000);
+                    if (categorySwitchTimeout) lifecycle.cancelTimeout(categorySwitchTimeout);
+                    categorySwitchTimeout = lifecycle.timeout(() => { isCategorySwitch = false; }, 1000);
                     lastItemSignature = '';
                 }
             }, true);
 
-            document.addEventListener('mousedown', (e: MouseEvent) => {
+            lifecycle.listen(document, 'mousedown', (e: MouseEvent) => {
                 if (document.getElementById('quick-upgrade-overlay')) return;
                 if (e.button === 3 || e.button === 4) {
                     isCategorySwitch = true;
-                    if (categorySwitchTimeout) window.clearTimeout(categorySwitchTimeout);
-                    categorySwitchTimeout = window.setTimeout(() => { isCategorySwitch = false; }, 1000);
+                    if (categorySwitchTimeout) lifecycle.cancelTimeout(categorySwitchTimeout);
+                    categorySwitchTimeout = lifecycle.timeout(() => { isCategorySwitch = false; }, 1000);
                     lastItemSignature = '';
                 }
             }, true);
@@ -475,7 +479,7 @@ export const autoUpgrade = (() => {
 
         const loader = document.querySelector(gameDOM.screens.loadingBackground);
         if (loader) {
-            const overlay = document.getElementById('quick-upgrade-overlay') as any;
+            const overlay = document.getElementById('quick-upgrade-overlay') as (HTMLElement & { closeDialogMethod?: () => void }) | null;
             if (overlay && overlay.closeDialogMethod) overlay.closeDialogMethod();
         }
 
@@ -502,4 +506,4 @@ export const autoUpgrade = (() => {
             if (existing) existing.remove();
         }
     };
-})();
+}, () => {});

@@ -1,3 +1,4 @@
+const runFeatureContext = require('./test-feature-context.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -18,12 +19,12 @@ function load(file, context, expose = '') {
         ...context, module: { exports: {} },
         require(name) {
             const dependency = path.posix.normalize(path.posix.join(path.posix.dirname(file), name)) + '.ts';
-            if (dependency === 'src/core/gameDOM.ts') return load(dependency, {});
+            if (dependency === 'src/core/gameDOM.ts' || dependency === 'src/core/accountId.ts') return load(dependency, {});
             if (dependency.startsWith('src/modules/battleHistory/')) return load(dependency, context);
             return context.require(name.replace('../../core/', '../core/').replace('../equipmentTracker', './equipmentTracker'));
         },
     };
-    vm.runInNewContext(transformSync(source, { loader: 'ts', format: 'cjs' }).code, sandbox);
+    runFeatureContext(transformSync(source, { loader: 'ts', format: 'cjs' }).code, sandbox);
     return expose ? sandbox.review : sandbox.module.exports;
 }
 
@@ -68,7 +69,14 @@ function fixture() {
     const state = { lang: 'EN' };
     let enabled = true;
     const observers = [];
-    const identity = load('src/core/accountIdentity.ts', { document });
+    let identityListener;
+    const identityWindow = { location: { origin: 'https://tankionline.com' }, postMessage() {},
+        addEventListener(type, callback) { identityListener = callback; } };
+    const identity = load('src/core/accountIdentity.ts', { document, window: identityWindow });
+    identity.setupAccountIdentity();
+    const setAccount = (userId, nickname) => identityListener({ source: identityWindow, origin: identityWindow.location.origin,
+        data: { type: 'kasp:account-identity', snapshot: { account: { userId, nickname, clanTag: '[CLAN]' }, players: [{ userId: '2001', nickname: 'Friend' }] } } });
+    setAccount('1001', 'Kaspersky');
     const privacy = load('src/modules/hideNickname.ts', {
         document,
         MutationObserver: class {
@@ -96,7 +104,7 @@ function fixture() {
         },
     };
     return { element, html, header, xp, uid, type, self, other, document, storage, state, observers,
-        identity, privacy, moduleContext, get writes() { return writes; }, setEnabled: value => { enabled = value; } };
+        identity, privacy, moduleContext, setAccount, get writes() { return writes; }, setEnabled: value => { enabled = value; } };
 }
 
 test('masking preserves the real nickname, clan, XP and native children', () => {
@@ -173,26 +181,44 @@ test('friends use the actual account key and clan while privacy is enabled', () 
     const f = fixture();
     f.privacy.setupNicknamePrivacy();
     const friends = load('src/modules/customFriends.ts', f.moduleContext,
-        '{ getCurrentNickname, getMyClanTag, getCustomCategories, setCustomCategory }');
-    friends.setCustomCategory('Friend', 'purple');
-    assert.equal(friends.getCurrentNickname(), 'Kaspersky');
+        '{ getCurrentUserId, getMyClanTag, getCustomCategories, setCustomCategory }');
+    friends.setCustomCategory('1001', '2001', 'purple');
+    assert.equal(friends.getCurrentUserId(), '1001');
     assert.equal(friends.getMyClanTag(), '[CLAN]');
-    assert.equal(JSON.parse(f.storage.get('tankiCustomCategories_Kaspersky')).Friend, 'purple');
+    assert.equal(JSON.parse(f.storage.get('tankiCustomCategories_uid_1001'))['2001'], 'purple');
     assert.equal(f.storage.has('tankiCustomCategories_Hidden'), false);
-    assert.equal(friends.getCustomCategories().Friend, 'purple');
+    assert.equal(friends.getCustomCategories()['2001'], 'purple');
+});
+
+test('friend labels use IDs, retain legacy data separately, and isolate accounts with the same nickname', () => {
+    const f = fixture();
+    const legacy = JSON.stringify({ Friend: 'red' });
+    f.storage.set('tankiCustomCategories_Kaspersky', legacy);
+    const friends = load('src/modules/customFriends.ts', f.moduleContext,
+        '{ getCurrentUserId, getCustomCategories, setCustomCategory }');
+    assert.deepEqual(Object.keys(friends.getCustomCategories()), []);
+    friends.setCustomCategory('1001', '2001', 'purple');
+    f.setAccount('1002', 'Kaspersky');
+    assert.deepEqual(Object.keys(friends.getCustomCategories()), []);
+    friends.setCustomCategory('1001', '2001', 'red');
+    assert.equal(f.storage.has('tankiCustomCategories_uid_1002'), false, 'stale menu cannot write for another owner');
+    f.setAccount('1001', 'Kaspersky');
+    assert.equal(friends.getCustomCategories()['2001'], 'purple');
+    assert.equal(f.storage.get('tankiCustomCategories_Kaspersky'), legacy);
 });
 
 test('history uses the actual nickname, including after switching accounts', () => {
     const f = fixture();
     f.privacy.setupNicknamePrivacy();
     const history = load('src/modules/battleHistory.ts', f.moduleContext,
-        '{ updateNickname, getNickname: () => currentNickname }');
-    assert.equal(history.updateNickname(), true);
+        '{ updateIdentity, getNickname: () => currentNickname }');
+    assert.equal(history.updateIdentity(), true);
     assert.equal(history.getNickname(), 'Kaspersky');
-    assert.equal(f.storage.get('kasp_last_nickname'), 'Kaspersky');
+    assert.equal(f.storage.has('kasp_last_nickname'), false);
     f.header.textContent = '[NEW] SecondPlayer';
+    f.setAccount('1002', 'SecondPlayer');
     f.observers[0].callback();
-    history.updateNickname();
+    history.updateIdentity();
     assert.equal(history.getNickname(), 'SecondPlayer');
 });
 

@@ -1,3 +1,5 @@
+import { featureScope } from './featureRuntime';
+import { postPageMessage, readPageMessage } from './pageMessages';
 import { clientPatchHeader, clientSourceHash, resolveTemplateEdits, validatePatchEdits } from './clientPatches';
 import type { PreparedPatchPlan } from './clientPatches';
 import { gameDOM } from './gameDOM';
@@ -6,12 +8,13 @@ import { augmentPropertyLabel } from './augmentLabels';
 export const AUGMENTS_MESSAGE = 'kasp:game-augments';
 export const AUGMENTS_REQUEST = 'kasp:game-augments-request';
 export const AUGMENT_CARDS_UPDATED = 'kasp:augment-cards-updated';
+export const GARAGE_SKIN_CARDS_REQUEST = 'kasp:garage-skin-cards-request';
 export type GarageCardSection = 'augments' | 'skins' | 'shot-color';
 
 export function activeGarageCardSection(root: Pick<Document, 'querySelectorAll'>): GarageCardSection | null {
-    const tabs = Array.from(root.querySelectorAll('.MenuComponentStyle-blockButtonsQECommunity .MenuComponentStyle-mainMenuItem'));
+    const tabs = Array.from(root.querySelectorAll(gameDOM.navigation.garageTabs));
     if (tabs.length < 2 || tabs.length > 3) return null;
-    const active = tabs.findIndex(tab => tab.classList.contains('-activeMenu'));
+    const active = tabs.findIndex(tab => tab.classList.contains(gameDOM.classes.activeMenu));
     return (['augments', 'skins', 'shot-color'] as GarageCardSection[])[active] || null;
 }
 export type AugmentOperation = 'DELTA_PERCENT' | 'OVERRIDE_VALUE';
@@ -195,7 +198,7 @@ interface CardFiber {
 }
 const committedTrees = new WeakMap<object, { root: CardFiber; parents: Map<CardFiber, CardFiber | null> }>();
 
-function closestReactProps(node: Element): unknown[] {
+function closestReactProps(node: Element, maxAncestors = 4): unknown[] {
     const key = Object.keys(node).find(name => name.startsWith('__reactFiber$') || name.startsWith('__reactInternalInstance$'));
     let fiber = key ? (node as Element & Record<string, unknown>)[key] as CardFiber : undefined;
     if (!fiber) return [];
@@ -224,7 +227,7 @@ function closestReactProps(node: Element): unknown[] {
         if (!fiber || !parents.has(fiber)) return [];
     }
     const props: unknown[] = [];
-    for (let ancestor = 0; fiber && ancestor < 4; ancestor++) {
+    for (let ancestor = 0; fiber && ancestor < maxAncestors; ancestor++) {
         props.push(fiber.memoizedProps);
         fiber = parents ? parents.get(fiber) || undefined : fiber.return;
     }
@@ -272,6 +275,46 @@ export function isAugmentPreviewUrl(value: unknown): value is string {
 
 export function findAugmentPreview(element: Element, id: string, schema: AugmentSchema): string | undefined {
     return findAugmentCardAppearance(element, id, schema).previewIcon;
+}
+
+export function readGarageCosmeticCard(element: Element): {
+    id: string; name: string; isMounted: boolean; isSelected: boolean;
+    isOwned: boolean; isUnknown: boolean; isStandard: boolean;
+} | null {
+    for (let node: Element | null = element, level = 0; node && level < 3; node = node.parentElement, level++) {
+        const candidates = new Map<string, NonNullable<ReturnType<typeof readGarageCosmeticCard>>>();
+        for (const props of closestReactProps(node, 16)) {
+            if (!props || typeof props !== 'object') continue;
+            const fields = Object.getOwnPropertyDescriptors(props);
+            const id = longId(fields.id?.value), name = fields.name?.value;
+            if (!id || typeof name !== 'string' || !name.trim()
+                || typeof fields.isMounted?.value !== 'boolean' || typeof fields.isSelected?.value !== 'boolean') continue;
+            candidates.set(id, {
+                id, name, isMounted: fields.isMounted.value, isSelected: fields.isSelected.value,
+                isOwned: fields.isOwned?.value === true, isUnknown: fields.isUnknown?.value === true,
+                isStandard: fields.typeStandardDevice?.value === true,
+            });
+        }
+        if (candidates.size) return candidates.size === 1 ? [...candidates.values()][0] : null;
+    }
+    return null;
+}
+
+export function installGarageSkinCardsBridge(page: Window): void {
+    const lifecycle = featureScope('garageSkinCards');
+    lifecycle.listen(page, GARAGE_SKIN_CARDS_REQUEST, event => {
+        const row = document.querySelector(gameDOM.skins.cards);
+        if (!row) return;
+        event.preventDefault();
+        for (const icon of row.querySelectorAll(gameDOM.skins.cardIcon)) {
+            let card: ReturnType<typeof readGarageCosmeticCard> = null;
+            try { card = readGarageCosmeticCard(icon); } catch { }
+            const value = card ? JSON.stringify(card) : null;
+            if (value !== null) {
+                if (icon.getAttribute('data-kasp-skin-card') !== value) icon.setAttribute('data-kasp-skin-card', value);
+            } else if (icon.hasAttribute('data-kasp-skin-card')) icon.removeAttribute('data-kasp-skin-card');
+        }
+    });
 }
 
 export function findUnavailableCosmetic(element: Element, schema: AugmentSchema): { id: string; name: string; previewIcon: string } | undefined {
@@ -349,10 +392,12 @@ export function findAugmentCardAppearance(element: Element, id: string, schema: 
 }
 
 export function installGameAugments(page: Window): void {
+    const lifecycle = featureScope('augments');
     let enabled = false;
     let schema: AugmentSchema | null = null;
     let revision = 0;
     let queued = false;
+    let pendingTimer: number | undefined;
     const session = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const entries = new Map<string, PendingGameAugment>();
     const equipment = new Map<string, GameEquipmentProperties>();
@@ -368,12 +413,13 @@ export function installGameAugments(page: Window): void {
         return { format: 'kasp-augments-v1', session, revision, updatedAt: Date.now(), hooked: !!schema,
             devices: [...entries.values()].filter((entry): entry is GameAugment => entry.properties !== undefined), equipment: [...equipment.values()] };
     }
-    function publish(): void { page.postMessage({ type: AUGMENTS_MESSAGE, detail: snapshot() }, '*'); }
+    function publish(): void { postPageMessage(page, { type: AUGMENTS_MESSAGE, detail: snapshot() }); }
     function schedule(): void {
         if (queued) return;
         queued = true;
-        page.setTimeout(() => {
-            try { bindCards(); }
+        pendingTimer = page.setTimeout(() => {
+            pendingTimer = undefined;
+            try { lifecycle.run(bindCards); }
             finally { queued = false; publish(); }
         }, 100);
     }
@@ -429,7 +475,7 @@ export function installGameAugments(page: Window): void {
         const ids = new Set([...entries.values()].filter(entry => entry.properties !== undefined).map(entry => entry.id));
         const elements = document.querySelectorAll<HTMLElement>(`${gameDOM.augments.cardImage}, ${gameDOM.garage.deviceIcon}`);
         for (const element of Array.from(elements)) {
-            const cosmetic = (section === 'skins' || section === 'shot-color') && element.closest?.('.SkinsAndAlterationsStyle-SkinsVerticalComponent')
+            const cosmetic = (section === 'skins' || section === 'shot-color') && element.closest?.(gameDOM.skins.cards)
                 ? findUnavailableCosmetic(element, schema) : undefined;
             for (const [attribute, value] of [
                 ['data-kasp-cosmetic-id', cosmetic?.id],
@@ -465,10 +511,10 @@ export function installGameAugments(page: Window): void {
             if (changed) { revision++; schedule(); }
         }
     }
-    const observer = typeof MutationObserver === 'undefined' ? null : new MutationObserver(records => {
+    const observer = typeof MutationObserver === 'undefined' ? null : lifecycle.observer(records => {
             if (!enabled) return;
             const relevant = records.some(record => record.type === 'attributes'
-                ? (record.target as Element).matches(`${gameDOM.augments.cardImage}, .MenuComponentStyle-mainMenuItem`)
+                ? (record.target as Element).matches(`${gameDOM.augments.cardImage}, ${gameDOM.navigation.garageCategory}`)
                 : Array.from(record.addedNodes).some(node => node.nodeType === 1 &&
                     ((node as Element).matches(gameDOM.augments.cardImage) || (node as Element).querySelector(gameDOM.augments.cardImage))));
             if (!relevant) return;
@@ -478,6 +524,12 @@ export function installGameAugments(page: Window): void {
             else page.dispatchEvent?.(new Event(AUGMENT_CARDS_UPDATED));
         });
     let scanTimer: number | undefined;
+    lifecycle.onCleanup(() => {
+        enabled = false; observer?.disconnect();
+        if (pendingTimer !== undefined) page.clearTimeout(pendingTimer);
+        if (scanTimer !== undefined) page.clearInterval(scanTimer);
+        schema = null; entries.clear(); equipment.clear(); publish();
+    });
     function syncEnabled(): void {
         let next = false;
         try { next = localStorage.getItem('k_augments') === 'true'; } catch { }
@@ -486,7 +538,7 @@ export function installGameAugments(page: Window): void {
         enabled = next;
         if (enabled) {
             observer?.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['src', 'class'] });
-            scanTimer = page.setInterval(bindCards, 1000);
+            scanTimer = page.setInterval(() => lifecycle.run(bindCards), 1000);
             bindCards(); publish();
         } else {
             observer?.disconnect();
@@ -494,11 +546,11 @@ export function installGameAugments(page: Window): void {
             scanTimer = undefined;
         }
     }
-    page.addEventListener('kasp:settings-changed', syncEnabled);
-    page.addEventListener('storage', syncEnabled);
+    lifecycle.listen(page, 'kasp:settings-changed', syncEnabled);
+    lifecycle.listen(page, 'storage', syncEnabled);
     syncEnabled();
-    page.addEventListener('message', event => {
-        if (event.source === page && event.data?.type === AUGMENTS_REQUEST) publish();
+    lifecycle.listen(page, 'message', event => {
+        if (readPageMessage(event, page, AUGMENTS_REQUEST)) publish();
     });
     function pageData() {
         bindCards(true);

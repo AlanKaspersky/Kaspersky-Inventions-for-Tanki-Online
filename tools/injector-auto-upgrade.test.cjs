@@ -1,3 +1,4 @@
+const runFeatureContext = require('./test-feature-context.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -10,29 +11,29 @@ const root = path.join(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 const compile = source => transformSync(source, { loader: 'ts', format: 'cjs' }).code;
 const gameDOMModule = { exports: {} };
-vm.runInNewContext(compile(read('src/core/gameDOM.ts')), { module: gameDOMModule });
+runFeatureContext(compile(read('src/core/gameDOM.ts')), { module: gameDOMModule });
 const bonusPickupModule = { exports: {} };
-vm.runInNewContext(compile(read('src/core/bonusPickup.ts')), { module: bonusPickupModule, crypto: webcrypto, TextEncoder, require: () => require('./test-client-patches.cjs') });
+runFeatureContext(compile(read('src/core/bonusPickup.ts')), { module: bonusPickupModule, crypto: webcrypto, TextEncoder, require: () => require('./test-client-patches.cjs') });
 const arcadeReloadModule = { exports: {} };
-vm.runInNewContext(compile(read('src/core/arcadeReload.ts')), { module: arcadeReloadModule, crypto: webcrypto, TextEncoder, require: () => require('./test-client-patches.cjs') });
+runFeatureContext(compile(read('src/core/arcadeReload.ts')), { module: arcadeReloadModule, crypto: webcrypto, TextEncoder, require: () => require('./test-client-patches.cjs') });
 const detailsModule = { exports: {} };
-vm.runInNewContext(compile(read('src/core/garageDetails.ts')), { module: detailsModule, crypto: webcrypto, TextEncoder, require: () => require('./test-client-patches.cjs') });
+runFeatureContext(compile(read('src/core/garageDetails.ts')), { module: detailsModule, crypto: webcrypto, TextEncoder, require: () => require('./test-client-patches.cjs') });
 const garageItemsModule = { exports: {} };
-vm.runInNewContext(compile(read('src/core/garageItems.ts')), { module: garageItemsModule, crypto: webcrypto, TextEncoder, require: () => require('./test-client-patches.cjs') });
+runFeatureContext(compile(read('src/core/garageItems.ts')), { module: garageItemsModule, crypto: webcrypto, TextEncoder, require: () => require('./test-client-patches.cjs') });
 const inventoryModule = { exports: {} };
-vm.runInNewContext(compile(read('src/core/garageInventory.ts')), { module: inventoryModule, crypto: webcrypto, TextEncoder, require: () => require('./test-client-patches.cjs') });
+runFeatureContext(compile(read('src/core/garageInventory.ts')), { module: inventoryModule, crypto: webcrypto, TextEncoder, require: () => require('./test-client-patches.cjs') });
 const presenceModule = { exports: {} };
-vm.runInNewContext(compile(read('src/core/battlePresence.ts')), {
+runFeatureContext(compile(read('src/core/battlePresence.ts')), {
     module: presenceModule, crypto: webcrypto, TextEncoder, require: id => id === './clientPatches' ? require('./test-client-patches.cjs') : gameDOMModule.exports,
 });
 const statisticsModule = { exports: {} };
-vm.runInNewContext(compile(read('src/core/battleStatistics.ts')), { module: statisticsModule, crypto: webcrypto, TextEncoder, require: () => require('./test-client-patches.cjs') });
+runFeatureContext(compile(read('src/core/battleStatistics.ts')), { module: statisticsModule, crypto: webcrypto, TextEncoder, require: () => require('./test-client-patches.cjs') });
 const actionsModule = { exports: {} };
-vm.runInNewContext(compile(read('src/core/userActions.ts')), { module: actionsModule, crypto: webcrypto, TextEncoder, require: () => require('./test-client-patches.cjs') });
+runFeatureContext(compile(read('src/core/userActions.ts')), { module: actionsModule, crypto: webcrypto, TextEncoder, require: () => require('./test-client-patches.cjs') });
 const criticalDevicesModule = { exports: {} };
-vm.runInNewContext(compile(read('src/core/criticalDevices.ts')), {module:criticalDevicesModule});
+runFeatureContext(compile(read('src/core/criticalDevices.ts')), {module:criticalDevicesModule});
 const criticalModule = { exports: {} };
-vm.runInNewContext(compile(read('src/core/criticalIndicator.ts')), { module: criticalModule, crypto: webcrypto, TextEncoder, require: id => id === './criticalDevices' ? criticalDevicesModule.exports : require('./test-client-patches.cjs') });
+runFeatureContext(compile(read('src/core/criticalIndicator.ts')), { module: criticalModule, crypto: webcrypto, TextEncoder, require: id => id === './criticalDevices' ? criticalDevicesModule.exports : require('./test-client-patches.cjs') });
 const tick = () => new Promise(resolve => setImmediate(resolve));
 
 function injectorFixture(fetch, plans = JSON.parse(read('src/generated/overdrive.json')).plans, bonusOverrides = {}, arcadePlans = [], arcadeOverrides = {}, augmentOverrides = {}, detailsOverrides = {}, itemsOverrides = {}, inventoryOverrides = {}, presenceOverrides = {}, userAgent = 'Chrome', statisticsOverrides = {}, actionOverrides = {}, criticalOverrides = {}) {
@@ -66,6 +67,7 @@ function injectorFixture(fetch, plans = JSON.parse(read('src/generated/overdrive
         require: id => {
             if (id === './core/bonusPickup') return { ...bonusPickupModule.exports, ...bonusOverrides };
             if (id === './core/cybersportNative') return { installCybersportNative() {} };
+            if (id === './core/accountIdentityNative') return { installAccountIdentityNative: () => ({ capture() {}, reportMapping() {} }) };
             if (id === './generated/overdrive.json') return { plans };
             if (id === './generated/critical.json') return { plans: [] };
             if (id === './generated/user-action.json') return { plans: [] };
@@ -78,7 +80,7 @@ function injectorFixture(fetch, plans = JSON.parse(read('src/generated/overdrive
             if (id === './generated/arcade.json') return { plans: arcadePlans };
             if (id === './core/clientPatches') return require('./test-client-patches.cjs');
             if (id === './core/arcadeReload') return { ...arcadeReloadModule.exports, ...arcadeOverrides };
-            if (id === './core/gameAugments') return { installGameAugments() {}, selectGameAugmentsPlan: async () => undefined, patchGameAugments: code => code, ...augmentOverrides };
+            if (id === './core/gameAugments') return { installGameAugments() {}, installGarageSkinCardsBridge() {}, selectGameAugmentsPlan: async () => undefined, patchGameAugments: code => code, ...augmentOverrides };
             if (id === './core/garageDetails') return { ...detailsModule.exports, ...detailsOverrides };
             if (id === './core/garageItems') return { ...garageItemsModule.exports, ...itemsOverrides };
             if (id === './core/garageInventory') return { ...inventoryModule.exports, ...inventoryOverrides };
@@ -88,7 +90,7 @@ function injectorFixture(fetch, plans = JSON.parse(read('src/generated/overdrive
             if (id === './core/battlePresence') return { ...presenceModule.exports, installBattlePresence() {}, ...presenceOverrides };
             throw new Error(`Unexpected injector import: ${id}`);
         },
-        window: { messages: [], postMessage(value) { this.messages.push(value); } },
+        window: { location: { origin: 'https://tankionline.com' }, messages: [], addEventListener() {}, removeEventListener() {}, setInterval() { return 0; }, clearInterval() {}, postMessage(value) { this.messages.push(value); } },
         navigator: { userAgent },
         document: { head, documentElement: head, createElement: () => {
             const script = new Script();
@@ -106,7 +108,7 @@ function injectorFixture(fetch, plans = JSON.parse(read('src/generated/overdrive
         },
         fetch,
     };
-    vm.runInNewContext(compile(read('src/kasp_injector.ts')), context);
+    runFeatureContext(compile(read('src/kasp_injector.ts')), context);
     return {
         Script, appended, errors, observers, page: context.window,
         async intercept(...scripts) {
@@ -139,7 +141,7 @@ test('injector applies an exact-hash AST plan before other transformations and s
         assert.equal(typeof f.page.__kaspBonusType, 'function');
         if (exact) {
             const context = { window: f.page, proto: type => type.prototype };
-            vm.runInNewContext(f.appended[0].textContent, context);
+            runFeatureContext(f.appended[0].textContent, context);
             new context.Stats('1', 'Sandbox', 'DM', false, true);
             assert.equal(f.page.astApplied, true);
             assert.equal(f.page.messages.find(message => message.type === 'kasp:battle-kind').detail, 'PRO');
@@ -158,7 +160,7 @@ test('an overdrive preparation exception skips only that feature and still injec
     assert.equal(f.page.__kaspBonusDebug.status().ready, false);
     assert.equal(f.page.__kaspBonusDebug.status().issues[0], 'overdrive-patch-error');
     assert.equal(f.errors.length, 0, 'the injector must not fall back to an unmodified game or lose other features');
-    vm.runInNewContext(f.appended[0].textContent, { window: f.page });
+    runFeatureContext(f.appended[0].textContent, { window: f.page });
     assert.equal(f.page.mainLoaded, true);
 });
 
@@ -172,7 +174,7 @@ test('an arcade preparation exception leaves game loading and the other prepared
     });
     await f.intercept(new f.Script());
     for(let tries=0;!f.appended.length&&tries<100;tries++)await new Promise(resolve=>setTimeout(resolve,5));
-    assert.equal(f.appended.length,1);vm.runInNewContext(f.appended[0].textContent,{window:f.page});
+    assert.equal(f.appended.length,1);runFeatureContext(f.appended[0].textContent,{window:f.page});
     assert.equal(f.page.mainLoaded,true);assert.equal(f.page.bonusPlanApplied,true);
     assert.equal(f.page.__kaspArcadeReloadDebug.status().hooked,false);
     assert.equal(f.page.__kaspArcadeReloadDebug.status().issues[0],'arcade-patch-error');
@@ -187,7 +189,7 @@ test('an augments preparation exception leaves the native game and other feature
     await f.intercept(new f.Script());
     assert.equal(f.appended.length, 1);
     assert.equal(f.errors.length, 0);
-    vm.runInNewContext(f.appended[0].textContent, { window: f.page });
+    runFeatureContext(f.appended[0].textContent, { window: f.page });
     assert.equal(f.page.mainLoaded, true);
 });
 
@@ -206,7 +208,7 @@ test('garage details are merged with other AST plans before legacy transformatio
         await f.intercept(new f.Script());
         for (let tries = 0; !f.appended.length && tries < 100; tries++) await new Promise(resolve => setTimeout(resolve, 5));
         assert.equal(f.appended.length, 1); assert.equal(f.errors.length, 0);
-        vm.runInNewContext(f.appended[0].textContent, { window: f.page });
+        runFeatureContext(f.appended[0].textContent, { window: f.page });
         assert.equal(f.page.mainLoaded, true); assert.equal(f.page.bonusApplied, true);
         assert.equal(f.page.detailsApplied, fail ? undefined : true);
     }
@@ -227,7 +229,7 @@ test('garage-item preparation and failures stay independent of the game and othe
         await f.intercept(new f.Script());
         for (let tries = 0; !f.appended.length && tries < 100; tries++) await new Promise(resolve => setTimeout(resolve, 5));
         assert.equal(f.appended.length, 1); assert.equal(f.errors.length, 0);
-        vm.runInNewContext(f.appended[0].textContent, { window: f.page });
+        runFeatureContext(f.appended[0].textContent, { window: f.page });
         assert.equal(f.page.mainLoaded, true); assert.equal(f.page.bonusApplied, true); assert.equal(f.page.detailsApplied, true);
         assert.equal(f.page.itemsApplied, fail ? undefined : true);
     }
@@ -246,7 +248,7 @@ test('inventory preparation and its failures leave the game and other AST featur
         await f.intercept(new f.Script());
         for (let tries = 0; !f.appended.length && tries < 100; tries++) await new Promise(resolve => setTimeout(resolve, 5));
         assert.equal(f.appended.length, 1); assert.equal(f.errors.length, 0);
-        vm.runInNewContext(f.appended[0].textContent, { window: f.page });
+        runFeatureContext(f.appended[0].textContent, { window: f.page });
         assert.equal(f.page.mainLoaded, true); assert.equal(f.page.bonusApplied, true);
         assert.equal(f.page.inventoryApplied, fail ? undefined : true);
         assert.equal(f.page.__kaspGarageInventoryDebug().captured, false);
@@ -268,15 +270,19 @@ test('Electron presence plans observe original offsets and failures cannot remov
         await f.intercept(new f.Script());
         for (let tries = 0; !f.appended.length && tries < 100; tries++) await new Promise(resolve => setTimeout(resolve, 5));
         assert.equal(f.appended.length, 1); assert.equal(f.errors.length, 0);
-        vm.runInNewContext(f.appended[0].textContent, { window: f.page });
+        runFeatureContext(f.appended[0].textContent, { window: f.page });
         assert.equal(f.page.mainLoaded, true); assert.equal(f.page.bonusApplied, true);
         assert.equal(!!f.page.presenceApplied, behavior === 'success');
     }
     let reads = 0;
     const chrome = injectorFixture(async () => ({ ok: true, text: async () => source }), [], {}, [], {}, {}, {}, {}, {}, {
-        selectBattlePresencePlan() { reads++; throw Error('browser must not prepare presence'); },
+        selectBattlePresencePlan(code, plans, profile) {
+            reads++;
+            assert.equal(profile, 'store');
+            throw Error('unavailable browser store mapping');
+        },
     });
-    await chrome.intercept(new chrome.Script()); assert.equal(reads, 0);
+    await chrome.intercept(new chrome.Script()); assert.equal(reads, 1);
     assert.equal(chrome.appended[0].textContent, source);
 });
 
@@ -295,7 +301,7 @@ test('statistics preparation is independent of other AST modules in both browser
         await f.intercept(new f.Script());
         for (let tries = 0; !f.appended.length && tries < 100; tries++) await new Promise(resolve => setTimeout(resolve, 5));
         assert.equal(f.appended.length, 1); assert.equal(f.errors.length, 0);
-        vm.runInNewContext(f.appended[0].textContent, { window: f.page });
+        runFeatureContext(f.appended[0].textContent, { window: f.page });
         assert.equal(f.page.mainLoaded, true); assert.equal(f.page.bonusApplied, true);
         assert.equal(!!f.page.statisticsApplied, behavior === 'success');
     }
@@ -316,7 +322,7 @@ test('action preparation uses original offsets and stays independent of game loa
         await f.intercept(new f.Script());
         for (let tries = 0; !f.appended.length && tries < 100; tries++) await new Promise(resolve => setTimeout(resolve, 5));
         assert.equal(f.appended.length, 1); assert.equal(f.errors.length, 0);
-        vm.runInNewContext(f.appended[0].textContent, { window: f.page });
+        runFeatureContext(f.appended[0].textContent, { window: f.page });
         assert.equal(f.page.mainLoaded, true); assert.equal(f.page.bonusApplied, true);
         assert.equal(!!f.page.actionsApplied, behavior === 'success');
     }
@@ -329,7 +335,7 @@ test('critical preparation and failures cannot remove other prepared features or
         edits: [{ start: source.length, end: source.length, expected: '', before: source.slice(-24), after: '', text: 'window.bonusApplied=true;' }] };
     for (const behavior of ['success', 'exception', 'stale']) {
         const plan = { format: 'ki-critical-ast-v1', sourceLength: behavior === 'stale' ? source.length + 1 : source.length,
-            status: { hooked: true, ready: true, strategy: 'ast-plan', issues: [] },
+            status: { hooked: true, ready: true, strategy: 'ast-plan', issues: [], juggernautHook: true },
             edits: [{ start: 0, end: 0, expected: '', before: '', after: source.slice(0, 24), text: 'window.criticalApplied=true;' }] };
         const f = injectorFixture(async () => ({ ok: true, text: async () => source }), [bonus], {}, [], {}, {}, {}, {}, {}, {}, 'Chrome', {}, {}, {
             selectCriticalPlan(code) { assert.equal(code, source); if (behavior === 'exception') throw Error('unsupported critical state'); return plan; },
@@ -337,7 +343,7 @@ test('critical preparation and failures cannot remove other prepared features or
         await f.intercept(new f.Script());
         for (let tries = 0; !f.appended.length && tries < 100; tries++) await new Promise(resolve => setTimeout(resolve, 5));
         assert.equal(f.appended.length, 1); assert.equal(f.errors.length, 0);
-        vm.runInNewContext(f.appended[0].textContent, { window: f.page });
+        runFeatureContext(f.appended[0].textContent, { window: f.page });
         assert.equal(f.page.mainLoaded, true); assert.equal(f.page.bonusApplied, true);
         assert.equal(!!f.page.criticalApplied, behavior === 'success');
         assert.equal(f.page.__kaspCriticalDebug.status().mapping.ready, behavior === 'success');
@@ -352,7 +358,7 @@ test('injected statistics use the native matchmaking flag and ignore unloaded de
     });
     await f.intercept(new f.Script());
     const context = { window: f.page, proto: type => type.prototype };
-    vm.runInNewContext(f.appended[0].textContent, context);
+    runFeatureContext(f.appended[0].textContent, context);
     const kinds = () => f.page.messages.filter(message => message.type === 'kasp:battle-kind').map(message => message.detail);
     new context.Stats('1', 'Sandbox DM', 'DM', false, true, 0, 0, 0, 0, 0, 0);
     assert.deepEqual(kinds(), ['PRO']);
@@ -515,7 +521,7 @@ function upgradeFixture() {
             throw Error(name);
         },
     };
-    vm.runInNewContext(compile(source), context);
+    runFeatureContext(compile(source), context);
     return {
         async start(count = 5, keyboard = false) {
             context.review.performAction(count);
@@ -693,4 +699,16 @@ test('Enter can start the setup confirmation and the next Enter press stops upgr
     f.input('keydown', { key: 'Enter' });
     assert.equal(f.state.isRunning, false);
     assert.equal(f.steps, 0);
+});
+
+
+test('quarantining bonus observers preserves native getter evaluation, return values and exceptions', () => {
+    const f = injectorFixture(async () => ({ ok: true, text: async () => '' }));
+    f.page.__kaspPageModulesDebug.disable('overdriveHooks');
+    let reads = 0; const sound = {};
+    const data = { get sound() { reads++; return sound; } };
+    assert.equal(f.page.__kaspBonusPrepare(data, 'sound'), sound); assert.equal(reads, 1);
+    assert.equal(f.page.__kaspBonusPickup(sound), sound);
+    const failure = Error('native getter');
+    assert.throws(() => f.page.__kaspBonusPrepare({ get sound() { throw failure; } }, 'sound'), error => error === failure);
 });

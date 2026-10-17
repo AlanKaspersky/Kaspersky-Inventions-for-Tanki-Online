@@ -22,11 +22,12 @@ export const historyTranslations = {
         dm: 'Каждый сам за себя',
         teamScore: 'Счёт',
         clear: 'Очистить',
-        link: 'Связать',
         export: 'Экспорт',
         import: 'Импорт',
         battles: 'Боёв',
         noBattles: 'Пока нет сохранённых боёв',
+        accountUnavailable: 'ID аккаунта пока недоступен. Сохранённая история не удалена. Дождитесь загрузки аккаунта или перезагрузите игру.',
+        contextExpired: 'Расширение обновлено или отключено. Перезагрузите страницу игры, чтобы открыть историю.',
         player: 'Игрок',
         gs: 'GS',
         diamond: 'DIAMOND',
@@ -60,11 +61,12 @@ export const historyTranslations = {
         dm: 'Deathmatch',
         teamScore: 'Score',
         clear: 'Clear',
-        link: 'Link',
         export: 'Export',
         import: 'Import',
         battles: 'Battles',
         noBattles: 'No saved battles yet',
+        accountUnavailable: 'Account ID is unavailable. Saved history has not been deleted. Wait for account data or reload the game.',
+        contextExpired: 'The extension was updated or disabled. Reload the game page to open battle history.',
         player: 'Player',
         gs: 'GS',
         diamond: 'DIAMOND',
@@ -88,53 +90,18 @@ const clearHistoryTranslations = {
     EN: { title: 'CLEAR HISTORY', text: 'Are you sure you want to delete all match history?', cancel: 'Cancel', confirm: 'DELETE' }
 };
 
-const linkHistoryTranslations = {
-    RU: {
-        title: 'СВЯЗАТЬ ИСТОРИИ',
-        description: 'Выберите ник, историю которого нужно добавить к текущей истории.',
-        target: 'Текущая история:',
-        select: 'История для добавления',
-        placeholder: 'Выберите никнейм',
-        empty: 'Других никнеймов с сохранёнными боями нет.',
-        cancel: 'Отмена',
-        confirm: 'Связать',
-        success: (count: number) => `Истории связаны. Добавлено боёв: ${count}.`,
-        failed: 'Не удалось связать истории.'
-    },
-    EN: {
-        title: 'LINK HISTORIES',
-        description: 'Choose the nickname whose history should be added to the current history.',
-        target: 'Current history:',
-        select: 'History to add',
-        placeholder: 'Select a nickname',
-        empty: 'No other nicknames have saved battles.',
-        cancel: 'Cancel',
-        confirm: 'Link',
-        success: (count: number) => `Histories linked. Battles added: ${count}.`,
-        failed: 'Could not link the histories.'
-    }
-};
-
 export function getClearHistoryDictionary(language: string) {
     return language === 'RU' ? clearHistoryTranslations.RU : clearHistoryTranslations.EN;
 }
 
-export function getLinkHistoryDictionary(language: string) {
-    return language === 'RU' ? linkHistoryTranslations.RU : linkHistoryTranslations.EN;
-}
-
 const historyMessages = {
     RU: {
-        unknownNickname: 'Не удалось определить текущий ник.',
-        listFailed: 'Не удалось загрузить список историй.',
         imported: (count: number) => `Импортировано боёв: ${count}.`,
-        importFailed: 'Не удалось импортировать файл. Проверьте, что это JSON-файл истории битв.',
+        importFailed: 'Не удалось импортировать файл. Нужен JSON-файл истории с user ID текущего аккаунта. Старые записи без ID сохранены отдельно.',
     },
     EN: {
-        unknownNickname: 'Could not detect the current nickname.',
-        listFailed: 'Could not load the history list.',
         imported: (count: number) => `Imported battles: ${count}.`,
-        importFailed: 'Could not import this file. Check that it is a valid battle history JSON file.',
+        importFailed: 'Could not import this file. Use a battle history JSON file with the current account user ID. Legacy records without an ID remain separate.',
     },
 };
 

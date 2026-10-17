@@ -1878,6 +1878,1926 @@
         }
       ],
       "sourceName": "main.js"
+    },
+    {
+      "format": "ki-arcade-ast-v1",
+      "sha256": "4ef9f256178c771071ce9cc0baf2a00d939073746badf40c8656c6d5760c3db4",
+      "sourceLength": 22383020,
+      "status": {
+        "hooked": true,
+        "ready": true,
+        "strategy": "ast-plan",
+        "issues": [],
+        "panel": "local-hud",
+        "runtimeControls": true
+      },
+      "edits": [
+        {
+          "start": 0,
+          "end": 0,
+          "expected": "",
+          "before": "",
+          "after": "! function (t, n) {\r\n   ",
+          "text": "/*ki-arcade-ast:v1:{\"hooked\":true,\"ready\":true,\"strategy\":\"ast-plan\",\"issues\":[],\"panel\":\"local-hud\",\"runtimeControls\":true}*/\n"
+        },
+        {
+          "start": 16746343,
+          "end": 16746343,
+          "text": ",t.__kaspArcadeHudVisible=!!n,(t.__kaspArcadeHudSync&&t.__kaspArcadeHudSync())",
+          "expected": "",
+          "before": "   null == i || i.p3k(n)",
+          "after": "\r\n                      "
+        },
+        {
+          "start": 18935345,
+          "end": 18935346,
+          "text": "(8+(function(__kaspSupplyOwner){try{if(!__kaspSupplyOwner.b17f_1)return 0;var hud=__kaspSupplyOwner.nz4().tz7(Bq(uDt)),bar=hud&&hud.__kaspArcadeReloadBar;return bar&&hud.__kaspArcadeWeapon&&hud.__kaspArcadeProgress!=null&&!hud.__kaspArcadeReloadFailed&&hud.__kaspArcadeHudVisible!==false?bar.g29():0}catch(__kaspArcadeError){return 0}})(this))",
+          "expected": "8",
+          "before": "t, n, this.y17e_1.b3(), ",
+          "after": ", t, n)\r\n               "
+        },
+        {
+          "start": 18940734,
+          "end": 18940734,
+          "text": ",(function(__kaspOwner){try{if(__kaspOwner.__kaspArcadeReloadBar){nDt(__kaspOwner).t11j(__kaspOwner.__kaspArcadeReloadBar);__kaspOwner.__kaspArcadeReloadBar=null};if(window.__kaspArcadeControl)window.__kaspArcadeControl.track(__kaspOwner,function(){if(__kaspOwner.__kaspArcadeReloadBar){nDt(__kaspOwner).t11j(__kaspOwner.__kaspArcadeReloadBar);__kaspOwner.__kaspArcadeReloadBar=null};__kaspOwner.__kaspArcadeProgress=null;__kaspOwner.__kaspArcadeWeapon=null});__kaspOwner.__kaspArcadeReloadFailed=false;__kaspOwner.__kaspArcadeProgress=null;__kaspOwner.__kaspArcadeWeapon=null;__kaspOwner.__kaspArcadeHudCreate=function(){var __kaspArcadeMesh=new eht(r.bb(), r.un(), new Vht(t.az6().z3i(), lC(16759580), lC(3158064), JWn()), zP());NA(__kaspArcadeMesh,e);__kaspArcadeMesh.w4o=function(__kaspArcadeView,__kaspArcadeRect){try{var base=__kaspOwner.p17e_1;base.w4o(__kaspArcadeView,__kaspArcadeRect);__kaspArcadeRect.e4p_1+=__kaspArcadeRect.g4p_1}catch(__kaspArcadeError){__kaspArcadeRect.f4p_1=0;__kaspArcadeRect.g4p_1=0;__kaspOwner.__kaspArcadeReloadFailed=true;try{__kaspArcadeMesh.p3k(false);window.__kaspArcadeReloadDebug.reportError(String(__kaspArcadeError))}catch(__kaspArcadeIgnored){}}};__kaspArcadeMesh.p3k(false);nDt(__kaspOwner).s11j(__kaspArcadeMesh);return __kaspArcadeMesh};__kaspOwner.__kaspArcadeHudSync=function(){try{var __kaspArcadeMesh=this.__kaspArcadeReloadBar,o=this.p17e_1;if(this.__kaspArcadeReloadFailed||!__kaspArcadeMesh||!o)return;__kaspArcadeMesh.u29(o.h29());__kaspArcadeMesh.v29(o.g29());__kaspArcadeMesh.f12m(o.t35_1,o.g29());__kaspArcadeMesh.p3k(this.__kaspArcadeHudVisible!==false&&this.__kaspArcadeProgress!=null)}catch(__kaspArcadeError){this.__kaspArcadeReloadFailed=true;try{if(__kaspArcadeMesh)__kaspArcadeMesh.p3k(false);if(window.__kaspArcadeReloadDebug)window.__kaspArcadeReloadDebug.reportError(String(__kaspArcadeError))}catch(__kaspArcadeIgnored){}}};__kaspOwner.__kaspArcadeHudUpdate=function(){var __kaspOwner=this;try{if(window.__kaspArcadeControl&&!window.__kaspArcadeControl.active())return;if(__kaspOwner.__kaspArcadeReloadFailed||!__kaspOwner.p17e_1)return;var __kaspEntity=mzt(__kaspOwner.az6()),__kaspBar=__kaspOwner.__kaspArcadeReloadBar;var __kaspProgress=null,__kaspShaft=null,__kaspScorpio=null;if(__kaspEntity){var __kaspShaft=__kaspEntity.tz7(Bq(Dvn)),__kaspScorpio=__kaspEntity.tz7(Bq(bcn));if(__kaspScorpio)__kaspProgress=__kaspScorpio.y1ci_1;else if(__kaspShaft){var __kaspState=__kaspShaft.c1d3_1;if((__kaspShaft.h1d3_1||__kaspShaft.j1d3_1)&&__kaspOwner.__kaspArcadeWeapon===__kaspShaft)__kaspProgress=__kaspOwner.__kaspArcadeProgress;else __kaspProgress=__kaspState instanceof lpn&&Ex(__kaspShaft.d18o(),__kaspState.d1dd_1)<0?1-Xx(Tx(__kaspState.d1dd_1,__kaspShaft.d18o()),__kaspShaft.n1d3_1):1}}if(typeof __kaspProgress!==\"number\"||!Number.isFinite(__kaspProgress)||__kaspProgress<-.01||__kaspProgress>1.01){__kaspOwner.__kaspArcadeWeapon=null;__kaspOwner.__kaspArcadeProgress=null;if(__kaspBar)__kaspBar.p3k(!1);if(window.__kaspArcadeReloadDebug&&window.__kaspArcadeReloadDebug.observe)window.__kaspArcadeReloadDebug.observe({weapon:__kaspShaft?\"Shaft\":__kaspScorpio?\"Scorpio\":null,progress:__kaspOwner.__kaspArcadeProgress,barCreated:!!__kaspBar,visible:!!__kaspBar&&__kaspOwner.__kaspArcadeProgress!=null&&!__kaspOwner.__kaspArcadeReloadFailed&&__kaspOwner.__kaspArcadeHudVisible!==false});return}__kaspOwner.__kaspArcadeWeapon=__kaspShaft||__kaspScorpio;__kaspOwner.__kaspArcadeProgress=Math.max(0,Math.min(1,__kaspProgress));if(!__kaspBar)__kaspBar=__kaspOwner.__kaspArcadeReloadBar=__kaspOwner.__kaspArcadeHudCreate();__kaspBar.p3k(__kaspOwner.__kaspArcadeHudVisible!==false);__kaspBar.e12m(__kaspOwner.__kaspArcadeProgress);__kaspOwner.__kaspArcadeHudSync();if(window.__kaspArcadeReloadDebug&&window.__kaspArcadeReloadDebug.observe)window.__kaspArcadeReloadDebug.observe({weapon:__kaspShaft?\"Shaft\":__kaspScorpio?\"Scorpio\":null,progress:__kaspOwner.__kaspArcadeProgress,barCreated:!!__kaspBar,visible:!!__kaspBar&&__kaspOwner.__kaspArcadeProgress!=null&&!__kaspOwner.__kaspArcadeReloadFailed&&__kaspOwner.__kaspArcadeHudVisible!==false})}catch(__kaspError){__kaspOwner.__kaspArcadeReloadFailed=!0;try{var __kaspBar=__kaspOwner.__kaspArcadeReloadBar;if(__kaspBar)__kaspBar.p3k(!1);window.__kaspArcadeReloadDebug.reportError(String(__kaspError))}catch(__kaspIgnored){}}};__kaspOwner.__kaspArcadeHudUpdate()}catch(__kaspArcadeError){if(window.__kaspArcadeReloadDebug)window.__kaspArcadeReloadDebug.reportError(String(__kaspArcadeError))}})(t)",
+          "expected": "",
+          "before": "t).s11j(u), t.p17e_1 = u",
+          "after": "\r\n                      "
+        },
+        {
+          "start": 18941171,
+          "end": 18941171,
+          "text": ",(window.__kaspArcadeControl?window.__kaspArcadeControl.run(function(){if(i.__kaspArcadeHudUpdate)i.__kaspArcadeHudUpdate()}):(i.__kaspArcadeHudUpdate&&i.__kaspArcadeHudUpdate()))",
+          "expected": "",
+          "before": "= i.p17e_1) || e.e12m(r)",
+          "after": ", Lq\r\n                  "
+        },
+        {
+          "start": 18942502,
+          "end": 18942502,
+          "text": ";try{if(window.__kaspArcadeControl)window.__kaspArcadeControl.release(this);if(this.__kaspArcadeReloadBar){nDt(this).t11j(this.__kaspArcadeReloadBar);this.__kaspArcadeReloadBar=null};this.__kaspArcadeHudCreate=null;this.__kaspArcadeHudUpdate=null;this.__kaspArcadeHudSync=null;this.__kaspArcadeWeapon=null;this.__kaspArcadeProgress=null}catch(__kaspArcadeError){}",
+          "expected": "",
+          "before": "t)\r\n                    ",
+          "after": "}, Zq(uDt).v17h = functi"
+        },
+        {
+          "start": 18942638,
+          "end": 18942638,
+          "text": ";if(this.__kaspArcadeHudSync)this.__kaspArcadeHudSync()",
+          "expected": "",
+          "before": "))\r\n                    ",
+          "after": "}, Zq(uDt).f12u = functi"
+        },
+        {
+          "start": 18942989,
+          "end": 18942989,
+          "text": ";if(this.__kaspArcadeHudSync)this.__kaspArcadeHudSync()",
+          "expected": "",
+          "before": "n)\r\n                    ",
+          "after": "}, Zq(oDt).uz2 = functio"
+        }
+      ],
+      "templates": [
+        {
+          "pattern": "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:\"LocalTank\"|'LocalTank')\\s*\\)\\s*\\}",
+          "roles": {
+            "localTank": "s0"
+          },
+          "count": 1,
+          "search": {
+            "literal": "LocalTank",
+            "margin": 984
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s2>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s2>(?![$\\w])\\s*;\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:\"shaftWeapon\"|'shaftWeapon')\\s*\\)\\s*\\}",
+          "roles": {
+            "shaftCache": "s3"
+          },
+          "count": 1,
+          "search": {
+            "literal": "shaftWeapon",
+            "margin": 1664
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s2>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s2>(?![$\\w])\\s*;\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:\"reloadTimeComponent\"|'reloadTimeComponent')\\s*\\)\\s*\\}",
+          "roles": {
+            "reloadCache": "s3"
+          },
+          "count": 1,
+          "search": {
+            "literal": "reloadTimeComponent",
+            "margin": 1728
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*>=\\s*1\\s*\\}",
+          "roles": {
+            "scorpio": "s1",
+            "primary": "s4"
+          },
+          "count": 1,
+          "search": {
+            "margin": 1184
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s28>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*\\k<s28>(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*function(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*\\{\\s*\\k<s27>(?![$\\w])\\s*\\.\\s*(?<s29>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s30>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s27>(?![$\\w])\\s*\\.\\s*(?<s31>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*!\\s*1\\s*,\\s*\\k<s27>(?![$\\w])\\s*\\.\\s*(?<s32>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*!\\s*0\\s*;\\s*var(?![$\\w])\\s*\\k<s28>(?![$\\w])\\s*=\\s*\\k<s27>(?![$\\w])\\s*,\\s*(?<s33>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s34>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s35>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*(?<s36>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s37>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\.001\\s*\\*\\s*\\k<s33>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s38>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s39>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s40>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s41>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s27>(?![$\\w])\\s*\\.\\s*(?<s42>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s43>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s38>(?![$\\w])\\s*,\\s*0\\s*\\)\\s*,\\s*\\k<s27>(?![$\\w])\\s*\\.\\s*(?<s44>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*\\k<s43>(?![$\\w])\\s*\\(\\s*(?<s45>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s46>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s47>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*,\\s*\\k<s34>(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s48>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s27>(?![$\\w])\\s*\\.\\s*(?<s49>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s50>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s51>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s52>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s27>(?![$\\w])\\s*\\.\\s*(?<s53>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s54>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s51>(?![$\\w])\\s*\\.\\s*(?<s55>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s27>(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s56>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\}\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*,\\s*(?<s57>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\}\\s*;\\s*return(?![$\\w])\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*callableName\\s*=\\s*(?:\"onSniperModeActivation\"|'onSniperModeActivation')\\s*,\\s*\\k<s28>(?![$\\w])\\s*\\}\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*;\\s*\\k<s27>(?![$\\w])\\s*\\.\\s*(?<s58>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*(?<s59>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s28>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*\\k<s33>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s38>(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*\\k<s28>(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*(?<s60>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s57>(?![$\\w])\\s*\\}\\s*;\\s*return(?![$\\w])\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*callableName\\s*=\\s*(?:\"onCancelSniperModeActivation\"|'onCancelSniperModeActivation')\\s*,\\s*\\k<s28>(?![$\\w])\\s*\\}\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*;\\s*\\k<s33>(?![$\\w])\\s*\\.\\s*\\k<s58>(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*(?<s61>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s62>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s63>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s64>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s65>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\(\\s*\\k<s62>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*,\\s*\\(\\s*\\k<s63>(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*=\\s*\\k<s62>(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s29>(?![$\\w])\\s*=\\s*\\(\\s*(?<s66>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s67>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s68>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s69>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*(?<s70>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s71>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s72>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s73>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*/\\s*\\k<s34>(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s74>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*\\k<s36>(?![$\\w])\\s*=\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*\\k<s70>(?![$\\w])\\s*,\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*(?<s75>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*\\k<s43>(?![$\\w])\\s*\\(\\s*\\k<s47>(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*,\\s*\\k<s34>(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s48>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s47>(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*,\\s*\\k<s34>(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s76>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*(?<s77>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s68>(?![$\\w])\\s*\\(\\s*new(?![$\\w])\\s*(?<s78>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*5e3\\s*\\)\\s*\\)\\s*,\\s*\\k<s57>(?![$\\w])\\s*;\\s*var(?![$\\w])\\s*\\k<s28>(?![$\\w])\\s*\\}\\s*\\)\\s*\\.\\s*callableName\\s*=\\s*(?:\"onStartSniperMode\"|'onStartSniperMode')\\s*,\\s*\\k<s63>(?![$\\w])\\s*\\)\\s*;\\s*\\k<s64>(?![$\\w])\\s*\\.\\s*\\k<s58>(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*(?<s79>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s65>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s80>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s81>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s82>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\(\\s*\\k<s80>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*,\\s*function(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\k<s80>(?![$\\w])\\s*\\.\\s*\\k<s31>(?![$\\w])\\s*=\\s*!\\s*0\\s*,\\s*\\k<s57>(?![$\\w])\\s*\\}\\s*\\)\\s*;\\s*\\k<s81>(?![$\\w])\\s*\\.\\s*\\k<s58>(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*(?<s83>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s82>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s84>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s85>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*function(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\k<s27>(?![$\\w])\\s*\\.\\s*\\k<s29>(?![$\\w])\\s*\\.\\s*(?<s86>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s30>(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*&&\\s*\\k<s60>(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s57>(?![$\\w])\\s*\\}\\s*\\}\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*;\\s*\\k<s84>(?![$\\w])\\s*\\.\\s*\\k<s58>(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*(?<s87>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s85>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s88>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s89>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*\\k<s28>(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*function(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*\\{\\s*if(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\.\\s*\\k<s31>(?![$\\w])\\s*\\)\\s*\\{\\s*\\k<s27>(?![$\\w])\\s*\\.\\s*\\k<s29>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s66>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s90>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*\\k<s28>(?![$\\w])\\s*=\\s*\\k<s27>(?![$\\w])\\s*,\\s*\\k<s33>(?![$\\w])\\s*=\\s*\\k<s34>(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s91>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*\\k<s36>(?![$\\w])\\s*=\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\.001\\s*\\*\\s*\\k<s33>(?![$\\w])\\s*\\)\\s*\\}\\s*else(?![$\\w])\\s*\\k<s60>(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*\\}\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s57>(?![$\\w])\\s*\\}\\s*;\\s*return(?![$\\w])\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*callableName\\s*=\\s*(?:\"onStopSniperMode\"|'onStopSniperMode')\\s*,\\s*\\k<s28>(?![$\\w])\\s*\\}\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*;\\s*\\k<s88>(?![$\\w])\\s*\\.\\s*\\k<s58>(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*(?<s92>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s89>(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s93>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*\\}",
+          "roles": {
+            "shaft": "s20",
+            "token": "s9",
+            "world": "s5",
+            "vector": "s52",
+            "shaftCache": "s19",
+            "supplyentity": "s7"
+          },
+          "count": 1,
+          "search": {
+            "literal": "onCancelSniperModeActivation",
+            "margin": 31040
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\(\\s*\\k<s8>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*,\\s*function(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*!\\s*0\\s*,\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\}\\s*\\)\\s*;\\s*\\k<s9>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*\\(\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s10>(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*\\}",
+          "roles": {
+            "scorpio": "s7",
+            "token": "s6",
+            "world": "s15",
+            "scorpioCache": "s3",
+            "supplyentity": "s4"
+          },
+          "count": 1,
+          "search": {
+            "margin": 3328
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*\\(\\s*function(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*\\k<s4>(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s4>(?![$\\w])\\s*;\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:\"scorpioWeapon\"|'scorpioWeapon')\\s*\\)\\s*\\}\\s*\\)\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*&&\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*!\\s*1\\s*\\)\\s*\\}",
+          "roles": {
+            "world": "s10",
+            "scorpioCache": "s5"
+          },
+          "count": 1,
+          "search": {
+            "literal": "scorpioWeapon",
+            "margin": 3032
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*,\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*\\k<s8>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*return(?![$\\w])\\s*\\k<s10>(?![$\\w])\\s*=\\s*\\k<s7>(?![$\\w])\\s*,\\s*null(?![$\\w])\\s*==\\s*\\(\\s*\\k<s11>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s8>(?![$\\w])\\s*=\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\|\\|\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s11>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\}\\s*\\)\\s*\\.\\s*callableName\\s*=\\s*(?:\"onLayoutSizeChanged\"|'onLayoutSizeChanged')\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*;\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s10>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*\\k<s11>(?![$\\w])\\s*,\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\(\\s*\\k<s11>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*,\\s*function(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*function(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*\\k<s8>(?![$\\w])\\s*;\\s*switch(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*new(?![$\\w])\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*3158064\\s*\\)\\s*,\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*(?<s28>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s29>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*case(?![$\\w])\\s*0\\s*:\\s*case(?![$\\w])\\s*2\\s*:\\s*\\k<s8>(?![$\\w])\\s*=\\s*new(?![$\\w])\\s*(?<s30>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s31>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s32>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\.\\s*(?<s33>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s34>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\.5\\s*,\\s*1\\s*\\)\\s*,\\s*(?<s35>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s36>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*break(?![$\\w])\\s*;\\s*case(?![$\\w])\\s*1\\s*:\\s*\\k<s8>(?![$\\w])\\s*=\\s*new(?![$\\w])\\s*\\k<s30>(?![$\\w])\\s*\\(\\s*\\k<s31>(?![$\\w])\\s*\\(\\s*\\k<s32>(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\.\\s*\\k<s33>(?![$\\w])\\s*\\(\\s*(?<s37>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*0\\s*,\\s*0\\s*\\)\\s*,\\s*(?<s38>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s39>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*break(?![$\\w])\\s*;\\s*default(?![$\\w])\\s*:\\s*(?<s40>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\}\\s*var(?![$\\w])\\s*\\k<s10>(?![$\\w])\\s*=\\s*\\k<s8>(?![$\\w])\\s*,\\s*\\k<s11>(?![$\\w])\\s*=\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s41>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s19>(?![$\\w])\\s*=\\s*new(?![$\\w])\\s*(?<s42>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s43>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s44>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*function(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*\\k<s7>(?![$\\w])\\s*=\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s21>(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s7>(?![$\\w])\\s*;\\s*(?<s45>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:\"progressBarMaterial\"|'progressBarMaterial')\\s*\\)\\s*\\}\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*,\\s*(?<s46>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*(?<s47>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s19>(?![$\\w])\\s*,\\s*\\k<s11>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s19>(?![$\\w])\\s*\\.\\s*(?<s48>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*,\\s*(?<s49>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s50>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s19>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*=\\s*\\k<s19>(?![$\\w])(?<e0start>)(?<e0end>)\\s*\\}\\s*\\(\\s*\\k<s11>(?![$\\w])\\s*,\\s*(?<s51>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s52>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s15>(?![$\\w])\\s*\\}\\s*\\)\\s*;\\s*\\k<s19>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\(\\s*\\k<s17>(?![$\\w])\\s*\\(\\s*(?<s53>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s20>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s54>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s55>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*function(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*\\k<s8>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s11>(?![$\\w])\\s*;\\s*return(?![$\\w])\\s*\\k<s8>(?![$\\w])\\s*=\\s*\\k<s6>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*=\\s*(?<s56>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s57>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*null(?![$\\w])\\s*==\\s*\\(\\s*\\k<s11>(?![$\\w])\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\)\\s*\\|\\|\\s*\\k<s11>(?![$\\w])\\s*\\.\\s*\\k<s48>(?![$\\w])\\s*\\(\\s*\\k<s10>(?![$\\w])\\s*\\)(?<e1start>)(?<e1end>)\\s*,\\s*\\k<s15>(?![$\\w])\\s*\\}\\s*\\}\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*;\\s*\\k<s54>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\(\\s*\\k<s17>(?![$\\w])\\s*\\(\\s*(?<s58>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s55>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s59>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s60>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*function(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*(?<s61>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s62>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*1\\s*,\\s*!\\s*(?<s63>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s64>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s15>(?![$\\w])\\s*\\}\\s*\\}\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*;\\s*\\k<s59>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\(\\s*\\k<s17>(?![$\\w])\\s*\\(\\s*(?<s65>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s60>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s66>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s67>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*function(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s61>(?![$\\w])\\s*\\.\\s*\\k<s62>(?![$\\w])\\s*\\(\\s*2\\s*,\\s*!\\s*0\\s*\\)\\s*,\\s*\\k<s15>(?![$\\w])\\s*\\}\\s*\\}\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*;\\s*\\k<s66>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\(\\s*\\k<s17>(?![$\\w])\\s*\\(\\s*(?<s68>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s67>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s69>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s70>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*function(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s61>(?![$\\w])\\s*\\.\\s*\\k<s62>(?![$\\w])\\s*\\(\\s*2\\s*,\\s*!\\s*1\\s*\\)\\s*,\\s*\\k<s15>(?![$\\w])\\s*\\}\\s*\\}\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*;\\s*\\k<s69>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\(\\s*\\k<s17>(?![$\\w])\\s*\\(\\s*(?<s71>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s70>(?![$\\w])\\s*\\)\\s*\\}",
+          "roles": {
+            "scene": "s49",
+            "layer": "s47",
+            "token": "s17",
+            "barType": "s42",
+            "hudType": "s1",
+            "barField": "s12",
+            "fill": "s48",
+            "add": "s50",
+            "world": "s5",
+            "supplyentity": "s9"
+          },
+          "count": 1,
+          "search": {
+            "literal": "onLayoutSizeChanged",
+            "margin": 28576
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                ",(function(__kaspOwner){try{if(__kaspOwner.__kaspArcadeReloadBar){",
+                {
+                  "role": "scene",
+                  "quoted": false
+                },
+                "(__kaspOwner).",
+                {
+                  "role": "remove",
+                  "quoted": false
+                },
+                "(__kaspOwner.__kaspArcadeReloadBar);__kaspOwner.__kaspArcadeReloadBar=null};if(window.__kaspArcadeControl)window.__kaspArcadeControl.track(__kaspOwner,function(){if(__kaspOwner.__kaspArcadeReloadBar){",
+                {
+                  "role": "scene",
+                  "quoted": false
+                },
+                "(__kaspOwner).",
+                {
+                  "role": "remove",
+                  "quoted": false
+                },
+                "(__kaspOwner.__kaspArcadeReloadBar);__kaspOwner.__kaspArcadeReloadBar=null};__kaspOwner.__kaspArcadeProgress=null;__kaspOwner.__kaspArcadeWeapon=null});__kaspOwner.__kaspArcadeReloadFailed=false;__kaspOwner.__kaspArcadeProgress=null;__kaspOwner.__kaspArcadeWeapon=null;__kaspOwner.__kaspArcadeHudCreate=function(){var __kaspArcadeMesh=new ",
+                {
+                  "role": "barType",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "capture": "s10",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "capture": "s43",
+                  "quoted": false
+                },
+                "(), ",
+                {
+                  "capture": "s10",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "capture": "s44",
+                  "quoted": false
+                },
+                "(), new ",
+                {
+                  "capture": "s22",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "capture": "s6",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "role": "world",
+                  "quoted": false
+                },
+                "().",
+                {
+                  "capture": "s23",
+                  "quoted": false
+                },
+                "(), ",
+                {
+                  "capture": "s26",
+                  "quoted": false
+                },
+                "(16759580), ",
+                {
+                  "capture": "s26",
+                  "quoted": false
+                },
+                "(3158064), ",
+                {
+                  "capture": "s27",
+                  "quoted": false
+                },
+                "()), ",
+                {
+                  "capture": "s46",
+                  "quoted": false
+                },
+                "());",
+                {
+                  "role": "layer",
+                  "quoted": false
+                },
+                "(__kaspArcadeMesh,",
+                {
+                  "capture": "s11",
+                  "quoted": false
+                },
+                ");__kaspArcadeMesh.",
+                {
+                  "role": "projectionmethod",
+                  "quoted": false
+                },
+                "=function(__kaspArcadeView,__kaspArcadeRect){try{var base=__kaspOwner.",
+                {
+                  "role": "barField",
+                  "quoted": false
+                },
+                ";base.",
+                {
+                  "role": "projectionmethod",
+                  "quoted": false
+                },
+                "(__kaspArcadeView,__kaspArcadeRect);__kaspArcadeRect.",
+                {
+                  "role": "projectiony",
+                  "quoted": false
+                },
+                "+=__kaspArcadeRect.",
+                {
+                  "role": "projectionheight",
+                  "quoted": false
+                },
+                "}catch(__kaspArcadeError){__kaspArcadeRect.",
+                {
+                  "role": "projectionwidth",
+                  "quoted": false
+                },
+                "=0;__kaspArcadeRect.",
+                {
+                  "role": "projectionheight",
+                  "quoted": false
+                },
+                "=0;__kaspOwner.__kaspArcadeReloadFailed=true;try{__kaspArcadeMesh.",
+                {
+                  "role": "show",
+                  "quoted": false
+                },
+                "(false);window.__kaspArcadeReloadDebug.reportError(String(__kaspArcadeError))}catch(__kaspArcadeIgnored){}}};__kaspArcadeMesh.",
+                {
+                  "role": "show",
+                  "quoted": false
+                },
+                "(false);",
+                {
+                  "role": "scene",
+                  "quoted": false
+                },
+                "(__kaspOwner).",
+                {
+                  "role": "add",
+                  "quoted": false
+                },
+                "(__kaspArcadeMesh);return __kaspArcadeMesh};__kaspOwner.__kaspArcadeHudSync=function(){try{var __kaspArcadeMesh=this.__kaspArcadeReloadBar,",
+                {
+                  "capture": "s54",
+                  "quoted": false
+                },
+                "=this.",
+                {
+                  "role": "barField",
+                  "quoted": false
+                },
+                ";if(this.__kaspArcadeReloadFailed||!__kaspArcadeMesh||!",
+                {
+                  "capture": "s54",
+                  "quoted": false
+                },
+                ")return;__kaspArcadeMesh.",
+                {
+                  "role": "setWidth",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "capture": "s54",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "role": "width",
+                  "quoted": false
+                },
+                "());__kaspArcadeMesh.",
+                {
+                  "role": "setHeight",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "capture": "s54",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "role": "height",
+                  "quoted": false
+                },
+                "());__kaspArcadeMesh.",
+                {
+                  "role": "place",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "capture": "s54",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "role": "vector",
+                  "quoted": false
+                },
+                ",",
+                {
+                  "capture": "s54",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "role": "height",
+                  "quoted": false
+                },
+                "());__kaspArcadeMesh.",
+                {
+                  "role": "show",
+                  "quoted": false
+                },
+                "(this.__kaspArcadeHudVisible!==false&&this.__kaspArcadeProgress!=null)}catch(__kaspArcadeError){this.__kaspArcadeReloadFailed=true;try{if(__kaspArcadeMesh)__kaspArcadeMesh.",
+                {
+                  "role": "show",
+                  "quoted": false
+                },
+                "(false);if(window.__kaspArcadeReloadDebug)window.__kaspArcadeReloadDebug.reportError(String(__kaspArcadeError))}catch(__kaspArcadeIgnored){}}};__kaspOwner.__kaspArcadeHudUpdate=function(){var __kaspOwner=this;try{if(window.__kaspArcadeControl&&!window.__kaspArcadeControl.active())return;if(__kaspOwner.__kaspArcadeReloadFailed||!__kaspOwner.",
+                {
+                  "role": "barField",
+                  "quoted": false
+                },
+                ")return;var __kaspEntity=",
+                {
+                  "role": "localTank",
+                  "quoted": false
+                },
+                "(__kaspOwner.",
+                {
+                  "role": "world",
+                  "quoted": false
+                },
+                "()),__kaspBar=__kaspOwner.__kaspArcadeReloadBar;var __kaspProgress=null,__kaspShaft=null,__kaspScorpio=null;if(__kaspEntity){var __kaspShaft=__kaspEntity.",
+                {
+                  "role": "optional",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "role": "token",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "role": "shaft",
+                  "quoted": false
+                },
+                ")),__kaspScorpio=__kaspEntity.",
+                {
+                  "role": "optional",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "role": "token",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "role": "scorpio",
+                  "quoted": false
+                },
+                "));if(__kaspScorpio)__kaspProgress=__kaspScorpio.",
+                {
+                  "role": "primary",
+                  "quoted": false
+                },
+                ";else if(__kaspShaft){var __kaspState=__kaspShaft.",
+                {
+                  "role": "active",
+                  "quoted": false
+                },
+                ";if((__kaspShaft.",
+                {
+                  "role": "stunned",
+                  "quoted": false
+                },
+                "||__kaspShaft.",
+                {
+                  "role": "paused",
+                  "quoted": false
+                },
+                ")&&__kaspOwner.__kaspArcadeWeapon===__kaspShaft)__kaspProgress=__kaspOwner.__kaspArcadeProgress;else __kaspProgress=__kaspState instanceof ",
+                {
+                  "role": "cooldownType",
+                  "quoted": false
+                },
+                "&&",
+                {
+                  "role": "compare",
+                  "quoted": false
+                },
+                "(__kaspShaft.",
+                {
+                  "role": "clock",
+                  "quoted": false
+                },
+                "(),__kaspState.",
+                {
+                  "role": "deadline",
+                  "quoted": false
+                },
+                ")<0?1-",
+                {
+                  "role": "divide",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "role": "subtract",
+                  "quoted": false
+                },
+                "(__kaspState.",
+                {
+                  "role": "deadline",
+                  "quoted": false
+                },
+                ",__kaspShaft.",
+                {
+                  "role": "clock",
+                  "quoted": false
+                },
+                "()),__kaspShaft.",
+                {
+                  "role": "duration",
+                  "quoted": false
+                },
+                "):1}}if(typeof __kaspProgress!==\"number\"||!Number.isFinite(__kaspProgress)||__kaspProgress<-.01||__kaspProgress>1.01){__kaspOwner.__kaspArcadeWeapon=null;__kaspOwner.__kaspArcadeProgress=null;if(__kaspBar)__kaspBar.",
+                {
+                  "role": "show",
+                  "quoted": false
+                },
+                "(!1);if(window.__kaspArcadeReloadDebug&&window.__kaspArcadeReloadDebug.observe)window.__kaspArcadeReloadDebug.observe({weapon:__kaspShaft?\"Shaft\":__kaspScorpio?\"Scorpio\":null,progress:__kaspOwner.__kaspArcadeProgress,barCreated:!!__kaspBar,visible:!!__kaspBar&&__kaspOwner.__kaspArcadeProgress!=null&&!__kaspOwner.__kaspArcadeReloadFailed&&__kaspOwner.__kaspArcadeHudVisible!==false});return}__kaspOwner.__kaspArcadeWeapon=__kaspShaft||__kaspScorpio;__kaspOwner.__kaspArcadeProgress=Math.max(0,Math.min(1,__kaspProgress));if(!__kaspBar)__kaspBar=__kaspOwner.__kaspArcadeReloadBar=__kaspOwner.__kaspArcadeHudCreate();__kaspBar.",
+                {
+                  "role": "show",
+                  "quoted": false
+                },
+                "(__kaspOwner.__kaspArcadeHudVisible!==false);__kaspBar.",
+                {
+                  "role": "fill",
+                  "quoted": false
+                },
+                "(__kaspOwner.__kaspArcadeProgress);__kaspOwner.__kaspArcadeHudSync();if(window.__kaspArcadeReloadDebug&&window.__kaspArcadeReloadDebug.observe)window.__kaspArcadeReloadDebug.observe({weapon:__kaspShaft?\"Shaft\":__kaspScorpio?\"Scorpio\":null,progress:__kaspOwner.__kaspArcadeProgress,barCreated:!!__kaspBar,visible:!!__kaspBar&&__kaspOwner.__kaspArcadeProgress!=null&&!__kaspOwner.__kaspArcadeReloadFailed&&__kaspOwner.__kaspArcadeHudVisible!==false})}catch(__kaspError){__kaspOwner.__kaspArcadeReloadFailed=!0;try{var __kaspBar=__kaspOwner.__kaspArcadeReloadBar;if(__kaspBar)__kaspBar.",
+                {
+                  "role": "show",
+                  "quoted": false
+                },
+                "(!1);window.__kaspArcadeReloadDebug.reportError(String(__kaspError))}catch(__kaspIgnored){}}};__kaspOwner.__kaspArcadeHudUpdate()}catch(__kaspArcadeError){if(window.__kaspArcadeReloadDebug)window.__kaspArcadeReloadDebug.reportError(String(__kaspArcadeError))}})(",
+                {
+                  "capture": "s6",
+                  "quoted": false
+                },
+                ")"
+              ]
+            },
+            {
+              "start": "e1start",
+              "end": "e1end",
+              "parts": [
+                ",(window.__kaspArcadeControl?window.__kaspArcadeControl.run(function(){if(",
+                {
+                  "capture": "s8",
+                  "quoted": false
+                },
+                ".__kaspArcadeHudUpdate)",
+                {
+                  "capture": "s8",
+                  "quoted": false
+                },
+                ".__kaspArcadeHudUpdate()}):(",
+                {
+                  "capture": "s8",
+                  "quoted": false
+                },
+                ".__kaspArcadeHudUpdate&&",
+                {
+                  "capture": "s8",
+                  "quoted": false
+                },
+                ".__kaspArcadeHudUpdate()))"
+              ]
+            }
+          ]
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*null(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*new(?![$\\w])\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*,\\s*function(?![$\\w])\\s*\\(\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*function(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*,\\s*\\k<s9>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*;\\s*null(?![$\\w])\\s*==\\s*\\k<s10>(?![$\\w])\\s*\\|\\|\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\)(?<e0start>)(?<e0end>)\\s*\\}\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*,\\s*!\\s*\\k<s9>(?![$\\w])\\s*\\)\\s*,\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\}\\s*\\)\\s*\\)\\s*\\}",
+          "roles": {
+            "hudType": "s0",
+            "barField": "s5",
+            "show": "s11"
+          },
+          "count": 1,
+          "search": {
+            "margin": 3616
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                ",",
+                {
+                  "capture": "s1",
+                  "quoted": false
+                },
+                ".__kaspArcadeHudVisible=!!",
+                {
+                  "capture": "s9",
+                  "quoted": false
+                },
+                ",(",
+                {
+                  "capture": "s1",
+                  "quoted": false
+                },
+                ".__kaspArcadeHudSync&&",
+                {
+                  "capture": "s1",
+                  "quoted": false
+                },
+                ".__kaspArcadeHudSync())"
+              ]
+            }
+          ]
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*null(?![$\\w])\\s*==\\s*\\k<s3>(?![$\\w])\\s*\\|\\|\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*(?<e0start>)(?<e0end>)\\}",
+          "roles": {
+            "scene": "s5",
+            "hudType": "s1",
+            "barField": "s4",
+            "remove": "s6"
+          },
+          "count": 1,
+          "search": {
+            "margin": 1472
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                ";try{if(window.__kaspArcadeControl)window.__kaspArcadeControl.release(this);if(this.__kaspArcadeReloadBar){",
+                {
+                  "role": "scene",
+                  "quoted": false
+                },
+                "(this).",
+                {
+                  "role": "remove",
+                  "quoted": false
+                },
+                "(this.__kaspArcadeReloadBar);this.__kaspArcadeReloadBar=null};this.__kaspArcadeHudCreate=null;this.__kaspArcadeHudUpdate=null;this.__kaspArcadeHudSync=null;this.__kaspArcadeWeapon=null;this.__kaspArcadeProgress=null}catch(__kaspArcadeError){}"
+              ]
+            }
+          ]
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*==\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*\\k<s3>(?![$\\w])\\s*=\\s*null(?![$\\w])\\s*;\\s*else(?![$\\w])\\s*\\{\\s*var(?![$\\w])\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*new(?![$\\w])\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*this(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*1\\s*,\\s*!\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*=\\s*\\k<s6>(?![$\\w])\\s*\\}\\s*this(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s19>(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*\\(\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s19>(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*\\(\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s19>(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*\\(\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s28>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s29>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*,\\s*\\k<s5>(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*\\k<s5>(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*,\\s*\\k<s9>(?![$\\w])\\s*,\\s*(?<s30>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s31>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s32>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s33>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s34>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*return(?![$\\w])\\s*\\k<s6>(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s31>(?![$\\w])\\s*=\\s*null(?![$\\w])\\s*==\\s*\\(\\s*\\k<s30>(?![$\\w])\\s*=\\s*null(?![$\\w])\\s*==\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\)\\s*\\?\\s*null(?![$\\w])\\s*:\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s35>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s9>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s36>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\?\\s*(?<s37>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s38>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*:\\s*\\k<s30>(?![$\\w])\\s*,\\s*\\k<s34>(?![$\\w])\\s*=\\s*null(?![$\\w])\\s*==\\s*\\(\\s*\\k<s33>(?![$\\w])\\s*=\\s*null(?![$\\w])\\s*==\\s*\\(\\s*\\k<s32>(?![$\\w])\\s*=\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\)\\s*\\?\\s*null(?![$\\w])\\s*:\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s39>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s32>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s40>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\?\\s*(?<s41>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s42>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*:\\s*\\k<s33>(?![$\\w])\\s*,\\s*\\k<s31>(?![$\\w])\\s*\\.\\s*(?<s43>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s34>(?![$\\w])\\s*,\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s44>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s45>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s46>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*\\k<s44>(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*\\}\\s*,\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*callableName\\s*=\\s*(?:\"provideDefaultTitlePosition\"|'provideDefaultTitlePosition')\\s*,\\s*\\k<s5>(?![$\\w])\\s*\\)\\s*\\)\\s*;\\s*var(?![$\\w])\\s*\\k<s30>(?![$\\w])\\s*,\\s*\\k<s31>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s32>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s30>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*,\\s*function(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\k<s30>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*=\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\k<s30>(?![$\\w])\\s*\\.\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*(?<s47>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\}\\s*\\)\\s*;\\s*\\k<s31>(?![$\\w])\\s*\\.\\s*(?<s48>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*\\(\\s*(?<s49>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s32>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*\\k<s33>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s34>(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*function(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*=\\s*null(?![$\\w])\\s*,\\s*\\k<s47>(?![$\\w])\\s*\\}\\s*\\}\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*;\\s*\\k<s33>(?![$\\w])\\s*\\.\\s*\\k<s48>(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*\\(\\s*(?<s50>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s34>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s51>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s52>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*function(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s13>(?![$\\w])\\s*\\.\\s*\\k<s14>(?![$\\w])\\s*\\(\\s*1\\s*,\\s*!\\s*\\k<s15>(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s53>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s47>(?![$\\w])\\s*\\}\\s*\\}\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*;\\s*\\k<s51>(?![$\\w])\\s*\\.\\s*\\k<s48>(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*\\(\\s*(?<s54>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s52>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s55>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s56>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*\\k<s4>(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*\\k<s5>(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*;\\s*return(?![$\\w])\\s*\\k<s6>(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*,\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*\\k<s29>(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*(?<s57>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*(?<s58>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s47>(?![$\\w])\\s*\\}\\s*;\\s*return(?![$\\w])\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*callableName\\s*=\\s*(?:\"pushPositionProvider\"|'pushPositionProvider')\\s*,\\s*\\k<s4>(?![$\\w])\\s*\\}\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*;\\s*\\k<s55>(?![$\\w])\\s*\\.\\s*\\k<s48>(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*\\(\\s*(?<s59>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s56>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s60>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s61>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*\\k<s4>(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*\\k<s5>(?![$\\w])\\s*;\\s*return(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*(?<s62>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*>\\s*1\\s*&&\\s*\\(\\s*(?<s63>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*\\k<s28>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s58>(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s64>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s65>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*0\\s*\\)\\s*\\)\\s*,\\s*\\k<s47>(?![$\\w])\\s*\\}\\s*;\\s*return(?![$\\w])\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*callableName\\s*=\\s*(?:\"popPositionProvider\"|'popPositionProvider')\\s*,\\s*\\k<s4>(?![$\\w])\\s*\\}\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*;\\s*\\k<s60>(?![$\\w])\\s*\\.\\s*\\k<s48>(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*\\(\\s*(?<s66>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s61>(?![$\\w])\\s*\\)\\s*\\}",
+          "roles": {
+            "localTank": "s7",
+            "token": "s20",
+            "hudType": "s23",
+            "optional": "s19",
+            "world": "s8",
+            "supplyentity": "s18"
+          },
+          "count": 1,
+          "search": {
+            "literal": "provideDefaultTitlePosition",
+            "margin": 23952
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s4>(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*===\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\?\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*:\\s*\\k<s4>(?![$\\w])\\s*,\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*1\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*\\)\\s*\\}",
+          "roles": {
+            "barType": "s0",
+            "setWidth": "s12",
+            "setHeight": "s13"
+          },
+          "count": 1,
+          "search": {
+            "margin": 1720
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\}",
+          "roles": {
+            "baseBarType": "s1",
+            "setWidth": "s2",
+            "widthField": "s4"
+          },
+          "count": 1,
+          "search": {
+            "margin": 1072
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\}",
+          "roles": {
+            "baseBarType": "s1",
+            "width": "s2",
+            "widthField": "s3"
+          },
+          "count": 1,
+          "search": {
+            "margin": 984
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\}",
+          "roles": {
+            "baseBarType": "s1",
+            "setHeight": "s2",
+            "heightField": "s4"
+          },
+          "count": 1,
+          "search": {
+            "margin": 1072
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\}",
+          "roles": {
+            "baseBarType": "s1",
+            "height": "s2",
+            "heightField": "s3"
+          },
+          "count": 1,
+          "search": {
+            "margin": 984
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s6>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\}",
+          "roles": {
+            "barType": "s1",
+            "place": "s2",
+            "vector": "s8"
+          },
+          "count": 1,
+          "search": {
+            "margin": 1720
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*new(?![$\\w])\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*\\}",
+          "roles": {
+            "barType": "s1"
+          },
+          "count": 1,
+          "search": {
+            "margin": 1032
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\}",
+          "roles": {
+            "vector": "s14",
+            "projectionmethod": "s6",
+            "projectionx": "s12",
+            "projectiony": "s13",
+            "projectionwidth": "s16",
+            "projectionheight": "s17"
+          },
+          "count": 1,
+          "search": {
+            "margin": 2672
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\|\\|\\s*\\(\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*,\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*,\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\)\\s*(?<e0start>)(?<e0end>)\\}",
+          "roles": {
+            "hudType": "s1"
+          },
+          "count": 1,
+          "search": {
+            "margin": 1328
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                ";if(this.__kaspArcadeHudSync)this.__kaspArcadeHudSync()"
+              ]
+            }
+          ]
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*>\\s*0\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s8>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*;\\s*\\k<s2>(?![$\\w])\\s*=\\s*1\\s*-\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\}\\s*else(?![$\\w])\\s*\\k<s2>(?![$\\w])\\s*=\\s*1\\s*;\\s*return(?![$\\w])\\s*\\k<s2>(?![$\\w])\\s*\\}",
+          "roles": {
+            "compare": "s6",
+            "divide": "s11",
+            "subtract": "s10",
+            "world": "s4"
+          },
+          "count": 1,
+          "search": {
+            "margin": 2960
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*new(?![$\\w])\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:\"\"|'')\\s*\\)\\s*,\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*new(?![$\\w])\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*new(?![$\\w])\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*,\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\.2\\s*\\)\\s*\\)\\s*\\)\\s*,\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*new(?![$\\w])\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\)\\s*;\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*new(?![$\\w])\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*new(?![$\\w])\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\.001\\s*\\*\\s*\\k<s22>(?![$\\w])\\s*\\)\\s*,\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*new(?![$\\w])\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s24>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*(?<s28>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*new(?![$\\w])\\s*(?<s29>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*(?<s30>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*new(?![$\\w])\\s*(?<s31>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*(?<s32>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*new(?![$\\w])\\s*(?<s33>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*(?<s34>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*new(?![$\\w])\\s*(?<s35>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s36>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*;\\s*return(?![$\\w])\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s37>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s13>(?![$\\w])\\s*,\\s*(?<s38>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s39>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s13>(?![$\\w])\\s*,\\s*\\k<s16>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*(?<s40>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s13>(?![$\\w])\\s*,\\s*\\k<s34>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*(?<s41>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s13>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*(?<s42>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s16>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*(?<s43>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s16>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*(?<s44>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*(?<s45>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*,\\s*\\k<s20>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s42>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*(?<s46>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*(?<s47>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*(?<s48>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s46>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s34>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s43>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s34>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s42>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s34>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s46>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s34>(?![$\\w])\\s*,\\s*\\k<s26>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s45>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s26>(?![$\\w])\\s*,\\s*\\k<s16>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s40>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s26>(?![$\\w])\\s*,\\s*\\k<s28>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s45>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s26>(?![$\\w])\\s*,\\s*\\k<s32>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*(?<s49>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s26>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s42>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s26>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*(?<s50>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s26>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s46>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*,\\s*\\k<s30>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s41>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*,\\s*\\k<s32>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s49>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s42>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s50>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s46>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s30>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s44>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s32>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s45>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\}\\s*\\(\\s*this(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s51>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s52>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s53>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\}",
+          "roles": {
+            "shaft": "s1",
+            "cooldownType": "s19",
+            "token": "s38",
+            "duration": "s6"
+          },
+          "count": 1,
+          "search": {
+            "margin": 13880
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*=\\s*!\\s*1\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\(\\s*null(?![$\\w])\\s*==\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*new(?![$\\w])\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*\\)\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\|\\|\\s*this(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\|\\|\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*null(?![$\\w])\\s*==\\s*\\k<s18>(?![$\\w])\\s*\\|\\|\\s*\\k<s18>(?![$\\w])\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\}",
+          "roles": {
+            "shaft": "s1",
+            "active": "s19",
+            "stunned": "s12",
+            "paused": "s13"
+          },
+          "count": 1,
+          "search": {
+            "margin": 3008
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*\\k<s4>(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*instanceof(?![$\\w])\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\?\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*:\\s*\\k<s3>(?![$\\w])\\s*instanceof(?![$\\w])\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\?\\s*\\k<s6>(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*\\k<s8>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*:\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s8>(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*\\}",
+          "roles": {
+            "cooldownType": "s1",
+            "subtract": "s6",
+            "clock": "s10",
+            "duration": "s14",
+            "deadline": "s8"
+          },
+          "count": 1,
+          "search": {
+            "margin": 3072
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*>=\\s*0\\s*&&\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\)\\s*\\}",
+          "roles": {
+            "cooldownType": "s1",
+            "compare": "s3",
+            "clock": "s5",
+            "deadline": "s6"
+          },
+          "count": 1,
+          "search": {
+            "margin": 1576
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*-\\s*54\\s*,\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s5>(?![$\\w])\\s*\\(\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<e0start>)8(?<e0end>)\\s*,\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*\\}",
+          "roles": {},
+          "count": 1,
+          "search": {
+            "margin": 1560
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                "(8+(function(__kaspSupplyOwner){try{if(!__kaspSupplyOwner.",
+                {
+                  "role": "supplycentered",
+                  "quoted": false
+                },
+                ")return 0;var hud=__kaspSupplyOwner.",
+                {
+                  "role": "supplyentity",
+                  "quoted": false
+                },
+                "().",
+                {
+                  "role": "optional",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "role": "token",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "role": "hudType",
+                  "quoted": false
+                },
+                ")),bar=hud&&hud.__kaspArcadeReloadBar;return bar&&hud.__kaspArcadeWeapon&&hud.__kaspArcadeProgress!=null&&!hud.__kaspArcadeReloadFailed&&hud.__kaspArcadeHudVisible!==false?bar.",
+                {
+                  "role": "height",
+                  "quoted": false
+                },
+                "():0}catch(__kaspArcadeError){return 0}})(this))"
+              ]
+            }
+          ]
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\(\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\?\\s*this(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\|\\|\\s*this(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*:\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*0\\s*,\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s15>(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\+\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*,\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*-\\s*54\\s*,\\s*\\k<s14>(?![$\\w])\\s*\\(\\s*\\k<s15>(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s15>(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\}",
+          "roles": {
+            "height": "s16",
+            "supplycentered": "s10"
+          },
+          "count": 1,
+          "search": {
+            "margin": 2864
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*null(?![$\\w])\\s*==\\s*\\k<s5>(?![$\\w])\\s*\\|\\|\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s6>(?![$\\w])\\s*;\\s*null(?![$\\w])\\s*==\\s*\\k<s8>(?![$\\w])\\s*\\|\\|\\s*\\(\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s6>(?![$\\w])\\s*;\\s*null(?![$\\w])\\s*==\\s*\\k<s10>(?![$\\w])\\s*\\|\\|\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*(?<e0start>)(?<e0end>)\\}",
+          "roles": {
+            "hudType": "s1",
+            "barField": "s6"
+          },
+          "count": 1,
+          "search": {
+            "margin": 3048
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                ";if(this.__kaspArcadeHudSync)this.__kaspArcadeHudSync()"
+              ]
+            }
+          ]
+        }
+      ],
+      "sourceName": "main.js"
+    },
+    {
+      "format": "ki-arcade-ast-v1",
+      "sha256": "bac40d5419885cafe832afc8968fd2c4e570f232fdce8dad25e1fc852df41e6d",
+      "sourceLength": 10071113,
+      "status": {
+        "hooked": true,
+        "ready": true,
+        "strategy": "ast-plan",
+        "issues": [],
+        "panel": "local-hud",
+        "runtimeControls": true
+      },
+      "edits": [
+        {
+          "start": 0,
+          "end": 0,
+          "expected": "",
+          "before": "",
+          "after": "!function(t,n){\"object\"=",
+          "text": "/*ki-arcade-ast:v1:{\"hooked\":true,\"ready\":true,\"strategy\":\"ast-plan\",\"issues\":[],\"panel\":\"local-hud\",\"runtimeControls\":true}*/\n"
+        },
+        {
+          "start": 7441635,
+          "end": 7441635,
+          "text": ",t.__kaspArcadeHudVisible=!!n,(t.__kaspArcadeHudSync&&t.__kaspArcadeHudSync())",
+          "expected": "",
+          "before": "p17e_1;null==i||i.p3k(n)",
+          "after": "}(t,!n),Lq}))}function s"
+        },
+        {
+          "start": 8422302,
+          "end": 8422303,
+          "text": "(8+(function(__kaspSupplyOwner){try{if(!__kaspSupplyOwner.b17f_1)return 0;var hud=__kaspSupplyOwner.nz4().tz7(Bq(uDt)),bar=hud&&hud.__kaspArcadeReloadBar;return bar&&hud.__kaspArcadeWeapon&&hud.__kaspArcadeProgress!=null&&!hud.__kaspArcadeReloadFailed&&hud.__kaspArcadeHudVisible!==false?bar.g29():0}catch(__kaspArcadeError){return 0}})(this))",
+          "expected": "8",
+          "before": "(0,t,n,this.y17e_1.b3(),",
+          "after": ",t,n)},Zq(UOt).yam=funct"
+        },
+        {
+          "start": 8424594,
+          "end": 8424594,
+          "text": ",(function(__kaspOwner){try{if(__kaspOwner.__kaspArcadeReloadBar){nDt(__kaspOwner).t11j(__kaspOwner.__kaspArcadeReloadBar);__kaspOwner.__kaspArcadeReloadBar=null};if(window.__kaspArcadeControl)window.__kaspArcadeControl.track(__kaspOwner,function(){if(__kaspOwner.__kaspArcadeReloadBar){nDt(__kaspOwner).t11j(__kaspOwner.__kaspArcadeReloadBar);__kaspOwner.__kaspArcadeReloadBar=null};__kaspOwner.__kaspArcadeProgress=null;__kaspOwner.__kaspArcadeWeapon=null});__kaspOwner.__kaspArcadeReloadFailed=false;__kaspOwner.__kaspArcadeProgress=null;__kaspOwner.__kaspArcadeWeapon=null;__kaspOwner.__kaspArcadeHudCreate=function(){var __kaspArcadeMesh=new eht(r.bb(), r.un(), new Vht(t.az6().z3i(), lC(16759580), lC(3158064), JWn()), zP());NA(__kaspArcadeMesh,e);__kaspArcadeMesh.w4o=function(__kaspArcadeView,__kaspArcadeRect){try{var base=__kaspOwner.p17e_1;base.w4o(__kaspArcadeView,__kaspArcadeRect);__kaspArcadeRect.e4p_1+=__kaspArcadeRect.g4p_1}catch(__kaspArcadeError){__kaspArcadeRect.f4p_1=0;__kaspArcadeRect.g4p_1=0;__kaspOwner.__kaspArcadeReloadFailed=true;try{__kaspArcadeMesh.p3k(false);window.__kaspArcadeReloadDebug.reportError(String(__kaspArcadeError))}catch(__kaspArcadeIgnored){}}};__kaspArcadeMesh.p3k(false);nDt(__kaspOwner).s11j(__kaspArcadeMesh);return __kaspArcadeMesh};__kaspOwner.__kaspArcadeHudSync=function(){try{var __kaspArcadeMesh=this.__kaspArcadeReloadBar,o=this.p17e_1;if(this.__kaspArcadeReloadFailed||!__kaspArcadeMesh||!o)return;__kaspArcadeMesh.u29(o.h29());__kaspArcadeMesh.v29(o.g29());__kaspArcadeMesh.f12m(o.t35_1,o.g29());__kaspArcadeMesh.p3k(this.__kaspArcadeHudVisible!==false&&this.__kaspArcadeProgress!=null)}catch(__kaspArcadeError){this.__kaspArcadeReloadFailed=true;try{if(__kaspArcadeMesh)__kaspArcadeMesh.p3k(false);if(window.__kaspArcadeReloadDebug)window.__kaspArcadeReloadDebug.reportError(String(__kaspArcadeError))}catch(__kaspArcadeIgnored){}}};__kaspOwner.__kaspArcadeHudUpdate=function(){var __kaspOwner=this;try{if(window.__kaspArcadeControl&&!window.__kaspArcadeControl.active())return;if(__kaspOwner.__kaspArcadeReloadFailed||!__kaspOwner.p17e_1)return;var __kaspEntity=mzt(__kaspOwner.az6()),__kaspBar=__kaspOwner.__kaspArcadeReloadBar;var __kaspProgress=null,__kaspShaft=null,__kaspScorpio=null;if(__kaspEntity){var __kaspShaft=__kaspEntity.tz7(Bq(Dvn)),__kaspScorpio=__kaspEntity.tz7(Bq(bcn));if(__kaspScorpio)__kaspProgress=__kaspScorpio.y1ci_1;else if(__kaspShaft){var __kaspState=__kaspShaft.c1d3_1;if((__kaspShaft.h1d3_1||__kaspShaft.j1d3_1)&&__kaspOwner.__kaspArcadeWeapon===__kaspShaft)__kaspProgress=__kaspOwner.__kaspArcadeProgress;else __kaspProgress=__kaspState instanceof lpn&&Ex(__kaspShaft.d18o(),__kaspState.d1dd_1)<0?1-Xx(Tx(__kaspState.d1dd_1,__kaspShaft.d18o()),__kaspShaft.n1d3_1):1}}if(typeof __kaspProgress!==\"number\"||!Number.isFinite(__kaspProgress)||__kaspProgress<-.01||__kaspProgress>1.01){__kaspOwner.__kaspArcadeWeapon=null;__kaspOwner.__kaspArcadeProgress=null;if(__kaspBar)__kaspBar.p3k(!1);if(window.__kaspArcadeReloadDebug&&window.__kaspArcadeReloadDebug.observe)window.__kaspArcadeReloadDebug.observe({weapon:__kaspShaft?\"Shaft\":__kaspScorpio?\"Scorpio\":null,progress:__kaspOwner.__kaspArcadeProgress,barCreated:!!__kaspBar,visible:!!__kaspBar&&__kaspOwner.__kaspArcadeProgress!=null&&!__kaspOwner.__kaspArcadeReloadFailed&&__kaspOwner.__kaspArcadeHudVisible!==false});return}__kaspOwner.__kaspArcadeWeapon=__kaspShaft||__kaspScorpio;__kaspOwner.__kaspArcadeProgress=Math.max(0,Math.min(1,__kaspProgress));if(!__kaspBar)__kaspBar=__kaspOwner.__kaspArcadeReloadBar=__kaspOwner.__kaspArcadeHudCreate();__kaspBar.p3k(__kaspOwner.__kaspArcadeHudVisible!==false);__kaspBar.e12m(__kaspOwner.__kaspArcadeProgress);__kaspOwner.__kaspArcadeHudSync();if(window.__kaspArcadeReloadDebug&&window.__kaspArcadeReloadDebug.observe)window.__kaspArcadeReloadDebug.observe({weapon:__kaspShaft?\"Shaft\":__kaspScorpio?\"Scorpio\":null,progress:__kaspOwner.__kaspArcadeProgress,barCreated:!!__kaspBar,visible:!!__kaspBar&&__kaspOwner.__kaspArcadeProgress!=null&&!__kaspOwner.__kaspArcadeReloadFailed&&__kaspOwner.__kaspArcadeHudVisible!==false})}catch(__kaspError){__kaspOwner.__kaspArcadeReloadFailed=!0;try{var __kaspBar=__kaspOwner.__kaspArcadeReloadBar;if(__kaspBar)__kaspBar.p3k(!1);window.__kaspArcadeReloadDebug.reportError(String(__kaspError))}catch(__kaspIgnored){}}};__kaspOwner.__kaspArcadeHudUpdate()}catch(__kaspArcadeError){if(window.__kaspArcadeReloadDebug)window.__kaspArcadeReloadDebug.reportError(String(__kaspArcadeError))}})(t)",
+          "expected": "",
+          "before": "Dt(t).s11j(u),t.p17e_1=u",
+          "after": "}(e,Yh.l17h_1),Lq});u.oz"
+        },
+        {
+          "start": 8424748,
+          "end": 8424748,
+          "text": ",(window.__kaspArcadeControl?window.__kaspArcadeControl.run(function(){if(i.__kaspArcadeHudUpdate)i.__kaspArcadeHudUpdate()}):(i.__kaspArcadeHudUpdate&&i.__kaspArcadeHudUpdate()))",
+          "expected": "",
+          "before": "=(e=i.p17e_1)||e.e12m(r)",
+          "after": ",Lq}}(this);o.oz6(Bq(ZOt"
+        },
+        {
+          "start": 8425185,
+          "end": 8425185,
+          "text": ";try{if(window.__kaspArcadeControl)window.__kaspArcadeControl.release(this);if(this.__kaspArcadeReloadBar){nDt(this).t11j(this.__kaspArcadeReloadBar);this.__kaspArcadeReloadBar=null};this.__kaspArcadeHudCreate=null;this.__kaspArcadeHudUpdate=null;this.__kaspArcadeHudSync=null;this.__kaspArcadeWeapon=null;this.__kaspArcadeProgress=null}catch(__kaspArcadeError){}",
+          "expected": "",
+          "before": "ll==t||nDt(this).t11j(t)",
+          "after": "},Zq(uDt).v17h=function("
+        },
+        {
+          "start": 8425261,
+          "end": 8425261,
+          "text": ";if(this.__kaspArcadeHudSync)this.__kaspArcadeHudSync()",
+          "expected": "",
+          "before": "|(WR(t,n),YR(t,n,XWn()))",
+          "after": "},Zq(uDt).f12u=function("
+        },
+        {
+          "start": 8425404,
+          "end": 8425404,
+          "text": ";if(this.__kaspArcadeHudSync)this.__kaspArcadeHudSync()",
+          "expected": "",
+          "before": "17e_1;null==e||BA(e,t,n)",
+          "after": "},Zq(oDt).uz2=function(t"
+        }
+      ],
+      "templates": [
+        {
+          "pattern": "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:\"LocalTank\"|'LocalTank')\\s*\\)\\s*\\}",
+          "roles": {
+            "localTank": "s0"
+          },
+          "count": 1,
+          "search": {
+            "literal": "LocalTank",
+            "margin": 592
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s2>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s2>(?![$\\w])\\s*;\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:\"shaftWeapon\"|'shaftWeapon')\\s*\\)\\s*\\}",
+          "roles": {
+            "shaftCache": "s3"
+          },
+          "count": 1,
+          "search": {
+            "literal": "shaftWeapon",
+            "margin": 808
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s2>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s2>(?![$\\w])\\s*;\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:\"reloadTimeComponent\"|'reloadTimeComponent')\\s*\\)\\s*\\}",
+          "roles": {
+            "reloadCache": "s3"
+          },
+          "count": 1,
+          "search": {
+            "literal": "reloadTimeComponent",
+            "margin": 872
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*>=\\s*1\\s*\\}",
+          "roles": {
+            "scorpio": "s1",
+            "primary": "s4"
+          },
+          "count": 1,
+          "search": {
+            "margin": 728
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s28>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*\\k<s28>(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*function(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*\\{\\s*\\k<s27>(?![$\\w])\\s*\\.\\s*(?<s29>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s30>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s27>(?![$\\w])\\s*\\.\\s*(?<s31>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*!\\s*1\\s*,\\s*\\k<s27>(?![$\\w])\\s*\\.\\s*(?<s32>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*!\\s*0\\s*;\\s*var(?![$\\w])\\s*\\k<s28>(?![$\\w])\\s*=\\s*\\k<s27>(?![$\\w])\\s*,\\s*(?<s33>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s34>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s35>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*(?<s36>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s37>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\.001\\s*\\*\\s*\\k<s33>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s38>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s39>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s40>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s41>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s27>(?![$\\w])\\s*\\.\\s*(?<s42>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s43>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s38>(?![$\\w])\\s*,\\s*0\\s*\\)\\s*,\\s*\\k<s27>(?![$\\w])\\s*\\.\\s*(?<s44>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*\\k<s43>(?![$\\w])\\s*\\(\\s*(?<s45>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s46>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s47>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*,\\s*\\k<s34>(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s48>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s27>(?![$\\w])\\s*\\.\\s*(?<s49>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s50>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s51>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s52>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s27>(?![$\\w])\\s*\\.\\s*(?<s53>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s54>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s51>(?![$\\w])\\s*\\.\\s*(?<s55>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s27>(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s56>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\}\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*,\\s*(?<s57>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\}\\s*;\\s*return(?![$\\w])\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*callableName\\s*=\\s*(?:\"onSniperModeActivation\"|'onSniperModeActivation')\\s*,\\s*\\k<s28>(?![$\\w])\\s*\\}\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*;\\s*\\k<s27>(?![$\\w])\\s*\\.\\s*(?<s58>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*(?<s59>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s28>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*\\k<s33>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s38>(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*\\k<s28>(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*(?<s60>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s57>(?![$\\w])\\s*\\}\\s*;\\s*return(?![$\\w])\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*callableName\\s*=\\s*(?:\"onCancelSniperModeActivation\"|'onCancelSniperModeActivation')\\s*,\\s*\\k<s28>(?![$\\w])\\s*\\}\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*;\\s*\\k<s33>(?![$\\w])\\s*\\.\\s*\\k<s58>(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*(?<s61>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s62>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s63>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s64>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s65>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\(\\s*\\k<s62>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*,\\s*\\(\\s*\\k<s63>(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*=\\s*\\k<s62>(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s29>(?![$\\w])\\s*=\\s*\\(\\s*(?<s66>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s67>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s68>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s69>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*(?<s70>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s71>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s72>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s73>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*/\\s*\\k<s34>(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s74>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*\\k<s36>(?![$\\w])\\s*=\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*\\k<s70>(?![$\\w])\\s*,\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*(?<s75>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*\\k<s43>(?![$\\w])\\s*\\(\\s*\\k<s47>(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*,\\s*\\k<s34>(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s48>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s47>(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*,\\s*\\k<s34>(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s76>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*(?<s77>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s68>(?![$\\w])\\s*\\(\\s*new(?![$\\w])\\s*(?<s78>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*5e3\\s*\\)\\s*\\)\\s*,\\s*\\k<s57>(?![$\\w])\\s*;\\s*var(?![$\\w])\\s*\\k<s28>(?![$\\w])\\s*\\}\\s*\\)\\s*\\.\\s*callableName\\s*=\\s*(?:\"onStartSniperMode\"|'onStartSniperMode')\\s*,\\s*\\k<s63>(?![$\\w])\\s*\\)\\s*;\\s*\\k<s64>(?![$\\w])\\s*\\.\\s*\\k<s58>(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*(?<s79>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s65>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s80>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s81>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s82>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\(\\s*\\k<s80>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*,\\s*function(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\k<s80>(?![$\\w])\\s*\\.\\s*\\k<s31>(?![$\\w])\\s*=\\s*!\\s*0\\s*,\\s*\\k<s57>(?![$\\w])\\s*\\}\\s*\\)\\s*;\\s*\\k<s81>(?![$\\w])\\s*\\.\\s*\\k<s58>(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*(?<s83>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s82>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s84>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s85>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*function(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\k<s27>(?![$\\w])\\s*\\.\\s*\\k<s29>(?![$\\w])\\s*\\.\\s*(?<s86>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s30>(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*&&\\s*\\k<s60>(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s57>(?![$\\w])\\s*\\}\\s*\\}\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*;\\s*\\k<s84>(?![$\\w])\\s*\\.\\s*\\k<s58>(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*(?<s87>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s85>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s88>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s89>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*\\k<s28>(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*function(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*\\{\\s*if(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\.\\s*\\k<s31>(?![$\\w])\\s*\\)\\s*\\{\\s*\\k<s27>(?![$\\w])\\s*\\.\\s*\\k<s29>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s66>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s90>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*\\k<s28>(?![$\\w])\\s*=\\s*\\k<s27>(?![$\\w])\\s*,\\s*\\k<s33>(?![$\\w])\\s*=\\s*\\k<s34>(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s91>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*\\k<s36>(?![$\\w])\\s*=\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\.001\\s*\\*\\s*\\k<s33>(?![$\\w])\\s*\\)\\s*\\}\\s*else(?![$\\w])\\s*\\k<s60>(?![$\\w])\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*\\}\\s*\\(\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s57>(?![$\\w])\\s*\\}\\s*;\\s*return(?![$\\w])\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*callableName\\s*=\\s*(?:\"onStopSniperMode\"|'onStopSniperMode')\\s*,\\s*\\k<s28>(?![$\\w])\\s*\\}\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*;\\s*\\k<s88>(?![$\\w])\\s*\\.\\s*\\k<s58>(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*(?<s92>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s89>(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s93>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*\\}",
+          "roles": {
+            "shaft": "s20",
+            "token": "s9",
+            "world": "s5",
+            "vector": "s52",
+            "shaftCache": "s19",
+            "supplyentity": "s7"
+          },
+          "count": 1,
+          "search": {
+            "literal": "onCancelSniperModeActivation",
+            "margin": 13840
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\(\\s*\\k<s8>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*,\\s*function(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*!\\s*0\\s*,\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\}\\s*\\)\\s*;\\s*\\k<s9>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*\\(\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s10>(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*\\}",
+          "roles": {
+            "scorpio": "s7",
+            "token": "s6",
+            "world": "s15",
+            "scorpioCache": "s3",
+            "supplyentity": "s4"
+          },
+          "count": 1,
+          "search": {
+            "margin": 1592
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*\\(\\s*function(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*\\k<s4>(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s4>(?![$\\w])\\s*;\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:\"scorpioWeapon\"|'scorpioWeapon')\\s*\\)\\s*\\}\\s*\\)\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*&&\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*!\\s*1\\s*\\)\\s*\\}",
+          "roles": {
+            "world": "s10",
+            "scorpioCache": "s5"
+          },
+          "count": 1,
+          "search": {
+            "literal": "scorpioWeapon",
+            "margin": 1576
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*,\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*\\k<s8>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*return(?![$\\w])\\s*\\k<s10>(?![$\\w])\\s*=\\s*\\k<s7>(?![$\\w])\\s*,\\s*null(?![$\\w])\\s*==\\s*\\(\\s*\\k<s11>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s8>(?![$\\w])\\s*=\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\|\\|\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s11>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\}\\s*\\)\\s*\\.\\s*callableName\\s*=\\s*(?:\"onLayoutSizeChanged\"|'onLayoutSizeChanged')\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*;\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s10>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*\\k<s11>(?![$\\w])\\s*,\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\(\\s*\\k<s11>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*,\\s*function(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*function(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*\\k<s8>(?![$\\w])\\s*;\\s*switch(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*new(?![$\\w])\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*3158064\\s*\\)\\s*,\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*(?<s28>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s29>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*case(?![$\\w])\\s*0\\s*:\\s*case(?![$\\w])\\s*2\\s*:\\s*\\k<s8>(?![$\\w])\\s*=\\s*new(?![$\\w])\\s*(?<s30>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s31>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s32>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\.\\s*(?<s33>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s34>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\.5\\s*,\\s*1\\s*\\)\\s*,\\s*(?<s35>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s36>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*break(?![$\\w])\\s*;\\s*case(?![$\\w])\\s*1\\s*:\\s*\\k<s8>(?![$\\w])\\s*=\\s*new(?![$\\w])\\s*\\k<s30>(?![$\\w])\\s*\\(\\s*\\k<s31>(?![$\\w])\\s*\\(\\s*\\k<s32>(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\.\\s*\\k<s33>(?![$\\w])\\s*\\(\\s*(?<s37>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*0\\s*,\\s*0\\s*\\)\\s*,\\s*(?<s38>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s39>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*break(?![$\\w])\\s*;\\s*default(?![$\\w])\\s*:\\s*(?<s40>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\}\\s*var(?![$\\w])\\s*\\k<s10>(?![$\\w])\\s*=\\s*\\k<s8>(?![$\\w])\\s*,\\s*\\k<s11>(?![$\\w])\\s*=\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s41>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s19>(?![$\\w])\\s*=\\s*new(?![$\\w])\\s*(?<s42>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s43>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s44>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*function(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*\\k<s7>(?![$\\w])\\s*=\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s21>(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s7>(?![$\\w])\\s*;\\s*(?<s45>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:\"progressBarMaterial\"|'progressBarMaterial')\\s*\\)\\s*\\}\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*,\\s*(?<s46>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*(?<s47>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s19>(?![$\\w])\\s*,\\s*\\k<s11>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s19>(?![$\\w])\\s*\\.\\s*(?<s48>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*,\\s*(?<s49>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s50>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s19>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*=\\s*\\k<s19>(?![$\\w])(?<e0start>)(?<e0end>)\\s*\\}\\s*\\(\\s*\\k<s11>(?![$\\w])\\s*,\\s*(?<s51>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s52>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s15>(?![$\\w])\\s*\\}\\s*\\)\\s*;\\s*\\k<s19>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\(\\s*\\k<s17>(?![$\\w])\\s*\\(\\s*(?<s53>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s20>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s54>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s55>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*function(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*\\k<s8>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s11>(?![$\\w])\\s*;\\s*return(?![$\\w])\\s*\\k<s8>(?![$\\w])\\s*=\\s*\\k<s6>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*=\\s*(?<s56>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s57>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*null(?![$\\w])\\s*==\\s*\\(\\s*\\k<s11>(?![$\\w])\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\)\\s*\\|\\|\\s*\\k<s11>(?![$\\w])\\s*\\.\\s*\\k<s48>(?![$\\w])\\s*\\(\\s*\\k<s10>(?![$\\w])\\s*\\)(?<e1start>)(?<e1end>)\\s*,\\s*\\k<s15>(?![$\\w])\\s*\\}\\s*\\}\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*;\\s*\\k<s54>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\(\\s*\\k<s17>(?![$\\w])\\s*\\(\\s*(?<s58>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s55>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s59>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s60>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*function(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*(?<s61>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s62>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*1\\s*,\\s*!\\s*(?<s63>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s64>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s15>(?![$\\w])\\s*\\}\\s*\\}\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*;\\s*\\k<s59>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\(\\s*\\k<s17>(?![$\\w])\\s*\\(\\s*(?<s65>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s60>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s66>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s67>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*function(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s61>(?![$\\w])\\s*\\.\\s*\\k<s62>(?![$\\w])\\s*\\(\\s*2\\s*,\\s*!\\s*0\\s*\\)\\s*,\\s*\\k<s15>(?![$\\w])\\s*\\}\\s*\\}\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*;\\s*\\k<s66>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\(\\s*\\k<s17>(?![$\\w])\\s*\\(\\s*(?<s68>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s67>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s69>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s70>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*function(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s61>(?![$\\w])\\s*\\.\\s*\\k<s62>(?![$\\w])\\s*\\(\\s*2\\s*,\\s*!\\s*1\\s*\\)\\s*,\\s*\\k<s15>(?![$\\w])\\s*\\}\\s*\\}\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*;\\s*\\k<s69>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\(\\s*\\k<s17>(?![$\\w])\\s*\\(\\s*(?<s71>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s70>(?![$\\w])\\s*\\)\\s*\\}",
+          "roles": {
+            "scene": "s49",
+            "layer": "s47",
+            "token": "s17",
+            "barType": "s42",
+            "hudType": "s1",
+            "barField": "s12",
+            "fill": "s48",
+            "add": "s50",
+            "world": "s5",
+            "supplyentity": "s9"
+          },
+          "count": 1,
+          "search": {
+            "literal": "onLayoutSizeChanged",
+            "margin": 9888
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                ",(function(__kaspOwner){try{if(__kaspOwner.__kaspArcadeReloadBar){",
+                {
+                  "role": "scene",
+                  "quoted": false
+                },
+                "(__kaspOwner).",
+                {
+                  "role": "remove",
+                  "quoted": false
+                },
+                "(__kaspOwner.__kaspArcadeReloadBar);__kaspOwner.__kaspArcadeReloadBar=null};if(window.__kaspArcadeControl)window.__kaspArcadeControl.track(__kaspOwner,function(){if(__kaspOwner.__kaspArcadeReloadBar){",
+                {
+                  "role": "scene",
+                  "quoted": false
+                },
+                "(__kaspOwner).",
+                {
+                  "role": "remove",
+                  "quoted": false
+                },
+                "(__kaspOwner.__kaspArcadeReloadBar);__kaspOwner.__kaspArcadeReloadBar=null};__kaspOwner.__kaspArcadeProgress=null;__kaspOwner.__kaspArcadeWeapon=null});__kaspOwner.__kaspArcadeReloadFailed=false;__kaspOwner.__kaspArcadeProgress=null;__kaspOwner.__kaspArcadeWeapon=null;__kaspOwner.__kaspArcadeHudCreate=function(){var __kaspArcadeMesh=new ",
+                {
+                  "role": "barType",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "capture": "s10",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "capture": "s43",
+                  "quoted": false
+                },
+                "(), ",
+                {
+                  "capture": "s10",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "capture": "s44",
+                  "quoted": false
+                },
+                "(), new ",
+                {
+                  "capture": "s22",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "capture": "s6",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "role": "world",
+                  "quoted": false
+                },
+                "().",
+                {
+                  "capture": "s23",
+                  "quoted": false
+                },
+                "(), ",
+                {
+                  "capture": "s26",
+                  "quoted": false
+                },
+                "(16759580), ",
+                {
+                  "capture": "s26",
+                  "quoted": false
+                },
+                "(3158064), ",
+                {
+                  "capture": "s27",
+                  "quoted": false
+                },
+                "()), ",
+                {
+                  "capture": "s46",
+                  "quoted": false
+                },
+                "());",
+                {
+                  "role": "layer",
+                  "quoted": false
+                },
+                "(__kaspArcadeMesh,",
+                {
+                  "capture": "s11",
+                  "quoted": false
+                },
+                ");__kaspArcadeMesh.",
+                {
+                  "role": "projectionmethod",
+                  "quoted": false
+                },
+                "=function(__kaspArcadeView,__kaspArcadeRect){try{var base=__kaspOwner.",
+                {
+                  "role": "barField",
+                  "quoted": false
+                },
+                ";base.",
+                {
+                  "role": "projectionmethod",
+                  "quoted": false
+                },
+                "(__kaspArcadeView,__kaspArcadeRect);__kaspArcadeRect.",
+                {
+                  "role": "projectiony",
+                  "quoted": false
+                },
+                "+=__kaspArcadeRect.",
+                {
+                  "role": "projectionheight",
+                  "quoted": false
+                },
+                "}catch(__kaspArcadeError){__kaspArcadeRect.",
+                {
+                  "role": "projectionwidth",
+                  "quoted": false
+                },
+                "=0;__kaspArcadeRect.",
+                {
+                  "role": "projectionheight",
+                  "quoted": false
+                },
+                "=0;__kaspOwner.__kaspArcadeReloadFailed=true;try{__kaspArcadeMesh.",
+                {
+                  "role": "show",
+                  "quoted": false
+                },
+                "(false);window.__kaspArcadeReloadDebug.reportError(String(__kaspArcadeError))}catch(__kaspArcadeIgnored){}}};__kaspArcadeMesh.",
+                {
+                  "role": "show",
+                  "quoted": false
+                },
+                "(false);",
+                {
+                  "role": "scene",
+                  "quoted": false
+                },
+                "(__kaspOwner).",
+                {
+                  "role": "add",
+                  "quoted": false
+                },
+                "(__kaspArcadeMesh);return __kaspArcadeMesh};__kaspOwner.__kaspArcadeHudSync=function(){try{var __kaspArcadeMesh=this.__kaspArcadeReloadBar,",
+                {
+                  "capture": "s54",
+                  "quoted": false
+                },
+                "=this.",
+                {
+                  "role": "barField",
+                  "quoted": false
+                },
+                ";if(this.__kaspArcadeReloadFailed||!__kaspArcadeMesh||!",
+                {
+                  "capture": "s54",
+                  "quoted": false
+                },
+                ")return;__kaspArcadeMesh.",
+                {
+                  "role": "setWidth",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "capture": "s54",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "role": "width",
+                  "quoted": false
+                },
+                "());__kaspArcadeMesh.",
+                {
+                  "role": "setHeight",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "capture": "s54",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "role": "height",
+                  "quoted": false
+                },
+                "());__kaspArcadeMesh.",
+                {
+                  "role": "place",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "capture": "s54",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "role": "vector",
+                  "quoted": false
+                },
+                ",",
+                {
+                  "capture": "s54",
+                  "quoted": false
+                },
+                ".",
+                {
+                  "role": "height",
+                  "quoted": false
+                },
+                "());__kaspArcadeMesh.",
+                {
+                  "role": "show",
+                  "quoted": false
+                },
+                "(this.__kaspArcadeHudVisible!==false&&this.__kaspArcadeProgress!=null)}catch(__kaspArcadeError){this.__kaspArcadeReloadFailed=true;try{if(__kaspArcadeMesh)__kaspArcadeMesh.",
+                {
+                  "role": "show",
+                  "quoted": false
+                },
+                "(false);if(window.__kaspArcadeReloadDebug)window.__kaspArcadeReloadDebug.reportError(String(__kaspArcadeError))}catch(__kaspArcadeIgnored){}}};__kaspOwner.__kaspArcadeHudUpdate=function(){var __kaspOwner=this;try{if(window.__kaspArcadeControl&&!window.__kaspArcadeControl.active())return;if(__kaspOwner.__kaspArcadeReloadFailed||!__kaspOwner.",
+                {
+                  "role": "barField",
+                  "quoted": false
+                },
+                ")return;var __kaspEntity=",
+                {
+                  "role": "localTank",
+                  "quoted": false
+                },
+                "(__kaspOwner.",
+                {
+                  "role": "world",
+                  "quoted": false
+                },
+                "()),__kaspBar=__kaspOwner.__kaspArcadeReloadBar;var __kaspProgress=null,__kaspShaft=null,__kaspScorpio=null;if(__kaspEntity){var __kaspShaft=__kaspEntity.",
+                {
+                  "role": "optional",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "role": "token",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "role": "shaft",
+                  "quoted": false
+                },
+                ")),__kaspScorpio=__kaspEntity.",
+                {
+                  "role": "optional",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "role": "token",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "role": "scorpio",
+                  "quoted": false
+                },
+                "));if(__kaspScorpio)__kaspProgress=__kaspScorpio.",
+                {
+                  "role": "primary",
+                  "quoted": false
+                },
+                ";else if(__kaspShaft){var __kaspState=__kaspShaft.",
+                {
+                  "role": "active",
+                  "quoted": false
+                },
+                ";if((__kaspShaft.",
+                {
+                  "role": "stunned",
+                  "quoted": false
+                },
+                "||__kaspShaft.",
+                {
+                  "role": "paused",
+                  "quoted": false
+                },
+                ")&&__kaspOwner.__kaspArcadeWeapon===__kaspShaft)__kaspProgress=__kaspOwner.__kaspArcadeProgress;else __kaspProgress=__kaspState instanceof ",
+                {
+                  "role": "cooldownType",
+                  "quoted": false
+                },
+                "&&",
+                {
+                  "role": "compare",
+                  "quoted": false
+                },
+                "(__kaspShaft.",
+                {
+                  "role": "clock",
+                  "quoted": false
+                },
+                "(),__kaspState.",
+                {
+                  "role": "deadline",
+                  "quoted": false
+                },
+                ")<0?1-",
+                {
+                  "role": "divide",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "role": "subtract",
+                  "quoted": false
+                },
+                "(__kaspState.",
+                {
+                  "role": "deadline",
+                  "quoted": false
+                },
+                ",__kaspShaft.",
+                {
+                  "role": "clock",
+                  "quoted": false
+                },
+                "()),__kaspShaft.",
+                {
+                  "role": "duration",
+                  "quoted": false
+                },
+                "):1}}if(typeof __kaspProgress!==\"number\"||!Number.isFinite(__kaspProgress)||__kaspProgress<-.01||__kaspProgress>1.01){__kaspOwner.__kaspArcadeWeapon=null;__kaspOwner.__kaspArcadeProgress=null;if(__kaspBar)__kaspBar.",
+                {
+                  "role": "show",
+                  "quoted": false
+                },
+                "(!1);if(window.__kaspArcadeReloadDebug&&window.__kaspArcadeReloadDebug.observe)window.__kaspArcadeReloadDebug.observe({weapon:__kaspShaft?\"Shaft\":__kaspScorpio?\"Scorpio\":null,progress:__kaspOwner.__kaspArcadeProgress,barCreated:!!__kaspBar,visible:!!__kaspBar&&__kaspOwner.__kaspArcadeProgress!=null&&!__kaspOwner.__kaspArcadeReloadFailed&&__kaspOwner.__kaspArcadeHudVisible!==false});return}__kaspOwner.__kaspArcadeWeapon=__kaspShaft||__kaspScorpio;__kaspOwner.__kaspArcadeProgress=Math.max(0,Math.min(1,__kaspProgress));if(!__kaspBar)__kaspBar=__kaspOwner.__kaspArcadeReloadBar=__kaspOwner.__kaspArcadeHudCreate();__kaspBar.",
+                {
+                  "role": "show",
+                  "quoted": false
+                },
+                "(__kaspOwner.__kaspArcadeHudVisible!==false);__kaspBar.",
+                {
+                  "role": "fill",
+                  "quoted": false
+                },
+                "(__kaspOwner.__kaspArcadeProgress);__kaspOwner.__kaspArcadeHudSync();if(window.__kaspArcadeReloadDebug&&window.__kaspArcadeReloadDebug.observe)window.__kaspArcadeReloadDebug.observe({weapon:__kaspShaft?\"Shaft\":__kaspScorpio?\"Scorpio\":null,progress:__kaspOwner.__kaspArcadeProgress,barCreated:!!__kaspBar,visible:!!__kaspBar&&__kaspOwner.__kaspArcadeProgress!=null&&!__kaspOwner.__kaspArcadeReloadFailed&&__kaspOwner.__kaspArcadeHudVisible!==false})}catch(__kaspError){__kaspOwner.__kaspArcadeReloadFailed=!0;try{var __kaspBar=__kaspOwner.__kaspArcadeReloadBar;if(__kaspBar)__kaspBar.",
+                {
+                  "role": "show",
+                  "quoted": false
+                },
+                "(!1);window.__kaspArcadeReloadDebug.reportError(String(__kaspError))}catch(__kaspIgnored){}}};__kaspOwner.__kaspArcadeHudUpdate()}catch(__kaspArcadeError){if(window.__kaspArcadeReloadDebug)window.__kaspArcadeReloadDebug.reportError(String(__kaspArcadeError))}})(",
+                {
+                  "capture": "s6",
+                  "quoted": false
+                },
+                ")"
+              ]
+            },
+            {
+              "start": "e1start",
+              "end": "e1end",
+              "parts": [
+                ",(window.__kaspArcadeControl?window.__kaspArcadeControl.run(function(){if(",
+                {
+                  "capture": "s8",
+                  "quoted": false
+                },
+                ".__kaspArcadeHudUpdate)",
+                {
+                  "capture": "s8",
+                  "quoted": false
+                },
+                ".__kaspArcadeHudUpdate()}):(",
+                {
+                  "capture": "s8",
+                  "quoted": false
+                },
+                ".__kaspArcadeHudUpdate&&",
+                {
+                  "capture": "s8",
+                  "quoted": false
+                },
+                ".__kaspArcadeHudUpdate()))"
+              ]
+            }
+          ]
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*null(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*new(?![$\\w])\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*,\\s*function(?![$\\w])\\s*\\(\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*function(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*,\\s*\\k<s9>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*;\\s*null(?![$\\w])\\s*==\\s*\\k<s10>(?![$\\w])\\s*\\|\\|\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\)(?<e0start>)(?<e0end>)\\s*\\}\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*,\\s*!\\s*\\k<s9>(?![$\\w])\\s*\\)\\s*,\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\}\\s*\\)\\s*\\)\\s*\\}",
+          "roles": {
+            "hudType": "s0",
+            "barField": "s5",
+            "show": "s11"
+          },
+          "count": 1,
+          "search": {
+            "margin": 1592
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                ",",
+                {
+                  "capture": "s1",
+                  "quoted": false
+                },
+                ".__kaspArcadeHudVisible=!!",
+                {
+                  "capture": "s9",
+                  "quoted": false
+                },
+                ",(",
+                {
+                  "capture": "s1",
+                  "quoted": false
+                },
+                ".__kaspArcadeHudSync&&",
+                {
+                  "capture": "s1",
+                  "quoted": false
+                },
+                ".__kaspArcadeHudSync())"
+              ]
+            }
+          ]
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*null(?![$\\w])\\s*==\\s*\\k<s3>(?![$\\w])\\s*\\|\\|\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)(?<e0start>)(?<e0end>)\\s*\\}",
+          "roles": {
+            "scene": "s5",
+            "hudType": "s1",
+            "barField": "s4",
+            "remove": "s6"
+          },
+          "count": 1,
+          "search": {
+            "margin": 800
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                ";try{if(window.__kaspArcadeControl)window.__kaspArcadeControl.release(this);if(this.__kaspArcadeReloadBar){",
+                {
+                  "role": "scene",
+                  "quoted": false
+                },
+                "(this).",
+                {
+                  "role": "remove",
+                  "quoted": false
+                },
+                "(this.__kaspArcadeReloadBar);this.__kaspArcadeReloadBar=null};this.__kaspArcadeHudCreate=null;this.__kaspArcadeHudUpdate=null;this.__kaspArcadeHudSync=null;this.__kaspArcadeWeapon=null;this.__kaspArcadeProgress=null}catch(__kaspArcadeError){}"
+              ]
+            }
+          ]
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*==\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*\\k<s3>(?![$\\w])\\s*=\\s*null(?![$\\w])\\s*;\\s*else(?![$\\w])\\s*\\{\\s*var(?![$\\w])\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*new(?![$\\w])\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*this(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*1\\s*,\\s*!\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*=\\s*\\k<s6>(?![$\\w])\\s*\\}\\s*this(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s19>(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*\\(\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s19>(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*\\(\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s19>(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*\\(\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s28>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s29>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*,\\s*\\k<s5>(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*\\k<s5>(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*,\\s*\\k<s9>(?![$\\w])\\s*,\\s*(?<s30>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s31>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s32>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s33>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s34>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*return(?![$\\w])\\s*\\k<s6>(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s31>(?![$\\w])\\s*=\\s*null(?![$\\w])\\s*==\\s*\\(\\s*\\k<s30>(?![$\\w])\\s*=\\s*null(?![$\\w])\\s*==\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\)\\s*\\?\\s*null(?![$\\w])\\s*:\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s35>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s9>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s36>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\?\\s*(?<s37>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s38>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*:\\s*\\k<s30>(?![$\\w])\\s*,\\s*\\k<s34>(?![$\\w])\\s*=\\s*null(?![$\\w])\\s*==\\s*\\(\\s*\\k<s33>(?![$\\w])\\s*=\\s*null(?![$\\w])\\s*==\\s*\\(\\s*\\k<s32>(?![$\\w])\\s*=\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\)\\s*\\?\\s*null(?![$\\w])\\s*:\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s39>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s32>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s40>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\?\\s*(?<s41>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s42>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*:\\s*\\k<s33>(?![$\\w])\\s*,\\s*\\k<s31>(?![$\\w])\\s*\\.\\s*(?<s43>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s34>(?![$\\w])\\s*,\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s44>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s45>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s46>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*\\k<s44>(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*\\}\\s*,\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*callableName\\s*=\\s*(?:\"provideDefaultTitlePosition\"|'provideDefaultTitlePosition')\\s*,\\s*\\k<s5>(?![$\\w])\\s*\\)\\s*\\)\\s*;\\s*var(?![$\\w])\\s*\\k<s30>(?![$\\w])\\s*,\\s*\\k<s31>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s32>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s30>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*,\\s*function(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\k<s30>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*=\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\k<s30>(?![$\\w])\\s*\\.\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*(?<s47>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\}\\s*\\)\\s*;\\s*\\k<s31>(?![$\\w])\\s*\\.\\s*(?<s48>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*\\(\\s*(?<s49>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s32>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*\\k<s33>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s34>(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*function(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*=\\s*null(?![$\\w])\\s*,\\s*\\k<s47>(?![$\\w])\\s*\\}\\s*\\}\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*;\\s*\\k<s33>(?![$\\w])\\s*\\.\\s*\\k<s48>(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*\\(\\s*(?<s50>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s34>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s51>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s52>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*function(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s13>(?![$\\w])\\s*\\.\\s*\\k<s14>(?![$\\w])\\s*\\(\\s*1\\s*,\\s*!\\s*\\k<s15>(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s53>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s47>(?![$\\w])\\s*\\}\\s*\\}\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*;\\s*\\k<s51>(?![$\\w])\\s*\\.\\s*\\k<s48>(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*\\(\\s*(?<s54>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s52>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s55>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s56>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*\\k<s4>(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*\\k<s5>(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*;\\s*return(?![$\\w])\\s*\\k<s6>(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*,\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*\\k<s29>(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*(?<s57>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*(?<s58>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s47>(?![$\\w])\\s*\\}\\s*;\\s*return(?![$\\w])\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*callableName\\s*=\\s*(?:\"pushPositionProvider\"|'pushPositionProvider')\\s*,\\s*\\k<s4>(?![$\\w])\\s*\\}\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*;\\s*\\k<s55>(?![$\\w])\\s*\\.\\s*\\k<s48>(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*\\(\\s*(?<s59>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s56>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s60>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s61>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*\\k<s4>(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*\\k<s5>(?![$\\w])\\s*;\\s*return(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*(?<s62>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*>\\s*1\\s*&&\\s*\\(\\s*(?<s63>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*\\k<s28>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s58>(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s64>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s65>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*0\\s*\\)\\s*\\)\\s*,\\s*\\k<s47>(?![$\\w])\\s*\\}\\s*;\\s*return(?![$\\w])\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*callableName\\s*=\\s*(?:\"popPositionProvider\"|'popPositionProvider')\\s*,\\s*\\k<s4>(?![$\\w])\\s*\\}\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*;\\s*\\k<s60>(?![$\\w])\\s*\\.\\s*\\k<s48>(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*\\(\\s*(?<s66>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*0\\s*,\\s*!\\s*1\\s*,\\s*\\k<s61>(?![$\\w])\\s*\\)\\s*\\}",
+          "roles": {
+            "localTank": "s7",
+            "token": "s20",
+            "hudType": "s23",
+            "optional": "s19",
+            "world": "s8",
+            "supplyentity": "s18"
+          },
+          "count": 1,
+          "search": {
+            "literal": "provideDefaultTitlePosition",
+            "margin": 10680
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s4>(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*===\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\?\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*:\\s*\\k<s4>(?![$\\w])\\s*,\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*1\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*\\)\\s*\\}",
+          "roles": {
+            "barType": "s0",
+            "setWidth": "s12",
+            "setHeight": "s13"
+          },
+          "count": 1,
+          "search": {
+            "margin": 1152
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\}",
+          "roles": {
+            "baseBarType": "s1",
+            "setWidth": "s2",
+            "widthField": "s4"
+          },
+          "count": 1,
+          "search": {
+            "margin": 632
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\}",
+          "roles": {
+            "baseBarType": "s1",
+            "width": "s2",
+            "widthField": "s3"
+          },
+          "count": 1,
+          "search": {
+            "margin": 568
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\}",
+          "roles": {
+            "baseBarType": "s1",
+            "setHeight": "s2",
+            "heightField": "s4"
+          },
+          "count": 1,
+          "search": {
+            "margin": 632
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\}",
+          "roles": {
+            "baseBarType": "s1",
+            "height": "s2",
+            "heightField": "s3"
+          },
+          "count": 1,
+          "search": {
+            "margin": 568
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s6>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\}",
+          "roles": {
+            "barType": "s1",
+            "place": "s2",
+            "vector": "s8"
+          },
+          "count": 1,
+          "search": {
+            "margin": 1192
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*new(?![$\\w])\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*\\}",
+          "roles": {
+            "barType": "s1"
+          },
+          "count": 1,
+          "search": {
+            "margin": 616
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\}",
+          "roles": {
+            "vector": "s14",
+            "projectionmethod": "s6",
+            "projectionx": "s12",
+            "projectiony": "s13",
+            "projectionwidth": "s16",
+            "projectionheight": "s17"
+          },
+          "count": 1,
+          "search": {
+            "margin": 2160
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\|\\|\\s*\\(\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*,\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*,\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\)(?<e0start>)(?<e0end>)\\s*\\}",
+          "roles": {
+            "hudType": "s1"
+          },
+          "count": 1,
+          "search": {
+            "margin": 856
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                ";if(this.__kaspArcadeHudSync)this.__kaspArcadeHudSync()"
+              ]
+            }
+          ]
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*>\\s*0\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s8>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*;\\s*\\k<s2>(?![$\\w])\\s*=\\s*1\\s*-\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\}\\s*else(?![$\\w])\\s*\\k<s2>(?![$\\w])\\s*=\\s*1\\s*;\\s*return(?![$\\w])\\s*\\k<s2>(?![$\\w])\\s*\\}",
+          "roles": {
+            "compare": "s6",
+            "divide": "s11",
+            "subtract": "s10",
+            "world": "s4"
+          },
+          "count": 1,
+          "search": {
+            "margin": 1312
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*new(?![$\\w])\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:\"\"|'')\\s*\\)\\s*,\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*new(?![$\\w])\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*new(?![$\\w])\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*,\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\.2\\s*\\)\\s*\\)\\s*\\)\\s*,\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*new(?![$\\w])\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\)\\s*;\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*new(?![$\\w])\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*new(?![$\\w])\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\.001\\s*\\*\\s*\\k<s22>(?![$\\w])\\s*\\)\\s*,\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*new(?![$\\w])\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s24>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*(?<s28>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*new(?![$\\w])\\s*(?<s29>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*(?<s30>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*new(?![$\\w])\\s*(?<s31>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*(?<s32>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*new(?![$\\w])\\s*(?<s33>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*(?<s34>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*new(?![$\\w])\\s*(?<s35>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s36>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*;\\s*return(?![$\\w])\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s37>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s13>(?![$\\w])\\s*,\\s*(?<s38>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s39>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s13>(?![$\\w])\\s*,\\s*\\k<s16>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*(?<s40>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s13>(?![$\\w])\\s*,\\s*\\k<s34>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*(?<s41>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s13>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*(?<s42>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s16>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*(?<s43>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s16>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*(?<s44>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*(?<s45>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*,\\s*\\k<s20>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s42>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*(?<s46>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*(?<s47>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*(?<s48>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s46>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s34>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s43>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s34>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s42>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s34>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s46>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s34>(?![$\\w])\\s*,\\s*\\k<s26>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s45>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s26>(?![$\\w])\\s*,\\s*\\k<s16>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s40>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s26>(?![$\\w])\\s*,\\s*\\k<s28>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s45>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s26>(?![$\\w])\\s*,\\s*\\k<s32>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*(?<s49>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s26>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s42>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s26>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*(?<s50>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s26>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s46>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*,\\s*\\k<s30>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s41>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*,\\s*\\k<s32>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s49>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s42>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s50>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s46>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s30>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s44>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s37>(?![$\\w])\\s*\\(\\s*\\k<s32>(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s38>(?![$\\w])\\s*\\(\\s*\\k<s45>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\}\\s*\\(\\s*this(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s51>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s52>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s53>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\}",
+          "roles": {
+            "shaft": "s1",
+            "cooldownType": "s19",
+            "token": "s38",
+            "duration": "s6"
+          },
+          "count": 1,
+          "search": {
+            "margin": 8504
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*=\\s*!\\s*1\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\(\\s*null(?![$\\w])\\s*==\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*new(?![$\\w])\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s10>(?![$\\w])\\s*\\)\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\|\\|\\s*this(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\|\\|\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*null(?![$\\w])\\s*==\\s*\\k<s18>(?![$\\w])\\s*\\|\\|\\s*\\k<s18>(?![$\\w])\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\}",
+          "roles": {
+            "shaft": "s1",
+            "active": "s19",
+            "stunned": "s12",
+            "paused": "s13"
+          },
+          "count": 1,
+          "search": {
+            "margin": 1960
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*\\k<s4>(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*instanceof(?![$\\w])\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\?\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*:\\s*\\k<s3>(?![$\\w])\\s*instanceof(?![$\\w])\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\?\\s*\\k<s6>(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*\\k<s8>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*:\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s8>(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\)\\s*\\}",
+          "roles": {
+            "cooldownType": "s1",
+            "subtract": "s6",
+            "clock": "s10",
+            "duration": "s14",
+            "deadline": "s8"
+          },
+          "count": 1,
+          "search": {
+            "margin": 2296
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*>=\\s*0\\s*&&\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\)\\s*\\}",
+          "roles": {
+            "cooldownType": "s1",
+            "compare": "s3",
+            "clock": "s5",
+            "deadline": "s6"
+          },
+          "count": 1,
+          "search": {
+            "margin": 1112
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*-\\s*54\\s*,\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s5>(?![$\\w])\\s*\\(\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*\\)\\s*,(?<e0start>)\\s*8(?<e0end>)\\s*,\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*\\}",
+          "roles": {},
+          "count": 1,
+          "search": {
+            "margin": 1032
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                "(8+(function(__kaspSupplyOwner){try{if(!__kaspSupplyOwner.",
+                {
+                  "role": "supplycentered",
+                  "quoted": false
+                },
+                ")return 0;var hud=__kaspSupplyOwner.",
+                {
+                  "role": "supplyentity",
+                  "quoted": false
+                },
+                "().",
+                {
+                  "role": "optional",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "role": "token",
+                  "quoted": false
+                },
+                "(",
+                {
+                  "role": "hudType",
+                  "quoted": false
+                },
+                ")),bar=hud&&hud.__kaspArcadeReloadBar;return bar&&hud.__kaspArcadeWeapon&&hud.__kaspArcadeProgress!=null&&!hud.__kaspArcadeReloadFailed&&hud.__kaspArcadeHudVisible!==false?bar.",
+                {
+                  "role": "height",
+                  "quoted": false
+                },
+                "():0}catch(__kaspArcadeError){return 0}})(this))"
+              ]
+            }
+          ]
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\(\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\?\\s*this(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\|\\|\\s*this(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*:\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*0\\s*,\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s15>(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\+\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*,\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*-\\s*54\\s*,\\s*\\k<s14>(?![$\\w])\\s*\\(\\s*\\k<s15>(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*\\)\\s*\\)\\s*,\\s*\\k<s15>(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\}",
+          "roles": {
+            "height": "s16",
+            "supplycentered": "s10"
+          },
+          "count": 1,
+          "search": {
+            "margin": 2032
+          },
+          "edits": []
+        },
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*null(?![$\\w])\\s*==\\s*\\k<s5>(?![$\\w])\\s*\\|\\|\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s6>(?![$\\w])\\s*;\\s*null(?![$\\w])\\s*==\\s*\\k<s8>(?![$\\w])\\s*\\|\\|\\s*\\(\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s6>(?![$\\w])\\s*;\\s*null(?![$\\w])\\s*==\\s*\\k<s10>(?![$\\w])\\s*\\|\\|\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*\\)(?<e0start>)(?<e0end>)\\s*\\}",
+          "roles": {
+            "hudType": "s1",
+            "barField": "s6"
+          },
+          "count": 1,
+          "search": {
+            "margin": 1392
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                ";if(this.__kaspArcadeHudSync)this.__kaspArcadeHudSync()"
+              ]
+            }
+          ]
+        }
+      ],
+      "sourceName": "tanki-client-289a5d50.js"
     }
   ]
 }

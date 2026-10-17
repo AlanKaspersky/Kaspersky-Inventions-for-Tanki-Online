@@ -1,8 +1,10 @@
+import { featureScope } from '../core/featureRuntime';
+const lifecycle = featureScope('hideCurrency');
 import { gameDOM } from '../core/gameDOM';
 import { state } from '../core/state';
 import { utils } from '../core/utils';
 
-export const hideCurrency = (() => {
+export const hideCurrency = lifecycle.initialize(() => {
     let initialized = false;
 
     function getHiddenText() {
@@ -30,6 +32,8 @@ export const hideCurrency = (() => {
         }
     }
 
+    lifecycle.onCleanup(() => { document.querySelectorAll<HTMLElement>('[data-original-value]').forEach(node=>{if(node.dataset.originalValue && ['Hidden','Скрыто'].includes(node.textContent?.trim() || ''))node.textContent=node.dataset.originalValue;delete node.dataset.originalValue;});document.querySelectorAll('.currency-masked').forEach(node=>{node.classList.remove('currency-masked');node.removeAttribute('data-tooltip');}); });
+
     return () => {
         if (!utils.getSetting('k_hideCurrency', false)) return;
         if (state.currentScreen === 'battle') return;
@@ -37,7 +41,7 @@ export const hideCurrency = (() => {
         if (!initialized) {
             initialized = true;
 
-            window.setInterval(() => {
+            lifecycle.interval(() => {
                 if (state.currentScreen === 'battle') return;
                 const spans = document.querySelectorAll(gameDOM.account.currencyValues);
                 spans.forEach(node => processSpan(node as HTMLElement));
@@ -47,4 +51,4 @@ export const hideCurrency = (() => {
         const spans = document.querySelectorAll(gameDOM.account.currencyValues);
         spans.forEach(node => processSpan(node as HTMLElement));
     };
-})();
+}, () => {});

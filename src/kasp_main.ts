@@ -4,16 +4,20 @@ import { utils } from './core/utils';
 import { startBoot } from './boot';
 import { setupNicknamePrivacy } from './modules/hideNickname';
 import { setupDiscordPresence } from './modules/discordPresence';
+import { setupAccountIdentity } from './core/accountIdentity';
+import { featureScope, installFeatureDiagnostics } from './core/featureRuntime';
 
 if (window === window.top) {
-  setupElectronZKey();
+  installFeatureDiagnostics(window, 'content');
+  featureScope('accountIdentity').run(setupAccountIdentity);
+  featureScope('electronNavigation').run(setupElectronZKey);
 
   const loaderBg = chrome.runtime.getURL('assets/background.png');
   document.documentElement.style.setProperty('--kasp-loader-bg', `url("${loaderBg}")`);
 
   state.lang = utils.getLang();
-  setupNicknamePrivacy();
+  featureScope('hideNickname').run(setupNicknamePrivacy);
 
   startBoot();
-  setupDiscordPresence();
+  featureScope('discordPresence').run(setupDiscordPresence);
 }

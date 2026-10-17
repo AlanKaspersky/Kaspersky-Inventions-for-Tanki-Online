@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Tanki Online: Kaspersky's Inventions",
-  "version": "2.9.5",
+  "version": "2.9.6",
   "default_locale": "en",
   "description": "__MSG_extensionDescription__",
   "icons": {
@@ -65,5 +65,16 @@
         "*://*.tankionline.com/*"
       ]
     }
-  ]
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "kaspersky-inventions@tankionline.local",
+      "strict_min_version": "128.0",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
+    }
+  }
 }

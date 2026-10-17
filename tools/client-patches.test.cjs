@@ -1,3 +1,4 @@
+const runFeatureContext = require('./test-feature-context.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
@@ -72,8 +73,8 @@ test('lexical filtering agrees with the offline tokenizer on mixed regex/divisio
 test('all selectors share one SHA calculation per source and release it after injection', async () => {
     const compile = source => transformSync(source, { loader: 'ts', format: 'cjs' }).code;
     const lexical = { exports: {} }, module = { exports: {} }; let digests = 0;
-    vm.runInNewContext(compile(fs.readFileSync('src/core/clientLexical.ts', 'utf8')), { module: lexical });
-    vm.runInNewContext(compile(fs.readFileSync('src/core/clientPatches.ts', 'utf8')), {
+    runFeatureContext(compile(fs.readFileSync('src/core/clientLexical.ts', 'utf8')), { module: lexical });
+    runFeatureContext(compile(fs.readFileSync('src/core/clientPatches.ts', 'utf8')), {
         module, TextEncoder, require: () => lexical.exports,
         crypto: { subtle: { digest(...args) { digests++; return webcrypto.subtle.digest(...args); } } },
     });
@@ -96,7 +97,7 @@ test('shared configuration headers preserve native strictness and simultaneous h
         const headers = ['augments', 'critical'].map(name => plan(api.clientPatchHeader(code, '/*' + name + ':', {}, 'try{window.configure()}catch(ignored){}')));
         for (const order of [headers, [...headers].reverse()]) {
             const merged = api.mergeClientPatchPlans(code, order), context = { window: {} };
-            assert.equal(merged.rejected.length, 0); vm.runInNewContext(merged.code, context);
+            assert.equal(merged.rejected.length, 0); runFeatureContext(merged.code, context);
             assert.equal((0, context.check)(), code.includes('use strict'));
         }
     }

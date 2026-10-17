@@ -1,3 +1,4 @@
+const runFeatureContext = require('./test-feature-context.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -6,7 +7,7 @@ const { test } = require('node:test');
 const { transformSync } = require('esbuild');
 
 const gameDOMModule = { exports: {} };
-vm.runInNewContext(transformSync(fs.readFileSync(path.join(__dirname, '../src/core/gameDOM.ts'), 'utf8'),
+runFeatureContext(transformSync(fs.readFileSync(path.join(__dirname, '../src/core/gameDOM.ts'), 'utf8'),
     { loader: 'ts', format: 'cjs' }).code, { module: gameDOMModule });
 
 const source = fs.readFileSync(path.join(__dirname, '../src/modules/augmentSpecs.ts'), 'utf8');
@@ -106,7 +107,7 @@ function fixture(withCard = false) {
         createElement: tag => new Element(tag),
     };
     const module = { exports: {} };
-    vm.runInNewContext(code, {
+    runFeatureContext(code, {
         module, exports: module.exports, document,
         window: { addEventListener() {}, getComputedStyle: () => ({ position: 'relative' }), innerWidth: 1920, innerHeight: 1080 },
         requestAnimationFrame: callback => frames.push(callback),

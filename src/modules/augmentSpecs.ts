@@ -1,3 +1,5 @@
+import { featureScope } from '../core/featureRuntime';
+const lifecycle = featureScope('augmentSpecs');
 import { gameDOM } from '../core/gameDOM';
 import { state } from '../core/state';
 import { utils } from '../core/utils';
@@ -8,7 +10,7 @@ import type { Lang } from '../core/state';
 
 interface LocalizedSpec { RU: string; EN: string; subItems?: LocalizedSpec[]; }
 
-export const augmentSpecs = (() => {
+export const augmentSpecs = lifecycle.initialize(() => {
     let initialized = false;
     let updateQueued = false;
     const previewImages = new Map<HTMLImageElement, { original: string; replacement: string; id: string; section: string | null }>();
@@ -155,12 +157,12 @@ export const augmentSpecs = (() => {
                 btn.dataset.deviceId = device.id;
                 btn.innerHTML = `<div class="custom-card-specs-icon"></div>`;
 
-                btn.addEventListener('click', (e) => {
+                lifecycle.listen(btn, 'click', (e) => {
                     e.stopPropagation();
                     e.preventDefault();
                 });
 
-                btn.addEventListener('mouseenter', (e) => {
+                lifecycle.listen(btn, 'mouseenter', (e) => {
                     const deviceUrl = btn.dataset.url;
                     const deviceData = deviceUrl ? DataLoader.getDevice(deviceUrl, card) : undefined;
                     if (!deviceData) { hoverTooltip.style.display = 'none'; return; }
@@ -191,9 +193,9 @@ export const augmentSpecs = (() => {
                     updateTooltipPos(e);
                 });
 
-                btn.addEventListener('mousemove', updateTooltipPos);
+                lifecycle.listen(btn, 'mousemove', updateTooltipPos);
 
-                btn.addEventListener('mouseleave', () => {
+                lifecycle.listen(btn, 'mouseleave', () => {
                     hoverTooltip.style.display = 'none';
                 });
 
@@ -225,7 +227,7 @@ export const augmentSpecs = (() => {
                 if (preview?.replacement !== data.previewIcon) {
                     const replacement = data.previewIcon;
                     previewImages.set(img, { original, replacement, id, section });
-                    img.addEventListener('error', () => {
+                    lifecycle.listen(img, 'error', () => {
                         if (previewImages.get(img)?.replacement !== replacement || img.src !== replacement) return;
                         failedPreviews.add(replacement); restorePreview(img);
                         img.setAttribute('data-kasp-preview-failed', '');
@@ -319,7 +321,7 @@ export const augmentSpecs = (() => {
     const scheduleUpdate = () => {
         if (updateQueued) return;
         updateQueued = true;
-        queueMicrotask(() => {
+        lifecycle.microtask(() => {
             updateQueued = false;
             if (!utils.getSetting('k_augments', false)) return;
 
@@ -331,6 +333,8 @@ export const augmentSpecs = (() => {
             updateLiveStats();
         });
     };
+
+    lifecycle.onCleanup(() => { for(const img of previewImages.keys()) restorePreview(img); for(const img of emptyCards.keys()) restoreEmptyCard(img); for(const [original,entry] of liveStats){entry.replacement.remove();original.classList.remove('hidden-by-script');original.style.display=entry.originalDisplay;}liveStats.clear();document.querySelectorAll('.custom-card-specs-btn').forEach(node=>node.remove());document.getElementById('kasp-specs-tooltip')?.remove(); });
 
     return function sync() {
         if (!utils.getSetting('k_augments', false)) {
@@ -350,24 +354,24 @@ export const augmentSpecs = (() => {
 
         if (!initialized) {
             initialized = true;
-            window.addEventListener('kasp:settings-changed', sync);
-            window.addEventListener('storage', sync);
-            window.addEventListener(AUGMENTS_UPDATED, scheduleUpdate);
-            window.addEventListener(AUGMENT_CARDS_UPDATED, scheduleUpdate);
+            lifecycle.listen(window, 'kasp:settings-changed', sync);
+            lifecycle.listen(window, 'storage', sync);
+            lifecycle.listen(window, AUGMENTS_UPDATED, scheduleUpdate);
+            lifecycle.listen(window, AUGMENT_CARDS_UPDATED, scheduleUpdate);
 
             const forceHideTooltip = () => {
                 const hoverTooltip = document.getElementById('kasp-specs-tooltip');
                 if (hoverTooltip) hoverTooltip.style.display = 'none';
             };
 
-            window.addEventListener('keydown', (e) => {
+            lifecycle.listen(window, 'keydown', (e) => {
                 if (e.code === 'Escape' || e.key === 'Escape' || e.code === 'KeyZ' || e.key.toLowerCase() === 'z') {
                     if (document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
                     forceHideTooltip();
                 }
             }, true);
 
-            window.addEventListener('mousedown', (e) => {
+            lifecycle.listen(window, 'mousedown', (e) => {
                 if (e.button === 3) {
                     forceHideTooltip();
                 }
@@ -387,4 +391,4 @@ export const augmentSpecs = (() => {
             scheduleUpdate();
         }
     };
-})();
+}, () => {});

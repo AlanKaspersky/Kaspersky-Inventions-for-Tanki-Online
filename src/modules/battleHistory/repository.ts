@@ -1,9 +1,11 @@
 import type { BattleData } from './types';
+import { normalizeAccountId } from '../../core/accountId';
+import { getBattleIdentity } from './battleIdentity';
 
 const DATABASE_NAME = 'TankiBattlesDB';
-const DATABASE_VERSION = 4;
+const DATABASE_VERSION = 5;
 const STORE_NAME = 'battles';
-const INDEXES = ['date', 'map', 'mode', 'top', 'nickname'] as const;
+const INDEXES = ['date', 'map', 'mode', 'top', 'userId'] as const;
 
 function openDatabase(): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
@@ -16,6 +18,7 @@ function openDatabase(): Promise<IDBDatabase> {
             for (const index of INDEXES) {
                 if (!store.indexNames.contains(index)) store.createIndex(index, index, { unique: false });
             }
+            if (store.indexNames.contains('nickname')) store.deleteIndex('nickname');
         };
         request.onsuccess = () => {
             const db = request.result;
@@ -52,62 +55,49 @@ async function transaction<T>(
 }
 
 export function addBattle(battle: BattleData): Promise<IDBValidKey> {
+    if (typeof battle.userId !== 'string' || normalizeAccountId(battle.userId) !== battle.userId) return Promise.reject(new Error('account-id-required'));
     return transaction('readwrite', (store, setResult) => {
-        const request = store.add(battle);
+        const request = store.add({ ...battle, battleId: battle.battleId || crypto.randomUUID() });
         request.onsuccess = () => setResult(request.result);
     });
 }
 
-export async function addBattles(battles: BattleData[]): Promise<void> {
-    if (!battles.length) return;
-    await transaction<void>('readwrite', store => {
-        for (const battle of battles) store.add(battle);
-    });
-}
-
-export function getAllBattles(nickname: string): Promise<BattleData[]> {
-    return transaction('readonly', (store, setResult) => {
-        const request = nickname && store.indexNames.contains('nickname')
-            ? store.index('nickname').getAll(nickname)
-            : store.getAll();
-        request.onsuccess = () => setResult(request.result || []);
-    });
-}
-
-export function getNicknameHistory(): Promise<Array<{ nickname: string; count: number }>> {
-    return transaction('readonly', (store, setResult) => {
-        const request = store.getAll();
-        request.onsuccess = () => {
-            const counts = new Map<string, number>();
-            for (const battle of request.result as BattleData[]) {
-                if (battle.nickname) counts.set(battle.nickname, (counts.get(battle.nickname) || 0) + 1);
+export async function addBattles(battles: BattleData[], userId: string): Promise<number> {
+    if (!battles.length) return 0;
+    if (normalizeAccountId(userId) !== userId || battles.some(battle => battle.userId !== userId)) throw new Error('history-owner-mismatch');
+    if (battles.some(battle => !getBattleIdentity(battle))) throw new Error('battle-id-required');
+    return transaction<number>('readwrite', (store, setResult) => {
+        const existing = store.index('userId').getAll(userId);
+        existing.onsuccess = () => {
+            const known = new Set((existing.result as BattleData[]).map(getBattleIdentity));
+            let added = 0;
+            for (const battle of battles) {
+                const battleId = getBattleIdentity(battle)!;
+                if (known.has(battleId)) continue;
+                known.add(battleId);
+                const { id: _sourceKey, ...record } = battle;
+                store.add({ ...record, battleId });
+                added++;
             }
-            setResult(Array.from(counts, ([nickname, count]) => ({ nickname, count }))
-                .sort((a, b) => a.nickname.localeCompare(b.nickname)));
+            setResult(added);
         };
     });
 }
 
-export function mergeNicknameHistory(source: string, target: string): Promise<number> {
-    return transaction('readwrite', (store, setResult) => {
-        let count = 0;
-        setResult(count);
-        const request = store.index('nickname').openCursor(IDBKeyRange.only(source));
-        request.onsuccess = () => {
-            const cursor = request.result;
-            if (!cursor) return;
-            const battle = cursor.value as BattleData;
-            battle.nickname = target;
-            cursor.update(battle);
-            setResult(++count);
-            cursor.continue();
-        };
+export function getAllBattles(userId: string | null): Promise<BattleData[]> {
+    if (!userId || normalizeAccountId(userId) !== userId) return Promise.resolve([]);
+    return transaction('readonly', (store, setResult) => {
+        const request = store.index('userId').getAll(userId);
+        request.onsuccess = () => setResult((request.result as BattleData[] || []).map(battle => ({
+            ...battle, battleId: getBattleIdentity(battle) || undefined,
+        })));
     });
 }
 
-export function clearNicknameHistory(nickname: string): Promise<void> {
+export function clearAccountHistory(userId: string): Promise<void> {
+    if (normalizeAccountId(userId) !== userId) return Promise.reject(new Error('account-id-required'));
     return transaction('readwrite', store => {
-        const request = store.index('nickname').getAllKeys(nickname);
+        const request = store.index('userId').getAllKeys(userId);
         request.onsuccess = () => {
             for (const key of request.result) store.delete(key);
         };

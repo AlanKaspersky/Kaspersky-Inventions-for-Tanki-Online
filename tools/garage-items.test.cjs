@@ -1,10 +1,11 @@
+const runFeatureContext = require('./test-feature-context.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const { test } = require('node:test');
 const { transformSync } = require('esbuild');
 const moduleUnderTest = { exports: {} };
-vm.runInNewContext(transformSync(fs.readFileSync('src/core/garageItems.ts', 'utf8'), { loader: 'ts', format: 'cjs' }).code,
+runFeatureContext(transformSync(fs.readFileSync('src/core/garageItems.ts', 'utf8'), { loader: 'ts', format: 'cjs' }).code,
     { module: moduleUnderTest, exports: moduleUnderTest.exports, crypto: require('crypto').webcrypto, TextEncoder, require: () => require('./test-client-patches.cjs') });
 const { analyzeGarageItems } = require('./garage-items-ast.cjs');
 const patchUnavailableGarageItems = (code, report, plan) => moduleUnderTest.exports.patchUnavailableGarageItems(code, report, plan || analyzeGarageItems(code));
@@ -31,7 +32,7 @@ function run(source, enabled, unknown, category = 'turret', language = 'en', opt
     const context = { localStorage: { getItem: () => { if (options.storageError) throw Error('storage denied'); return String(enabled); } }, register() {}, Base: {}, metadata: {},
         [options.protoHelper || 'proto']: type => type.prototype, Dq: { xut: () => builder }, missing: 'question-mark', paint: () => 'paint' };
     context.window = { localStorage: context.localStorage };
-    vm.runInNewContext(source, context);
+    runFeatureContext(source, context);
     context[options.styleFactory || 'styles'] = () => new context[options.stylesCtor || 'Styles']();
     const item = { id: '123', [options.itemName || 'name']: language === 'ru' ? 'Мортира' : 'Mortar',
         [options.unknownMethod || 'unknown']: () => { unknownReads++; return unknown; },
@@ -161,7 +162,7 @@ test('fresh temporary names and native strict directives survive unknown bundle 
     const adapted = await moduleUnderTest.exports.selectGarageItemsPlan(changed, [plan]); assert.ok(adapted);
     const patched = patchUnavailableGarageItems(changed, undefined, adapted); new vm.Script(patched);
     assert.ok(patched.includes('var __kaspItemUnavailable_=false;'));
-    const c = { proto: type => type.prototype, register() {}, Base: {}, metadata: {} }; vm.runInNewContext(patched,c);
+    const c = { proto: type => type.prototype, register() {}, Base: {}, metadata: {} }; runFeatureContext(patched,c);
     assert.equal(c.__kaspItemUnavailable,123); assert.equal(c._kaspBonusResult,456); assert.equal((0,c.nativeStrict)(),true);
     assert.deepEqual(run(patched,true,true).labels,['Mortar']);
 });

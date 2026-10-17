@@ -1,3 +1,5 @@
+import { featureScope } from '../../core/featureRuntime';
+const lifecycle = featureScope('battleHistory');
 import { gameDOM } from '../../core/gameDOM';
 import { state } from '../../core/state';
 import { getHistoryDictionary } from './localization';
@@ -80,7 +82,7 @@ export function createHistoryNavigation(options: NavigationOptions) {
         overlay.style.setProperty('transition', 'opacity 0.1s ease', 'important');
         void overlay.offsetHeight;
         overlay.style.setProperty('opacity', '0', 'important');
-        window.setTimeout(() => overlay.remove(), 120);
+        lifecycle.timeout(() => overlay.remove(), 120);
     };
 
     const flashHideSettings = (): void => {
@@ -99,10 +101,10 @@ export function createHistoryNavigation(options: NavigationOptions) {
         `;
         document.body.appendChild(cover);
 
-        const watch = new MutationObserver(() => {
+        const watch = lifecycle.observer(() => {
             if (!document.querySelector(gameDOM.navigation.header)) {
                 cover.style.opacity = '0';
-                window.setTimeout(() => {
+                lifecycle.timeout(() => {
                     watch.disconnect();
                     cover.remove();
                 }, 200);
@@ -110,7 +112,7 @@ export function createHistoryNavigation(options: NavigationOptions) {
         });
         watch.observe(document.body, { childList: true, subtree: true });
 
-        window.setTimeout(() => {
+        lifecycle.timeout(() => {
             watch.disconnect();
             cover.remove();
         }, 2000);
@@ -118,9 +120,9 @@ export function createHistoryNavigation(options: NavigationOptions) {
 
     const disarmReturnWatcher = (): void => {
         exitAfterReturn = false;
-        window.clearTimeout(returnTimer);
-        window.clearTimeout(returnBackTimer);
-        window.clearTimeout(returnLoaderTimer);
+        lifecycle.cancelTimeout(returnTimer);
+        lifecycle.cancelTimeout(returnBackTimer);
+        lifecycle.cancelTimeout(returnLoaderTimer);
         returnLoaderObserver?.disconnect();
         returnLoaderObserver = null;
         returnObserver?.disconnect();
@@ -131,7 +133,7 @@ export function createHistoryNavigation(options: NavigationOptions) {
         disarmReturnWatcher();
         exitAfterReturn = true;
 
-        returnObserver = new MutationObserver(() => {
+        returnObserver = lifecycle.observer(() => {
             if (!exitAfterReturn) return;
 
             if (!document.querySelector(gameDOM.navigation.header)) {
@@ -152,18 +154,18 @@ export function createHistoryNavigation(options: NavigationOptions) {
                 const finishLoading = () => {
                     returnLoaderObserver?.disconnect();
                     returnLoaderObserver = null;
-                    window.clearTimeout(returnLoaderTimer);
+                    lifecycle.cancelTimeout(returnLoaderTimer);
                     hideFakeLoader();
                 };
-                returnLoaderObserver = new MutationObserver(() => {
+                returnLoaderObserver = lifecycle.observer(() => {
                     if (!document.querySelector(gameDOM.navigation.header)) {
                         finishLoading();
                     }
                 });
                 returnLoaderObserver.observe(document.body, { childList: true, subtree: true });
-                returnLoaderTimer = window.setTimeout(finishLoading, 2000);
+                returnLoaderTimer = lifecycle.timeout(finishLoading, 2000);
 
-                returnBackTimer = window.setTimeout(() => {
+                returnBackTimer = lifecycle.timeout(() => {
                     const backBtn = document.querySelector<HTMLElement>(
                         gameDOM.navigation.back
                     );
@@ -177,7 +179,7 @@ export function createHistoryNavigation(options: NavigationOptions) {
             subtree: true,
             characterData: true,
         });
-        returnTimer = window.setTimeout(() => {
+        returnTimer = lifecycle.timeout(() => {
             if (exitAfterReturn) {
                 disarmReturnWatcher();
             }
@@ -190,17 +192,15 @@ export function createHistoryNavigation(options: NavigationOptions) {
     let previousNativeDisplay = '';
 
     const releasePage = (overlay: HTMLElement): void => {
-        for (const id of ['link-history-overlay', 'clear-confirm-overlay']) {
-            const modal = document.getElementById(id) as (HTMLElement & { closeDialogMethod?: () => void }) | null;
-            modal?.closeDialogMethod?.();
-        }
+        const modal = document.getElementById('clear-confirm-overlay') as (HTMLElement & { closeDialogMethod?: () => void }) | null;
+        modal?.closeDialogMethod?.();
         overlay.style.display = 'none';
         restoreContainerBackground();
         if (nativeContent) nativeContent.style.display = previousNativeDisplay;
         nativeContent = null;
         pageObserver?.disconnect();
         pageObserver = null;
-        if (resizeHandler) window.removeEventListener('resize', resizeHandler);
+        if (resizeHandler) lifecycle.unlisten(window, 'resize', resizeHandler);
         resizeHandler = null;
     };
 
@@ -216,7 +216,7 @@ export function createHistoryNavigation(options: NavigationOptions) {
 
     const watchNativePage = (overlay: HTMLElement, ourTitle: string): void => {
         pageObserver?.disconnect();
-        pageObserver = new MutationObserver(() => {
+        pageObserver = lifecycle.observer(() => {
             if (!document.querySelector(gameDOM.navigation.header)) {
                 releasePage(overlay);
                 return;
@@ -245,15 +245,15 @@ export function createHistoryNavigation(options: NavigationOptions) {
             let timer = 0;
             const finish = (element: T | null) => {
                 obs.disconnect();
-                window.clearTimeout(timer);
+                lifecycle.cancelTimeout(timer);
                 resolve(element);
             };
-            const obs = new MutationObserver(() => {
+            const obs = lifecycle.observer(() => {
                 const el = document.querySelector<T>(selector);
                 if (el) finish(el);
             });
             obs.observe(document.body, { childList: true, subtree: true });
-            timer = window.setTimeout(() => finish(null), timeoutMs);
+            timer = lifecycle.timeout(() => finish(null), timeoutMs);
         });
     };
 
@@ -264,9 +264,9 @@ export function createHistoryNavigation(options: NavigationOptions) {
             overlay.style.height = `calc(100vh - ${r.bottom}px)`;
         };
         update();
-        if (resizeHandler) window.removeEventListener('resize', resizeHandler);
+        if (resizeHandler) lifecycle.unlisten(window, 'resize', resizeHandler);
         resizeHandler = update;
-        window.addEventListener('resize', update);
+        lifecycle.listen(window, 'resize', update);
     };
 
     const openAsNativePage = async (overlay: HTMLElement): Promise<boolean> => {
@@ -336,7 +336,7 @@ export function createHistoryNavigation(options: NavigationOptions) {
         btn.innerHTML = '<div></div>';
         btn.title = dict.title;
 
-        btn.addEventListener('click', async () => {
+        lifecycle.listen(btn, 'click', async () => {
             if (opening) return;
             opening = true;
             const hidden: Array<{ el: HTMLElement; prev: string }> = [];
@@ -377,7 +377,7 @@ export function createHistoryNavigation(options: NavigationOptions) {
                 await renderBattleList(1, true);
 
                 const duration = 500 + Math.random() * 2500;
-                await new Promise<void>((r) => window.setTimeout(r, duration));
+                await new Promise<void>((r) => lifecycle.timeout(r, duration));
                 if (document.querySelector('.custom-history-overlay') !== overlay) return;
 
                 const ok = await openAsNativePage(overlay);
@@ -398,9 +398,9 @@ export function createHistoryNavigation(options: NavigationOptions) {
                     const tick = () => {
                         frames++;
                         if (frames >= 3) resolve();
-                        else requestAnimationFrame(tick);
+                        else lifecycle.frame(tick);
                     };
-                    requestAnimationFrame(tick);
+                    lifecycle.frame(tick);
                 });
             } catch (error) {
                 console.error('[BattleHistory] Failed to open history:', error);
@@ -416,7 +416,7 @@ export function createHistoryNavigation(options: NavigationOptions) {
     const bindShortcuts = () => {
         if (shortcutsBound) return;
         shortcutsBound = true;
-        document.addEventListener('keydown', (e) => {
+        lifecycle.listen(document, 'keydown', (e) => {
             const overlay = document.querySelector('.custom-history-overlay');
 
             const isHistoryOpen = overlay && window.getComputedStyle(overlay).display !== 'none';
@@ -428,8 +428,8 @@ export function createHistoryNavigation(options: NavigationOptions) {
                 e.stopImmediatePropagation();
             }
         }, true);
-        window.addEventListener('keydown', (e) => {
-            if (document.getElementById('clear-confirm-overlay') || document.getElementById('link-history-overlay')) return;
+        lifecycle.listen(window, 'keydown', (e) => {
+            if (document.getElementById('clear-confirm-overlay')) return;
             const overlay = document.querySelector('.custom-history-overlay') as HTMLElement | null;
             if (overlay && overlay.style.display === 'flex') {
                 if (e.code === 'Escape' || e.code === 'KeyZ' || e.key.toLowerCase() === 'z') {
@@ -439,7 +439,7 @@ export function createHistoryNavigation(options: NavigationOptions) {
                 }
             }
         });
-        document.addEventListener('mousedown', (e) => {
+        lifecycle.listen(document, 'mousedown', (e) => {
             const overlay = document.querySelector('.custom-history-overlay') as HTMLElement | null;
             if (overlay && overlay.style.display === 'flex' && e.button === 3) {
                 closeHistoryOverlay(overlay);
