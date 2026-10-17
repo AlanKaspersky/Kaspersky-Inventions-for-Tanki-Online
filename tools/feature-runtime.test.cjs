@@ -75,12 +75,48 @@ test('a broken cleanup cannot stop cleanup of other resources', () => {
     scope.dispose(); assert.equal(restored, true); assert.equal(scope.status().cleanupErrors, 1);
 });
 
-test('five consecutive synchronous budget overruns stop future calls after returning', () => {
-    const f = fixture(), scope = f.createFeatureScope('slow', { now: () => { const t = scopeTime; return t; }, budgetMs: 4 });
-    let scopeTime = 0, calls = 0;
-    for (let i = 0; i < 7; i++) scope.run(() => { calls++; scopeTime += 5; });
-    assert.equal(calls, 5); assert.equal(scope.status().reason, 'repeated-budget-overrun');
-    assert.equal(scope.status().maxMs, 5);
+test('repeated slow calls retain results and owned resources while recording timing diagnostics', () => {
+    const f = fixture();
+    for (const budgetMs of [4, 16]) {
+        let scopeTime = 0, cleanup = 0, clicks = 0;
+        const scope = f.createFeatureScope(`slow-${budgetMs}`, { now: () => scopeTime, budgetMs });
+        const target = new EventTarget();
+        scope.onCleanup(() => cleanup++);
+        scope.listen(target, 'click', () => clicks++);
+        scope.interval(() => {}, 10);
+        for (let i = 0; i < 20; i++) {
+            assert.equal(scope.run(() => { scopeTime += budgetMs + 1; return i; }), i);
+        }
+        target.dispatchEvent(new Event('click'));
+        assert.equal(clicks, 1);
+        assert.equal(cleanup, 0);
+        assert.equal(scope.disabled, false);
+        assert.equal(scope.status().reason, null);
+        assert.equal(scope.status().slowCalls, 20);
+        assert.equal(scope.status().maxMs, budgetMs + 1);
+        assert.equal(scope.status().lastMs, 0);
+        assert.equal(scope.status().resources, 3);
+        scope.dispose();
+        assert.equal(cleanup, 1);
+        assert.equal(scope.status().resources, 0);
+    }
+});
+
+test('slow calls do not mask recurring errors and manual disposal still stops later work', () => {
+    const f = fixture(), scope = f.featureScope('slow-errors');
+    let cleanup = 0;
+    scope.onCleanup(() => cleanup++);
+    for (let i = 0; i < 3; i++) {
+        scope.run(() => { f.advance(50); throw Error('broken contract'); });
+        scope.run(() => { f.advance(50); });
+    }
+    assert.equal(scope.disabled, true);
+    assert.equal(scope.status().reason, 'repeated-error');
+    assert.equal(scope.status().failures, 3);
+    assert.equal(cleanup, 1);
+    scope.run(() => assert.fail('disabled callback must remain inert'));
+    scope.dispose();
+    assert.equal(cleanup, 1);
 });
 
 test('native settings remove owned presentation immediately and can re-enable healthy hooks', () => {

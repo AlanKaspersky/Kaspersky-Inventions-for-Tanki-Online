@@ -5202,7 +5202,6 @@
       resources: 0
     };
     const cleanups = /* @__PURE__ */ new Set();
-    let consecutiveSlow = 0;
     const failuresAt = [];
     const dispose = (reason = "manual") => {
       if (status.disabled) return;
@@ -5264,10 +5263,7 @@
       } finally {
         status.lastMs = Math.max(0, now() - start);
         status.maxMs = Math.max(status.maxMs, status.lastMs);
-        if (status.lastMs > budget) {
-          status.slowCalls++;
-          if (++consecutiveSlow >= 5) dispose("repeated-budget-overrun");
-        } else consecutiveSlow = 0;
+        if (status.lastMs > budget) status.slowCalls++;
       }
     };
     const guard = (callback) => (...args) => run(() => callback(...args));

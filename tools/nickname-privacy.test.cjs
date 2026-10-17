@@ -74,8 +74,8 @@ function fixture() {
         addEventListener(type, callback) { identityListener = callback; } };
     const identity = load('src/core/accountIdentity.ts', { document, window: identityWindow });
     identity.setupAccountIdentity();
-    const setAccount = (userId, nickname) => identityListener({ source: identityWindow, origin: identityWindow.location.origin,
-        data: { type: 'kasp:account-identity', snapshot: { account: { userId, nickname, clanTag: '[CLAN]' }, players: [{ userId: '2001', nickname: 'Friend' }] } } });
+    const setAccount = (userId, nickname, players = [{ userId: '2001', nickname: 'Friend' }]) => identityListener({ source: identityWindow, origin: identityWindow.location.origin,
+        data: { type: 'kasp:account-identity', snapshot: { account: { userId, nickname, clanTag: '[CLAN]' }, players } } });
     setAccount('1001', 'Kaspersky');
     const privacy = load('src/modules/hideNickname.ts', {
         document,
@@ -205,6 +205,97 @@ test('friend labels use IDs, retain legacy data separately, and isolate accounts
     f.setAccount('1001', 'Kaspersky');
     assert.equal(friends.getCustomCategories()['2001'], 'purple');
     assert.equal(f.storage.get('tankiCustomCategories_Kaspersky'), legacy);
+});
+
+function friendElement(tag = 'div', className = '', text = '') {
+    const element = { tag, className, text, dataset: {}, style: {}, children: [], parent: null,
+        get textContent() { return this.text + this.children.map(child => child.textContent).join(''); },
+        get innerText() { return this.textContent; },
+        appendChild(child) { this.children.push(child); child.parent = this; return child; },
+        remove() { if (this.parent) this.parent.children = this.parent.children.filter(child => child !== this); this.parent = null; },
+        querySelectorAll(selector) {
+            const matches = child => selector === 'span' ? child.tag === 'span' : selector.startsWith('.') && child.className.split(/\s+/).includes(selector.slice(1));
+            return this.children.flatMap(child => [...(matches(child) ? [child] : []), ...child.querySelectorAll(selector)]);
+        },
+        querySelector(selector) { return this.querySelectorAll(selector)[0] || null; },
+        getBoundingClientRect() { return { top: 0, bottom: 100 }; },
+    };
+    element.classList = {
+        contains: name => element.className.split(/\s+/).includes(name),
+        add: name => { if (!element.classList.contains(name)) element.className += ' ' + name; },
+        remove: name => { element.className = element.className.split(/\s+/).filter(value => value !== name).join(' '); },
+    };
+    return element;
+}
+
+function friendsMenuFixture(label = '[EIite] Friend') {
+    const f = fixture();
+    f.document.createElement = tag => friendElement(tag);
+    const menu = friendElement('div', 'ContextMenuStyle-menu');
+    const rank = friendElement('div', 'ContextMenuStyle-menuItemRank');
+    const span = friendElement('span', 'ksc-116 -whiteSpaceNoWrap -whiteSpaceNoWrap', label);
+    rank.appendChild(span); menu.appendChild(rank);
+    const api = load('src/modules/customFriends.ts', f.moduleContext,
+        '{ injectCategoriesMenu, updateCardBadge, applyFilter }');
+    return { ...f, api, menu, rank, span, row: () => menu.querySelector('.custom-category-row') };
+}
+
+test('friend context-menu buttons resolve clan-prefixed and plain names to the same user ID', () => {
+    for (const label of ['[EIite] Friend', '[EIite]Friend', '[EIite]\u00a0Friend', 'Friend']) {
+        const f = friendsMenuFixture(label);
+        f.api.injectCategoriesMenu(f.menu);
+        assert.equal(f.row()?.children.length, 3, label);
+        assert.equal(f.menu.dataset.customCategoriesInjected, '1001:2001');
+        const row = f.row();
+        f.api.injectCategoriesMenu(f.menu); assert.equal(f.row(), row, 'do not duplicate existing buttons');
+        row.children[0].onclick({ stopPropagation() {} });
+        assert.equal(JSON.parse(f.storage.get('tankiCustomCategories_uid_1001'))['2001'], 'purple');
+        assert.equal(row.children[0].classList.contains('active'), true);
+        row.children[0].onclick({ stopPropagation() {} });
+        assert.deepEqual(JSON.parse(f.storage.get('tankiCustomCategories_uid_1001')), {});
+    }
+});
+
+test('friend badges and color filters resolve clan-prefixed card labels by ID', () => {
+    const f = friendsMenuFixture();
+    f.storage.set('tankiCustomCategories_uid_1001', JSON.stringify({ '2001': 'purple' }));
+    const list = friendElement('div', 'FriendListComponentStyle-scrollCommunity');
+    const card = friendElement('div', 'FriendListComponentStyle-blockList');
+    card.appendChild(friendElement('span', '-whiteSpaceNoWrap', '[EIite] Friend'));
+    list.appendChild(card);
+    f.api.applyFilter(list, 'purple');
+    assert.equal(card.style.display, '');
+    assert.equal(card.querySelector('.custom-rarity-badge')?.className, 'custom-rarity-badge rarity-purple');
+    f.api.applyFilter(list, 'red'); assert.equal(card.style.display, 'none');
+    f.api.applyFilter(list, 'all'); assert.equal(card.style.display, '');
+});
+
+test('a reused friend menu rechecks its current header and account before writing a label', () => {
+    const f = friendsMenuFixture();
+    f.setAccount('1001', 'Kaspersky', [{ userId: '2001', nickname: 'Friend' }, { userId: '2002', nickname: 'Other' }]);
+    f.api.injectCategoriesMenu(f.menu);
+    const oldButton = f.row().children[0];
+    f.rank.remove();
+    const newRank = friendElement('div', 'ContextMenuStyle-menuItemRank');
+    newRank.appendChild(friendElement('span', '-whiteSpaceNoWrap', '[NEW] Other'));
+    f.menu.appendChild(newRank);
+    oldButton.onclick({ stopPropagation() {} });
+    assert.equal(f.storage.has('tankiCustomCategories_uid_1001'), false, 'stale button cannot mark the previous friend');
+    f.api.injectCategoriesMenu(f.menu);
+    assert.equal(f.menu.dataset.customCategoriesInjected, '1001:2002');
+    const currentButton = f.row().children[0];
+    currentButton.onclick({ stopPropagation() {} });
+    assert.equal(JSON.parse(f.storage.get('tankiCustomCategories_uid_1001'))['2002'], 'purple');
+    f.setAccount('1002', 'Kaspersky');
+    currentButton.onclick({ stopPropagation() {} });
+    assert.equal(f.storage.has('tankiCustomCategories_uid_1002'), false);
+});
+
+test('friend menu does not create nickname-keyed labels when the native player ID is unavailable', () => {
+    const f = friendsMenuFixture('[EIite] Unknown');
+    f.api.injectCategoriesMenu(f.menu);
+    assert.equal(f.row(), null);
+    assert.equal(f.storage.size, 0);
 });
 
 test('history uses the actual nickname, including after switching accounts', () => {

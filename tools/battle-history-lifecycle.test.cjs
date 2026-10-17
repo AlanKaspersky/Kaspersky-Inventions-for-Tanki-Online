@@ -1072,6 +1072,95 @@ test('boot updates TAB immediately on every mutation without waiting for a heavy
     assert.equal(calls.length, 9, 'closing TAB stops targeted updates');
 });
 
+function statisticsMutationFixture() {
+    const { gameDOM } = loadModule('src/core/gameDOM.ts');
+    const frames = [], observers = [], calls = [];
+    const state = { lang: 'EN', currentScreen: 'battle', friendsMenuOpen: false, settingsOpen: false };
+    const noop = Object.assign(() => {}, { onTick() {}, sync() {}, setup() {} });
+    function element(selector = '', parentElement = null) {
+        return { nodeType: 1, parentElement,
+            matches: selectors => selectors.split(',').some(value => value.trim() === selector),
+            closest(selectors) {
+                for (let node = this; node; node = node.parentElement) if (node.matches(selectors)) return node;
+                return null;
+            },
+        };
+    }
+    const tab = element(gameDOM.statistics.container);
+    const row = element('tr', tab);
+    const globals = {
+        document: { documentElement: { lang: 'en' }, getElementById: () => null,
+            querySelector: selector => selector === gameDOM.statistics.container ? tab : null },
+        window: { addEventListener() {}, setInterval() {}, setTimeout() {} },
+        performance: { now: () => 1000 }, requestAnimationFrame: fn => frames.push(fn),
+        MutationObserver: class {
+            constructor(fn) { observers.push(fn); }
+            observe() {}
+            disconnect() { assert.fail('the shared observer must remain connected'); }
+        },
+    };
+    loadModule('src/boot.ts', globals, {
+        'src/core/state.ts': { state },
+        'src/core/utils.ts': { utils: { getLang: () => 'EN' } },
+        'src/core/coreSettings.ts': { coreSettings: {} },
+        'src/modules.ts': { modules: new Proxy({}, { get: (_target, name) =>
+            ['changeCounter', 'zeroResists', 'equipmentTracker'].includes(name)
+                ? { sync: () => calls.push(name), onTick() {} } : noop }) },
+    }).startBoot();
+    return { frames, calls, element, tab, row,
+        deliver: records => observers[0](records),
+        mutation: (target, addedNodes = [], removedNodes = []) => ({ type: 'childList', target, addedNodes, removedNodes }),
+    };
+}
+
+test('boot ignores TAB presentation insertions and cloned-content feedback without disconnecting or scheduling another pass', () => {
+    const f = statisticsMutationFixture();
+    const owned = ['.kasp-change-th', '.kasp-change-td', '.kasp-defence-th', '.kasp-compact-cell', '.kasp-zero-summary', '#kasp-tab-toggle-btn'];
+    const initial = f.mutation(f.row, [f.element('td', f.row)]);
+    f.deliver([initial]);
+    assert.equal(f.calls.length, 3);
+    assert.equal(f.frames.length, 1);
+    f.frames.shift()();
+    for (const selector of owned) {
+        const presentation = f.element(selector, f.row);
+        f.deliver([f.mutation(f.row, [presentation])]);
+        const icon = f.element('div', presentation);
+        f.deliver([f.mutation(icon, [f.element('span', icon)], [f.element('span')])]);
+        // Text-node mutation targets inherit ownership from their generated parent.
+        f.deliver([f.mutation({ nodeType: 3, parentElement: icon }, [], [{ nodeType: 3 }])]);
+    }
+    assert.equal(f.calls.length, 3);
+    assert.equal(f.frames.length, 0);
+    f.deliver([initial]);
+    assert.equal(f.calls.length, 6, 'a later native update still synchronizes immediately');
+    assert.equal(f.frames.length, 1);
+});
+
+test('boot retains mixed batches, native changes in summary wrappers and removal of generated cells', () => {
+    const f = statisticsMutationFixture();
+    const compact = f.element('.kasp-compact-cell', f.row);
+    const owned = f.mutation(f.row, [compact]);
+    const native = f.mutation(f.row, [f.element('td', f.row)]);
+    const summary = f.element('.kasp-custom-summary-row', f.tab);
+    const outside = f.element('div');
+    const cases = [
+        [owned, native],
+        [f.mutation(f.row, [compact, f.element('td')])],
+        [f.mutation(f.row, [], [compact])],
+        [f.mutation(f.row, [compact], [f.element('td')])],
+        [f.mutation(summary, [f.element('div', summary)])],
+        [f.mutation(f.tab, [summary])],
+        [f.mutation(outside, [f.element('.kasp-zero-summary', outside)])],
+        [{ type: 'characterData', target: { nodeType: 3, parentElement: f.row } }],
+        [{ type: 'attributes', target: f.row }],
+    ];
+    cases.forEach((records, index) => {
+        f.deliver(records);
+        assert.equal(f.calls.length, (index + 1) * 3, `native evidence must not be skipped: case ${index}`);
+    });
+    assert.equal(f.frames.length, 1, 'general work remains coalesced');
+});
+
 test('boot refreshes quick upgrade buttons immediately as native garage controls mount or change', () => {
     let panelPresent = false, calls = 0;
     const frames = [], observers = [];

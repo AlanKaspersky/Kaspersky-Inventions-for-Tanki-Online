@@ -183,7 +183,6 @@
       resources: 0
     };
     const cleanups = /* @__PURE__ */ new Set();
-    let consecutiveSlow = 0;
     const failuresAt = [];
     const dispose = (reason = "manual") => {
       if (status.disabled) return;
@@ -245,10 +244,7 @@
       } finally {
         status.lastMs = Math.max(0, now() - start);
         status.maxMs = Math.max(status.maxMs, status.lastMs);
-        if (status.lastMs > budget) {
-          status.slowCalls++;
-          if (++consecutiveSlow >= 5) dispose("repeated-budget-overrun");
-        } else consecutiveSlow = 0;
+        if (status.lastMs > budget) status.slowCalls++;
       }
     };
     const guard = (callback) => (...args) => run(() => callback(...args));
@@ -2760,10 +2756,15 @@
         const getMyClanTag = () => {
           return getAccountIdentity()?.clanTag || "";
         };
+        const getFriendNickname = (element) => {
+          if (!element) return "";
+          const label = Array.from(element.querySelectorAll("span")).find((span) => span.className.includes(gameDOM.fragments.nicknameText));
+          const text2 = label?.textContent ?? (element.innerText || "").split("\n")[0];
+          return parseAccountIdentity(text2)?.nickname || "";
+        };
         const updateCardBadge = (el, isFriendsList) => {
           const cardText = el.innerText || "";
-          const span = Array.from(el.querySelectorAll("span")).find((s) => s.className.includes(gameDOM.fragments.nicknameText));
-          const nickText = span ? span.innerText.trim() : cardText.split("\n")[0].trim();
+          const nickText = getFriendNickname(el);
           const clanTag = getMyClanTag();
           const isClan = Boolean(clanTag && cardText.includes(clanTag));
           const cats = getCustomCategories();
@@ -2808,8 +2809,7 @@
             const textLower = cardText.toLowerCase();
             const isOnline = isFriendsList ? !!el.querySelector(gameDOM.friends.online) : textLower.includes("\u0432 \u0441\u0435\u0442\u0438") || textLower.includes("online");
             const isOffline = isFriendsList ? !!el.querySelector(gameDOM.friends.offline) : !isOnline;
-            const span = Array.from(el.querySelectorAll("span")).find((s) => s.className.includes(gameDOM.fragments.nicknameText));
-            const nickText = span ? span.innerText.trim() : cardText.split("\n")[0].trim();
+            const nickText = getFriendNickname(el);
             let match = true;
             if (filterType === "online") match = isOnline;
             else if (filterType === "offline") match = isOffline;
@@ -2825,9 +2825,7 @@
         const injectCategoriesMenu = (menu) => {
           const rankItem = menu.querySelector(gameDOM.friends.contextPlayer);
           if (!rankItem) return;
-          const span = Array.from(rankItem.querySelectorAll("span")).find((s) => s.className.includes(gameDOM.fragments.nicknameText));
-          if (!span) return;
-          const nickname = span.innerText.trim();
+          const nickname = getFriendNickname(rankItem);
           const ownerId = getCurrentUserId(), friendId = getPlayerUserId(nickname);
           const binding = ownerId && friendId ? `${ownerId}:${friendId}` : "";
           if (binding && menu.dataset.customCategoriesInjected === binding) return;
@@ -2850,7 +2848,8 @@
             btn.innerHTML = `<img src="${c.url}">`;
             btn.onclick = lifecycle5.guard((e) => {
               e.stopPropagation();
-              if (ownerId !== getCurrentUserId() || getPlayerUserId(span.innerText.trim()) !== friendId) return;
+              const currentRank = menu.querySelector(gameDOM.friends.contextPlayer);
+              if (ownerId !== getCurrentUserId() || getPlayerUserId(getFriendNickname(currentRank)) !== friendId) return;
               setCustomCategory(ownerId, friendId, c.type);
               row.querySelectorAll(".custom-category-menu-btn").forEach((b) => b.classList.remove("active"));
               const newCats = getCustomCategories();
@@ -3121,7 +3120,10 @@
             role1: `\u0418\u0434\u0435\u044E \u0441\u043E\u0437\u0434\u0430\u043B`,
             role2: `\u0412 \u0441\u043E\u0437\u0434\u0430\u043D\u0438\u0438 \u0443\u0447\u0430\u0441\u0442\u0432\u043E\u0432\u0430\u043B\u0438`,
             role3: `\u041A\u0430\u0447\u0435\u0441\u0442\u0432\u043E \u043E\u0446\u0435\u043D\u0438\u0432\u0430\u043B\u0438`,
-            role4: `\u041F\u043E\u043C\u043E\u0433\u0430\u043B\u0438`,
+            role4: `\u0414\u0438\u0437\u0430\u0439\u043D\u0435\u0440\u044B`,
+            role5: `\u0422\u0435\u0441\u0442\u0438\u0440\u043E\u0432\u0449\u0438\u043A\u0438`,
+            role6: `\u041A\u043E\u0434\u0435\u0440\u044B`,
+            role7: "\u0410\u0441\u0441\u0438\u0441\u0442\u0435\u043D\u0442\u044B",
             outro: `\u041F\u0440\u043E\u0435\u043A\u0442 \u0432\u044B\u0440\u0430\u0436\u0430\u0435\u0442 \u0438\u043C \u043E\u0433\u0440\u043E\u043C\u043D\u0443\u044E \u0431\u043B\u0430\u0433\u043E\u0434\u0430\u0440\u043D\u043E\u0441\u0442\u044C!`,
             close: `\u0417\u0410\u041A\u0420\u042B\u0422\u042C`
           },
@@ -3131,7 +3133,10 @@
             role1: `Idea Created By`,
             role2: `Co-created By`,
             role3: `Quality Assessed By`,
-            role4: `Helped`,
+            role4: `Designers By`,
+            role5: `Testers By`,
+            role6: `Coders By`,
+            role7: "Assistants By",
             outro: `The project expresses huge gratitude to them!`,
             close: `CLOSE`
           }
@@ -3145,7 +3150,7 @@
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             let html = await response.text();
             if (lifecycle7.disabled) return;
-            html = html.replace(/{{version}}/g, dict.version).replace(/{{intro}}/g, dict.intro).replace(/{{role1}}/g, dict.role1).replace(/{{role2}}/g, dict.role2).replace(/{{role3}}/g, dict.role3).replace(/{{role4}}/g, dict.role4).replace(/{{outro}}/g, dict.outro).replace(/{{close}}/g, dict.close);
+            html = html.replace(/{{version}}/g, dict.version).replace(/{{intro}}/g, dict.intro).replace(/{{role1}}/g, dict.role1).replace(/{{role2}}/g, dict.role2).replace(/{{role3}}/g, dict.role3).replace(/{{role4}}/g, dict.role4).replace(/{{role5}}/g, dict.role5).replace(/{{role6}}/g, dict.role6).replace(/{{role7}}/g, dict.role7).replace(/{{outro}}/g, dict.outro).replace(/{{close}}/g, dict.close);
             const overlay = document.createElement("div");
             overlay.id = "kasp-welcome-overlay";
             overlay.style.cssText = `
@@ -4616,6 +4621,99 @@
     }
   });
 
+  // src/modules/tabExpansion.ts
+  function createTabExpansion(scope) {
+    const panes = /* @__PURE__ */ new Set();
+    let timer = 0;
+    const clear = () => {
+      scope.cancelTimeout(timer);
+      timer = 0;
+      for (const pane of panes) {
+        pane.removeAttribute("data-kasp-tab-animating");
+        pane.removeAttribute("data-kasp-tab-measuring");
+        for (const key of Array.from(pane.style)) if (key.startsWith("--kasp-tab-")) pane.style.removeProperty(key);
+      }
+      panes.clear();
+    };
+    const snapshot = (pane) => {
+      const row = (selector) => {
+        const native = Array.from(pane.querySelectorAll(selector)).find((row2) => row2.children.length >= 7);
+        return {
+          width: native?.getBoundingClientRect().width ?? 0,
+          cells: Array.from(native?.children ?? []).slice(0, 8).map((cell) => cell.getBoundingClientRect().width)
+        };
+      };
+      return {
+        width: parseFloat(window.getComputedStyle(pane).width),
+        header: row("table > thead > tr"),
+        body: row("table > tbody > tr")
+      };
+    };
+    const setExpanded = (expanded) => {
+      const body = document.body;
+      const previous = body.classList.contains("kasp-tab-expanded");
+      if (previous === expanded) return;
+      const roots = Array.from(document.querySelectorAll(gameDOM.statistics.teams));
+      if (!roots.length) {
+        body.classList.toggle("kasp-tab-expanded", expanded);
+        return;
+      }
+      if (!roots.every((root) => panes.has(root))) {
+        clear();
+        try {
+          roots.forEach((root) => {
+            panes.add(root);
+            root.setAttribute("data-kasp-tab-measuring", "");
+          });
+          body.classList.remove("kasp-tab-expanded");
+          const collapsed = roots.map(snapshot);
+          body.classList.add("kasp-tab-expanded");
+          const opened = roots.map(snapshot);
+          body.classList.toggle("kasp-tab-expanded", previous);
+          roots.forEach((root, index) => {
+            const from = collapsed[index], to = opened[index];
+            if (!Number.isFinite(from.width) || !Number.isFinite(to.width) || from.width <= 0 || to.width <= 0) return;
+            if (from.header.cells.length < 7 || from.body.cells.length < 7 || from.header.cells.length !== to.header.cells.length || from.body.cells.length !== to.body.cells.length) return;
+            root.style.setProperty("--kasp-tab-from", `${from.width}px`);
+            root.style.setProperty("--kasp-tab-to", `${to.width}px`);
+            for (const group of ["header", "body"]) {
+              root.style.setProperty(`--kasp-tab-${group}-row-from`, `${from[group].width}px`);
+              root.style.setProperty(`--kasp-tab-${group}-row-to`, `${to[group].width}px`);
+              from[group].cells.forEach((width, column) => {
+                root.style.setProperty(`--kasp-tab-${group}-${column}-from`, `${width}px`);
+                root.style.setProperty(`--kasp-tab-${group}-${column}-to`, `${to[group].cells[column] ?? width}px`);
+              });
+            }
+            root.style.setProperty("--kasp-tab-progress", previous ? "1" : "0");
+            root.setAttribute("data-kasp-tab-animating", "");
+          });
+          roots.forEach((root) => {
+            void window.getComputedStyle(root).width;
+          });
+        } catch (error) {
+          clear();
+          throw error;
+        } finally {
+          body.classList.toggle("kasp-tab-expanded", previous);
+          roots.forEach((root) => root.removeAttribute("data-kasp-tab-measuring"));
+        }
+      }
+      body.classList.toggle("kasp-tab-expanded", expanded);
+      roots.forEach((root) => root.style.removeProperty("--kasp-tab-progress"));
+      scope.cancelTimeout(timer);
+      timer = scope.timeout(clear, 240);
+    };
+    scope.listen(window, "resize", clear);
+    scope.onCleanup(clear);
+    return { setExpanded };
+  }
+  var init_tabExpansion = __esm({
+    "src/modules/tabExpansion.ts"() {
+      "use strict";
+      init_gameDOM();
+    }
+  });
+
   // src/modules/zeroResists.ts
   var lifecycle13, zeroResists;
   var init_zeroResists = __esm({
@@ -4624,6 +4722,7 @@
       init_featureRuntime();
       init_gameDOM();
       init_state();
+      init_tabExpansion();
       lifecycle13 = featureScope("zeroResists");
       zeroResists = lifecycle13.initialize(() => {
         const SHIELD_ICON_URL = chrome.runtime.getURL("assets/modulesTAB.svg");
@@ -4649,23 +4748,12 @@
           "shaft": "https://s.eu.tankionline.com/static/images/shaft_resistance.0778fd3e.svg"
         };
         const TAB_SELECTOR = gameDOM.statistics.teams;
-        const iconStyleCache = /* @__PURE__ */ new WeakMap();
         let isTabExpanded = localStorage.getItem("kasp_tab_expanded") === "true";
         let initialExpandedSet = false;
-        function getIconStyle(iconDiv) {
-          const cached = iconStyleCache.get(iconDiv);
-          if (cached !== void 0) return cached;
-          const cs = window.getComputedStyle(iconDiv);
-          const result = {
-            mask: (cs.getPropertyValue("-webkit-mask-image") || cs.getPropertyValue("mask-image") || "").toLowerCase(),
-            bg: cs.backgroundColor || ""
-          };
-          iconStyleCache.set(iconDiv, result);
-          return result;
-        }
-        function getCssUrl(el) {
+        const expansion = createTabExpansion(lifecycle13);
+        function getCssUrl(el, readStyle) {
           if (!el) return null;
-          const cs = window.getComputedStyle(el);
+          const cs = readStyle(el);
           for (const prop of ["maskImage", "webkitMaskImage", "backgroundImage"]) {
             const val = cs[prop];
             if (val && val !== "none" && val !== "initial" && val !== "") return val;
@@ -4685,67 +4773,53 @@
             }
           });
         }
-        function getIconUrl(lbl) {
-          const iconDiv = lbl.querySelector("div");
+        function getIconUrl(lbl, iconDiv, readStyle) {
           if (iconDiv) {
-            const style = getIconStyle(iconDiv);
-            const m = style.mask.match(/url\(["']?([^"')]+)["']?\)/);
+            const style = readStyle(iconDiv);
+            const mask = style.getPropertyValue("-webkit-mask-image") || style.getPropertyValue("mask-image");
+            const m = mask.match(/url\(["']?([^"')]+)["']?\)/);
             if (m && m[1]) return m[1].toLowerCase();
           }
           const img = lbl.querySelector("img");
           if (img) return (img.src || "").toLowerCase();
           return "";
         }
-        function injectCompactCells() {
+        function injectCompactCells(readStyle) {
           const cells = document.querySelectorAll(gameDOM.statistics.resistanceCell);
-          cells.forEach((cell) => {
+          const updates = Array.from(cells, (cell) => {
             const htmlCell = cell;
             const labels = Array.from(htmlCell.children).filter(
               (el) => el.classList.contains(gameDOM.classes.defenceLabel) && !el.closest(".kasp-compact-cell")
             );
-            let protectLabel = null;
-            let protectIsSpectrum = false;
-            let armadilloLabel = null;
+            let redLabel = null;
+            let spectrumLabel = null;
+            const criticalLabels = [];
             for (const lbl of labels) {
-              const url = getIconUrl(lbl);
-              if (url.includes("all_resistance")) {
-                protectLabel = lbl;
-                protectIsSpectrum = true;
-                break;
+              const iconDiv = lbl.querySelector("div");
+              const url = getIconUrl(lbl, iconDiv, readStyle);
+              if (!spectrumLabel && url.includes("all_resistance")) spectrumLabel = lbl;
+              if (url.includes("crit_resistance")) criticalLabels.push(lbl);
+              if (!redLabel && iconDiv) {
+                const bg = readStyle(iconDiv).backgroundColor;
+                const isRed = bg.includes("254") || bg.includes("255, 80") || bg.includes("255, 102") || bg.includes("254, 102");
+                if (isRed) redLabel = lbl;
               }
             }
-            if (!protectIsSpectrum) {
-              for (const lbl of labels) {
-                const iconDiv = lbl.querySelector("div");
-                if (!iconDiv) continue;
-                const style = getIconStyle(iconDiv);
-                const isRed = style.bg.includes("254") || style.bg.includes("255, 80") || style.bg.includes("255, 102") || style.bg.includes("254, 102");
-                if (isRed) {
-                  protectLabel = lbl;
-                  break;
-                }
-              }
-            }
-            for (const lbl of labels) {
-              if (lbl === protectLabel) continue;
-              const url = getIconUrl(lbl);
-              if (url.includes("crit_resistance")) {
-                armadilloLabel = lbl;
-                break;
-              }
-            }
-            const protectVal = protectLabel ? protectLabel.querySelector("h3")?.textContent || "on" : "none";
-            const armadilloVal = armadilloLabel ? armadilloLabel.querySelector("h3")?.textContent || "on" : "none";
-            const stateKey = `${protectIsSpectrum ? "spec" : protectVal}_${armadilloVal}`;
-            let compact = htmlCell.querySelector(".kasp-compact-cell");
-            if (compact && compact.dataset.kaspState === stateKey) return;
+            const protectLabel = spectrumLabel || redLabel;
+            const protectIsSpectrum = spectrumLabel !== null;
+            const armadilloLabel = criticalLabels.find((lbl) => lbl !== protectLabel) ?? null;
+            const stateKey = JSON.stringify([protectIsSpectrum, protectLabel?.outerHTML ?? null, armadilloLabel?.outerHTML ?? null]);
+            const compact = htmlCell.querySelector(".kasp-compact-cell");
+            return { htmlCell, compact, protectLabel, protectIsSpectrum, armadilloLabel, stateKey };
+          });
+          for (const update2 of updates) {
+            const { htmlCell, protectLabel, protectIsSpectrum, armadilloLabel, stateKey } = update2;
+            let { compact } = update2;
+            if (compact && compact.dataset.kaspState === stateKey) continue;
             if (!compact) {
               compact = document.createElement("div");
               compact.className = "kasp-compact-cell";
-              htmlCell.prepend(compact);
             }
-            compact.dataset.kaspState = stateKey;
-            compact.innerHTML = "";
             const slot1 = document.createElement("div");
             slot1.className = "kasp-slot";
             if (protectLabel) {
@@ -4756,7 +4830,6 @@
             } else {
               slot1.innerHTML = '<span class="kasp-dash">\u2014</span>';
             }
-            compact.appendChild(slot1);
             const slot2 = document.createElement("div");
             slot2.className = "kasp-slot";
             if (armadilloLabel) {
@@ -4766,10 +4839,12 @@
             } else {
               slot2.innerHTML = '<span class="kasp-dash">\u2014</span>';
             }
-            compact.appendChild(slot2);
-          });
+            compact.replaceChildren(slot1, slot2);
+            compact.dataset.kaspState = stateKey;
+            if (!compact.parentElement) htmlCell.prepend(compact);
+          }
         }
-        function injectZeroSummary() {
+        function injectZeroSummary(readStyle) {
           const tabContainer = document.querySelector(TAB_SELECTOR);
           if (!tabContainer) return;
           let summaryRow = Array.from(tabContainer.children).find(
@@ -4787,18 +4862,21 @@
           children.forEach((child) => {
             if (child.classList.contains("kasp-zero-summary")) return;
             const icon = child.querySelector("div") || child;
-            const maskImg = getCssUrl(icon);
+            const maskImg = getCssUrl(icon, readStyle);
             if (!maskImg) return;
             const match = maskImg.match(/\/([a-zA-Z_]+)_resistance(?:\.[0-9a-f]+)?\.(?:svg|webp|png)/);
             if (match && match[1]) presentResistances.add(match[1]);
           });
           const zeroBlocks = summaryRow.querySelectorAll(".kasp-zero-summary");
+          const existingZeros = /* @__PURE__ */ new Set();
           zeroBlocks.forEach((block) => {
             const turret = block.getAttribute("data-turret");
             if (turret && presentResistances.has(turret)) block.remove();
+            else if (turret) existingZeros.add(turret);
           });
+          const fragment = document.createDocumentFragment();
           Object.keys(RESISTANCE_MAP).forEach((turret) => {
-            if (!presentResistances.has(turret) && !summaryRow.querySelector(`.kasp-zero-summary[data-turret="${turret}"]`)) {
+            if (!presentResistances.has(turret) && !existingZeros.has(turret)) {
               const zeroLabel = document.createElement("div");
               zeroLabel.className = `kasp-zero-summary ${gameDOM.classes.flexStart}`;
               zeroLabel.setAttribute("data-turret", turret);
@@ -4812,9 +4890,10 @@
               textSpan.style.cssText = "font-size: 0.875em !important; color: #5cfc47 !important; font-family: BaseFontRegular, FallbackFontRegular, sans-serif !important; font-style: normal !important; font-weight: normal !important;";
               zeroLabel.appendChild(iconDiv);
               zeroLabel.appendChild(textSpan);
-              summaryRow.appendChild(zeroLabel);
+              fragment.appendChild(zeroLabel);
             }
           });
+          if (fragment.childNodes.length) summaryRow.appendChild(fragment);
         }
         function injectToggleButton() {
           if (isTabExpanded && !initialExpandedSet && document.body) {
@@ -4835,7 +4914,9 @@
           btn.innerHTML = `<div class="kasp-toggle-icon" style="-webkit-mask-image: url('${SHIELD_ICON_URL}'); mask-image: url('${SHIELD_ICON_URL}');"></div>`;
           lifecycle13.listen(btn, "click", (e) => {
             e.stopPropagation();
-            isTabExpanded = !isTabExpanded;
+            const nextExpanded = !isTabExpanded;
+            expansion.setExpanded(nextExpanded);
+            isTabExpanded = nextExpanded;
             localStorage.setItem("kasp_tab_expanded", String(isTabExpanded));
             if (isTabExpanded) {
               document.body.classList.add("kasp-tab-expanded");
@@ -4849,9 +4930,18 @@
         }
         function sync() {
           if (!document.querySelector(TAB_SELECTOR)) return;
+          const styles = /* @__PURE__ */ new WeakMap();
+          const readStyle = (element) => {
+            let style = styles.get(element);
+            if (!style) {
+              style = window.getComputedStyle(element);
+              styles.set(element, style);
+            }
+            return style;
+          };
           injectHeaderShield();
-          injectCompactCells();
-          injectZeroSummary();
+          injectCompactCells(readStyle);
+          injectZeroSummary(readStyle);
           injectToggleButton();
         }
         function update() {
@@ -7707,7 +7797,17 @@
         syncKillBoardDoubleHeader();
       }
     };
-    const masterObserver = new MutationObserver(() => {
+    const statisticsPresentation = ".kasp-change-th, .kasp-change-td, .kasp-defence-th, .kasp-compact-cell, .kasp-zero-summary, #kasp-tab-toggle-btn";
+    const isOwnStatisticsMutation = (record) => {
+      if (record.type !== "childList") return false;
+      const target = record.target.nodeType === 1 ? record.target : record.target.parentElement;
+      if (!target?.closest(gameDOM.statistics.container)) return false;
+      if (target.closest(statisticsPresentation)) return true;
+      if (record.removedNodes.length) return false;
+      return record.addedNodes.length > 0 && Array.from(record.addedNodes).every((node) => node.nodeType === 1 && node.matches(statisticsPresentation));
+    };
+    const masterObserver = new MutationObserver((records = []) => {
+      if (records.length && records.every(isOwnStatisticsMutation)) return;
       if (document.querySelector(gameDOM.statistics.container)) {
         modules.changeCounter.sync();
         modules.zeroResists.sync();

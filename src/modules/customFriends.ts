@@ -3,7 +3,7 @@ const lifecycle = featureScope('customFriends');
 import { gameDOM } from '../core/gameDOM';
 import { state } from '../core/state';
 import { utils } from '../core/utils';
-import { getAccountIdentity, getVerifiedAccount, getPlayerUserId, getAccountIdentityRevision } from '../core/accountIdentity';
+import { getAccountIdentity, getVerifiedAccount, getPlayerUserId, getAccountIdentityRevision, parseAccountIdentity } from '../core/accountIdentity';
 
 export const customFriends = lifecycle.initialize(() => {
     const originalDisplays = new Map<HTMLElement, string>();
@@ -53,10 +53,18 @@ export const customFriends = lifecycle.initialize(() => {
         return getAccountIdentity()?.clanTag || '';
     };
 
+    const getFriendNickname = (element: HTMLElement | null): string => {
+        if (!element) return '';
+        const label = Array.from(element.querySelectorAll('span'))
+            .find(span => span.className.includes(gameDOM.fragments.nicknameText));
+        // Native labels include the clan prefix, but RemoteUserData.uid does not.
+        const text = label?.textContent ?? (element.innerText || '').split('\n')[0];
+        return parseAccountIdentity(text)?.nickname || '';
+    };
+
     const updateCardBadge = (el: HTMLElement, isFriendsList: boolean) => {
         const cardText = el.innerText || "";
-        const span = Array.from(el.querySelectorAll('span')).find(s => s.className.includes(gameDOM.fragments.nicknameText)) as HTMLElement;
-        const nickText = span ? span.innerText.trim() : cardText.split('\n')[0].trim();
+        const nickText = getFriendNickname(el);
         const clanTag = getMyClanTag();
         const isClan = Boolean(clanTag && cardText.includes(clanTag));
         const cats = getCustomCategories();
@@ -105,8 +113,7 @@ export const customFriends = lifecycle.initialize(() => {
             const textLower = cardText.toLowerCase();
             const isOnline = isFriendsList ? !!el.querySelector(gameDOM.friends.online) : (textLower.includes("в сети") || textLower.includes("online"));
             const isOffline = isFriendsList ? !!el.querySelector(gameDOM.friends.offline) : !isOnline;
-            const span = Array.from(el.querySelectorAll('span')).find(s => s.className.includes(gameDOM.fragments.nicknameText)) as HTMLElement;
-            const nickText = span ? span.innerText.trim() : cardText.split('\n')[0].trim();
+            const nickText = getFriendNickname(el);
 
             let match = true;
             if (filterType === 'online') match = isOnline;
@@ -124,10 +131,7 @@ export const customFriends = lifecycle.initialize(() => {
     const injectCategoriesMenu = (menu: HTMLElement) => {
         const rankItem = menu.querySelector(gameDOM.friends.contextPlayer) as HTMLElement;
         if (!rankItem) return;
-        const span = Array.from(rankItem.querySelectorAll('span')).find(s => s.className.includes(gameDOM.fragments.nicknameText)) as HTMLElement;
-        if (!span) return;
-
-        const nickname = span.innerText.trim();
+        const nickname = getFriendNickname(rankItem);
         const ownerId = getCurrentUserId(), friendId = getPlayerUserId(nickname);
         const binding = ownerId && friendId ? `${ownerId}:${friendId}` : '';
         if (binding && menu.dataset.customCategoriesInjected === binding) return;
@@ -152,7 +156,8 @@ export const customFriends = lifecycle.initialize(() => {
             btn.innerHTML = `<img src="${c.url}">`;
             btn.onclick = lifecycle.guard((e: MouseEvent) => {
                 e.stopPropagation();
-                if (ownerId !== getCurrentUserId() || getPlayerUserId(span.innerText.trim()) !== friendId) return;
+                const currentRank = menu.querySelector<HTMLElement>(gameDOM.friends.contextPlayer);
+                if (ownerId !== getCurrentUserId() || getPlayerUserId(getFriendNickname(currentRank)) !== friendId) return;
                 setCustomCategory(ownerId, friendId, c.type);
                 row.querySelectorAll('.custom-category-menu-btn').forEach(b => b.classList.remove('active'));
                 const newCats = getCustomCategories();

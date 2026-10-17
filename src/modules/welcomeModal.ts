@@ -14,7 +14,10 @@ export const welcomeModal = lifecycle.initialize(() => {
             role1: `Идею создал`,
             role2: `В создании участвовали`,
             role3: `Качество оценивали`,
-            role4: `Помогали`,
+            role4: `Дизайнеры`,
+            role5: `Тестировщики`,
+            role6: `Кодеры`,
+            role7: 'Ассистенты',
             outro: `Проект выражает им огромную благодарность!`,
             close: `ЗАКРЫТЬ`
         },
@@ -24,7 +27,10 @@ export const welcomeModal = lifecycle.initialize(() => {
             role1: `Idea Created By`,
             role2: `Co-created By`,
             role3: `Quality Assessed By`,
-            role4: `Helped`,
+            role4: `Designers By`,
+            role5: `Testers By`,
+            role6: `Coders By`,
+            role7: 'Assistants By',
             outro: `The project expresses huge gratitude to them!`,
             close: `CLOSE`
         }
@@ -48,6 +54,9 @@ export const welcomeModal = lifecycle.initialize(() => {
                 .replace(/{{role2}}/g, dict.role2)
                 .replace(/{{role3}}/g, dict.role3)
                 .replace(/{{role4}}/g, dict.role4)
+                .replace(/{{role5}}/g, dict.role5)
+                .replace(/{{role6}}/g, dict.role6)
+                .replace(/{{role7}}/g, dict.role7)
                 .replace(/{{outro}}/g, dict.outro)
                 .replace(/{{close}}/g, dict.close);
 

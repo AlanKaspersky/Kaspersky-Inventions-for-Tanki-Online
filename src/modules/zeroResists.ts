@@ -2,6 +2,7 @@ import { featureScope } from '../core/featureRuntime';
 const lifecycle = featureScope('zeroResists');
 import { gameDOM } from '../core/gameDOM';
 import { state } from '../core/state';
+import { createTabExpansion } from './tabExpansion';
 
 export const zeroResists = lifecycle.initialize(() => {
 
@@ -31,28 +32,15 @@ export const zeroResists = lifecycle.initialize(() => {
 
     const TAB_SELECTOR = gameDOM.statistics.teams;
 
-    const iconStyleCache = new WeakMap<Element, { mask: string; bg: string }>();
-
     let isTabExpanded = localStorage.getItem('kasp_tab_expanded') === 'true';
     let initialExpandedSet = false;
+    const expansion = createTabExpansion(lifecycle);
 
-    function getIconStyle(iconDiv: Element): { mask: string; bg: string } {
-        const cached = iconStyleCache.get(iconDiv);
-        if (cached !== undefined) return cached;
-        const cs = window.getComputedStyle(iconDiv);
-        const result = {
-            mask: (cs.getPropertyValue('-webkit-mask-image') ||
-                cs.getPropertyValue('mask-image') ||
-                '').toLowerCase(),
-            bg: cs.backgroundColor || '',
-        };
-        iconStyleCache.set(iconDiv, result);
-        return result;
-    }
+    type ReadStyle = (element: Element) => CSSStyleDeclaration;
 
-    function getCssUrl(el: Element | null): string | null {
+    function getCssUrl(el: Element | null, readStyle: ReadStyle): string | null {
         if (!el) return null;
-        const cs = window.getComputedStyle(el);
+        const cs = readStyle(el);
         for (const prop of ['maskImage', 'webkitMaskImage', 'backgroundImage'] as const) {
             const val = cs[prop];
             if (val && val !== 'none' && val !== 'initial' && val !== '') return val;
@@ -75,11 +63,11 @@ export const zeroResists = lifecycle.initialize(() => {
         });
     }
 
-    function getIconUrl(lbl: Element): string {
-        const iconDiv = lbl.querySelector('div');
+    function getIconUrl(lbl: Element, iconDiv: Element | null, readStyle: ReadStyle): string {
         if (iconDiv) {
-            const style = getIconStyle(iconDiv);
-            const m = style.mask.match(/url\(["']?([^"')]+)["']?\)/);
+            const style = readStyle(iconDiv);
+            const mask = style.getPropertyValue('-webkit-mask-image') || style.getPropertyValue('mask-image');
+            const m = mask.match(/url\(["']?([^"')]+)["']?\)/);
             if (m && m[1]) return m[1].toLowerCase();
         }
         const img = lbl.querySelector('img');
@@ -87,59 +75,50 @@ export const zeroResists = lifecycle.initialize(() => {
         return '';
     }
 
-    function injectCompactCells(): void {
+    function injectCompactCells(readStyle: ReadStyle): void {
         const cells = document.querySelectorAll(gameDOM.statistics.resistanceCell);
-        cells.forEach(cell => {
+        const updates = Array.from(cells, cell => {
             const htmlCell = cell as HTMLElement;
             const labels = Array.from(htmlCell.children).filter(el =>
                 el.classList.contains(gameDOM.classes.defenceLabel) &&
                 !el.closest('.kasp-compact-cell')
             ) as HTMLElement[];
 
-            let protectLabel: HTMLElement | null = null;
-            let protectIsSpectrum = false;
-            let armadilloLabel: HTMLElement | null = null;
+            let redLabel: HTMLElement | null = null;
+            let spectrumLabel: HTMLElement | null = null;
+            const criticalLabels: HTMLElement[] = [];
 
             for (const lbl of labels) {
-                const url = getIconUrl(lbl);
-                if (url.includes('all_resistance')) {
-                    protectLabel = lbl;
-                    protectIsSpectrum = true;
-                    break;
+                const iconDiv = lbl.querySelector('div');
+                const url = getIconUrl(lbl, iconDiv, readStyle);
+                if (!spectrumLabel && url.includes('all_resistance')) spectrumLabel = lbl;
+                if (url.includes('crit_resistance')) criticalLabels.push(lbl);
+                if (!redLabel && iconDiv) {
+                    const bg = readStyle(iconDiv).backgroundColor;
+                    const isRed = bg.includes('254') || bg.includes('255, 80') ||
+                        bg.includes('255, 102') || bg.includes('254, 102');
+                    if (isRed) redLabel = lbl;
                 }
             }
 
-            if (!protectIsSpectrum) {
-                for (const lbl of labels) {
-                    const iconDiv = lbl.querySelector('div');
-                    if (!iconDiv) continue;
-                    const style = getIconStyle(iconDiv);
-                    const isRed = style.bg.includes('254') || style.bg.includes('255, 80') ||
-                        style.bg.includes('255, 102') || style.bg.includes('254, 102');
-                    if (isRed) { protectLabel = lbl; break; }
-                }
-            }
+            const protectLabel = spectrumLabel || redLabel;
+            const protectIsSpectrum = spectrumLabel !== null;
+            const armadilloLabel = criticalLabels.find(lbl => lbl !== protectLabel) ?? null;
 
-            for (const lbl of labels) {
-                if (lbl === protectLabel) continue;
-                const url = getIconUrl(lbl);
-                if (url.includes('crit_resistance')) { armadilloLabel = lbl; break; }
-            }
+            const stateKey = JSON.stringify([protectIsSpectrum, protectLabel?.outerHTML ?? null, armadilloLabel?.outerHTML ?? null]);
 
-            const protectVal = protectLabel ? (protectLabel.querySelector('h3')?.textContent || 'on') : 'none';
-            const armadilloVal = armadilloLabel ? (armadilloLabel.querySelector('h3')?.textContent || 'on') : 'none';
-            const stateKey = `${protectIsSpectrum ? 'spec' : protectVal}_${armadilloVal}`;
+            const compact = htmlCell.querySelector<HTMLElement>('.kasp-compact-cell');
+            return { htmlCell, compact, protectLabel, protectIsSpectrum, armadilloLabel, stateKey };
+        });
 
-            let compact = htmlCell.querySelector<HTMLElement>('.kasp-compact-cell');
-            if (compact && compact.dataset.kaspState === stateKey) return;
-
+        for (const update of updates) {
+            const { htmlCell, protectLabel, protectIsSpectrum, armadilloLabel, stateKey } = update;
+            let { compact } = update;
+            if (compact && compact.dataset.kaspState === stateKey) continue;
             if (!compact) {
                 compact = document.createElement('div');
                 compact.className = 'kasp-compact-cell';
-                htmlCell.prepend(compact);
             }
-            compact.dataset.kaspState = stateKey;
-            compact.innerHTML = '';
 
             const slot1 = document.createElement('div');
             slot1.className = 'kasp-slot';
@@ -152,8 +131,6 @@ export const zeroResists = lifecycle.initialize(() => {
             else {
                 slot1.innerHTML = '<span class="kasp-dash">—</span>';
             }
-            compact.appendChild(slot1);
-
             const slot2 = document.createElement('div');
             slot2.className = 'kasp-slot';
             if (armadilloLabel) {
@@ -164,11 +141,13 @@ export const zeroResists = lifecycle.initialize(() => {
             else {
                 slot2.innerHTML = '<span class="kasp-dash">—</span>';
             }
-            compact.appendChild(slot2);
-        });
+            compact.replaceChildren(slot1, slot2);
+            compact.dataset.kaspState = stateKey;
+            if (!compact.parentElement) htmlCell.prepend(compact);
+        }
     }
 
-    function injectZeroSummary(): void {
+    function injectZeroSummary(readStyle: ReadStyle): void {
         const tabContainer = document.querySelector(TAB_SELECTOR);
         if (!tabContainer) return;
 
@@ -189,20 +168,23 @@ export const zeroResists = lifecycle.initialize(() => {
         children.forEach(child => {
             if (child.classList.contains('kasp-zero-summary')) return;
             const icon = child.querySelector('div') || child;
-            const maskImg = getCssUrl(icon);
+            const maskImg = getCssUrl(icon, readStyle);
             if (!maskImg) return;
             const match = maskImg.match(/\/([a-zA-Z_]+)_resistance(?:\.[0-9a-f]+)?\.(?:svg|webp|png)/);
             if (match && match[1]) presentResistances.add(match[1]);
         });
 
         const zeroBlocks = summaryRow.querySelectorAll('.kasp-zero-summary');
+        const existingZeros = new Set<string>();
         zeroBlocks.forEach(block => {
             const turret = block.getAttribute('data-turret');
             if (turret && presentResistances.has(turret)) block.remove();
+            else if (turret) existingZeros.add(turret);
         });
 
+        const fragment = document.createDocumentFragment();
         Object.keys(RESISTANCE_MAP).forEach((turret: string) => {
-            if (!presentResistances.has(turret) && !summaryRow.querySelector(`.kasp-zero-summary[data-turret="${turret}"]`)) {
+            if (!presentResistances.has(turret) && !existingZeros.has(turret)) {
                 const zeroLabel = document.createElement('div');
                 zeroLabel.className = `kasp-zero-summary ${gameDOM.classes.flexStart}`;
                 zeroLabel.setAttribute('data-turret', turret);
@@ -219,9 +201,10 @@ export const zeroResists = lifecycle.initialize(() => {
 
                 zeroLabel.appendChild(iconDiv);
                 zeroLabel.appendChild(textSpan);
-                summaryRow.appendChild(zeroLabel);
+                fragment.appendChild(zeroLabel);
             }
         });
+        if (fragment.childNodes.length) summaryRow.appendChild(fragment);
     }
 
     function injectToggleButton() {
@@ -248,7 +231,9 @@ export const zeroResists = lifecycle.initialize(() => {
         btn.innerHTML = `<div class="kasp-toggle-icon" style="-webkit-mask-image: url('${SHIELD_ICON_URL}'); mask-image: url('${SHIELD_ICON_URL}');"></div>`;
         lifecycle.listen(btn, 'click', (e) => {
             e.stopPropagation();
-            isTabExpanded = !isTabExpanded;
+            const nextExpanded = !isTabExpanded;
+            expansion.setExpanded(nextExpanded);
+            isTabExpanded = nextExpanded;
             localStorage.setItem('kasp_tab_expanded', String(isTabExpanded));
 
             if (isTabExpanded) {
@@ -265,9 +250,18 @@ export const zeroResists = lifecycle.initialize(() => {
 
     function sync(): void {
         if (!document.querySelector(TAB_SELECTOR)) return;
+        const styles = new WeakMap<Element, CSSStyleDeclaration>();
+        const readStyle: ReadStyle = element => {
+            let style = styles.get(element);
+            if (!style) {
+                style = window.getComputedStyle(element);
+                styles.set(element, style);
+            }
+            return style;
+        };
         injectHeaderShield();
-        injectCompactCells();
-        injectZeroSummary();
+        injectCompactCells(readStyle);
+        injectZeroSummary(readStyle);
         injectToggleButton();
     }
 

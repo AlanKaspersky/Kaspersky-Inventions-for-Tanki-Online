@@ -8,7 +8,6 @@
 
 div:is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults) {
     box-shadow: rgb(255 255 255) 0em 0em 0px 0.3em !important;
-    backdrop-filter: blur(6px) !important;
 }
 
 div[class*="SkinsAndAlterationsStyle"] div[class$="-flexCenterAlignCenterColumn"],
@@ -469,12 +468,12 @@ div.BattleTabStatisticComponentStyle-containerInsideResults {
 
 div.BattleTabStatisticComponentStyle-containerInsideTeams,
 div.BattleTabStatisticComponentStyle-containerInsideResults {
-    transition: width 0.2s ease-in-out, max-width 0.2s ease-in-out !important;
+    transition: none !important;
 }
 
 .BattleTabStatisticComponentStyle-container table > thead > tr > *,
 .BattleTabStatisticComponentStyle-container table tbody tr > * {
-    transition: width 0.2s ease-in-out, flex 0.2s ease-in-out !important;
+    transition: none !important;
 }
 
 body.kasp-tab-expanded div.BattleTabStatisticComponentStyle-containerInsideTeams {
@@ -597,4 +596,137 @@ body.kasp-tab-expanded .BattleTabStatisticComponentStyle-resistanceModuleCell > 
 
 .BattleTabStatisticComponentStyle-container table tbody tr > :nth-child(2), .BattleTabStatisticComponentStyle-resistanceModuleCell {
     padding-left: 0.4em !important;
+}
+
+/* Button expansion uses one shared progress, never independent percentage transitions. */
+@property --kasp-tab-progress {
+    syntax: '<number>';
+    inherits: true;
+    initial-value: 0;
+}
+
+:is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults) { --kasp-tab-progress: 0; }
+body.kasp-tab-expanded :is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults) { --kasp-tab-progress: 1; }
+
+body :is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults)[data-kasp-tab-animating],
+body.kasp-tab-expanded :is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults)[data-kasp-tab-animating] {
+    width: calc(var(--kasp-tab-from) + (var(--kasp-tab-to) - var(--kasp-tab-from)) * var(--kasp-tab-progress)) !important;
+    max-width: none !important;
+    transition: --kasp-tab-progress 200ms cubic-bezier(0.22, 1, 0.36, 1) !important;
+}
+
+.BattleTabStatisticComponentStyle-container :is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults)[data-kasp-tab-animating] table > :is(thead, tbody) > tr > :nth-child(-n+8) {
+    width: calc(var(--kasp-column-from) + (var(--kasp-column-to) - var(--kasp-column-from)) * var(--kasp-tab-progress)) !important;
+    flex: 0 0 calc(var(--kasp-column-from) + (var(--kasp-column-to) - var(--kasp-column-from)) * var(--kasp-tab-progress)) !important;
+    transition: none !important;
+}
+
+:is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults)[data-kasp-tab-animating] table > thead > tr > :nth-child(1) {
+    --kasp-column-from: var(--kasp-tab-header-0-from);
+    --kasp-column-to: var(--kasp-tab-header-0-to);
+}
+
+:is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults)[data-kasp-tab-animating] table > thead > tr > :nth-child(2) {
+    --kasp-column-from: var(--kasp-tab-header-1-from);
+    --kasp-column-to: var(--kasp-tab-header-1-to);
+}
+
+:is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults)[data-kasp-tab-animating] table > thead > tr > :nth-child(3) {
+    --kasp-column-from: var(--kasp-tab-header-2-from);
+    --kasp-column-to: var(--kasp-tab-header-2-to);
+}
+
+:is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults)[data-kasp-tab-animating] table > thead > tr > :nth-child(4) {
+    --kasp-column-from: var(--kasp-tab-header-3-from);
+    --kasp-column-to: var(--kasp-tab-header-3-to);
+}
+
+:is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults)[data-kasp-tab-animating] table > thead > tr > :nth-child(5) {
+    --kasp-column-from: var(--kasp-tab-header-4-from);
+    --kasp-column-to: var(--kasp-tab-header-4-to);
+}
+
+:is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults)[data-kasp-tab-animating] table > thead > tr > :nth-child(6) {
+    --kasp-column-from: var(--kasp-tab-header-5-from);
+    --kasp-column-to: var(--kasp-tab-header-5-to);
+}
+
+:is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults)[data-kasp-tab-animating] table > thead > tr > :nth-child(7) {
+    --kasp-column-from: var(--kasp-tab-header-6-from);
+    --kasp-column-to: var(--kasp-tab-header-6-to);
+}
+
+:is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults)[data-kasp-tab-animating] table > thead > tr > :nth-child(8) {
+    --kasp-column-from: var(--kasp-tab-header-7-from);
+    --kasp-column-to: var(--kasp-tab-header-7-to);
+}
+
+:is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults)[data-kasp-tab-animating] table > tbody > tr > :nth-child(1) {
+    --kasp-column-from: var(--kasp-tab-body-0-from);
+    --kasp-column-to: var(--kasp-tab-body-0-to);
+}
+
+:is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults)[data-kasp-tab-animating] table > tbody > tr > :nth-child(2) {
+    --kasp-column-from: var(--kasp-tab-body-1-from);
+    --kasp-column-to: var(--kasp-tab-body-1-to);
+}
+
+:is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults)[data-kasp-tab-animating] table > tbody > tr > :nth-child(3) {
+    --kasp-column-from: var(--kasp-tab-body-2-from);
+    --kasp-column-to: var(--kasp-tab-body-2-to);
+}
+
+:is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults)[data-kasp-tab-animating] table > tbody > tr > :nth-child(4) {
+    --kasp-column-from: var(--kasp-tab-body-3-from);
+    --kasp-column-to: var(--kasp-tab-body-3-to);
+}
+
+:is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults)[data-kasp-tab-animating] table > tbody > tr > :nth-child(5) {
+    --kasp-column-from: var(--kasp-tab-body-4-from);
+    --kasp-column-to: var(--kasp-tab-body-4-to);
+}
+
+:is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults)[data-kasp-tab-animating] table > tbody > tr > :nth-child(6) {
+    --kasp-column-from: var(--kasp-tab-body-5-from);
+    --kasp-column-to: var(--kasp-tab-body-5-to);
+}
+
+:is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults)[data-kasp-tab-animating] table > tbody > tr > :nth-child(7) {
+    --kasp-column-from: var(--kasp-tab-body-6-from);
+    --kasp-column-to: var(--kasp-tab-body-6-to);
+}
+
+:is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults)[data-kasp-tab-animating] table > tbody > tr > :nth-child(8) {
+    --kasp-column-from: var(--kasp-tab-body-7-from);
+    --kasp-column-to: var(--kasp-tab-body-7-to);
+}
+
+:is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults)[data-kasp-tab-animating] .BattleTabStatisticComponentStyle-resistanceModuleCell > :not(.kasp-compact-cell) {
+    transition: opacity 160ms ease-out !important;
+}
+
+body .BattleTabStatisticComponentStyle-container :is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults)[data-kasp-tab-measuring],
+body .BattleTabStatisticComponentStyle-container :is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults)[data-kasp-tab-measuring] * {
+    transition: none !important;
+    animation: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body :is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults)[data-kasp-tab-animating],
+    body.kasp-tab-expanded :is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults)[data-kasp-tab-animating] {
+        transition: none !important;
+    }
+}
+
+/* Preserve the original inline hover reveal independently of the button animation. */
+.BattleTabStatisticComponentStyle-container table tbody tr > .BattleTabStatisticComponentStyle-resistanceModuleCell {
+    transition: width 200ms ease-in-out, flex 200ms ease-in-out !important;
+}
+
+.BattleTabStatisticComponentStyle-container :is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults)[data-kasp-tab-animating] table > thead > tr {
+    width: calc(var(--kasp-tab-header-row-from) + (var(--kasp-tab-header-row-to) - var(--kasp-tab-header-row-from)) * var(--kasp-tab-progress)) !important;
+}
+
+.BattleTabStatisticComponentStyle-container :is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults)[data-kasp-tab-animating] table > tbody > tr {
+    width: calc(var(--kasp-tab-body-row-from) + (var(--kasp-tab-body-row-to) - var(--kasp-tab-body-row-from)) * var(--kasp-tab-progress)) !important;
 }

@@ -1,22 +1,22 @@
 # Failure isolation and manual maintenance
 
-Source reference: 2.9.6, October 17, 2026. This guide can be followed without AI.
+Source reference: 2.9.7, October 17, 2026. This guide can be followed without AI.
 
 ## What stops, and when
 
 Each feature owns an independent scope in `src/core/featureRuntime.ts`. A scope guards updates, event callbacks, timers, animation frames, microtasks, and mutation observers. The module registry guards each entry separately; one throwing entry does not skip the next feature. Module initialization has an inert fallback and disposes partially registered resources if construction throws.
 
-Three exceptions in a rolling ten-second window disable that scope for the page session. Successful calls between those errors do not hide a recurring failure. Five consecutive synchronous calls exceeding the scope budget also disable it: the default is 16 ms, and the two native HUD indicators use 4 ms. These are conservative limits, not performance guarantees. Measurements cover synchronous execution, not time awaiting a network response.
+Three exceptions in a rolling ten-second window disable that scope for the page session. Successful calls between those errors do not hide a recurring failure. Synchronous duration thresholds are diagnostic only: the default is 16 ms, and the two native HUD indicators use 4 ms. Exceeding a threshold updates `slowCalls`, `lastMs`, and `maxMs`; it does not disable the scope, clean up presentation or delay subsequent calls. Measurements cover synchronous execution, not time awaiting a network response.
 
 Disabling is idempotent. Cleanup runs in reverse registration order; one failed cleanup does not prevent the others. Pending scoped callbacks become inert. Tracked timer cancellation releases its registry entry; expired timeouts/frames and once listeners also release theirs. Detached element listeners are pruned after a grace period when new listeners are added. A scope permits at most 4096 tracked listeners. Native indicator ownership is limited to 32 components.
 
-JavaScript cannot interrupt a synchronous callback that never returns. The budget stops later calls only after the current call returns. A promise or an already submitted game action/database transaction is not undone by disabling its feature. Global manifest styles are not unloaded, and already inserted game call sites remain until a full page reload. These boundaries must not be described as complete rollback of the whole client.
+JavaScript cannot interrupt a synchronous callback that never returns. Duration diagnostics are collected only after a callback returns and do not prevent a hang. A promise or an already submitted game action/database transaction is not undone by disabling its feature. Global manifest styles are not unloaded, and already inserted game call sites remain until a full page reload. These boundaries must not be described as complete rollback of the whole client.
 
 ## Controls and diagnostics
 
 Run `npm run check` for local strict type checking and all regression tests. Release/ZIP commands require these checks; no GitHub Actions workflow is installed. Source contracts keep native TypeScript selectors/classes in `src/core/gameDOM.ts` and reject explicit `any`. Check related static CSS separately. The shared `src/core/pageMessages.ts` bridge validates window/origin and message schemas, but cannot authenticate another script on the same page. Trophy panels create DOM nodes with literal text and validated game artwork. Garage skin observations still run every 250 ms; bounded parsed-storage and CSS caches avoid repeated work without skipping mounted-skin observations.
 
-The settings panel contains **Arcade reload indicator** (`k_arcade_reload`) and **Critical shot indicator** (`k_critical_indicator`). Both default to enabled to retain existing behavior. Their switches take effect without closing settings or reloading the game. Turning a healthy indicator back on allows its existing hooks to resume; the critical cycle waits for fresh native readiness/lifecycle evidence when necessary. A feature quarantined after errors or budget overruns requires a page reload.
+The settings panel contains **Arcade reload indicator** (`k_arcade_reload`) and **Critical shot indicator** (`k_critical_indicator`). Both default to enabled to retain existing behavior. Their switches take effect without closing settings or reloading the game. Turning a healthy indicator back on allows its existing hooks to resume; the critical cycle waits for fresh native readiness/lifecycle evidence when necessary. A feature quarantined after recurring errors requires a page reload; slow-call diagnostics alone never quarantine it.
 
 In the game-page console:
 

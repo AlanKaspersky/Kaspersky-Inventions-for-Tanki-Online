@@ -2,7 +2,7 @@
 
 ## Complete Implementation Reference
 
-**Extension version:** 2.9.6 (`manifest.json`)
+**Extension version:** 2.9.7 (`manifest.json`)
 
 **Documentation updated:** October 17, 2026
 
@@ -223,7 +223,7 @@ These paths can call the same module more than once around a single UI transitio
 
 ### Coalescing and Throttling
 
-The master observer schedules at most one pending animation-frame master check through `isMasterUpdateScheduled`. Battle-statistics callbacks and Auto Upgrade presentation execute directly before that frame when their native controls exist. TAB and quick-upgrade buttons do not wait for the heavy-pass throttle. Other garage work uses the heavy pass; Auto Upgrade also retains its ordinary garage heavy pass for screen/language transitions.
+The master observer schedules at most one pending animation-frame master check through `isMasterUpdateScheduled`. Battle-statistics callbacks and Auto Upgrade presentation execute directly before that frame when their native controls exist. TAB and quick-upgrade buttons do not wait for the heavy-pass throttle. Batches containing only known extension statistics insertions or edits inside generated statistics content are ignored. The observer stays connected; native changes, mixed batches, summary-wrapper edits, and removals of generated cells from native parents still trigger normal processing. Other garage work uses the heavy pass; Auto Upgrade also retains its ordinary garage heavy pass for screen/language transitions.
 
 `scheduleHeavyModules()` compares `performance.now()` against `lastFullRefresh`. If at least 150 ms have elapsed, it runs immediately; otherwise it schedules the remaining delay once. Screen or friends-menu changes reset the throttle state and run a heavy pass immediately.
 
@@ -976,7 +976,7 @@ Source: [src/modules/zeroResists.ts](src/modules/zeroResists.ts).
 
 | Function | Responsibility |
 | --- | --- |
-| `getIconStyle(icon)` | Cache mask/background style in a `WeakMap`. |
+| `readStyle(element)` (local to each `sync()`) | Share one computed-style read per element within a synchronization pass. |
 | `getCssUrl(el)` | Read supported mask/background CSS properties. |
 | `getIconUrl(label)` | Extract a mask URL or image URL. |
 | `injectHeaderShield()` | Insert the shield heading after the GS header when absent. |
@@ -984,11 +984,13 @@ Source: [src/modules/zeroResists.ts](src/modules/zeroResists.ts).
 | `injectZeroSummary()` | Add `×0` entries for configured types missing from the native summary. |
 | `injectToggleButton()` | Add the expansion control and restore/persist its state. |
 
-Compact protection prefers an all-resistance/Spectrum icon, otherwise a heuristic red-colored label. A remaining critical-resistance label becomes the second slot. A state key based on recognized values avoids rebuilding unchanged compact content; absent entries use dashes.
+Compact protection prefers an all-resistance/Spectrum icon, otherwise a heuristic red-colored label. A remaining critical-resistance label becomes the second slot. Labels are classified in one traversal, and native cells are read before compact presentation writes begin. A state key includes the selected native labels' markup and Spectrum classification, so values and icons can change even when row/cell counts remain unchanged. Unchanged compact content is retained; changed slots are built off-DOM and replaced together, and absent entries use dashes.
 
-The zero-summary pass reads resistance icon filename patterns from native entries, skips generated zero entries, removes zeros when their native type appears, and adds missing configured types. This represents absence from the observed summary, not independently measured zero protection for every player.
+The zero-summary pass reads resistance icon filename patterns from native entries, skips generated zero entries, removes zeros when their native type appears, and adds missing configured types. Existing zero types are indexed in a set, and missing entries are inserted together through a document fragment. This represents absence from the observed summary, not independently measured zero protection for every player.
 
-`kasp_tab_expanded` controls the body class and active toggle. Cached computed styles are tied to element identity and are not invalidated by every possible style change on the same native node.
+`kasp_tab_expanded` controls the body class and active toggle. Computed styles are cached only within the current synchronization pass; the next pass rereads reused native nodes, including changes supplied through CSS. The master observer remains connected and synchronization is not skipped based on row/cell counts. The redundant backdrop blur behind the opaque TAB background is removed.
+
+Hovering a resistance cell retains the original inline reveal: that player's module cell widens and the two neighboring combat-statistic cells temporarily hide. There is no floating panel. Button-controlled expansion of the entire TAB uses `src/modules/tabExpansion.ts`: it snapshots collapsed/expanded pane and column widths on a representative populated header/body row, then drives both the frame and all columns through the same registered CSS progress property for 200 ms. This avoids separately interpolating percentages while the containing pane is itself growing. Rapid reversals reuse the current progress. Temporary pixel geometry is removed after the transition, on resize, or on feature cleanup, returning control to the native responsive CSS. Measurement errors restore the prior state; incomplete layouts skip the animation. No per-player animation-frame loop is installed. Reduced-motion preferences disable the shared transition; browsers without registered-property interpolation still switch to the correct final layout.
 
 ### Garage Button Presentation
 
@@ -1632,9 +1634,9 @@ Boot observers remain page-wide; feature scopes own module listeners, timers and
 
 ## Feature Failure Isolation
 
-`src/core/featureRuntime.ts` provides independent scopes, guarded initialization/updates/callbacks, resource ownership, rolling error thresholds, synchronous timing budgets, idempotent cleanup, and diagnostics. `src/modules/index.ts` wraps entries separately. Boot coalesces most garage work into its 150 ms heavy pass; TAB statistics and quick-upgrade button presentation retain direct mutation-driven updates. Native indicators use `src/core/nativeFeature.ts`; arcade plans require `runtimeControls` and stale plans without this flag are not selected. Generated hooks remain installed until page reload, but quarantined callbacks become inert.
+`src/core/featureRuntime.ts` provides independent scopes, guarded initialization/updates/callbacks, resource ownership, rolling error thresholds, synchronous timing diagnostics, idempotent cleanup, and diagnostics. `src/modules/index.ts` wraps entries separately. Boot coalesces most garage work into its 150 ms heavy pass; TAB statistics and quick-upgrade button presentation retain direct mutation-driven updates. Native indicators use `src/core/nativeFeature.ts`; arcade plans require `runtimeControls` and stale plans without this flag are not selected. Generated hooks remain installed until page reload, but quarantined callbacks become inert.
 
-Three errors within ten seconds disable a scope; five consecutive calls above its synchronous budget also disable it. The default is 16 ms; native HUD indicators use 4 ms. Budget checking happens after return and cannot preempt a hang. See [MAINTENANCE.md](MAINTENANCE.md) for live settings, cleanup ownership, diagnostics, test commands, and manual adapter repair.
+Three errors within ten seconds disable a scope. The synchronous duration threshold is diagnostic only: 16 ms by default and 4 ms for native HUD indicators. Exceeding it updates `slowCalls`, `lastMs`, and `maxMs` without disabling the scope, releasing resources or throttling callbacks. Timing happens after return and cannot preempt a hang. See [MAINTENANCE.md](MAINTENANCE.md) for live settings, cleanup ownership, diagnostics, test commands, and manual adapter repair.
 
 `src/modules/battleHistory/unassigned.ts` holds at most 20 complete results without an owner in session storage, with a 2,000,000-character cap and 24-hour read filter. A result confirmed while the same native result remains open follows normal ID-scoped capture; older recovery entries are never assigned by nickname. Existing durable records remain unchanged during ID loss.
 
@@ -1676,7 +1678,7 @@ The full build and ZIP command stop on failed type checking or regression tests.
 
 ### Dependency Metadata
 
-The manifest, package, and lockfile package versions are 2.9.6. Both package files declare `UNLICENSED`; the package is marked `private: true`. Package/lockfile-root ranges agree: `@types/chrome` `^0.3.0`, esbuild `^0.28.2`, TypeScript `^7.0.2`, Acorn `^8.19.0`, acorn-walk `^8.3.5`, and Astring `^1.9.0`. The parser/walker/generator are development dependencies, not imports of the runtime entries.
+The manifest, package, and lockfile package versions are 2.9.7. Both package files declare `UNLICENSED`; the package is marked `private: true`. Package/lockfile-root ranges agree: `@types/chrome` `^0.3.0`, esbuild `^0.28.2`, TypeScript `^7.0.2`, Acorn `^8.19.0`, acorn-walk `^8.3.5`, and Astring `^1.9.0`. The parser/walker/generator are development dependencies, not imports of the runtime entries.
 
 Use `npm ci` to install the locked dependency graph. Dependency changes should update the manifest and lockfile together; `npm install` can rewrite the lockfile. The project does not declare a Node `engines` field; tooling requires APIs such as `fs.cpSync` and the built-in Node test runner.
 
@@ -1718,7 +1720,7 @@ Generated JSON is statically imported into `dist/kasp_injector.js`; it is not fe
 
 Configured directories are `dist`, `styles`, `assets`, `database`, `_locales`, and `templates`. Configured root files are `manifest.json`, `LICENSE.txt`, `README.md`, `DOCUMENTATION.md`, and `MAINTENANCE.md`.
 
-For 2.9.6, the folder and archive names are `release/Kaspersky's Inventions 2.9.6/` and `release/Kaspersky's Inventions 2.9.6.zip`. The ZIP contains that outer versioned folder.
+For 2.9.7, the folder and archive names are `release/Kaspersky's Inventions 2.9.7/` and `release/Kaspersky's Inventions 2.9.7.zip`. The ZIP contains that outer versioned folder.
 
 The script removes the existing same-version output before recreating it. It throws if no directory or no root file was copied, but does not require every configured input to exist. `build:zip` can package stale bundles or partial resources if invoked without appropriate preparation.
 
@@ -1842,4 +1844,4 @@ Project use and distribution are governed by [LICENSE.txt](LICENSE.txt), which c
 
 ---
 
-Technical documentation aligned with source/manifest version **2.9.6**, updated **October 17, 2026**.
+Technical documentation aligned with source/manifest version **2.9.7**, updated **October 17, 2026**.

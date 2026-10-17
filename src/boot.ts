@@ -170,7 +170,19 @@ export function startBoot() {
         }
     };
 
-    const masterObserver = new MutationObserver(() => {
+    const statisticsPresentation = '.kasp-change-th, .kasp-change-td, .kasp-defence-th, .kasp-compact-cell, .kasp-zero-summary, #kasp-tab-toggle-btn';
+    const isOwnStatisticsMutation = (record: MutationRecord): boolean => {
+        if (record.type !== 'childList') return false;
+        const target = record.target.nodeType === 1 ? record.target as Element : record.target.parentElement;
+        if (!target?.closest(gameDOM.statistics.container)) return false;
+        if (target.closest(statisticsPresentation)) return true;
+        if (record.removedNodes.length) return false;
+        return record.addedNodes.length > 0 && Array.from(record.addedNodes).every(node =>
+            node.nodeType === 1 && (node as Element).matches(statisticsPresentation));
+    };
+
+    const masterObserver = new MutationObserver((records = []) => {
+        if (records.length && records.every(isOwnStatisticsMutation)) return;
         if (document.querySelector(gameDOM.statistics.container)) {
             modules.changeCounter.sync();
             modules.zeroResists.sync();

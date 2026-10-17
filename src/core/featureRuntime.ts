@@ -10,7 +10,6 @@ export function createFeatureScope(id: string, options: { now?: () => number; bu
     const status: FeatureStatus = { id, disabled: false, reason: null, error: null,
         calls: 0, failures: 0, slowCalls: 0, lastMs: 0, maxMs: 0, cleanupErrors: 0, resources: 0 };
     const cleanups = new Set<() => void>();
-    let consecutiveSlow = 0;
     const failuresAt: number[] = [];
     const dispose = (reason = 'manual') => {
         if (status.disabled) return;
@@ -47,8 +46,7 @@ export function createFeatureScope(id: string, options: { now?: () => number; bu
         } catch (error) { fail(error); return undefined; }
         finally {
             status.lastMs = Math.max(0, now() - start); status.maxMs = Math.max(status.maxMs, status.lastMs);
-            if (status.lastMs > budget) { status.slowCalls++; if (++consecutiveSlow >= 5) dispose('repeated-budget-overrun'); }
-            else consecutiveSlow = 0;
+            if (status.lastMs > budget) status.slowCalls++;
         }
     };
     const guard = <A extends unknown[], R>(callback: (...args: A) => R) =>

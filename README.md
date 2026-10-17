@@ -2,7 +2,7 @@
 
 ## Complete Documentation
 
-**Extension version:** 2.9.6 (`manifest.json`)
+**Extension version:** 2.9.7 (`manifest.json`)
 
 **Documentation updated:** October 17, 2026
 
@@ -913,7 +913,7 @@ After rebuilding, reload the unpacked extension and then reload the game page. A
 
 ### Version metadata
 
-The current manifest, package, and lockfile package versions are **2.9.6**. The browser, welcome window, and release-folder naming use the manifest version. Keep these metadata values aligned when preparing another version.
+The current manifest, package, and lockfile package versions are **2.9.7**. The browser, welcome window, and release-folder naming use the manifest version. Keep these metadata values aligned when preparing another version.
 
 ### Release output
 
@@ -923,13 +923,13 @@ For the current manifest version, output is:
 
 ```text
 release/
-├── Kaspersky's Inventions 2.9.6/
+├── Kaspersky's Inventions 2.9.7/
 │   ├── manifest.json
 │   ├── LICENSE.txt
 │   ├── README.md
 │   ├── DOCUMENTATION.md
 │   └── ... runtime directories
-└── Kaspersky's Inventions 2.9.6.zip
+└── Kaspersky's Inventions 2.9.7.zip
 ```
 
 The archive contains the versioned outer folder. Extract it and select the folder containing `manifest.json` when loading the extension. Source files, tests, `node_modules`, the local game bundle, and raw generated-plan JSON are not separately included. The two root documentation files are included.
@@ -1007,13 +1007,13 @@ Repeat the affected checks in Chromium and Firefox. Manifest support does not su
 - Ordinary critical-cycle indication supports the three specified weapon/augment pairs. Post-Supercharge phase assumptions require verification if the game changes its mechanics.
 - Device tooltips use mouse hover. Equivalent keyboard, gamepad, and mobile tooltip interaction is not implemented.
 - AST compatibility templates reduce dependence on symbol names but still depend on native structure. A runtime exception is not automatically rolled back by the injector's preparation guards.
-- An intermittent missing local tank after entering a loaded map has been reported. Its cause and relationship to the extension remain unconfirmed; it is not listed as fixed in 2.9.6.
+- An intermittent missing local tank after entering a loaded map has been reported. Its cause and relationship to the extension remain unconfirmed; it is not listed as fixed in 2.9.7.
 - Auto Upgrade depends on recognized native dialogs and stops on an unknown confirmation. Its local confirmation count is not an independently verified purchase ledger.
 - Third-party UI modifications can alter the same elements and introduce selector, style, or event conflicts.
 
 ## Failure Isolation and Recovery
 
-Feature updates and owned callbacks now have independent failure scopes. Three errors within ten seconds, or five consecutive synchronous budget overruns, stop that feature for the page session and run its cleanup. A failure in one entry does not skip other module updates. Healthy native indicators can be toggled off/on immediately; a quarantined feature requires reloading the game. Time limits cannot interrupt a callback that never returns.
+Feature updates and owned callbacks now have independent failure scopes. Three errors within ten seconds stop that feature for the page session and run its cleanup. Slow synchronous calls are recorded in diagnostics without disabling the feature or delaying its updates. A failure in one entry does not skip other module updates. Healthy native indicators can be toggled off/on immediately; a quarantined feature requires reloading the game. Duration measurements cannot interrupt a callback that never returns. TAB updates skip batches containing only recognized extension presentation insertions or edits inside generated content; native and mixed changes remain immediate.
 
 When account ID is missing, existing records remain untouched. Complete results may be held separately in a bounded, unassigned session buffer; earlier pending records are never assigned by nickname. See the [manual maintenance and recovery guide](MAINTENANCE.md) for diagnostics, cleanup boundaries, recovery-buffer export, and repair without AI.
 
@@ -1085,4 +1085,4 @@ For the in-game presentation of release information and credits, see [the welcom
 
 ---
 
-Documentation aligned with extension manifest version **2.9.6**, updated **October 17, 2026**.
+Documentation aligned with extension manifest version **2.9.7**, updated **October 17, 2026**.
