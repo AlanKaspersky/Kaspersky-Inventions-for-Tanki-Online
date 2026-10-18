@@ -35,6 +35,9 @@ import { installAccountIdentityNative } from './core/accountIdentityNative';
 import { featureScope, installFeatureDiagnostics } from './core/featureRuntime';
 import { createNativeFeature } from './core/nativeFeature';
 import { postPageMessage } from './core/pageMessages';
+import { installOverdriveDirection, selectDirectionPlan, directionPlanValid } from './core/overdriveDirection';
+import type { DirectionPatchPlan } from './core/overdriveDirection';
+import directionPlans from './generated/overdrive-direction.json';
 
 (function (): void {
     'use strict';
@@ -44,6 +47,7 @@ import { postPageMessage } from './core/pageMessages';
     featureScope('garageSkinCards').run(() => installGarageSkinCardsBridge(window));
     featureScope('criticalIndicator', { budgetMs: 4 }).run(() => installCriticalIndicator(window));
     const accountIdentity = featureScope('accountIdentity').run(() => installAccountIdentityNative(window));
+    const direction = featureScope('overdriveDirection').run(() => installOverdriveDirection(window));
     featureScope('battlePresence').run(() => installBattlePresence(window, value => accountIdentity?.capture(value)));
     featureScope('battleStatistics').run(() => installBattleStatistics(window));
     featureScope('userActions').run(() => installUserActions(window));
@@ -150,6 +154,7 @@ import { postPageMessage } from './core/pageMessages';
                             let battleStatisticsPlan: BattleStatisticsPatchPlan | undefined;
                             let userActionPlan: UserActionPatchPlan | undefined;
                             let criticalPlan: CriticalPatchPlan | undefined;
+                            let directionPlan: DirectionPatchPlan | undefined;
                             const reportBonus = (status: Parameters<typeof diagnostics.record>[0]) => {
                                 hookStatus = status;
                                 diagnostics.record(status);
@@ -255,6 +260,15 @@ import { postPageMessage } from './core/pageMessages';
                             } catch {
                                 reportCritical({ hooked: false, ready: false, strategy: 'ast-plan', issues: ['critical-patch-error'] });
                             }
+                            try {
+                                directionPlan = await selectDirectionPlan(originalCode, directionPlans.plans as DirectionPatchPlan[]);
+                                if (directionPlan && directionPlanValid(originalCode, directionPlan)) {
+                                    prepared.push(directionPlan);
+                                    direction?.reportHook(directionPlan.status);
+                                } else direction?.reportHook({ ready: false, hooked: false, strategy: 'ast-plan', issues: ['direction-mapping-unavailable'] });
+                            } catch {
+                                direction?.reportHook({ ready: false, hooked: false, strategy: 'ast-plan', issues: ['direction-patch-error'] });
+                            }
                             const merged = mergeClientPatchPlans(originalCode, prepared);
                             code = merged.code;
                             if (bonusPlan && merged.rejected.includes(bonusPlan)) reportBonus({ kind: 'hooks', ready: false, issues: ['overdrive-edit-conflict'] });
@@ -268,6 +282,7 @@ import { postPageMessage } from './core/pageMessages';
                             if (userActionPlan && merged.rejected.includes(userActionPlan)) reportUserActions({ hooked: false, ready: false, strategy: 'ast-plan', issues: ['user-action-edit-conflict'] });
 
                             if (criticalPlan && merged.rejected.includes(criticalPlan)) reportCritical({ hooked: false, ready: false, strategy: 'ast-plan', issues: ['critical-edit-conflict'] });
+                            if (directionPlan && merged.rejected.includes(directionPlan)) direction?.reportHook({ ready: false, hooked: false, strategy: 'ast-plan', issues: ['direction-edit-conflict'] });
                             const script = document.createElement('script');
                             script.type = originalScript.type;
                             script.nonce = originalScript.nonce;

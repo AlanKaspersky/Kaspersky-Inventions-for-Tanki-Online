@@ -500,7 +500,14 @@
           privateHeaderFields: ".UserInfoContainerStyle-userNameRank, .UserInfoContainerStyle-progressValue",
           clientParameter: ".ClientInfoComponentStyle-parameterText",
           currencyIcon: ".HeaderCommonStyle-icons",
-          currencyValues: ".UserScoreComponentStyle-coinBlock span, .HeaderCommonStyle-icons span"
+          currencyValues: ".UserScoreComponentStyle-coinBlock span, .HeaderCommonStyle-icons span",
+          currencyHeader: ".BreadcrumbsComponentStyle-rightButtonsContainer",
+          currencyGroup: "div:has(> .HeaderCommonStyle-icons + .HeaderCommonStyle-icons)",
+          tankoinContainer: ".UserScoreComponentStyle-coinsContainer",
+          tankoinBalance: ".UserScoreComponentStyle-coinBlock span",
+          tankoinIcon: ".UserScoreComponentStyle-coinIcon",
+          exchangeBalance: ".ConverterDialogComponentStyle-modal .ConverterDialogComponentStyle-coinBalanceText",
+          exchangeIcon: ".ConverterDialogComponentStyle-modal .ConverterDialogComponentStyle-coinBalanceIcon"
         },
         screens: {
           loader: ".ApplicationLoaderComponentStyle-container",
@@ -596,6 +603,24 @@
           button: ".MainScreenComponentStyle-buttonPlay",
           mainMenu: ".MainScreenComponentStyle-blockMainMenu"
         },
+        lobbyPasses: {
+          announcement: ".AnnouncementHomeScreenComponentStyle-mainContainer",
+          announcementBody: ".AnnouncementHomeScreenComponentStyle-mainBackGroundContainer",
+          announcementCaption: ".AnnouncementHomeScreenComponentStyle-announceContainer",
+          announcementTimer: ".AnnouncementHomeScreenComponentStyle-headerTimer",
+          challenge: ".BattlePassLobbyComponentStyle-menuBattlePass",
+          heading: ".BattlePassLobbyComponentStyle-descriptionMenuPass span",
+          stars: ".BattlePassLobbyComponentStyle-numberStar span",
+          time: ".BattlePassLobbyComponentStyle-timers",
+          tracks: ".BattlePassLobbyComponentStyle-blockBattlePass",
+          trackName: ".BattlePassLobbyComponentStyle-commonDescription > span",
+          trackStatus: ".BattlePassLobbyComponentStyle-commonDescription > p",
+          locked: ".BattlePassLobbyComponentStyle-lockedBlock, .BattlePassLobbyComponentStyle-iconLocked, .BattlePassLobbyComponentStyle-imageClosed",
+          elite: ".EventBattlePassLobbyComponentStyle-buttonEventBattlePass",
+          eliteLevel: ".EventBattlePassLobbyComponentStyle-commonBlockProgressBar > h2",
+          eliteTime: ".ChallengeTimerComponentStyle-textTime",
+          eliteCircle: ".EventBattlePassLobbyComponentStyle-progressBar"
+        },
         trophies: {
           rewardImage: '[class*="rewardsContainer"] [class*="-backgroundImageContain"]',
           cards: ".MainQuestComponentStyle-cardPlayCommon, .TableMainQuestComponentStyle-commonTableMainQuest, .MainQuestComponentStyle-cardPlay",
@@ -611,6 +636,9 @@
           nicknameText: ".BattleTabStatisticComponentStyle-nicknameCell span",
           equipment: ".BattleTabStatisticComponentStyle-commonBlock",
           selectedRow: ".BattleTabStatisticComponentStyle-selectedRowBackGround",
+          blueTeam: ".BattleTabStatisticComponentStyle-blueTeamTableContainer",
+          redTeam: ".BattleTabStatisticComponentStyle-redTeamTableContainer",
+          dmTeam: ".BattleTabStatisticComponentStyle-dmTableContainer",
           deviceCell: ".BattleTabStatisticComponentStyle-deviceCell",
           hullCell: ".BattleTabStatisticComponentStyle-defenceCell",
           teams: ".BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults",
@@ -638,6 +666,10 @@
           secondTeamScore: ".BattleResultHeaderComponentStyle-twoTeamAccount .BattleResultHeaderComponentStyle-teamAccount"
         },
         classes: {
+          tankoinContainer: "UserScoreComponentStyle-coinsContainer",
+          currencyIcon: "HeaderCommonStyle-icons",
+          tankoinBlock: "UserScoreComponentStyle-coinBlock",
+          tankoinIcon: "UserScoreComponentStyle-coinIcon",
           formatSelected: "FormatsSectionComponentStyle-selectedCard",
           formatUnselected: "FormatsSectionComponentStyle-unSelectedCard",
           settingsTab: "SettingsMenuComponentStyle-menuItemOptions",
@@ -734,6 +766,11 @@
         const battle = message.battle;
         return finite(message.at, 0, Number.MAX_SAFE_INTEGER) && (battle === null || object(battle) && typeof battle.map === "string" && battle.map.length <= 128 && (battle.mode === void 0 || typeof battle.mode === "string" && modes.test(battle.mode)) && (battle.remaining === void 0 || finite(battle.remaining, 0, 86400)) && (battle.players === void 0 || Number.isInteger(battle.players) && finite(battle.players, 0, 1e3)) && (battle.maxPlayers === void 0 || Number.isInteger(battle.maxPlayers) && finite(battle.maxPlayers, 1, 1e3)));
       }
+      case "kasp:overdrive-direction": {
+        const pose = message.pose;
+        const position = object(pose) ? pose.position : null;
+        return finite(message.at, 0, Number.MAX_SAFE_INTEGER) && (pose === null || object(pose) && object(position) && ["x", "y", "z"].every((axis) => finite(position[axis], -1e8, 1e8)) && finite(pose.yaw, -1e6, 1e6));
+      }
       case "kasp:discord-presence": {
         const presence = message.presence;
         if (message.version !== 1) return false;
@@ -782,13 +819,13 @@
   function setupAccountIdentity() {
     if (initialized) return;
     initialized = true;
-    const lifecycle23 = featureScope("accountIdentity");
-    lifecycle23.onCleanup(() => {
+    const lifecycle26 = featureScope("accountIdentity");
+    lifecycle26.onCleanup(() => {
       nativeAccount = null;
       players.clear();
       receivedAt = 0;
     });
-    lifecycle23.listen(window, "message", (event) => {
+    lifecycle26.listen(window, "message", (event) => {
       const message = readPageMessage(event, window, ACCOUNT_IDENTITY_MESSAGE);
       if (!message) return;
       const snapshot = message.snapshot;
@@ -3121,7 +3158,7 @@
             role2: `\u0412 \u0441\u043E\u0437\u0434\u0430\u043D\u0438\u0438 \u0443\u0447\u0430\u0441\u0442\u0432\u043E\u0432\u0430\u043B\u0438`,
             role3: `\u041A\u0430\u0447\u0435\u0441\u0442\u0432\u043E \u043E\u0446\u0435\u043D\u0438\u0432\u0430\u043B\u0438`,
             role4: `\u0414\u0438\u0437\u0430\u0439\u043D\u0435\u0440\u044B`,
-            role5: `\u0422\u0435\u0441\u0442\u0438\u0440\u043E\u0432\u0449\u0438\u043A\u0438`,
+            role5: `\u0422\u0435\u0441\u0442\u0435\u0440\u044B`,
             role6: `\u041A\u043E\u0434\u0435\u0440\u044B`,
             role7: "\u0410\u0441\u0441\u0438\u0441\u0442\u0435\u043D\u0442\u044B",
             outro: `\u041F\u0440\u043E\u0435\u043A\u0442 \u0432\u044B\u0440\u0430\u0436\u0430\u0435\u0442 \u0438\u043C \u043E\u0433\u0440\u043E\u043C\u043D\u0443\u044E \u0431\u043B\u0430\u0433\u043E\u0434\u0430\u0440\u043D\u043E\u0441\u0442\u044C!`,
@@ -3214,50 +3251,486 @@
       lifecycle8 = featureScope("hideCurrency");
       hideCurrency = lifecycle8.initialize(() => {
         let initialized2 = false;
+        let interval;
+        const masked = /* @__PURE__ */ new Map();
         function getHiddenText() {
           return state.lang === "RU" ? "\u0421\u043A\u0440\u044B\u0442\u043E" : "Hidden";
         }
         function processSpan(span) {
+          if (span.closest("#kasp-tankoin-balance")) return;
           const text2 = span.textContent?.trim() || "";
           const targetText = getHiddenText();
-          const parentElement = span.closest(gameDOM.account.currencyIcon) || span.parentElement;
-          if (text2 && text2 !== targetText && text2 !== "\u0421\u043A\u0440\u044B\u0442\u043E" && text2 !== "Hidden" && /\d/.test(text2)) {
-            span.dataset.originalValue = text2;
-            span.textContent = targetText;
-            if (parentElement) {
-              parentElement.setAttribute("data-tooltip", text2);
+          const parent = span.closest(gameDOM.account.currencyIcon) || span.parentElement;
+          if (!parent) return;
+          let record = masked.get(span);
+          if (record && record.parent !== parent) {
+            restore(span);
+            record = void 0;
+          }
+          if (/\d/.test(text2)) {
+            if (record) record.value = text2;
+            else {
+              record = {
+                value: text2,
+                parent,
+                tooltip: parent.getAttribute("data-tooltip"),
+                hadClass: parent.classList.contains("currency-masked")
+              };
+              masked.set(span, record);
             }
-          } else if (span.dataset.originalValue && parentElement && !parentElement.hasAttribute("data-tooltip")) {
-            parentElement.setAttribute("data-tooltip", span.dataset.originalValue);
           }
-          if (parentElement && !parentElement.classList.contains("currency-masked")) {
-            parentElement.classList.add("currency-masked");
+          if (!record) return;
+          if (span.dataset.originalValue !== record.value) span.dataset.originalValue = record.value;
+          if (span.textContent !== targetText) span.textContent = targetText;
+          if (parent.getAttribute("data-tooltip") !== record.value) parent.setAttribute("data-tooltip", record.value);
+          if (!parent.classList.contains("currency-masked")) parent.classList.add("currency-masked");
+        }
+        function restore(span) {
+          const record = masked.get(span);
+          if (!record) return;
+          if (["Hidden", "\u0421\u043A\u0440\u044B\u0442\u043E"].includes(span.textContent?.trim() || "")) span.textContent = record.value;
+          delete span.dataset.originalValue;
+          if (!record.hadClass) record.parent.classList.remove("currency-masked");
+          if (record.parent.getAttribute("data-tooltip") === record.value) {
+            if (record.tooltip === null) record.parent.removeAttribute("data-tooltip");
+            else record.parent.setAttribute("data-tooltip", record.tooltip);
           }
+          masked.delete(span);
+        }
+        function restoreAll() {
+          for (const span of masked.keys()) restore(span);
+        }
+        function sync() {
+          if (!utils.getSetting("k_hideCurrency", false) || state.currentScreen === "battle") {
+            lifecycle8.cancelInterval(interval);
+            interval = void 0;
+            restoreAll();
+            return;
+          }
+          interval ??= lifecycle8.interval(sync, 500);
+          for (const span of masked.keys()) if (!span.isConnected) restore(span);
+          document.querySelectorAll(gameDOM.account.currencyValues).forEach(processSpan);
         }
         lifecycle8.onCleanup(() => {
-          document.querySelectorAll("[data-original-value]").forEach((node) => {
-            if (node.dataset.originalValue && ["Hidden", "\u0421\u043A\u0440\u044B\u0442\u043E"].includes(node.textContent?.trim() || "")) node.textContent = node.dataset.originalValue;
-            delete node.dataset.originalValue;
-          });
-          document.querySelectorAll(".currency-masked").forEach((node) => {
-            node.classList.remove("currency-masked");
-            node.removeAttribute("data-tooltip");
-          });
+          interval = void 0;
+          restoreAll();
         });
         return () => {
-          if (!utils.getSetting("k_hideCurrency", false)) return;
-          if (state.currentScreen === "battle") return;
           if (!initialized2) {
             initialized2 = true;
-            lifecycle8.interval(() => {
-              if (state.currentScreen === "battle") return;
-              const spans2 = document.querySelectorAll(gameDOM.account.currencyValues);
-              spans2.forEach((node) => processSpan(node));
-            }, 500);
+            lifecycle8.listen(window, "kasp:settings-changed", sync);
+            lifecycle8.listen(window, "storage", sync);
           }
-          const spans = document.querySelectorAll(gameDOM.account.currencyValues);
-          spans.forEach((node) => processSpan(node));
+          sync();
         };
+      }, () => {
+      });
+    }
+  });
+
+  // src/modules/tankoinBalance.ts
+  function parseBalance(value) {
+    const text2 = value?.trim() || "";
+    return text2.length <= 64 && /^\d[\d\s]*$/.test(text2) ? text2 : null;
+  }
+  function readBalance(element) {
+    return parseBalance(element?.textContent) ?? parseBalance(element?.dataset.originalValue);
+  }
+  var lifecycle9, PANEL_ID, COIN_ICON, STORAGE_PREFIX, tankoinBalance;
+  var init_tankoinBalance = __esm({
+    "src/modules/tankoinBalance.ts"() {
+      "use strict";
+      init_featureRuntime();
+      init_accountIdentity();
+      init_accountId();
+      init_pageMessages();
+      init_gameDOM();
+      init_state();
+      init_utils();
+      lifecycle9 = featureScope("tankoinBalance");
+      PANEL_ID = "kasp-tankoin-balance";
+      COIN_ICON = "https://s.eu.tankionline.com/static/images/coin.3a16e831.svg";
+      STORAGE_PREFIX = "kasp_tankoin_balance_uid_";
+      tankoinBalance = lifecycle9.initialize(() => {
+        let owner = null;
+        let ownerId = null;
+        let balance = null;
+        let lastSaveAttempt = null;
+        let iconUrl2 = COIN_ICON;
+        let panel = null;
+        let iconContainer = null;
+        let image = null;
+        let value = null;
+        let observer = null;
+        let sources = [];
+        let initialized2 = false;
+        function removePanel() {
+          panel?.remove();
+          panel = iconContainer = image = value = null;
+        }
+        function sync() {
+          if (!initialized2) {
+            initialized2 = true;
+            lifecycle9.listen(window, "kasp:settings-changed", sync);
+            lifecycle9.listen(window, "storage", sync);
+            lifecycle9.listen(window, "message", (event) => {
+              if (readPageMessage(event, window, ACCOUNT_IDENTITY_MESSAGE)) sync();
+            });
+          }
+          const account = getVerifiedAccount();
+          const nickname = getAccountIdentity()?.nickname || account?.nickname || null;
+          if (nickname !== owner && (!account || account.userId !== ownerId)) {
+            ownerId = null;
+            balance = null;
+            lastSaveAttempt = null;
+            iconUrl2 = COIN_ICON;
+            removePanel();
+          }
+          owner = nickname;
+          if (account && account.userId !== ownerId) {
+            if (ownerId !== null) balance = null;
+            ownerId = account.userId;
+            let cached = null;
+            try {
+              cached = parseBalance(localStorage.getItem(STORAGE_PREFIX + ownerId));
+            } catch {
+            }
+            balance ??= cached;
+            lastSaveAttempt = cached;
+          }
+          const breadcrumbs = document.querySelector(gameDOM.account.currencyHeader);
+          const currencies = (breadcrumbs || document).querySelector(gameDOM.account.currencyGroup);
+          const header = breadcrumbs || currencies?.parentElement || null;
+          const native = header?.querySelector(`${gameDOM.account.tankoinContainer}:not(#${PANEL_ID})`) || null;
+          const exchange = document.querySelector(gameDOM.account.exchangeBalance);
+          const nextSources = [native, exchange].filter((element) => !!element);
+          if (sources.length !== nextSources.length || sources.some((element, index) => element !== nextSources[index])) {
+            observer ??= lifecycle9.observer(sync);
+            observer.disconnect();
+            sources = nextSources;
+            for (const source of sources) observer.observe(source, { childList: true, subtree: true, characterData: true });
+          }
+          const observed = readBalance(exchange) ?? readBalance(native?.querySelector(gameDOM.account.tankoinBalance) || null);
+          if (observed !== null) balance = observed;
+          if (account && account.userId === ownerId && balance !== null && balance !== lastSaveAttempt) {
+            lastSaveAttempt = balance;
+            try {
+              localStorage.setItem(STORAGE_PREFIX + ownerId, balance);
+            } catch {
+            }
+          }
+          const sourceIcon = (exchange ? document.querySelector(gameDOM.account.exchangeIcon) : null) || native?.querySelector(gameDOM.account.tankoinIcon);
+          if (sourceIcon?.src) iconUrl2 = sourceIcon.src;
+          if (!header || native) {
+            removePanel();
+            return;
+          }
+          if (!panel?.isConnected || panel.parentElement !== header) {
+            removePanel();
+            panel = document.createElement("div");
+            panel.id = PANEL_ID;
+            panel.className = gameDOM.classes.tankoinContainer;
+            iconContainer = document.createElement("div");
+            iconContainer.className = gameDOM.classes.currencyIcon;
+            const block = document.createElement("div");
+            block.className = gameDOM.classes.tankoinBlock;
+            image = document.createElement("img");
+            image.className = gameDOM.classes.tankoinIcon;
+            image.alt = "";
+            value = document.createElement("span");
+            block.append(image, value);
+            iconContainer.appendChild(block);
+            panel.appendChild(iconContainer);
+            header.insertBefore(panel, currencies?.parentElement === header ? currencies : header.firstChild);
+          }
+          if (image.getAttribute("src") !== iconUrl2) image.src = iconUrl2;
+          const hidden = utils.getSetting("k_hideCurrency", false) && balance !== null;
+          const text2 = hidden ? state.lang === "RU" ? "\u0421\u043A\u0440\u044B\u0442\u043E" : "Hidden" : balance ?? "\u2014";
+          if (value.textContent !== text2) value.textContent = text2;
+          if (hidden) {
+            value.dataset.originalValue = balance;
+            if (iconContainer.getAttribute("data-tooltip") !== balance) iconContainer.setAttribute("data-tooltip", balance);
+          } else {
+            delete value.dataset.originalValue;
+            iconContainer.removeAttribute("data-tooltip");
+          }
+          iconContainer.classList.toggle("currency-masked", hidden);
+          const hint = balance === null ? state.lang === "RU" ? "\u041E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043C\u0430\u0433\u0430\u0437\u0438\u043D \u0438\u043B\u0438 \u043E\u0431\u043C\u0435\u043D \u0440\u0443\u0431\u0438\u043D\u043E\u0432, \u0447\u0442\u043E\u0431\u044B \u043E\u0431\u043D\u043E\u0432\u0438\u0442\u044C \u0431\u0430\u043B\u0430\u043D\u0441 \u0442\u0430\u043D\u043A\u043E\u0438\u043D\u043E\u0432." : "Open the shop or Ruby exchange to refresh the Tankoin balance." : state.lang === "RU" ? "\u0422\u0430\u043D\u043A\u043E\u0438\u043D\u044B" : "Tankoins";
+          if (panel.title !== hint) panel.title = hint;
+        }
+        lifecycle9.onCleanup(() => {
+          observer?.disconnect();
+          sources = [];
+          balance = owner = ownerId = lastSaveAttempt = null;
+          removePanel();
+        });
+        return sync;
+      }, () => {
+      });
+    }
+  });
+
+  // src/modules/lobbyPasses.ts
+  function readStarProgress(value) {
+    const match = /^(\d+)\/(\d+)$/.exec(value.replace(/\s/g, ""));
+    if (!match || +match[2] <= 0) return null;
+    const percent = +match[1] / +match[2] * 100;
+    return Number.isFinite(percent) ? Math.min(100, Math.max(0, percent)) : null;
+  }
+  function readCircleProgress(circle) {
+    const halves = circle?.children?.[1]?.children;
+    if (!halves || halves.length < 1 || halves.length > 2) return null;
+    function angle(element) {
+      const value = element.style.transform || getComputedStyle(element).transform;
+      const direct = /^rotate(?:Z)?\(\s*([-+\d.e]+)(deg|rad|turn)\s*\)$/i.exec(value);
+      let degrees2;
+      if (direct) degrees2 = +direct[1] * (direct[2] === "rad" ? 180 / Math.PI : direct[2] === "turn" ? 360 : 1);
+      else {
+        if (!value || value === "none") return null;
+        try {
+          const matrix = new DOMMatrixReadOnly(value);
+          degrees2 = Math.atan2(matrix.b, matrix.a) * 180 / Math.PI;
+        } catch {
+          return null;
+        }
+      }
+      return Number.isFinite(degrees2) ? (degrees2 % 360 + 360) % 360 : null;
+    }
+    const first = angle(halves[0]);
+    if (first === null || first > 180.01) return null;
+    let degrees = first;
+    if (halves.length === 2) {
+      const second = angle(halves[1]);
+      if (first < 179.99 || second === null || second > 0.01 && second < 180) return null;
+      degrees = second < 0.01 ? 360 : second;
+    }
+    return Math.round(degrees / 3.6 * 100) / 100;
+  }
+  var lifecycle10, selectors, lobbyPasses;
+  var init_lobbyPasses = __esm({
+    "src/modules/lobbyPasses.ts"() {
+      "use strict";
+      init_featureRuntime();
+      init_gameDOM();
+      init_state();
+      lifecycle10 = featureScope("lobbyPasses");
+      selectors = gameDOM.lobbyPasses;
+      lobbyPasses = lifecycle10.initialize(() => {
+        const records = /* @__PURE__ */ new Map();
+        let sources = [], observer = null;
+        let resize = null, initialized2 = false, queued = false;
+        let trophiesParent = null;
+        const TROPHY_TOP = "--kasp-lobby-trophies-top";
+        const TROPHY_LEFT = "--kasp-lobby-trophies-left", TROPHY_WIDTH = "--kasp-lobby-trophies-width";
+        const previousTrophyStyles = /* @__PURE__ */ new Map();
+        const artLayers = /* @__PURE__ */ new Map();
+        let announcementBody = null;
+        const ANNOUNCEMENT_HEIGHT = "--kasp-announcement-height";
+        const artImage = `url(${JSON.stringify(chrome.runtime.getURL("assets/art1.png"))})`;
+        const properties = [
+          "--kasp-pass-left",
+          "--kasp-pass-top",
+          "--kasp-pass-width",
+          "--kasp-star-progress",
+          "--kasp-star-meter-display",
+          "--kasp-elite-progress",
+          "--kasp-elite-meter-opacity"
+        ];
+        function restoreTrophies() {
+          if (!trophiesParent) return;
+          for (const [key, previous] of previousTrophyStyles) {
+            if (previous.value) trophiesParent.style.setProperty(key, previous.value, previous.priority);
+            else trophiesParent.style.removeProperty(key);
+          }
+          previousTrophyStyles.clear();
+          trophiesParent = null;
+        }
+        function release(root) {
+          root.classList.remove("kasp-lobby-pass-card", `kasp-pass-${records.get(root)}`);
+          root.removeAttribute("data-kasp-pass-lang");
+          for (const key of properties) root.style.removeProperty(key);
+          records.delete(root);
+        }
+        function decorate(root, kind) {
+          if (records.has(root) && records.get(root) !== kind) release(root);
+          records.set(root, kind);
+          if (!root.classList.contains("kasp-lobby-pass-card") || !root.classList.contains(`kasp-pass-${kind}`))
+            root.classList.add("kasp-lobby-pass-card", `kasp-pass-${kind}`);
+          if (root.getAttribute("data-kasp-pass-lang") !== state.lang) root.setAttribute("data-kasp-pass-lang", state.lang);
+        }
+        function setStyle(element, key, value) {
+          if (element.style.getPropertyValue(key) !== value) element.style.setProperty(key, value);
+        }
+        function sizeAnnouncement(root) {
+          const body = root?.querySelector(selectors.announcementBody) ?? null;
+          if (announcementBody !== body) {
+            announcementBody?.style.removeProperty(ANNOUNCEMENT_HEIGHT);
+            announcementBody = body;
+          }
+          const caption = body?.querySelector(selectors.announcementCaption);
+          if (!body || !caption || !body.offsetWidth) return;
+          const timer = body.querySelector(selectors.announcementTimer);
+          const css = getComputedStyle(body);
+          const px = (value) => parseFloat(value) || 0;
+          const content = Math.max(caption.scrollHeight, timer?.scrollHeight ?? 0);
+          const height = Math.max(px(css.minHeight), content + px(css.paddingTop) + px(css.paddingBottom) + px(css.borderTopWidth) + px(css.borderBottomWidth));
+          setStyle(body, ANNOUNCEMENT_HEIGHT, `${Math.ceil(height)}px`);
+        }
+        function clearPanorama() {
+          for (const [card, layer] of artLayers) {
+            layer.remove();
+            card.classList.remove("kasp-lobby-has-art");
+          }
+          artLayers.clear();
+        }
+        function paintPanorama(challenge, elite, trophies, announcement) {
+          const cards = [
+            challenge,
+            ...elite ? [elite] : [],
+            ...announcement ? [announcement] : [],
+            ...Array.from(trophies?.querySelectorAll(".custom-trophy-item") || [])
+          ];
+          const measured = cards.map((card) => ({ card, rect: card.getBoundingClientRect() })).filter((item) => item.rect.width > 0 && item.rect.height > 0);
+          if (!measured.length) {
+            clearPanorama();
+            return;
+          }
+          const current = new Set(measured.map((item) => item.card));
+          for (const [card, layer] of artLayers) if (!current.has(card)) {
+            layer.remove();
+            card.classList.remove("kasp-lobby-has-art");
+            artLayers.delete(card);
+          }
+          const left = Math.min(...measured.map((item) => item.rect.left));
+          const top = Math.min(...measured.map((item) => item.rect.top));
+          const right = Math.max(...measured.map((item) => item.rect.right));
+          const bottom = Math.max(...measured.map((item) => item.rect.bottom));
+          for (const { card, rect } of measured) {
+            let layer = artLayers.get(card);
+            if (layer?.parentElement !== card) {
+              layer?.remove();
+              layer = document.createElement("span");
+              layer.className = "kasp-lobby-art-slice";
+              layer.setAttribute("aria-hidden", "true");
+              card.appendChild(layer);
+              artLayers.set(card, layer);
+            }
+            setStyle(layer, "--kasp-art-image", artImage);
+            const scaleX = card.offsetWidth ? rect.width / card.offsetWidth || 1 : 1;
+            const scaleY = card.offsetHeight ? rect.height / card.offsetHeight || 1 : 1;
+            setStyle(layer, "--kasp-art-width", String((right - left) / scaleX) + "px");
+            setStyle(layer, "--kasp-art-height", String((bottom - top) / scaleY) + "px");
+            setStyle(layer, "--kasp-art-x", String(-(rect.left - left) / scaleX - card.clientLeft) + "px");
+            setStyle(layer, "--kasp-art-y", String(-(rect.top - top) / scaleY - card.clientTop) + "px");
+            if (!card.classList.contains("kasp-lobby-has-art")) card.classList.add("kasp-lobby-has-art");
+          }
+        }
+        function progress(root, kind, value) {
+          if (kind === "elite") setStyle(root, "--kasp-elite-meter-opacity", value === null ? "0" : "1");
+          else setStyle(root, "--kasp-star-meter-display", value === null ? "none" : "block");
+          if (value !== null) setStyle(root, `--kasp-${kind}-progress`, `${value}%`);
+          else root.style.removeProperty(`--kasp-${kind}-progress`);
+        }
+        function coordinates(root, x, y) {
+          const parent = root.offsetParent;
+          if (!parent) return { x, y, scaleX: 1 };
+          const rect = parent.getBoundingClientRect();
+          const scaleX = parent.offsetWidth ? rect.width / parent.offsetWidth || 1 : 1;
+          const scaleY = parent.offsetHeight ? rect.height / parent.offsetHeight || 1 : 1;
+          return {
+            x: (x - rect.left) / scaleX + parent.scrollLeft - parent.clientLeft,
+            y: (y - rect.top) / scaleY + parent.scrollTop - parent.clientTop,
+            scaleX
+          };
+        }
+        function position(challenge, elite) {
+          const rect = challenge.getBoundingClientRect();
+          if (!rect.width || !rect.height) return;
+          const font = parseFloat(getComputedStyle(challenge).fontSize) || 16;
+          let bottom = rect.bottom;
+          if (elite) {
+            const point = coordinates(elite, rect.left, rect.bottom + font * 0.5);
+            setStyle(elite, "--kasp-pass-left", `${point.x}px`);
+            setStyle(elite, "--kasp-pass-top", `${point.y}px`);
+            setStyle(elite, "--kasp-pass-width", `${rect.width / point.scaleX}px`);
+            bottom = elite.getBoundingClientRect().bottom;
+          }
+          if (trophiesParent !== challenge.parentElement) {
+            restoreTrophies();
+            trophiesParent = challenge.parentElement;
+            for (const key of [TROPHY_TOP, TROPHY_LEFT, TROPHY_WIDTH]) previousTrophyStyles.set(key, {
+              value: trophiesParent?.style.getPropertyValue(key) || "",
+              priority: trophiesParent?.style.getPropertyPriority(key) || ""
+            });
+          }
+          if (trophiesParent) {
+            const point = coordinates(challenge, rect.left, bottom + font);
+            setStyle(trophiesParent, TROPHY_TOP, `${point.y}px`);
+            setStyle(trophiesParent, TROPHY_LEFT, `${point.x}px`);
+            setStyle(trophiesParent, TROPHY_WIDTH, `${rect.width / point.scaleX}px`);
+          }
+        }
+        function schedule() {
+          if (queued) return;
+          queued = true;
+          lifecycle10.microtask(() => {
+            queued = false;
+            sync();
+          });
+        }
+        function sync() {
+          if (!initialized2) {
+            initialized2 = true;
+            lifecycle10.listen(window, "resize", schedule);
+            observer = lifecycle10.observer((changes) => {
+              if (changes.some((change) => !(change.type === "attributes" && change.attributeName === "style" && sources.includes(change.target)))) schedule();
+            });
+            if (typeof ResizeObserver !== "undefined") resize = new ResizeObserver(lifecycle10.guard(schedule));
+          }
+          const challenge = document.querySelector(selectors.challenge), elite = document.querySelector(selectors.elite);
+          const trophies = document.getElementById("custom-trophy-panel");
+          const announcement = document.querySelector(selectors.announcement);
+          sizeAnnouncement(announcement);
+          const next = [challenge, elite, trophies, announcement].filter((root) => !!root);
+          if (sources.length !== next.length || sources.some((root, index) => root !== next[index])) {
+            observer?.disconnect();
+            resize?.disconnect();
+            sources = next;
+            for (const root of sources) {
+              observer?.observe(root, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ["class", "style"] });
+              resize?.observe(root);
+            }
+          }
+          for (const root of records.keys()) if (!next.includes(root)) release(root);
+          const stars = challenge?.querySelector(selectors.stars)?.textContent?.trim();
+          if (!challenge || !stars || !challenge.querySelector(selectors.tracks)) {
+            for (const root of records.keys()) release(root);
+            restoreTrophies();
+            clearPanorama();
+            return;
+          }
+          decorate(challenge, "challenge");
+          progress(challenge, "star", readStarProgress(stars));
+          let decoratedElite = null;
+          if (elite && elite.querySelector(selectors.eliteLevel)) {
+            decorate(elite, "elite");
+            progress(elite, "elite", readCircleProgress(elite.querySelector(selectors.eliteCircle)));
+            decoratedElite = elite;
+          } else if (elite && records.has(elite)) release(elite);
+          position(challenge, decoratedElite);
+          paintPanorama(challenge, decoratedElite, trophies, announcement);
+        }
+        lifecycle10.onCleanup(() => {
+          observer?.disconnect();
+          resize?.disconnect();
+          sources = [];
+          announcementBody?.style.removeProperty(ANNOUNCEMENT_HEIGHT);
+          announcementBody = null;
+          for (const root of records.keys()) release(root);
+          restoreTrophies();
+          clearPanorama();
+        });
+        return sync;
       }, () => {
       });
     }
@@ -3283,7 +3756,7 @@
   });
 
   // src/modules/customTrophies.ts
-  var lifecycle9, customTrophies;
+  var lifecycle11, customTrophies;
   var init_customTrophies = __esm({
     "src/modules/customTrophies.ts"() {
       "use strict";
@@ -3292,10 +3765,10 @@
       init_state();
       init_accountIdentity();
       init_imageUrl();
-      lifecycle9 = featureScope("customTrophies");
-      customTrophies = lifecycle9.initialize(() => {
+      lifecycle11 = featureScope("customTrophies");
+      customTrophies = lifecycle11.initialize(() => {
         let initialization = null;
-        const STORAGE_PREFIX = "kasp_trophies_favorites_uid_";
+        const STORAGE_PREFIX2 = "kasp_trophies_favorites_uid_";
         const ICON_UNFAV = "https://s.eu.tankionline.com/static/images/unfavoriteStar.0e39d67a.svg";
         const ICON_FAV = "https://s.eu.tankionline.com/static/images/favoriteStar.1ce58570.svg";
         let trophyDictionary = {};
@@ -3329,7 +3802,7 @@
           if (!userId) return [];
           if (cachedFavs) return cachedFavs;
           try {
-            const value = JSON.parse(localStorage.getItem(STORAGE_PREFIX + userId) || "[]");
+            const value = JSON.parse(localStorage.getItem(STORAGE_PREFIX2 + userId) || "[]");
             cachedFavs = Array.isArray(value) ? value.filter((item) => item && typeof item === "object" && typeof item.id === "string" && item.id.length > 0 && item.id.length <= 128 && ["turret", "hull"].includes(item.type) && typeof item.icon === "string" && Number.isFinite(item.current) && item.current >= 0 && Number.isFinite(item.max) && item.max > 0).slice(0, 4).map((item) => ({ ...item, icon: getTankiImageUrl(item.icon) })) : [];
           } catch {
             cachedFavs = [];
@@ -3340,7 +3813,7 @@
           const owner = favoritesOwner;
           if (!owner || syncOwner() !== owner) return;
           cachedFavs = favs;
-          localStorage.setItem(STORAGE_PREFIX + owner, JSON.stringify(favs));
+          localStorage.setItem(STORAGE_PREFIX2 + owner, JSON.stringify(favs));
         }
         function parseItem(rawText) {
           const lower = rawText.toLowerCase();
@@ -3368,7 +3841,7 @@
           }
           return "https://s.eu.tankionline.com/static/images/score.b3ca71b2.svg";
         }
-        function toggleFavorite(itemId, type, iconUrl, current, max) {
+        function toggleFavorite(itemId, type, iconUrl2, current, max) {
           let favs = getFavs();
           const idx = favs.findIndex((f) => f.id === itemId);
           if (idx > -1) {
@@ -3376,7 +3849,7 @@
           } else {
             const count = favs.filter((f) => f.type === type).length;
             if (count >= 2) return;
-            favs.push({ id: itemId, type, icon: iconUrl, current, max });
+            favs.push({ id: itemId, type, icon: iconUrl2, current, max });
           }
           saveFavs(favs);
           const cards = document.querySelectorAll(gameDOM.trophies.cards);
@@ -3428,7 +3901,7 @@
               const expectedIcon = favItem ? ICON_FAV : ICON_UNFAV;
               if (img && img.src !== expectedIcon) img.src = expectedIcon;
             }
-            starContainer.onclick = lifecycle9.guard((e) => {
+            starContainer.onclick = lifecycle11.guard((e) => {
               e.stopPropagation();
               if (syncOwner() !== owner || parseItem(card.textContent || "")?.id !== itemInfo.id) return;
               toggleFavorite(itemInfo.id, type, extractIcon(card), currentPoints, maxPoints);
@@ -3487,16 +3960,14 @@
             const displayName = match ? state.lang === "RU" ? match.ru : match.en : trophy.id;
             const item = document.createElement("div");
             item.className = "custom-trophy-item";
-            const image = document.createElement("img");
-            image.className = "custom-trophy-icon";
-            const icon = getTankiImageUrl(trophy.icon);
-            if (icon) image.src = icon;
-            image.alt = displayName;
             const info = document.createElement("div");
             info.className = "custom-trophy-info";
             const title = document.createElement("div");
             title.className = "custom-trophy-title";
             title.textContent = displayName;
+            const percentage = document.createElement("div");
+            percentage.className = "custom-trophy-percent";
+            percentage.textContent = `${Math.floor(percent)}%`;
             const bar = document.createElement("div");
             bar.className = "custom-trophy-bar-bg";
             const fill = document.createElement("div");
@@ -3505,9 +3976,13 @@
             bar.appendChild(fill);
             const progress = document.createElement("div");
             progress.className = "custom-trophy-text";
-            progress.textContent = `${formatNumber2(trophy.current)} / ${formatNumber2(trophy.max)}`;
-            info.append(title, bar, progress);
-            item.append(image, info);
+            const current = document.createElement("span");
+            current.textContent = formatNumber2(trophy.current);
+            const target = document.createElement("span");
+            target.textContent = `/ ${formatNumber2(trophy.max)}`;
+            progress.append(current, target);
+            info.append(title, percentage, bar, progress);
+            item.appendChild(info);
             panel.appendChild(item);
           });
           return panel;
@@ -3530,7 +4005,7 @@
           const cards = document.querySelectorAll(gameDOM.trophies.cards);
           if (cards.length > 0) processGarageMissions(Array.from(cards));
         }
-        lifecycle9.onCleanup(() => {
+        lifecycle11.onCleanup(() => {
           cachedFavs = null;
           favoritesOwner = null;
           document.querySelectorAll(".custom-trophy-panel, [data-kasp-trophy-star]").forEach((node) => node.remove());
@@ -3539,7 +4014,7 @@
           const owner = syncOwner();
           if (!initialization) initialization = loadTrophyDictionary();
           await initialization;
-          if (lifecycle9.disabled) return;
+          if (lifecycle11.disabled) return;
           if (!trophyDictionaryLoaded || !owner || syncOwner() !== owner) return;
           if (state.currentScreen === "lobby" || state.currentScreen === "garage") {
             updateInterface();
@@ -3683,7 +4158,7 @@
   });
 
   // src/modules/autoUpgrade.ts
-  var lifecycle10, autoUpgrade;
+  var lifecycle12, autoUpgrade;
   var init_autoUpgrade = __esm({
     "src/modules/autoUpgrade.ts"() {
       "use strict";
@@ -3692,8 +4167,8 @@
       init_state();
       init_utils();
       init_modal();
-      lifecycle10 = featureScope("autoUpgrade");
-      autoUpgrade = lifecycle10.initialize(() => {
+      lifecycle12 = featureScope("autoUpgrade");
+      autoUpgrade = lifecycle12.initialize(() => {
         let initialized2 = false;
         let isRunning = false;
         let upgradeQueue = 0;
@@ -3735,30 +4210,30 @@
           activationEvent = event;
           pressedGamepadButtons = gamepadButtons();
           for (const type of ["keydown", "pointerdown", "mousedown", "click"]) {
-            lifecycle10.listen(document, type, stopOnInput, true);
+            lifecycle12.listen(document, type, stopOnInput, true);
           }
           const poll = () => {
             inputFrame = null;
             if (!isRunning) return;
             checkGamepadInput();
-            if (isRunning) inputFrame = lifecycle10.frame(poll);
+            if (isRunning) inputFrame = lifecycle12.frame(poll);
           };
-          inputFrame = lifecycle10.frame(poll);
+          inputFrame = lifecycle12.frame(poll);
         }
         function finish() {
           isRunning = false;
           upgradeQueue = 0;
           unavailableRetries = 0;
           if (timer !== null) {
-            lifecycle10.cancelTimeout(timer);
+            lifecycle12.cancelTimeout(timer);
             timer = null;
           }
           if (inputFrame !== null) {
-            lifecycle10.cancelFrame(inputFrame);
+            lifecycle12.cancelFrame(inputFrame);
             inputFrame = null;
           }
           for (const type of ["keydown", "pointerdown", "mousedown", "click"]) {
-            lifecycle10.unlisten(document, type, stopOnInput, true);
+            lifecycle12.unlisten(document, type, stopOnInput, true);
           }
           activationEvent = void 0;
           pressedGamepadButtons.clear();
@@ -3925,8 +4400,8 @@
           };
           modal.onClose(() => {
             isClosing = true;
-            lifecycle10.unlisten(document, "keydown", onKeyDown, true);
-            lifecycle10.timeout(() => lifecycle10.unlisten(document, "keyup", onKeyUp, true), 700);
+            lifecycle12.unlisten(document, "keydown", onKeyDown, true);
+            lifecycle12.timeout(() => lifecycle12.unlisten(document, "keyup", onKeyUp, true), 700);
           });
           const onKeyDown = (event) => {
             if (event.key !== "Enter" || isClosing) return;
@@ -3943,14 +4418,14 @@
               event.stopImmediatePropagation();
             }
           };
-          lifecycle10.listen(confirmBtn, "click", (event) => {
+          lifecycle12.listen(confirmBtn, "click", (event) => {
             if (isClosing) return;
             closeDialog();
             callback(event);
           });
-          lifecycle10.listen(cancelBtn, "click", closeDialog);
-          lifecycle10.listen(document, "keydown", onKeyDown, true);
-          lifecycle10.listen(document, "keyup", onKeyUp, true);
+          lifecycle12.listen(cancelBtn, "click", closeDialog);
+          lifecycle12.listen(document, "keydown", onKeyDown, true);
+          lifecycle12.listen(document, "keyup", onKeyUp, true);
         }
         function performAction(count) {
           if (isRunning) return;
@@ -3969,7 +4444,7 @@
               }
               if (isWaitingForDialogClose) {
                 if (isDialogOpen()) {
-                  timer = lifecycle10.timeout(doStep, DELAY);
+                  timer = lifecycle12.timeout(doStep, DELAY);
                   return;
                 }
                 isWaitingForDialogClose = false;
@@ -3985,7 +4460,7 @@
               if (!shouldShowQuickButtons() && !isDialogOpen()) {
                 if (unavailableRetries < MAX_UNAVAILABLE_RETRIES) {
                   unavailableRetries++;
-                  timer = lifecycle10.timeout(doStep, RETRY_DELAY);
+                  timer = lifecycle12.timeout(doStep, RETRY_DELAY);
                   return;
                 }
                 finish();
@@ -4009,16 +4484,16 @@
                   }
                   upgraded++;
                   isWaitingForDialogClose = true;
-                  timer = lifecycle10.timeout(doStep, DELAY);
+                  timer = lifecycle12.timeout(doStep, DELAY);
                   return;
                 }
                 finish();
                 return;
               }
               pressEnter();
-              timer = lifecycle10.timeout(doStep, DELAY);
+              timer = lifecycle12.timeout(doStep, DELAY);
             }
-            timer = lifecycle10.timeout(doStep, DELAY);
+            timer = lifecycle12.timeout(doStep, DELAY);
           });
         }
         function createButtons() {
@@ -4049,11 +4524,11 @@
             const el = document.createElement("div");
             el.className = gameDOM.classes.upgradeButton;
             el.style.cssText = `cursor: pointer; background-color: rgb(218, 218, 218) !important; transition: background-color 0.2s, box-shadow 0.2s; box-shadow: rgba(255, 255, 255, 0.25) 0em 0em 0em 0.063em; border-radius: 0.75em; display: flex; min-width: 0; align-items: center; justify-content: center; height: 3em; box-sizing: border-box;`;
-            lifecycle10.listen(el, "mouseenter", () => {
+            lifecycle12.listen(el, "mouseenter", () => {
               el.style.backgroundColor = "rgb(197, 197, 197)";
               el.style.boxShadow = "rgb(255, 255, 255) 0em 0em 0em 1.4px";
             });
-            lifecycle10.listen(el, "mouseleave", () => {
+            lifecycle12.listen(el, "mouseleave", () => {
               el.style.backgroundColor = "rgb(218, 218, 218)";
               el.style.boxShadow = "rgba(255, 255, 255, 0.25) 0em 0em 0em 0.063em";
             });
@@ -4062,7 +4537,7 @@
             span.textContent = btn.label;
             el.appendChild(span);
             el.title = btn.value === Infinity ? tooltipMax : tooltipSteps.replace("{n}", btn.value.toString());
-            lifecycle10.listen(el, "click", (e) => {
+            lifecycle12.listen(el, "click", (e) => {
               e.stopPropagation();
               if (typeof isRunning !== "undefined" && !isRunning) performAction(btn.value);
             });
@@ -4070,9 +4545,9 @@
           });
           panel.appendChild(quickButtonsWrapper);
         }
-        lifecycle10.onCleanup(() => {
+        lifecycle12.onCleanup(() => {
           finish();
-          if (categorySwitchTimeout !== null) lifecycle10.cancelTimeout(categorySwitchTimeout);
+          if (categorySwitchTimeout !== null) lifecycle12.cancelTimeout(categorySwitchTimeout);
           const overlay = document.getElementById("quick-upgrade-overlay");
           overlay?.closeDialogMethod?.();
           document.getElementById("quick-buttons")?.remove();
@@ -4082,10 +4557,10 @@
           if (state.currentScreen !== "garage") return;
           if (!initialized2) {
             initialized2 = true;
-            categorySwitchTimeout = lifecycle10.timeout(() => {
+            categorySwitchTimeout = lifecycle12.timeout(() => {
               isCategorySwitch = false;
             }, 2e3);
-            lifecycle10.listen(document, "click", (e) => {
+            lifecycle12.listen(document, "click", (e) => {
               const target = e.target;
               if (!(target instanceof Element))
                 return;
@@ -4100,40 +4575,40 @@
               const backButton = target.closest(gameDOM.navigation.backControls);
               if (menuCategory || mainGarageBlock || backButton) {
                 isCategorySwitch = true;
-                if (categorySwitchTimeout) lifecycle10.cancelTimeout(categorySwitchTimeout);
-                categorySwitchTimeout = lifecycle10.timeout(() => {
+                if (categorySwitchTimeout) lifecycle12.cancelTimeout(categorySwitchTimeout);
+                categorySwitchTimeout = lifecycle12.timeout(() => {
                   isCategorySwitch = false;
                 }, 1e3);
               } else if (itemElement) {
                 isCategorySwitch = false;
-                if (categorySwitchTimeout) lifecycle10.cancelTimeout(categorySwitchTimeout);
+                if (categorySwitchTimeout) lifecycle12.cancelTimeout(categorySwitchTimeout);
               }
               if (menuCategory || mainGarageBlock || itemElement || backButton) {
                 if (isRunning) finish();
                 lastItemSignature = "";
                 const existing = document.getElementById("quick-buttons");
                 if (existing) existing.remove();
-                lifecycle10.timeout(createButtons, 10);
+                lifecycle12.timeout(createButtons, 10);
               }
             }, true);
-            lifecycle10.listen(document, "keydown", (e) => {
+            lifecycle12.listen(document, "keydown", (e) => {
               if (document.getElementById("quick-upgrade-overlay")) return;
               if (e.key === "Escape" || e.code === "KeyZ" || e.key.toLowerCase() === "z") {
                 if (document.activeElement && ["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
                 isCategorySwitch = true;
-                if (categorySwitchTimeout) lifecycle10.cancelTimeout(categorySwitchTimeout);
-                categorySwitchTimeout = lifecycle10.timeout(() => {
+                if (categorySwitchTimeout) lifecycle12.cancelTimeout(categorySwitchTimeout);
+                categorySwitchTimeout = lifecycle12.timeout(() => {
                   isCategorySwitch = false;
                 }, 1e3);
                 lastItemSignature = "";
               }
             }, true);
-            lifecycle10.listen(document, "mousedown", (e) => {
+            lifecycle12.listen(document, "mousedown", (e) => {
               if (document.getElementById("quick-upgrade-overlay")) return;
               if (e.button === 3 || e.button === 4) {
                 isCategorySwitch = true;
-                if (categorySwitchTimeout) lifecycle10.cancelTimeout(categorySwitchTimeout);
-                categorySwitchTimeout = lifecycle10.timeout(() => {
+                if (categorySwitchTimeout) lifecycle12.cancelTimeout(categorySwitchTimeout);
+                categorySwitchTimeout = lifecycle12.timeout(() => {
                   isCategorySwitch = false;
                 }, 1e3);
                 lastItemSignature = "";
@@ -4172,15 +4647,15 @@
   });
 
   // src/modules/changeCounter.ts
-  var lifecycle11, changeCounter;
+  var lifecycle13, changeCounter;
   var init_changeCounter = __esm({
     "src/modules/changeCounter.ts"() {
       "use strict";
       init_featureRuntime();
       init_gameDOM();
       init_pageMessages();
-      lifecycle11 = featureScope("changeCounter");
-      changeCounter = lifecycle11.initialize(() => {
+      lifecycle13 = featureScope("changeCounter");
+      changeCounter = lifecycle13.initialize(() => {
         const CACHE_KEY = "kasp_player_changes_cache";
         const playerChanges = /* @__PURE__ */ new Map();
         let isUpdating = false;
@@ -4206,11 +4681,11 @@
           playerChanges.clear();
           sessionStorage.removeItem(CACHE_KEY);
         };
-        lifecycle11.listen(window, "message", (e) => {
+        lifecycle13.listen(window, "message", (e) => {
           const message = readPageMessage(e, window, "kasp:battle-kind");
           if (message) window.__kaspBattleKind = message.detail;
         });
-        lifecycle11.listen(window, "message", (e) => {
+        lifecycle13.listen(window, "message", (e) => {
           const message = readPageMessage(e, window, "kasp:useraction");
           if (!message || message.detail[2] !== "CHANGE_EQUIPMENT") return;
           const detail = message.detail;
@@ -4222,7 +4697,7 @@
             update();
           }
         });
-        lifecycle11.listen(document, "kasp:battle:id", () => {
+        lifecycle13.listen(document, "kasp:battle:id", () => {
           clearCache();
           update();
         });
@@ -4271,7 +4746,7 @@
         function update() {
           sync();
         }
-        lifecycle11.onCleanup(() => {
+        lifecycle13.onCleanup(() => {
           document.querySelectorAll(".kasp-change-th, .kasp-change-td").forEach((node) => node.remove());
         });
         return {
@@ -4289,7 +4764,7 @@
   });
 
   // src/modules/customGarageSkins.ts
-  var lifecycle12, customGarageSkins;
+  var lifecycle14, customGarageSkins;
   var init_customGarageSkins = __esm({
     "src/modules/customGarageSkins.ts"() {
       "use strict";
@@ -4298,9 +4773,9 @@
       init_accountIdentity();
       init_gameAugments();
       init_imageUrl();
-      lifecycle12 = featureScope("customGarageSkins");
-      customGarageSkins = lifecycle12.initialize(() => {
-        const STORAGE_PREFIX = "kasp_equipped_skins_uid_";
+      lifecycle14 = featureScope("customGarageSkins");
+      customGarageSkins = lifecycle14.initialize(() => {
+        const STORAGE_PREFIX2 = "kasp_equipped_skins_uid_";
         const BASE_IMG_KEY = "kasp_base_images";
         let ownerId = null;
         let NAME_TRANSLATE = null;
@@ -4335,7 +4810,7 @@
         }
         function getSavedSkins() {
           if (!ownerId) return {};
-          const stored = safeParseJSON(localStorage.getItem(STORAGE_PREFIX + ownerId));
+          const stored = safeParseJSON(localStorage.getItem(STORAGE_PREFIX2 + ownerId));
           if (!stored || typeof stored !== "object" || Array.isArray(stored)) return {};
           return Object.fromEntries(Object.entries(stored).filter((entry) => typeof entry[1] === "string" && SAFE_ART_URL.test(entry[1])));
         }
@@ -4369,7 +4844,7 @@
         function updateGlobalCSS() {
           const inputs = {
             owner: ownerId,
-            skins: ownerId ? localStorage.getItem(STORAGE_PREFIX + ownerId) : null,
+            skins: ownerId ? localStorage.getItem(STORAGE_PREFIX2 + ownerId) : null,
             bases: localStorage.getItem(BASE_IMG_KEY)
           };
           if (cssInputs && cssInputs.owner === inputs.owner && cssInputs.skins === inputs.skins && cssInputs.bases === inputs.bases && document.getElementById("kasp-skins-global-css")) return;
@@ -4381,10 +4856,10 @@
             if (!targetUrl) continue;
             const finalUrls = defaultImages[item].filter((url) => url !== targetUrl);
             if (finalUrls.length > 0) {
-              const selectors = finalUrls.map(
+              const selectors2 = finalUrls.map(
                 (url) => gameDOM.garage.skinArt.map((selector) => `${selector}[src="${url}"]`).join(", ")
               ).join(",\n");
-              css += `${selectors} {
+              css += `${selectors2} {
     content: url("${targetUrl}") !important;
     object-fit: contain !important;
     pointer-events: none !important;
@@ -4523,7 +4998,7 @@
         function writeSavedSkins(savedSkins) {
           if (!ownerId || getVerifiedAccount()?.userId !== ownerId) return;
           try {
-            localStorage.setItem(STORAGE_PREFIX + ownerId, JSON.stringify(savedSkins));
+            localStorage.setItem(STORAGE_PREFIX2 + ownerId, JSON.stringify(savedSkins));
           } catch (e) {
             console.warn("[KI-test][garage-skins] could not save skins:", e instanceof Error ? e.message : e);
           }
@@ -4607,7 +5082,7 @@
           }
           updateGlobalCSS();
         }
-        lifecycle12.onCleanup(() => {
+        lifecycle14.onCleanup(() => {
           pendingLearn = null;
           ownerId = null;
           parsedStorage.clear();
@@ -4618,6 +5093,35 @@
         return tick;
       }, () => {
       });
+    }
+  });
+
+  // src/core/turretIcons.ts
+  var RESISTANCE_ICONS;
+  var init_turretIcons = __esm({
+    "src/core/turretIcons.ts"() {
+      "use strict";
+      RESISTANCE_ICONS = {
+        "mine": "https://s.eu.tankionline.com/static/images/mine_resistance.dd581c90.svg",
+        "crit": "https://s.eu.tankionline.com/static/images/crit_resistance.94e32312.svg",
+        "firebird": "https://s.eu.tankionline.com/static/images/firebird_resistance.785a9d6b.svg",
+        "freeze": "https://s.eu.tankionline.com/static/images/freeze_resistance.33bdf642.svg",
+        "isis": "https://s.eu.tankionline.com/static/images/isis_resistance.30a69ffc.svg",
+        "tesla": "https://s.eu.tankionline.com/static/images/tesla_resistance.3e686c8e.svg",
+        "hammer": "https://s.eu.tankionline.com/static/images/hammer_resistance.6c549d29.svg",
+        "twins": "https://s.eu.tankionline.com/static/images/twins_resistance.ad189f61.svg",
+        "ricochet": "https://s.eu.tankionline.com/static/images/ricochet_resistance.8247beaa.svg",
+        "vulcan": "https://s.eu.tankionline.com/static/images/vulcan_resistance.824f6f0e.svg",
+        "smoky": "https://s.eu.tankionline.com/static/images/smoky_resistance.845afc14.svg",
+        "rocket_launcher": "https://s.eu.tankionline.com/static/images/rocket_launcher_resistance.b7dfd64f.svg",
+        "thunder": "https://s.eu.tankionline.com/static/images/thunder_resistance.6d7f4531.svg",
+        "tsunami": "https://s.eu.tankionline.com/static/images/tsunami_resistance.6200aad9.svg",
+        "scorpio": "https://s.eu.tankionline.com/static/images/scorpio_resistance.e8f1787f.svg",
+        "artillery": "https://s.eu.tankionline.com/static/images/artillery_resistance.9b4cbc34.svg",
+        "railgun": "https://s.eu.tankionline.com/static/images/railgun_resistance.636a554f.svg",
+        "gauss": "https://s.eu.tankionline.com/static/images/gauss_resistance.bb8f409c.svg",
+        "shaft": "https://s.eu.tankionline.com/static/images/shaft_resistance.0778fd3e.svg"
+      };
     }
   });
 
@@ -4715,42 +5219,22 @@
   });
 
   // src/modules/zeroResists.ts
-  var lifecycle13, zeroResists;
+  var lifecycle15, zeroResists;
   var init_zeroResists = __esm({
     "src/modules/zeroResists.ts"() {
       "use strict";
       init_featureRuntime();
       init_gameDOM();
       init_state();
+      init_turretIcons();
       init_tabExpansion();
-      lifecycle13 = featureScope("zeroResists");
-      zeroResists = lifecycle13.initialize(() => {
+      lifecycle15 = featureScope("zeroResists");
+      zeroResists = lifecycle15.initialize(() => {
         const SHIELD_ICON_URL = chrome.runtime.getURL("assets/modulesTAB.svg");
-        const RESISTANCE_MAP = {
-          "mine": "https://s.eu.tankionline.com/static/images/mine_resistance.dd581c90.svg",
-          "crit": "https://s.eu.tankionline.com/static/images/crit_resistance.94e32312.svg",
-          "firebird": "https://s.eu.tankionline.com/static/images/firebird_resistance.785a9d6b.svg",
-          "freeze": "https://s.eu.tankionline.com/static/images/freeze_resistance.33bdf642.svg",
-          "isis": "https://s.eu.tankionline.com/static/images/isis_resistance.30a69ffc.svg",
-          "tesla": "https://s.eu.tankionline.com/static/images/tesla_resistance.3e686c8e.svg",
-          "hammer": "https://s.eu.tankionline.com/static/images/hammer_resistance.6c549d29.svg",
-          "twins": "https://s.eu.tankionline.com/static/images/twins_resistance.ad189f61.svg",
-          "ricochet": "https://s.eu.tankionline.com/static/images/ricochet_resistance.8247beaa.svg",
-          "vulcan": "https://s.eu.tankionline.com/static/images/vulcan_resistance.824f6f0e.svg",
-          "smoky": "https://s.eu.tankionline.com/static/images/smoky_resistance.845afc14.svg",
-          "rocket_launcher": "https://s.eu.tankionline.com/static/images/rocket_launcher_resistance.b7dfd64f.svg",
-          "thunder": "https://s.eu.tankionline.com/static/images/thunder_resistance.6d7f4531.svg",
-          "tsunami": "https://s.eu.tankionline.com/static/images/tsunami_resistance.6200aad9.svg",
-          "scorpio": "https://s.eu.tankionline.com/static/images/scorpio_resistance.e8f1787f.svg",
-          "artillery": "https://s.eu.tankionline.com/static/images/artillery_resistance.9b4cbc34.svg",
-          "railgun": "https://s.eu.tankionline.com/static/images/railgun_resistance.636a554f.svg",
-          "gauss": "https://s.eu.tankionline.com/static/images/gauss_resistance.bb8f409c.svg",
-          "shaft": "https://s.eu.tankionline.com/static/images/shaft_resistance.0778fd3e.svg"
-        };
         const TAB_SELECTOR = gameDOM.statistics.teams;
         let isTabExpanded = localStorage.getItem("kasp_tab_expanded") === "true";
         let initialExpandedSet = false;
-        const expansion = createTabExpansion(lifecycle13);
+        const expansion = createTabExpansion(lifecycle15);
         function getCssUrl(el, readStyle) {
           if (!el) return null;
           const cs = readStyle(el);
@@ -4875,7 +5359,7 @@
             else if (turret) existingZeros.add(turret);
           });
           const fragment = document.createDocumentFragment();
-          Object.keys(RESISTANCE_MAP).forEach((turret) => {
+          Object.keys(RESISTANCE_ICONS).forEach((turret) => {
             if (!presentResistances.has(turret) && !existingZeros.has(turret)) {
               const zeroLabel = document.createElement("div");
               zeroLabel.className = `kasp-zero-summary ${gameDOM.classes.flexStart}`;
@@ -4883,7 +5367,7 @@
               zeroLabel.style.cssText = "display: flex !important; align-items: center !important; justify-content: flex-start !important; margin-right: 0.75em !important; cursor: default !important; opacity: 1 !important; pointer-events: none !important;";
               const iconDiv = document.createElement("div");
               iconDiv.className = gameDOM.classes.mask;
-              iconDiv.style.cssText = `background-color: #5cfc47 !important; height: 1em !important; width: 1em !important; margin-right: 0.1875em !important; -webkit-mask-image: url('${RESISTANCE_MAP[turret]}') !important; mask-image: url('${RESISTANCE_MAP[turret]}') !important; -webkit-mask-size: contain !important; mask-size: contain !important; -webkit-mask-repeat: no-repeat !important; mask-repeat: no-repeat !important; -webkit-mask-position: center center !important; mask-position: center center !important;`;
+              iconDiv.style.cssText = `background-color: #5cfc47 !important; height: 1em !important; width: 1em !important; margin-right: 0.1875em !important; -webkit-mask-image: url('${RESISTANCE_ICONS[turret]}') !important; mask-image: url('${RESISTANCE_ICONS[turret]}') !important; -webkit-mask-size: contain !important; mask-size: contain !important; -webkit-mask-repeat: no-repeat !important; mask-repeat: no-repeat !important; -webkit-mask-position: center center !important; mask-position: center center !important;`;
               const textSpan = document.createElement("span");
               textSpan.className = gameDOM.classes.regular;
               textSpan.innerHTML = "&#215;0";
@@ -4912,7 +5396,7 @@
           btn.className = isTabExpanded ? "kasp-active-toggle" : "";
           btn.title = state.lang === "RU" ? "\u0412\u0441\u0435\u0433\u0434\u0430 \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u0432\u0441\u0435 \u043C\u043E\u0434\u0443\u043B\u0438" : "Always show all modules";
           btn.innerHTML = `<div class="kasp-toggle-icon" style="-webkit-mask-image: url('${SHIELD_ICON_URL}'); mask-image: url('${SHIELD_ICON_URL}');"></div>`;
-          lifecycle13.listen(btn, "click", (e) => {
+          lifecycle15.listen(btn, "click", (e) => {
             e.stopPropagation();
             const nextExpanded = !isTabExpanded;
             expansion.setExpanded(nextExpanded);
@@ -4947,7 +5431,7 @@
         function update() {
           sync();
         }
-        lifecycle13.onCleanup(() => {
+        lifecycle15.onCleanup(() => {
           document.body.classList.remove("kasp-tab-expanded");
           document.querySelectorAll(".kasp-defence-th, .kasp-compact-cell, .kasp-zero-summary, #kasp-tab-toggle-btn, .kasp-custom-summary-row").forEach((node) => node.remove());
         });
@@ -4958,16 +5442,245 @@
     }
   });
 
+  // src/modules/enemyWeapons.ts
+  function weaponKey(url) {
+    const file = url.split("/").pop()?.split(".")[0].toLowerCase().replace(/_resistance$/, "") || "";
+    const key = ALIASES[file] || file;
+    return Object.prototype.hasOwnProperty.call(WEAPONS, key) ? key : null;
+  }
+  function iconUrl(element) {
+    if (!element) return "";
+    const image = element.tagName.toLowerCase() === "img" ? element : element.querySelector("img");
+    const src = getTankiImageUrl(image?.getAttribute("src"));
+    if (src) return src;
+    const inline = element.style;
+    const read = (style) => {
+      for (const value of [style.maskImage, style.webkitMaskImage, style.backgroundImage]) {
+        const url = getTankiImageUrl(/url\(["']?([^"')]+)["']?\)/.exec(value || "")?.[1]);
+        if (url) return url;
+      }
+      return "";
+    };
+    return read(inline) || read(getComputedStyle(element));
+  }
+  function readEnemyWeapons(tab) {
+    const self = tab.querySelector(gameDOM.statistics.selectedRow);
+    const blue = tab.querySelector(gameDOM.statistics.blueTeam), red = tab.querySelector(gameDOM.statistics.redTeam);
+    const dm = tab.querySelector(gameDOM.statistics.dmTeam);
+    const enemy = self && blue?.contains(self) ? red : self && red?.contains(self) ? blue : null;
+    const group = enemy || (!blue && !red && self && dm?.contains(self) ? dm : null);
+    if (!group) return null;
+    const counts = /* @__PURE__ */ new Map();
+    for (const row of group.querySelectorAll("tbody tr")) {
+      if (row === self || !row.querySelector(gameDOM.statistics.nickname)) continue;
+      const cell = row.querySelector(gameDOM.statistics.deviceCell);
+      const icon = cell?.querySelector(gameDOM.statistics.equipment)?.firstElementChild || null;
+      const source = iconUrl(icon), key = weaponKey(source) || "unknown";
+      const existing = counts.get(key);
+      if (existing) existing.count++;
+      else counts.set(key, { key, count: 1, icon: RESISTANCE_ICONS[key] || (key === "terminator" ? source : "") || TURRETS_ICON });
+    }
+    return [...counts.values()].sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
+  }
+  var lifecycle16, BUTTON, TOOLTIP, TURRETS_ICON, WEAPONS, ALIASES, enemyWeapons;
+  var init_enemyWeapons = __esm({
+    "src/modules/enemyWeapons.ts"() {
+      "use strict";
+      init_featureRuntime();
+      init_gameDOM();
+      init_state();
+      init_turretIcons();
+      init_imageUrl();
+      lifecycle16 = featureScope("enemyWeapons");
+      BUTTON = "kasp-enemy-weapons-btn";
+      TOOLTIP = "kasp-enemy-weapons-tooltip";
+      TURRETS_ICON = "https://s.eu.tankionline.com/static/images/turrets.20be27f5.svg";
+      WEAPONS = {
+        firebird: ["\u041E\u0433\u043D\u0435\u043C\u0451\u0442", "Firebird"],
+        freeze: ["\u0424\u0440\u0438\u0437", "Freeze"],
+        isis: ["\u0418\u0437\u0438\u0434\u0430", "Isida"],
+        tesla: ["\u0422\u0435\u0441\u043B\u0430", "Tesla"],
+        hammer: ["\u041C\u043E\u043B\u043E\u0442", "Hammer"],
+        twins: ["\u0422\u0432\u0438\u043D\u0441", "Twins"],
+        ricochet: ["\u0420\u0438\u043A\u043E\u0448\u0435\u0442", "Ricochet"],
+        vulcan: ["\u0412\u0443\u043B\u043A\u0430\u043D", "Vulcan"],
+        smoky: ["\u0421\u043C\u043E\u043A\u0438", "Smoky"],
+        rocket_launcher: ["\u0421\u0442\u0440\u0430\u0439\u043A\u0435\u0440", "Striker"],
+        thunder: ["\u0413\u0440\u043E\u043C", "Thunder"],
+        tsunami: ["\u0426\u0443\u043D\u0430\u043C\u0438", "Tsunami"],
+        scorpio: ["\u0421\u043A\u043E\u0440\u043F\u0438\u043E\u043D", "Scorpion"],
+        artillery: ["\u041C\u0430\u0433\u043D\u0443\u043C", "Magnum"],
+        railgun: ["\u0420\u0435\u043B\u044C\u0441\u0430", "Railgun"],
+        gauss: ["\u0413\u0430\u0443\u0441\u0441", "Gauss"],
+        shaft: ["\u0428\u0430\u0444\u0442", "Shaft"],
+        terminator: ["\u0422\u0435\u0440\u043C\u0438\u043D\u0430\u0442\u043E\u0440", "Terminator"]
+      };
+      ALIASES = { isida: "isis", striker: "rocket_launcher", magnum: "artillery", scorpion: "scorpio", jugger: "terminator" };
+      enemyWeapons = lifecycle16.initialize(() => {
+        let button = null, tooltip = null;
+        let initialized2 = false, open = false, focused = false, interval;
+        let size = { width: 0, height: 0 }, signature = "";
+        function hide() {
+          open = focused = false;
+          lifecycle16.cancelInterval(interval);
+          interval = void 0;
+          tooltip?.remove();
+          tooltip = null;
+          signature = "";
+          button?.setAttribute("aria-expanded", "false");
+        }
+        function position() {
+          if (!tooltip || !button) return;
+          const rect = button.getBoundingClientRect();
+          const x = Math.max(8, Math.min(rect.left + rect.width / 2 - size.width / 2, window.innerWidth - size.width - 8));
+          const y = Math.max(8, rect.top - size.height - 10);
+          tooltip.style.left = `${x}px`;
+          tooltip.style.top = `${y}px`;
+        }
+        function refresh() {
+          if (!open) return;
+          const tab = document.querySelector(gameDOM.statistics.teams);
+          if (!tab || !button?.isConnected || !button.getClientRects().length || !document.body) {
+            hide();
+            return;
+          }
+          const data = readEnemyWeapons(tab), ru = state.lang === "RU";
+          const next = JSON.stringify([state.lang, data]);
+          if (next === signature && tooltip?.isConnected) {
+            position();
+            return;
+          }
+          signature = next;
+          if (!tooltip) {
+            tooltip = document.createElement("div");
+            tooltip.id = TOOLTIP;
+            tooltip.setAttribute("role", "tooltip");
+            document.body.appendChild(tooltip);
+          }
+          const contents = [];
+          if (!data || !data.length) {
+            const message = document.createElement("span");
+            message.textContent = !data ? ru ? "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u043F\u0440\u0435\u0434\u0435\u043B\u0438\u0442\u044C \u0432\u0430\u0448\u0443 \u043A\u043E\u043C\u0430\u043D\u0434\u0443" : "Your team could not be identified" : ru ? "\u041D\u0435\u0442 \u0438\u0433\u0440\u043E\u043A\u043E\u0432 \u043F\u0440\u043E\u0442\u0438\u0432\u043D\u0438\u043A\u0430" : "No enemy players";
+            contents.push(message);
+          } else {
+            const list = document.createElement("div");
+            list.className = "kasp-enemy-weapons-list";
+            if (data.length > 9) {
+              list.className += " kasp-enemy-weapons-two-columns";
+              list.style.gridTemplateRows = `repeat(${Math.ceil(data.length / 2)}, auto)`;
+            }
+            for (const entry of data) {
+              const row = document.createElement("div");
+              row.className = "kasp-enemy-weapon";
+              const icon = document.createElement("i");
+              icon.style.maskImage = icon.style.webkitMaskImage = `url("${entry.icon}")`;
+              const label = document.createElement("span");
+              label.textContent = WEAPONS[entry.key]?.[ru ? 0 : 1] || (ru ? "\u041D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u0430\u044F \u043F\u0443\u0448\u043A\u0430" : "Unknown weapon");
+              const count = document.createElement("b");
+              count.textContent = `\xD7${entry.count}`;
+              row.append(icon, label, count);
+              list.appendChild(row);
+            }
+            contents.push(list);
+          }
+          tooltip.replaceChildren(...contents);
+          size = { width: tooltip.offsetWidth, height: tooltip.offsetHeight };
+          position();
+        }
+        function show() {
+          open = true;
+          button?.setAttribute("aria-expanded", "true");
+          refresh();
+          if (open) interval ??= lifecycle16.interval(refresh, 250);
+        }
+        function setup() {
+          if (initialized2) return;
+          initialized2 = true;
+          lifecycle16.listen(document, "mouseover", (event) => {
+            if (!(event.target instanceof Element) || !button?.contains(event.target)) return;
+            if (event.relatedTarget instanceof Node && button.contains(event.relatedTarget)) return;
+            show();
+          });
+          lifecycle16.listen(document, "mouseout", (event) => {
+            if (focused || !(event.target instanceof Node) || !button?.contains(event.target)) return;
+            if (!(event.relatedTarget instanceof Node) || !button.contains(event.relatedTarget)) hide();
+          });
+          lifecycle16.listen(document, "focusin", (event) => {
+            if (!button || event.target !== button) return;
+            focused = true;
+            show();
+          });
+          for (const type of ["mousedown", "click"]) lifecycle16.listen(document, type, (event) => {
+            if (!(event.target instanceof Node) || !button?.contains(event.target)) return;
+            event.preventDefault();
+            event.stopPropagation();
+          }, true);
+          lifecycle16.listen(document, "focusout", (event) => {
+            if (event.target === button) hide();
+          });
+          lifecycle16.listen(document, "keydown", (event) => {
+            if (event.key === "Escape") hide();
+          });
+          lifecycle16.listen(window, "blur", hide);
+          lifecycle16.listen(window, "resize", () => {
+            if (tooltip) {
+              size = { width: tooltip.offsetWidth, height: tooltip.offsetHeight };
+              position();
+            }
+          });
+          lifecycle16.listen(document, "visibilitychange", () => {
+            if (document.hidden) hide();
+          });
+        }
+        function sync() {
+          setup();
+          const tab = document.querySelector(gameDOM.statistics.teams);
+          const toggle = tab?.querySelector("#kasp-tab-toggle-btn");
+          if (!toggle?.parentElement) {
+            hide();
+            button?.remove();
+            button = null;
+            return;
+          }
+          if (!button?.isConnected || button.parentElement !== toggle.parentElement) {
+            hide();
+            button?.remove();
+            button = document.createElement("div");
+            button.id = BUTTON;
+            button.setAttribute("role", "button");
+            button.tabIndex = 0;
+            button.setAttribute("aria-describedby", TOOLTIP);
+            button.setAttribute("aria-expanded", "false");
+            const icon = document.createElement("div");
+            icon.className = "kasp-toggle-icon";
+            icon.style.maskImage = icon.style.webkitMaskImage = `url("${TURRETS_ICON}")`;
+            button.appendChild(icon);
+            toggle.parentElement.appendChild(button);
+          }
+          button.setAttribute("aria-label", state.lang === "RU" ? "\u041F\u0443\u0448\u043A\u0438 \u043F\u0440\u043E\u0442\u0438\u0432\u043D\u0438\u043A\u0430" : "Enemy weapons");
+          refresh();
+        }
+        lifecycle16.onCleanup(() => {
+          hide();
+          button?.remove();
+          button = null;
+        });
+        return { sync };
+      }, { sync() {
+      } });
+    }
+  });
+
   // src/modules/equipmentTracker.ts
-  var lifecycle14, equipmentTracker;
+  var lifecycle17, equipmentTracker;
   var init_equipmentTracker = __esm({
     "src/modules/equipmentTracker.ts"() {
       "use strict";
       init_featureRuntime();
       init_gameDOM();
       init_accountIdentity();
-      lifecycle14 = featureScope("equipmentTracker");
-      equipmentTracker = lifecycle14.initialize(() => {
+      lifecycle17 = featureScope("equipmentTracker");
+      equipmentTracker = lifecycle17.initialize(() => {
         const STORAGE_KEY = "kasp_my_equipment";
         let lastSignature = "";
         const urlFrom = (el) => {
@@ -5048,10 +5761,10 @@
           localStorage.removeItem(STORAGE_KEY);
           lastSignature = "";
         };
-        lifecycle14.onCleanup(() => {
+        lifecycle17.onCleanup(() => {
           clear();
         });
-        return { sync: lifecycle14.guard(sync), get: lifecycle14.guard(get), clear };
+        return { sync: lifecycle17.guard(sync), get: lifecycle17.guard(get), clear };
       }, { sync() {
       }, get() {
         return null;
@@ -5611,8 +6324,8 @@
       const finish = () => {
         if (finished) return;
         finished = true;
-        lifecycle15.cancelTimeout(timer);
-        lifecycle15.unlisten(element, "animationend", onAnimationEnd);
+        lifecycle18.cancelTimeout(timer);
+        lifecycle18.unlisten(element, "animationend", onAnimationEnd);
         element.classList.remove(className);
         resolve();
       };
@@ -5621,9 +6334,9 @@
       };
       element.classList.remove(className);
       void element.offsetWidth;
-      lifecycle15.listen(element, "animationend", onAnimationEnd);
+      lifecycle18.listen(element, "animationend", onAnimationEnd);
       element.classList.add(className);
-      timer = lifecycle15.timeout(finish, duration + 50);
+      timer = lifecycle18.timeout(finish, duration + 50);
     });
     const renderDetailedMatch = async (b, dict, lang) => {
       if (historyContext.invalidated) return;
@@ -5673,7 +6386,7 @@
       const card = document.createElement("article");
       card.innerHTML = buildCardMarkup(b, dict, lang, await loadTemplate("card"));
       card.style.cursor = "pointer";
-      lifecycle15.listen(card, "click", () => renderDetailedMatch(b, dict, lang));
+      lifecycle18.listen(card, "click", () => renderDetailedMatch(b, dict, lang));
       return card;
     };
     const buildPageNumbers = (current, total) => {
@@ -5701,7 +6414,7 @@
       prev.className = "bh-page bh-page-arrow";
       prev.textContent = "\u2039";
       prev.disabled = current <= 1;
-      lifecycle15.listen(prev, "click", () => renderBattleList(current - 1));
+      lifecycle18.listen(prev, "click", () => renderBattleList(current - 1));
       list.appendChild(prev);
       const pages = buildPageNumbers(current, total);
       for (const p of pages) {
@@ -5716,7 +6429,7 @@
         btn.type = "button";
         btn.className = "bh-page" + (p === current ? " bh-page-active" : "");
         btn.textContent = String(p);
-        lifecycle15.listen(btn, "click", () => renderBattleList(p));
+        lifecycle18.listen(btn, "click", () => renderBattleList(p));
         list.appendChild(btn);
       }
       const next = document.createElement("button");
@@ -5724,7 +6437,7 @@
       next.className = "bh-page bh-page-arrow";
       next.textContent = "\u203A";
       next.disabled = current >= total;
-      lifecycle15.listen(next, "click", () => renderBattleList(current + 1));
+      lifecycle18.listen(next, "click", () => renderBattleList(current + 1));
       list.appendChild(next);
     };
     const getBattleKey = (battle) => battle.id !== void 0 ? `id:${battle.id}` : `date:${battle.date}|${battle.map}|${battle.mode}`;
@@ -5735,7 +6448,7 @@
         listEl.classList.add("bh-list--animations-ready");
         listEl.querySelectorAll(".bh-card--rise-in").forEach((card) => {
           const delay = parseFloat(card.style.animationDelay) || 0;
-          lifecycle15.timeout(() => {
+          lifecycle18.timeout(() => {
             card.classList.remove("bh-card--rise-in");
             card.style.removeProperty("animation-delay");
             card.style.removeProperty("z-index");
@@ -5856,7 +6569,7 @@
       }
     };
   }
-  var lifecycle15;
+  var lifecycle18;
   var init_views = __esm({
     "src/modules/battleHistory/views.ts"() {
       "use strict";
@@ -5866,7 +6579,7 @@
       init_repository();
       init_localization();
       init_context();
-      lifecycle15 = featureScope("battleHistory");
+      lifecycle18 = featureScope("battleHistory");
     }
   });
 
@@ -5983,8 +6696,8 @@
         const confirmButton = createActionButton(dict.confirm);
         modal.actions.append(cancelButton, confirmButton);
         let confirmed = false;
-        lifecycle16.listen(cancelButton, "click", modal.close);
-        lifecycle16.listen(confirmButton, "click", () => {
+        lifecycle19.listen(cancelButton, "click", modal.close);
+        lifecycle19.listen(confirmButton, "click", () => {
           if (confirmed) return;
           confirmed = true;
           modal.close();
@@ -6001,7 +6714,7 @@
       void showClearConfirmModal(async () => {
         try {
           account.updateIdentity();
-          if (lifecycle16.disabled || userId !== account.getUserId()) return;
+          if (lifecycle19.disabled || userId !== account.getUserId()) return;
           await clearAccountHistory(userId);
           await renderBattleList(1);
         } catch (error) {
@@ -6016,7 +6729,7 @@
       try {
         const battles = await getAllBattles(userId);
         account.updateIdentity();
-        if (lifecycle16.disabled || userId !== account.getUserId() || battles.length === 0) return;
+        if (lifecycle19.disabled || userId !== account.getUserId() || battles.length === 0) return;
         const blob = new Blob([JSON.stringify(battles, null, 2)], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         try {
@@ -6042,33 +6755,33 @@
       const input = document.createElement("input");
       input.type = "file";
       input.accept = ".json";
-      input.onchange = lifecycle16.guard((e) => {
+      input.onchange = lifecycle19.guard((e) => {
         const target = e.target;
         const file = target.files?.[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = lifecycle16.guard(async (ev) => {
+        reader.onload = lifecycle19.guard(async (ev) => {
           try {
             account.updateIdentity();
-            if (lifecycle16.disabled || userId !== account.getUserId()) return;
+            if (lifecycle19.disabled || userId !== account.getUserId()) return;
             const battles = parseHistoryImport(String(ev.target?.result ?? ""), userId);
             const added = await addBattles(battles, userId);
-            if (lifecycle16.disabled) return;
+            if (lifecycle19.disabled) return;
             await renderBattleList(1);
-            if (lifecycle16.disabled) return;
+            if (lifecycle19.disabled) return;
             window.alert(getHistoryMessages(state.lang).imported(added));
           } catch (err) {
             showImportError(err);
           }
         });
-        reader.onerror = lifecycle16.guard(() => showImportError(reader.error));
+        reader.onerror = lifecycle19.guard(() => showImportError(reader.error));
         reader.readAsText(file);
       });
       input.click();
     };
     return { clearHistoryDb, exportHistoryData, importHistoryData };
   }
-  var lifecycle16;
+  var lifecycle19;
   var init_actions = __esm({
     "src/modules/battleHistory/actions.ts"() {
       "use strict";
@@ -6078,7 +6791,7 @@
       init_repository();
       init_validation();
       init_localization();
-      lifecycle16 = featureScope("battleHistory");
+      lifecycle19 = featureScope("battleHistory");
     }
   });
 
@@ -6136,7 +6849,7 @@
       overlay.style.setProperty("transition", "opacity 0.1s ease", "important");
       void overlay.offsetHeight;
       overlay.style.setProperty("opacity", "0", "important");
-      lifecycle17.timeout(() => overlay.remove(), 120);
+      lifecycle20.timeout(() => overlay.remove(), 120);
     };
     const flashHideSettings = () => {
       if (document.getElementById("bh-flash-cover")) return;
@@ -6152,26 +6865,26 @@
             transition: opacity 0.15s ease;
         `;
       document.body.appendChild(cover);
-      const watch = lifecycle17.observer(() => {
+      const watch = lifecycle20.observer(() => {
         if (!document.querySelector(gameDOM.navigation.header)) {
           cover.style.opacity = "0";
-          lifecycle17.timeout(() => {
+          lifecycle20.timeout(() => {
             watch.disconnect();
             cover.remove();
           }, 200);
         }
       });
       watch.observe(document.body, { childList: true, subtree: true });
-      lifecycle17.timeout(() => {
+      lifecycle20.timeout(() => {
         watch.disconnect();
         cover.remove();
       }, 2e3);
     };
     const disarmReturnWatcher = () => {
       exitAfterReturn = false;
-      lifecycle17.cancelTimeout(returnTimer);
-      lifecycle17.cancelTimeout(returnBackTimer);
-      lifecycle17.cancelTimeout(returnLoaderTimer);
+      lifecycle20.cancelTimeout(returnTimer);
+      lifecycle20.cancelTimeout(returnBackTimer);
+      lifecycle20.cancelTimeout(returnLoaderTimer);
       returnLoaderObserver?.disconnect();
       returnLoaderObserver = null;
       returnObserver?.disconnect();
@@ -6180,7 +6893,7 @@
     const armExitAfterReturn = () => {
       disarmReturnWatcher();
       exitAfterReturn = true;
-      returnObserver = lifecycle17.observer(() => {
+      returnObserver = lifecycle20.observer(() => {
         if (!exitAfterReturn) return;
         if (!document.querySelector(gameDOM.navigation.header)) {
           disarmReturnWatcher();
@@ -6196,17 +6909,17 @@
           const finishLoading = () => {
             returnLoaderObserver?.disconnect();
             returnLoaderObserver = null;
-            lifecycle17.cancelTimeout(returnLoaderTimer);
+            lifecycle20.cancelTimeout(returnLoaderTimer);
             hideFakeLoader();
           };
-          returnLoaderObserver = lifecycle17.observer(() => {
+          returnLoaderObserver = lifecycle20.observer(() => {
             if (!document.querySelector(gameDOM.navigation.header)) {
               finishLoading();
             }
           });
           returnLoaderObserver.observe(document.body, { childList: true, subtree: true });
-          returnLoaderTimer = lifecycle17.timeout(finishLoading, 2e3);
-          returnBackTimer = lifecycle17.timeout(() => {
+          returnLoaderTimer = lifecycle20.timeout(finishLoading, 2e3);
+          returnBackTimer = lifecycle20.timeout(() => {
             const backBtn = document.querySelector(
               gameDOM.navigation.back
             );
@@ -6219,7 +6932,7 @@
         subtree: true,
         characterData: true
       });
-      returnTimer = lifecycle17.timeout(() => {
+      returnTimer = lifecycle20.timeout(() => {
         if (exitAfterReturn) {
           disarmReturnWatcher();
         }
@@ -6238,7 +6951,7 @@
       nativeContent = null;
       pageObserver?.disconnect();
       pageObserver = null;
-      if (resizeHandler) lifecycle17.unlisten(window, "resize", resizeHandler);
+      if (resizeHandler) lifecycle20.unlisten(window, "resize", resizeHandler);
       resizeHandler = null;
     };
     const closeHistoryOverlay = (overlay, auto = false) => {
@@ -6252,7 +6965,7 @@
     };
     const watchNativePage = (overlay, ourTitle) => {
       pageObserver?.disconnect();
-      pageObserver = lifecycle17.observer(() => {
+      pageObserver = lifecycle20.observer(() => {
         if (!document.querySelector(gameDOM.navigation.header)) {
           releasePage(overlay);
           return;
@@ -6276,15 +6989,15 @@
         let timer = 0;
         const finish = (element) => {
           obs.disconnect();
-          lifecycle17.cancelTimeout(timer);
+          lifecycle20.cancelTimeout(timer);
           resolve(element);
         };
-        const obs = lifecycle17.observer(() => {
+        const obs = lifecycle20.observer(() => {
           const el = document.querySelector(selector);
           if (el) finish(el);
         });
         obs.observe(document.body, { childList: true, subtree: true });
-        timer = lifecycle17.timeout(() => finish(null), timeoutMs);
+        timer = lifecycle20.timeout(() => finish(null), timeoutMs);
       });
     };
     const bindOverlayToHeader = (overlay, header) => {
@@ -6294,9 +7007,9 @@
         overlay.style.height = `calc(100vh - ${r.bottom}px)`;
       };
       update();
-      if (resizeHandler) lifecycle17.unlisten(window, "resize", resizeHandler);
+      if (resizeHandler) lifecycle20.unlisten(window, "resize", resizeHandler);
       resizeHandler = update;
-      lifecycle17.listen(window, "resize", update);
+      lifecycle20.listen(window, "resize", update);
     };
     const openAsNativePage = async (overlay) => {
       const dict = getHistoryDictionary(state.lang);
@@ -6351,7 +7064,7 @@
       btn.className = gameDOM.classes.footerEntry + " custom-history-button";
       btn.innerHTML = "<div></div>";
       btn.title = dict.title;
-      lifecycle17.listen(btn, "click", async () => {
+      lifecycle20.listen(btn, "click", async () => {
         if (opening) return;
         opening = true;
         const hidden = [];
@@ -6387,7 +7100,7 @@
           if (!overlay) return;
           await renderBattleList(1, true);
           const duration = 500 + Math.random() * 2500;
-          await new Promise((r) => lifecycle17.timeout(r, duration));
+          await new Promise((r) => lifecycle20.timeout(r, duration));
           if (document.querySelector(".custom-history-overlay") !== overlay) return;
           const ok = await openAsNativePage(overlay);
           if (document.querySelector(".custom-history-overlay") !== overlay) return;
@@ -6405,9 +7118,9 @@
             const tick = () => {
               frames++;
               if (frames >= 3) resolve();
-              else lifecycle17.frame(tick);
+              else lifecycle20.frame(tick);
             };
-            lifecycle17.frame(tick);
+            lifecycle20.frame(tick);
           });
         } catch (error) {
           console.error("[BattleHistory] Failed to open history:", error);
@@ -6422,7 +7135,7 @@
     const bindShortcuts = () => {
       if (shortcutsBound) return;
       shortcutsBound = true;
-      lifecycle17.listen(document, "keydown", (e) => {
+      lifecycle20.listen(document, "keydown", (e) => {
         const overlay = document.querySelector(".custom-history-overlay");
         const isHistoryOpen = overlay && window.getComputedStyle(overlay).display !== "none";
         if (!isHistoryOpen) return;
@@ -6433,7 +7146,7 @@
           e.stopImmediatePropagation();
         }
       }, true);
-      lifecycle17.listen(window, "keydown", (e) => {
+      lifecycle20.listen(window, "keydown", (e) => {
         if (document.getElementById("clear-confirm-overlay")) return;
         const overlay = document.querySelector(".custom-history-overlay");
         if (overlay && overlay.style.display === "flex") {
@@ -6444,7 +7157,7 @@
           }
         }
       });
-      lifecycle17.listen(document, "mousedown", (e) => {
+      lifecycle20.listen(document, "mousedown", (e) => {
         const overlay = document.querySelector(".custom-history-overlay");
         if (overlay && overlay.style.display === "flex" && e.button === 3) {
           closeHistoryOverlay(overlay);
@@ -6462,7 +7175,7 @@
       }
     };
   }
-  var lifecycle17;
+  var lifecycle20;
   var init_navigation = __esm({
     "src/modules/battleHistory/navigation.ts"() {
       "use strict";
@@ -6470,7 +7183,7 @@
       init_gameDOM();
       init_state();
       init_localization();
-      lifecycle17 = featureScope("battleHistory");
+      lifecycle20 = featureScope("battleHistory");
     }
   });
 
@@ -6718,7 +7431,7 @@
   });
 
   // src/modules/battleHistory.ts
-  var lifecycle18, battleHistory;
+  var lifecycle21, battleHistory;
   var init_battleHistory = __esm({
     "src/modules/battleHistory.ts"() {
       "use strict";
@@ -6734,8 +7447,8 @@
       init_navigation();
       init_capture();
       init_context();
-      lifecycle18 = featureScope("battleHistory");
-      battleHistory = lifecycle18.initialize(() => {
+      lifecycle21 = featureScope("battleHistory");
+      battleHistory = lifecycle21.initialize(() => {
         let initialized2 = false;
         let currentUserId = null;
         let currentNickname = "Unknown";
@@ -6780,7 +7493,7 @@
             throw new Error(`Failed to load history template: ${response.status}`);
           }
           const template = await response.text();
-          if (lifecycle18.disabled || historyContext.invalidated || userId !== account.getUserId() || document.querySelector(".custom-history-overlay")) return;
+          if (lifecycle21.disabled || historyContext.invalidated || userId !== account.getUserId() || document.querySelector(".custom-history-overlay")) return;
           const replacements = {
             title: String(dict.title ?? ""),
             clear: String(dict.clear ?? ""),
@@ -6815,7 +7528,7 @@
           }
           return historyPagePromise;
         };
-        lifecycle18.onCleanup(() => {
+        lifecycle21.onCleanup(() => {
           historyContext.invalidated = true;
           results.reset();
           views.reset();
@@ -6832,7 +7545,7 @@
           updateIdentity();
           const inResults = document.querySelector(gameDOM.results.status);
           if (document.querySelector(gameDOM.results.selfRow) && inResults) {
-            void results.capture().catch((error) => lifecycle18.fail(error));
+            void results.capture().catch((error) => lifecycle21.fail(error));
           } else if (!inResults) {
             results.reset();
           }
@@ -6840,7 +7553,7 @@
           if (!initialized2) {
             initialized2 = true;
             navigation.bindShortcuts();
-            lifecycle18.timeout(updateIdentity, 5e3);
+            lifecycle21.timeout(updateIdentity, 5e3);
           }
           navigation.injectFooterButton();
           void ensureHistoryPage();
@@ -6886,6 +7599,29 @@
     }
   });
 
+  // src/core/overdriveDirection.ts
+  function overdriveBearing(target, pose) {
+    const dx = target.x - pose.position.x, dy = target.y - pose.position.y;
+    if (![dx, dy, pose.yaw].every(Number.isFinite) || Math.hypot(dx, dy) < 100) return null;
+    const right = dx * Math.cos(pose.yaw) + dy * Math.sin(pose.yaw);
+    const forward = -dx * Math.sin(pose.yaw) + dy * Math.cos(pose.yaw);
+    return Math.atan2(right, forward) * 180 / Math.PI;
+  }
+  function continuousBearing(previous, next) {
+    return previous === null ? next : previous + ((next - previous + 540) % 360 + 360) % 360 - 180;
+  }
+  var OVERDRIVE_DIRECTION_MESSAGE;
+  var init_overdriveDirection = __esm({
+    "src/core/overdriveDirection.ts"() {
+      "use strict";
+      init_bonusPickup();
+      init_featureRuntime();
+      init_pageMessages();
+      init_clientPatches();
+      OVERDRIVE_DIRECTION_MESSAGE = "kasp:overdrive-direction";
+    }
+  });
+
   // src/modules/overdriveTimer.ts
   function createOverdriveCountdown(now = Date.now, boxModel = OVERDRIVE_BOX_MODEL) {
     let readyAt = null;
@@ -6906,7 +7642,6 @@
   function createOverdriveLocations(now = Date.now) {
     const timers = [0, 1].map((index) => ({
       id: index === 0 ? "kasp-overdrive-timer" : "kasp-overdrive-timer-secondary",
-      alwaysVisible: index === 0,
       position: null,
       countdown: createOverdriveCountdown(now)
     }));
@@ -6936,7 +7671,7 @@
       }
     };
   }
-  var lifecycle19, OVERDRIVE_COOLDOWN_MS, OVERDRIVE_POINT_RADIUS, overdriveTimer;
+  var lifecycle22, OVERDRIVE_COOLDOWN_MS, OVERDRIVE_POINT_RADIUS, overdriveTimer;
   var init_overdriveTimer = __esm({
     "src/modules/overdriveTimer.ts"() {
       "use strict";
@@ -6946,16 +7681,21 @@
       init_gameDOM();
       init_state();
       init_utils();
-      lifecycle19 = featureScope("overdriveTimer");
+      init_overdriveDirection();
+      lifecycle22 = featureScope("overdriveTimer");
       OVERDRIVE_COOLDOWN_MS = 85e3;
       OVERDRIVE_POINT_RADIUS = 1e3;
-      overdriveTimer = lifecycle19.initialize(() => {
+      overdriveTimer = lifecycle22.initialize(() => {
         const locations = createOverdriveLocations();
         const timers = locations.timers.map((location2) => ({
           location: location2,
           panel: null,
-          time: null
+          time: null,
+          bearing: null
         }));
+        let pose = null;
+        let poseAt = 0;
+        let overlay = null;
         let initialized2 = false;
         let battleCanvas = null;
         let sectionOpen = false;
@@ -6964,6 +7704,28 @@
         let previewObserver;
         function reset() {
           locations.reset();
+          pose = null;
+          poseAt = 0;
+        }
+        function removeOverlay() {
+          overlay?.remove();
+          overlay = null;
+          for (const timer of timers) {
+            timer.panel = timer.time = null;
+            timer.bearing = null;
+          }
+        }
+        function renderDirection(timer) {
+          if (!timer.panel) return;
+          const bearing = pose && Date.now() - poseAt <= 750 && timer.location.position ? overdriveBearing(timer.location.position, pose) : null;
+          timer.panel.classList.toggle("kasp-overdrive-direction", bearing !== null);
+          if (bearing === null) {
+            timer.bearing = null;
+            return;
+          }
+          const next = continuousBearing(timer.bearing, bearing);
+          if (next !== timer.bearing) timer.panel.style.setProperty("--kasp-overdrive-bearing", `${next}deg`);
+          timer.bearing = next;
         }
         function isSectionVisible() {
           if (document.querySelector(gameDOM.screens.visibleTankPreview)) return true;
@@ -6996,17 +7758,14 @@
         function render() {
           const enabled = utils.getSetting("k_overdrive_timer", false);
           if (!enabled) {
-            if (renderInterval !== void 0) lifecycle19.cancelInterval(renderInterval);
+            if (renderInterval !== void 0) lifecycle22.cancelInterval(renderInterval);
             renderInterval = void 0;
             previewObserver?.disconnect();
             battleCanvas = null;
             sectionOpen = false;
             resumeUntil = 0;
             reset();
-            for (const timer of timers) {
-              timer.panel?.remove();
-              timer.panel = timer.time = null;
-            }
+            removeOverlay();
             return;
           }
           if (initialized2 && renderInterval === void 0) {
@@ -7016,69 +7775,83 @@
               attributeFilter: ["class", "style", "hidden"],
               subtree: true
             });
-            renderInterval = lifecycle19.interval(render, 250);
+            renderInterval = lifecycle22.interval(render, 250);
           }
           const inBattle = syncBattle();
           if (!inBattle) reset();
           const sectionVisible = isSectionVisible();
           for (const timer of timers) renderTimer(timer, inBattle && enabled && !sectionVisible);
+          if (overlay && !overlay.children.length) removeOverlay();
         }
         function renderTimer(timer, visible) {
           const seconds = timer.location.countdown.remaining();
-          if (!visible || !timer.location.alwaysVisible && seconds === null) {
+          if (!visible || seconds === null) {
             timer.panel?.remove();
             timer.panel = timer.time = null;
+            timer.bearing = null;
             return;
           }
           if (!document.body) return;
+          if (!overlay?.isConnected) {
+            overlay = document.createElement("div");
+            overlay.id = "kasp-overdrive-timers";
+            overlay.className = "kasp-overdrive-timers";
+            document.body.appendChild(overlay);
+          }
           if (!timer.panel?.isConnected) {
             timer.panel = document.createElement("div");
             timer.panel.id = timer.location.id;
             timer.panel.className = "kasp-overdrive-timer";
             timer.time = document.createElement("strong");
             timer.panel.append(timer.time);
-            document.body.appendChild(timer.panel);
+            overlay.appendChild(timer.panel);
           }
           const { panel, time } = timer;
           const ru = state.lang === "RU";
-          const value = seconds === null ? "0:00" : `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+          const value = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
           if (time.textContent !== value) time.textContent = value;
-          panel.classList.toggle("kasp-overdrive-soon", seconds !== null && seconds > 0 && seconds <= 10);
+          panel.classList.toggle("kasp-overdrive-soon", seconds > 0 && seconds <= 10);
           panel.classList.toggle("kasp-overdrive-ready", seconds === 0);
+          renderDirection(timer);
           const hint = ru ? "85 \u0441\u0435\u043A\u0443\u043D\u0434 \u043F\u043E\u0441\u043B\u0435 \u043F\u043E\u0434\u0431\u043E\u0440\u0430 \u043A\u043E\u0440\u043E\u0431\u043A\u0438. \u0412\u0440\u0435\u043C\u044F \u043F\u043E\u044F\u0432\u043B\u0435\u043D\u0438\u044F \u043F\u0440\u0438\u0431\u043B\u0438\u0437\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0435." : "85 seconds after a box pickup. Respawn time is an estimate.";
           if (panel.title !== hint) panel.title = hint;
         }
         function setup() {
           if (initialized2) return;
           initialized2 = true;
-          lifecycle19.listen(window, "message", (event) => {
+          lifecycle22.listen(window, "message", (event) => {
             if (!utils.getSetting("k_overdrive_timer", false)) return;
+            const direction = readPageMessage(event, window, OVERDRIVE_DIRECTION_MESSAGE);
+            if (direction) {
+              if (direction.at > Date.now() + 1e3 || direction.at < poseAt || Date.now() - direction.at > 750) return;
+              pose = direction.pose;
+              poseAt = direction.at;
+              for (const timer of timers) renderDirection(timer);
+              return;
+            }
             const message = readPageMessage(event, window, BONUS_PICKUP_MESSAGE);
             if (!message || !syncBattle()) return;
             const pickup = typeof message.detail === "string" ? { model: message.detail, position: null } : message.detail;
             if (locations.pickup(pickup.model, pickup.position)) render();
           });
-          lifecycle19.listen(document, "kasp:battle:id", () => {
+          lifecycle22.listen(document, "kasp:battle:id", () => {
             reset();
             render();
           });
-          lifecycle19.listen(window, "kasp:settings-changed", render);
-          lifecycle19.listen(window, "storage", render);
-          previewObserver = lifecycle19.observer((records) => {
+          lifecycle22.listen(window, "kasp:settings-changed", render);
+          lifecycle22.listen(window, "storage", render);
+          previewObserver = lifecycle22.observer((records) => {
             if (!utils.getSetting("k_overdrive_timer", false)) return;
             const selector = `${gameDOM.screens.tankPreview}, ${gameDOM.common.container}`;
             if (records.some((record) => record.type === "childList" ? [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)].some((node) => node.matches?.(selector) || node.querySelector?.(selector)) : record.target.matches(selector))) render();
           });
           render();
         }
-        lifecycle19.onCleanup(() => {
+        lifecycle22.onCleanup(() => {
           previewObserver?.disconnect();
           renderInterval = void 0;
           reset();
-          for (const timer of timers) {
-            timer.panel?.remove();
-            timer.panel = timer.time = null;
-          }
+          removeOverlay();
         });
         return { setup, sync: render };
       }, { setup() {
@@ -7138,7 +7911,7 @@
       control?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
     };
     const finishRank = (close = false) => {
-      if (rankTimer !== null) lifecycle20.cancelTimeout(rankTimer);
+      if (rankTimer !== null) lifecycle23.cancelTimeout(rankTimer);
       rankTimer = null;
       if (close && rankJob?.opened && rankJob.dropdown.isConnected && rankJob.dropdown.querySelector(dom.dropdownMenu)) {
         const previousWriting = writing2;
@@ -7169,7 +7942,7 @@
       finishRank(true);
       observer?.disconnect();
       observer = null;
-      events.forEach((type) => lifecycle20.unlisten(root, type, onInteraction, true));
+      events.forEach((type) => lifecycle23.unlisten(root, type, onInteraction, true));
       releaseLocks();
       creationRoot?.removeAttribute(CYBERSPORT_ACTIVE);
       creationRoot = null;
@@ -7255,7 +8028,7 @@
         rankJob.clicked = true;
         firstOption.click();
       }
-      if (rankTimer === null) rankTimer = lifecycle20.timeout(() => {
+      if (rankTimer === null) rankTimer = lifecycle23.timeout(() => {
         rankTimer = null;
         schedule();
       }, 100);
@@ -7273,8 +8046,8 @@
       if (root !== panel) {
         clear();
         root = panel;
-        events.forEach((type) => lifecycle20.listen(panel, type, onInteraction, true));
-        observer = lifecycle20.observer(schedule);
+        events.forEach((type) => lifecycle23.listen(panel, type, onInteraction, true));
+        observer = lifecycle23.observer(schedule);
         observer.observe(panel, {
           subtree: true,
           childList: true,
@@ -7303,22 +8076,22 @@
         writing2 = false;
       }
     };
-    lifecycle20.onCleanup(clear);
-    return { sync: lifecycle20.guard(sync), clear };
+    lifecycle23.onCleanup(clear);
+    return { sync: lifecycle23.guard(sync), clear };
   }
-  var lifecycle20;
+  var lifecycle23;
   var init_cybersportSettings = __esm({
     "src/modules/cybersportSettings.ts"() {
       "use strict";
       init_featureRuntime();
       init_gameDOM();
       init_cybersportNative();
-      lifecycle20 = featureScope("cybersportSettings");
+      lifecycle23 = featureScope("cybersportSettings");
     }
   });
 
   // src/modules/cybersport.ts
-  var lifecycle21, cybersport;
+  var lifecycle24, cybersport;
   var init_cybersport = __esm({
     "src/modules/cybersport.ts"() {
       "use strict";
@@ -7326,8 +8099,8 @@
       init_gameDOM();
       init_state();
       init_cybersportSettings();
-      lifecycle21 = featureScope("cybersport");
-      cybersport = lifecycle21.initialize(() => {
+      lifecycle24 = featureScope("cybersport");
+      cybersport = lifecycle24.initialize(() => {
         let row = null;
         let sport = null;
         let card = null;
@@ -7372,7 +8145,7 @@
         const schedule = () => {
           if (scheduled) return;
           scheduled = true;
-          lifecycle21.frame(() => {
+          lifecycle24.frame(() => {
             scheduled = false;
             sync();
           });
@@ -7380,7 +8153,7 @@
         const settings = createCybersportSettings(schedule);
         const cancelModeSelection = () => {
           modeUntil = 0;
-          if (modeTimer !== null) lifecycle21.cancelTimeout(modeTimer);
+          if (modeTimer !== null) lifecycle24.cancelTimeout(modeTimer);
           modeTimer = null;
         };
         const selectMode = (container) => {
@@ -7394,7 +8167,7 @@
             cancelModeSelection();
             ctf.click();
           } else if (modeTimer === null) {
-            modeTimer = lifecycle21.timeout(() => {
+            modeTimer = lifecycle24.timeout(() => {
               modeTimer = null;
               sync();
             }, 100);
@@ -7439,7 +8212,7 @@
           if (mapRow !== container) {
             clearMaps();
             mapRow = container;
-            mapObserver = lifecycle21.observer(schedule);
+            mapObserver = lifecycle24.observer(schedule);
             mapObserver.observe(container, {
               childList: true,
               subtree: true,
@@ -7500,7 +8273,7 @@
         const cleanup = () => {
           observer?.disconnect();
           observer = null;
-          lifecycle21.unlisten(row, "click", onNativeClick, true);
+          lifecycle24.unlisten(row, "click", onNativeClick, true);
           sport?.removeAttribute("data-kasp-cybersport-source-active");
           sport?.lastElementChild?.querySelector("h2")?.removeAttribute("data-kasp-select-label");
           card?.remove();
@@ -7551,20 +8324,20 @@
             card.setAttribute("role", "button");
             card.tabIndex = 0;
             card.style.setProperty("--kasp-cybersport-image", `url("${chrome.runtime.getURL("assets/cybersport.png")}")`);
-            lifecycle21.listen(card, "click", (event) => {
+            lifecycle24.listen(card, "click", (event) => {
               event.preventDefault();
               event.stopPropagation();
               select();
             });
-            lifecycle21.listen(card, "keydown", (event) => {
+            lifecycle24.listen(card, "keydown", (event) => {
               if (event.key !== "Enter") return;
               event.preventDefault();
               event.stopPropagation();
               if (!event.repeat) select();
             });
             row.insertBefore(card, nativeSport.nextSibling);
-            lifecycle21.listen(row, "click", onNativeClick, true);
-            observer = lifecycle21.observer(schedule);
+            lifecycle24.listen(row, "click", onNativeClick, true);
+            observer = lifecycle24.observer(schedule);
             observer.observe(row, {
               childList: true,
               subtree: true,
@@ -7600,7 +8373,7 @@
           if (sport.nextSibling !== card) row.insertBefore(card, sport.nextSibling);
           if (chosen && !nativeSelected && Date.now() < selectionUntil) schedule();
         }
-        lifecycle21.onCleanup(() => {
+        lifecycle24.onCleanup(() => {
           cancelEsports();
           cleanup();
         });
@@ -7632,11 +8405,14 @@
       init_welcomeModal();
       init_hideNickname();
       init_hideCurrency();
+      init_tankoinBalance();
+      init_lobbyPasses();
       init_customTrophies();
       init_autoUpgrade();
       init_changeCounter();
       init_customGarageSkins();
       init_zeroResists();
+      init_enemyWeapons();
       init_equipmentTracker();
       init_battleHistory();
       init_overdriveTimer();
@@ -7650,11 +8426,14 @@
         welcomeModal,
         hideNickname,
         hideCurrency,
+        tankoinBalance,
+        lobbyPasses,
         customTrophies,
         autoUpgrade,
         changeCounter,
         customGarageSkins,
         zeroResists,
+        enemyWeapons,
         equipmentTracker,
         battleHistory,
         overdriveTimer,
@@ -7689,7 +8468,9 @@
       modules.overdriveTimer.sync();
       modules.welcomeModal();
       modules.hideNickname();
+      modules.tankoinBalance();
       modules.hideCurrency();
+      modules.lobbyPasses();
       modules.customGarageSkins();
       modules.cybersport();
       if (state.currentScreen === "lobby" || state.currentScreen === "loading") {
@@ -7797,10 +8578,11 @@
         syncKillBoardDoubleHeader();
       }
     };
-    const statisticsPresentation = ".kasp-change-th, .kasp-change-td, .kasp-defence-th, .kasp-compact-cell, .kasp-zero-summary, #kasp-tab-toggle-btn";
+    const statisticsPresentation = ".kasp-change-th, .kasp-change-td, .kasp-defence-th, .kasp-compact-cell, .kasp-zero-summary, #kasp-tab-toggle-btn, #kasp-enemy-weapons-btn";
     const isOwnStatisticsMutation = (record) => {
       if (record.type !== "childList") return false;
       const target = record.target.nodeType === 1 ? record.target : record.target.parentElement;
+      if (target?.closest("#kasp-enemy-weapons-tooltip")) return true;
       if (!target?.closest(gameDOM.statistics.container)) return false;
       if (target.closest(statisticsPresentation)) return true;
       if (record.removedNodes.length) return false;
@@ -7811,6 +8593,7 @@
       if (document.querySelector(gameDOM.statistics.container)) {
         modules.changeCounter.sync();
         modules.zeroResists.sync();
+        modules.enemyWeapons.sync();
         modules.equipmentTracker.sync();
       }
       if (document.querySelector(gameDOM.garage.actionContainer)) {
@@ -7913,7 +8696,7 @@
     };
     const screenLabels = new Map(Object.entries(labels));
     let battle = null, receivedAt2 = 0, end;
-    lifecycle22.listen(window, "message", (event) => {
+    lifecycle25.listen(window, "message", (event) => {
       const message = readPageMessage(event, window, BATTLE_PRESENCE_MESSAGE);
       if (!message) return;
       const next = message.battle;
@@ -7946,27 +8729,27 @@
     const start = () => {
       if (timer !== void 0) return;
       send();
-      timer = lifecycle22.interval(send, 3e3);
+      timer = lifecycle25.interval(send, 3e3);
     };
-    lifecycle22.onCleanup(() => {
+    lifecycle25.onCleanup(() => {
       postPageMessage(window, { type: "kasp:discord-presence", version: 1, presence: null });
     });
     start();
     const refreshPrivacy = () => {
       if (timer !== void 0) send();
     };
-    lifecycle22.listen(window, "kasp:settings-changed", refreshPrivacy);
-    lifecycle22.listen(window, "storage", (event) => {
+    lifecycle25.listen(window, "kasp:settings-changed", refreshPrivacy);
+    lifecycle25.listen(window, "storage", (event) => {
       if (event.key === "k_hideNicknameXP") refreshPrivacy();
     });
-    lifecycle22.listen(window, "pageshow", start);
-    lifecycle22.listen(window, "pagehide", () => {
-      lifecycle22.cancelInterval(timer);
+    lifecycle25.listen(window, "pageshow", start);
+    lifecycle25.listen(window, "pagehide", () => {
+      lifecycle25.cancelInterval(timer);
       timer = void 0;
       postPageMessage(window, { type: "kasp:discord-presence", version: 1, presence: null });
     });
   }
-  var lifecycle22;
+  var lifecycle25;
   var init_discordPresence = __esm({
     "src/modules/discordPresence.ts"() {
       "use strict";
@@ -7978,7 +8761,7 @@
       init_dataLoader();
       init_battlePresence();
       init_pageMessages();
-      lifecycle22 = featureScope("discordPresence");
+      lifecycle25 = featureScope("discordPresence");
     }
   });
 

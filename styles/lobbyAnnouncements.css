@@ -1,0 +1,137 @@
+.AnnouncementHomeScreenComponentStyle-mainContainer {
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+}
+.AnnouncementHomeScreenComponentStyle-mainContainer .AnnouncementHomeScreenComponentStyle-mainBackGroundContainer {
+    position: relative !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center !important;
+    gap: .5em .75em;
+    width: 100% !important;
+    height: var(--kasp-announcement-height, auto) !important;
+    min-height: 3.75em !important;
+    margin: 0 !important;
+    padding: .75em .875em !important;
+    box-sizing: border-box !important;
+    background: none !important;
+    transition: height .2s ease !important;
+}
+.AnnouncementHomeScreenComponentStyle-mainContainer .AnnouncementHomeScreenComponentStyle-mainClickContainer {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    background: none !important;
+    z-index: 1;
+}
+.AnnouncementHomeScreenComponentStyle-mainContainer .AnnouncementHomeScreenComponentStyle-announceDescriptionContainer,
+.AnnouncementHomeScreenComponentStyle-mainContainer .AnnouncementHomeScreenComponentStyle-mainBackGroundContainer img {
+    display: none !important;
+    background-image: none !important;
+}
+.AnnouncementHomeScreenComponentStyle-mainContainer .AnnouncementHomeScreenComponentStyle-announceContainer {
+    grid-column: 1;
+    grid-row: 1;
+    position: relative !important;
+    inset: auto !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: none !important;
+    pointer-events: auto !important;
+    z-index: 2;
+}
+.AnnouncementHomeScreenComponentStyle-mainContainer .AnnouncementHomeScreenComponentStyle-announceContainer h3 {
+    font: max(.9375em, 13px) BaseFontBold, FallbackFontBold, sans-serif !important;
+    line-height: 1.35 !important;
+    color: #000 !important;
+    text-align: left !important;
+    text-transform: none !important;
+    overflow-wrap: anywhere;
+    margin: 0 !important;
+}
+.AnnouncementHomeScreenComponentStyle-mainContainer .AnnouncementHomeScreenComponentStyle-headerTimer {
+    grid-column: 2;
+    grid-row: 1;
+    position: relative !important;
+    inset: auto !important;
+    width: auto !important;
+    height: auto !important;
+    flex: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: none !important;
+    white-space: nowrap;
+    pointer-events: none !important;
+    z-index: 2;
+}
+.AnnouncementHomeScreenComponentStyle-mainContainer .AnnouncementHomeScreenComponentStyle-headerTimer span {
+    color: #444 !important;
+    font: max(.8125em, 11px) BaseFontRegular, FallbackFontRegular, sans-serif !important;
+}
+.AnnouncementHomeScreenComponentStyle-mainContainer .AnnouncementHomeScreenComponentStyle-headerTimer span::before { content: '◷'; margin-right: .3em; }
+.AnnouncementHomeScreenComponentStyle-mainContainer > :not(.AnnouncementHomeScreenComponentStyle-mainBackGroundContainer):not(.kasp-lobby-art-slice) {
+    position: relative !important;
+    width: 100% !important;
+    height: 2.5em !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: none !important;
+    border-top: 1px solid rgba(0, 0, 0, .14) !important;
+    box-sizing: border-box !important;
+}
+.AnnouncementHomeScreenComponentStyle-mainContainer .AnnouncementHomeScreenComponentStyle-navigationContainer {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    z-index: 2;
+    pointer-events: none !important;
+}
+.AnnouncementHomeScreenComponentStyle-mainContainer .-buttonQE {
+    width: 1.65em !important;
+    height: 1.65em !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 .65em !important;
+    background: rgba(0, 0, 0, .08) !important;
+    border-radius: .25em !important;
+    pointer-events: auto !important;
+}
+.AnnouncementHomeScreenComponentStyle-mainContainer .-buttonQE:hover { background: rgba(0, 0, 0, .18) !important; }
+.AnnouncementHomeScreenComponentStyle-mainContainer .-buttonQE span {
+    color: #000 !important;
+    font: .875em BaseFontMedium, FallbackFontMedium, sans-serif !important;
+}
+.AnnouncementHomeScreenComponentStyle-mainContainer .AnnouncementHomeScreenComponentStyle-navigationLabelContainer {
+    position: relative !important;
+    inset: auto !important;
+    width: calc(100% - 6.5em) !important;
+    height: auto !important;
+    min-height: 1.5em;
+    margin: 0 !important;
+    gap: .3em;
+    flex-wrap: wrap;
+    z-index: 3;
+}
+.AnnouncementHomeScreenComponentStyle-mainContainer :is(.AnnouncementHomeScreenComponentStyle-navigationLabelPoint, .AnnouncementHomeScreenComponentStyle-selectedNavigationLabelPoint) {
+    flex: 0 0 .4em !important;
+    width: .4em !important;
+    height: .4em !important;
+    margin: 0 !important;
+    background: rgba(0, 0, 0, .22) !important;
+    transition: background-color .2s ease !important;
+}
+.AnnouncementHomeScreenComponentStyle-mainContainer .AnnouncementHomeScreenComponentStyle-selectedNavigationLabelPoint { background: #000 !important; }
+@media (prefers-reduced-motion: reduce) {
+    .AnnouncementHomeScreenComponentStyle-mainContainer .AnnouncementHomeScreenComponentStyle-mainBackGroundContainer,
+    .AnnouncementHomeScreenComponentStyle-mainContainer :is(.AnnouncementHomeScreenComponentStyle-navigationLabelPoint, .AnnouncementHomeScreenComponentStyle-selectedNavigationLabelPoint) {
+        transition: none !important;
+    }
+}

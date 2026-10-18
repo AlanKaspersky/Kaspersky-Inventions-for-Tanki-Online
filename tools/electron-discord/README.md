@@ -1,6 +1,6 @@
 # Discord Rich Presence for the Electron client
 
-Extension integration reference: **2.9.7**, updated **October 13, 2026**. Client executable versioning and automatic updates belong to the separate Electron project.
+Extension integration reference: **2.9.8**, updated **October 13, 2026**. Client executable versioning and automatic updates belong to the separate Electron project.
 
 The extension reads the nickname and current screen and sends a heartbeat every three seconds. In a regular browser the module remains inactive. Discord labels are always in English, regardless of the game's interface language.
 

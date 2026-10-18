@@ -7,11 +7,14 @@ import { garageButtons } from './garageButtons';
 import { welcomeModal } from './welcomeModal';
 import { hideNickname } from './hideNickname';
 import { hideCurrency } from './hideCurrency';
+import { tankoinBalance } from './tankoinBalance';
+import { lobbyPasses } from './lobbyPasses';
 import { customTrophies } from './customTrophies';
 import { autoUpgrade } from './autoUpgrade';
 import { changeCounter } from './changeCounter';
 import { customGarageSkins } from './customGarageSkins';
 import { zeroResists } from './zeroResists';
+import { enemyWeapons } from './enemyWeapons';
 import { equipmentTracker } from './equipmentTracker';
 import { battleHistory } from './battleHistory';
 import { overdriveTimer } from './overdriveTimer';
@@ -26,11 +29,14 @@ const implementations = {
   welcomeModal,
   hideNickname,
   hideCurrency,
+  tankoinBalance,
+  lobbyPasses,
   customTrophies,
   autoUpgrade,
   changeCounter,
   customGarageSkins,
   zeroResists,
+  enemyWeapons,
   equipmentTracker,
   battleHistory,
   overdriveTimer,

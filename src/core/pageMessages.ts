@@ -2,6 +2,7 @@ import type { AccountSnapshot } from './accountId';
 import type { BattlePresence } from './battlePresence';
 import type { BonusPickup } from './bonusPickup';
 import type { AugmentSnapshot } from './gameAugments';
+import type { OverdrivePose } from './overdriveDirection';
 
 interface PageMessages {
     'kasp:account-identity': { type: 'kasp:account-identity'; snapshot: AccountSnapshot };
@@ -9,6 +10,7 @@ interface PageMessages {
     'kasp:game-augments': { type: 'kasp:game-augments'; detail: AugmentSnapshot };
     'kasp:game-augments-request': { type: 'kasp:game-augments-request' };
     'kasp:bonus-pickup': { type: 'kasp:bonus-pickup'; detail: BonusPickup | string };
+    'kasp:overdrive-direction': { type: 'kasp:overdrive-direction'; pose: OverdrivePose | null; at: number };
     'kasp:battle-kind': { type: 'kasp:battle-kind'; detail: 'MM' | 'PRO' };
     'kasp:battle-mode': { type: 'kasp:battle-mode'; detail: string };
     'kasp:useraction': { type: 'kasp:useraction'; detail: string[] };
@@ -63,6 +65,13 @@ function valid(message: RecordValue): boolean {
                 && (battle.remaining === undefined || finite(battle.remaining, 0, 86400))
                 && (battle.players === undefined || Number.isInteger(battle.players) && finite(battle.players, 0, 1000))
                 && (battle.maxPlayers === undefined || Number.isInteger(battle.maxPlayers) && finite(battle.maxPlayers, 1, 1000)));
+        }
+        case 'kasp:overdrive-direction': {
+            const pose = message.pose;
+            const position = object(pose) ? pose.position : null;
+            return finite(message.at, 0, Number.MAX_SAFE_INTEGER) && (pose === null || object(pose)
+                && object(position) && ['x', 'y', 'z'].every(axis => finite(position[axis], -1e8, 1e8))
+                && finite(pose.yaw, -1e6, 1e6));
         }
         case 'kasp:discord-presence': {
             const presence = message.presence;

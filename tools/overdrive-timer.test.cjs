@@ -21,8 +21,10 @@ const runtime = load('src/core/bonusPickup.ts', { './clientPatches': require('./
 const { analyzeOverdrive } = require('./overdrive-ast.cjs');
 // Tests generate plans in Node, matching the offline preparation step; the page receives only edits.
 const bonus = { ...runtime, patchBonusPickups: (source, report) => runtime.patchBonusPickups(source, report, analyzeOverdrive(source)) };
+const direction = load('src/core/overdriveDirection.ts', { './bonusPickup': bonus, './clientPatches': require('./test-client-patches.cjs') });
 const timer = load('src/modules/overdriveTimer.ts', {
     '../core/bonusPickup': bonus, '../core/gameDOM': {}, '../core/state': {}, '../core/utils': {},
+    '../core/overdriveDirection': direction,
 });
 function gameId(id) {
     const result = { low: 123, high: 456 };
@@ -466,13 +468,21 @@ test('battle overlay ignores foreign messages, resets between battles and remove
     let stoppedIntervals = 0, observerDisconnects = 0, observerStarts = 0;
     let previewCallback;
     class Element {
-        isConnected = false;
+        constructor(root = false) { this.root = root; }
+        parentElement = null;
+        get isConnected() { return this.root || !!this.parentElement?.isConnected; }
         textContent = '';
         children = [];
         classes = new Set();
+        styles = new Map();
+        style = { setProperty: (name, value) => this.styles.set(name, value) };
         classList = { toggle: (name, force) => force ? this.classes.add(name) : this.classes.delete(name) };
-        append(...children) { this.children.push(...children); }
-        remove() { this.isConnected = false; }
+        append(...children) { for (const child of children) this.appendChild(child); }
+        appendChild(child) { child.parentElement = this; this.children.push(child); return child; }
+        remove() {
+            if (this.parentElement) this.parentElement.children = this.parentElement.children.filter(child => child !== this);
+            this.parentElement = null;
+        }
     }
     const window = {
         location: { origin: 'https://tankionline.com' },
@@ -489,12 +499,13 @@ test('battle overlay ignores foreign messages, resets between battles and remove
             if (selector === 'lobby') return lobby ? {} : null;
             return null;
         },
-        createElement: () => new Element(),
-        body: { appendChild(element) { element.isConnected = true; elements.push(element); } },
+        createElement: () => { const element = new Element(); elements.push(element); return element; },
+        body: new Element(true),
         addEventListener: (name, handler) => { listeners[name] = handler; },
     };
     const { overdriveTimer } = load('src/modules/overdriveTimer.ts', {
         '../core/bonusPickup': bonus,
+        '../core/overdriveDirection': direction,
         '../core/gameDOM': { gameDOM: { screens: { battleCanvas: 'canvas', visibleTankPreview: 'preview' },
             common: { container: 'container' }, results: { status: 'results' }, play: { mainMenu: 'lobby' } } },
         '../core/state': { state },
@@ -506,33 +517,36 @@ test('battle overlay ignores foreign messages, resets between battles and remove
     const displayed = (id) => activePanel(id)?.children[0].textContent;
     overdriveTimer.setup(); overdriveTimer.setup();
     assert.equal(intervalCount, 1);
-    assert.equal(displayed(), '0:00');
+    assert.equal(displayed(), undefined);
+    assert.equal(activePanel('kasp-overdrive-timers'), undefined);
     send(bonus.OVERDRIVE_BOX_MODEL, {});
     send({ malicious: true });
     send('123456789');
     send('1647333199408');
-    assert.equal(displayed(), '0:00');
+    assert.equal(displayed(), undefined);
     send(bonus.OVERDRIVE_BOX_MODEL);
     assert.equal(displayed(), '1:25');
+    assert.equal(activePanel().parentElement, activePanel('kasp-overdrive-timers'));
+    assert.equal(activePanel('kasp-overdrive-timers').children.length, 1);
     now += 30_000; overdriveTimer.sync();
     assert.equal(displayed(), '0:55');
     send(bonus.OVERDRIVE_BOX_MODEL);
     assert.equal(displayed(), '1:25');
     now += 74_000; overdriveTimer.sync();
     assert.equal(displayed(), '0:11');
-    assert.equal(elements.at(-1).classes.has('kasp-overdrive-soon'), false);
+    assert.equal(activePanel().classes.has('kasp-overdrive-soon'), false);
     now += 1_000; overdriveTimer.sync();
     assert.equal(displayed(), '0:10');
-    assert.equal(elements.at(-1).classes.has('kasp-overdrive-soon'), true);
+    assert.equal(activePanel().classes.has('kasp-overdrive-soon'), true);
     now += 10_000; overdriveTimer.sync();
     assert.equal(displayed(), '0:00');
-    assert.equal(elements.at(-1).classes.has('kasp-overdrive-soon'), false);
-    assert.equal(elements.at(-1).classes.has('kasp-overdrive-ready'), true);
+    assert.equal(activePanel().classes.has('kasp-overdrive-soon'), false);
+    assert.equal(activePanel().classes.has('kasp-overdrive-ready'), true);
     state.lang = 'RU'; overdriveTimer.sync();
     assert.equal(displayed(), '0:00');
     send(bonus.OVERDRIVE_BOX_MODEL);
     assert.equal(displayed(), '1:25');
-    assert.equal(elements.at(-1).classes.has('kasp-overdrive-ready'), false);
+    assert.equal(activePanel().classes.has('kasp-overdrive-ready'), false);
     const at = position => send({ model: bonus.OVERDRIVE_BOX_MODEL, position });
     at({ x: 2041, y: -3980, z: 75 });
     now += 10_000; overdriveTimer.sync();
@@ -540,6 +554,18 @@ test('battle overlay ignores foreign messages, resets between battles and remove
     const secondaryId = 'kasp-overdrive-timer-secondary';
     assert.equal(displayed(), '1:15');
     assert.equal(displayed(secondaryId), '1:25');
+    assert.equal(activePanel(secondaryId).parentElement, activePanel().parentElement);
+    assert.equal(activePanel('kasp-overdrive-timers').children.length, 2);
+    const pose = { position: { x: 2041, y: -4980, z: 75 }, yaw: 0 };
+    listeners.message({ source: window, origin: window.location.origin,
+        data: { type: direction.OVERDRIVE_DIRECTION_MESSAGE, pose, at: now } });
+    assert.equal(activePanel().classes.has('kasp-overdrive-direction'), true);
+    assert.equal(activePanel().styles.get('--kasp-overdrive-bearing'), '0deg');
+    assert.equal(activePanel(secondaryId).classes.has('kasp-overdrive-direction'), true);
+    assert.notEqual(activePanel(secondaryId).styles.get('--kasp-overdrive-bearing'), '0deg');
+    now += 1000; overdriveTimer.sync();
+    assert.equal(activePanel().classes.has('kasp-overdrive-direction'), false);
+    now -= 1000;
     now += 5_000; overdriveTimer.sync();
     at({ x: 2050, y: -3990, z: 75 });
     assert.equal(displayed(), '1:25');
@@ -548,6 +574,7 @@ test('battle overlay ignores foreign messages, resets between battles and remove
     previewCallback([{ type: 'childList', addedNodes: [{ matches: () => true }], removedNodes: [] }]);
     assert.equal(displayed(), undefined);
     assert.equal(displayed(secondaryId), undefined);
+    assert.equal(activePanel('kasp-overdrive-timers'), undefined);
     now += 5_000;
     sectionContainer.style.display = 'none';
     previewCallback([{ type: 'attributes', target: { matches: () => true } }]);
@@ -568,11 +595,12 @@ test('battle overlay ignores foreign messages, resets between battles and remove
     assert.equal(displayed(), '1:10');
     assert.equal(displayed(secondaryId), '1:25');
     canvas = {}; overdriveTimer.sync();
-    assert.equal(displayed(), '0:00');
+    assert.equal(displayed(), undefined);
     assert.equal(displayed(secondaryId), undefined);
     send(bonus.OVERDRIVE_BOX_MODEL);
     listeners['kasp:battle:id']();
-    assert.equal(displayed(), '0:00');
+    assert.equal(displayed(), undefined);
+    assert.equal(activePanel('kasp-overdrive-timers'), undefined);
     enabled = false; listeners['kasp:settings-changed']();
     assert.equal(displayed(), undefined);
     assert.equal(stoppedIntervals, 1);
@@ -584,17 +612,17 @@ test('battle overlay ignores foreign messages, resets between battles and remove
     enabled = true; listeners['kasp:settings-changed']();
     assert.equal(intervalCount, 2);
     assert.equal(observerStarts, 2);
-    assert.equal(displayed(), '0:00');
+    assert.equal(displayed(), undefined);
     send(bonus.OVERDRIVE_BOX_MODEL);
     results = true; overdriveTimer.sync();
     assert.equal(displayed(), undefined);
     results = false; canvas = null; overdriveTimer.sync();
     send(bonus.OVERDRIVE_BOX_MODEL);
     canvas = {}; overdriveTimer.sync();
-    assert.equal(displayed(), '0:00');
+    assert.equal(displayed(), undefined);
     send(bonus.OVERDRIVE_BOX_MODEL);
     previewVisible = true; overdriveTimer.sync();
     lobby = true; canvas = null; overdriveTimer.sync();
     previewVisible = lobby = false; canvas = {}; overdriveTimer.sync();
-    assert.equal(displayed(), '0:00');
+    assert.equal(displayed(), undefined);
 });

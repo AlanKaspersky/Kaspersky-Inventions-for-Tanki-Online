@@ -1,0 +1,158 @@
+.kasp-lobby-pass-card,
+.AnnouncementHomeScreenComponentStyle-mainContainer {
+    width: 26em !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    border: 1px solid transparent !important;
+    border-radius: .5em !important;
+    box-sizing: border-box !important;
+    background: #fff !important;
+    color: #000 !important;
+    font-family: BaseFontRegular, FallbackFontRegular, sans-serif !important;
+    font-weight: normal !important;
+    box-shadow: 0 0 0 .063em #fff !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    filter: none !important;
+    overflow: hidden !important;
+    cursor: pointer !important;
+    transition: background-color .2s, box-shadow .2s !important;
+}
+.kasp-lobby-pass-card:hover,
+.AnnouncementHomeScreenComponentStyle-mainContainer:hover { background: #c5c5c5 !important; box-shadow: 0 0 0 2px #fff !important; }
+.kasp-lobby-pass-card::after,
+.AnnouncementHomeScreenComponentStyle-mainContainer::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -150%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .5), transparent);
+    transform: skewX(-25deg);
+    pointer-events: none;
+}
+.kasp-lobby-pass-card:hover::after,
+.AnnouncementHomeScreenComponentStyle-mainContainer:hover::after { animation: kasp-metal-shine .6s ease-in-out forwards; }
+.kasp-pass-challenge { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 10em !important; padding: .75em .875em .6875em !important; gap: .625em .75em; }
+.kasp-pass-challenge .BattlePassLobbyComponentStyle-descriptionMenuPass {
+    display: grid !important; grid-template-columns: minmax(0, 1fr) auto; grid-column: 1 / -1;
+    gap: .625em .75em; position: static !important; width: 100% !important; height: auto !important;
+    margin: 0 !important; padding: 0 !important; font-size: 1em !important;
+}
+.kasp-pass-challenge .BattlePassLobbyComponentStyle-descriptionMenuPass > :first-child {
+    grid-column: 1; grid-row: 1; position: static !important; height: auto !important; width: auto !important;
+    padding: 0 !important; margin: 0 !important; display: flex !important; align-items: center !important; font-size: 1em !important;
+}
+.kasp-pass-challenge .BattlePassLobbyComponentStyle-descriptionMenuPass > :first-child span {
+    color: #000 !important; font: max(1.125em, 15px) BaseFontBold, FallbackFontBold, sans-serif !important; text-transform: uppercase;
+}
+.kasp-pass-challenge .BattlePassLobbyComponentStyle-timers {
+    grid-column: 2; grid-row: 1; display: flex !important; align-items: center !important; gap: .25em;
+    position: static !important; margin: 0 !important; padding: 0 !important; width: auto !important; height: auto !important;
+    font-size: 1em !important;
+}
+.kasp-pass-challenge .BattlePassLobbyComponentStyle-timers > div { font-size: 1em !important; }
+.kasp-pass-challenge .BattlePassLobbyComponentStyle-timers img { width: 1em !important; height: 1em !important; filter: brightness(0) !important; margin: 0 !important; }
+.kasp-pass-challenge .BattlePassLobbyComponentStyle-timers span { color: #444 !important; font: max(.875em, 12px) BaseFontRegular, FallbackFontRegular, sans-serif !important; margin: 0 !important; }
+.kasp-pass-challenge .BattlePassLobbyComponentStyle-numberStar {
+    grid-column: 1 / -1; grid-row: 2; position: static !important; display: flex !important;
+    align-items: center !important; gap: .3em; margin: 0 !important; padding: 0 !important; width: 100% !important; height: auto !important;
+}
+.kasp-pass-challenge .BattlePassLobbyComponentStyle-numberStar::before {
+    content: ''; display: var(--kasp-star-meter-display, none); flex: 1; height: .25em; margin-right: .45em; border-radius: .1875em;
+    background: linear-gradient(to right, #000 var(--kasp-star-progress), rgba(0, 0, 0, .14) var(--kasp-star-progress));
+}
+.kasp-pass-challenge .BattlePassLobbyComponentStyle-numberStar img { width: 1em !important; height: 1em !important; margin: 0 !important; filter: brightness(0) !important; }
+.kasp-pass-challenge .BattlePassLobbyComponentStyle-numberStar span { font: max(.875em, 12px) BaseFontMedium, FallbackFontMedium, sans-serif !important; color: #000 !important; margin: 0 !important; }
+.kasp-pass-challenge .BattlePassLobbyComponentStyle-blockBattlePass {
+    display: flex !important; align-items: center !important; gap: .4375em;
+    position: relative !important; width: 100% !important; height: auto !important; min-height: 0 !important;
+    background: none !important; border: none !important; border-top: 1px solid rgba(0, 0, 0, .14) !important;
+    border-radius: 0 !important; margin: 0 !important; padding: .5625em 0 0 !important;
+    font-size: 1em !important; opacity: 1 !important;
+}
+.kasp-pass-challenge .BattlePassLobbyComponentStyle-iconBattlePass { display: none !important; }
+.kasp-pass-challenge .BattlePassLobbyComponentStyle-commonDescription {
+    display: flex !important; flex-direction: column !important; align-items: flex-start !important; justify-content: center !important;
+    min-width: 0 !important; width: auto !important; height: auto !important; background: none !important; border: none !important; margin: 0 !important; padding: 0 !important; gap: .125em;
+    font-size: 1em !important; opacity: 1 !important;
+}
+.kasp-pass-challenge .BattlePassLobbyComponentStyle-commonDescription > span { font: max(.875em, 12px) BaseFontMedium, FallbackFontMedium, sans-serif !important; color: #000 !important; margin: 0 !important; }
+.kasp-pass-challenge .BattlePassLobbyComponentStyle-commonDescription > p { font: max(.8125em, 11px) BaseFontRegular, FallbackFontRegular, sans-serif !important; color: #444 !important; margin: 0 !important; }
+.kasp-pass-challenge :is(.BattlePassLobbyComponentStyle-imagePass, .BattlePassLobbyComponentStyle-imageClosed) { display: none !important; }
+.kasp-pass-elite {
+    display: grid !important; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center !important; gap: 0 .5em;
+    position: absolute !important; left: var(--kasp-pass-left, auto) !important; top: var(--kasp-pass-top, 8.5em) !important;
+    width: var(--kasp-pass-width, 26em) !important; min-width: 0 !important; max-width: none !important;
+    right: auto !important; bottom: auto !important; margin: 0 !important; padding: .75em .875em .6875em !important; transform: none !important;
+}
+.kasp-pass-elite::before {
+    content: 'Elite Pass'; display: block; grid-column: 1; grid-row: 1;
+    color: #000; font: max(.9375em, 13px) BaseFontBold, FallbackFontBold, sans-serif;
+}
+.kasp-pass-elite[data-kasp-pass-lang='RU']::before { content: 'Элитный пропуск'; }
+.kasp-pass-elite > div:has(> .ChallengeTimerComponentStyle-timer) { grid-column: 3; grid-row: 1; display: block !important; position: static !important; margin: 0 !important; padding: 0 !important; }
+.kasp-pass-elite .ChallengeTimerComponentStyle-timer { position: static !important; display: block !important; margin: 0 !important; padding: 0 !important; background: none !important; }
+.kasp-pass-elite .ChallengeTimerComponentStyle-textTime { font: max(.8125em, 11px) BaseFontRegular, FallbackFontRegular, sans-serif !important; color: #444 !important; background: none !important; padding: 0 !important; margin: 0 !important; border-radius: 0 !important; white-space: nowrap; }
+.kasp-pass-elite .ChallengeTimerComponentStyle-textTime::before { content: '◷'; margin-right: .3em; }
+.kasp-pass-elite .EventBattlePassLobbyComponentStyle-commonBlockProgressBar { display: contents !important; }
+.kasp-pass-elite .EventBattlePassLobbyComponentStyle-commonBlockProgressBar > h2 {
+    grid-column: 2; grid-row: 1; position: static !important; margin: 0 !important; color: #000 !important;
+    font: max(.8125em, 11px) BaseFontMedium, FallbackFontMedium, sans-serif !important; white-space: nowrap;
+}
+.kasp-pass-elite .EventBattlePassLobbyComponentStyle-commonBlockProgressBar > h2::before { content: 'Lv. '; }
+.kasp-pass-elite[data-kasp-pass-lang='RU'] .EventBattlePassLobbyComponentStyle-commonBlockProgressBar > h2::before { content: 'Ур. '; }
+.kasp-pass-elite .EventBattlePassLobbyComponentStyle-progressBar {
+    display: block !important; opacity: var(--kasp-elite-meter-opacity, 0); grid-column: 1 / -1; grid-row: 2;
+    position: static !important; width: 100% !important; height: .1875em !important; border: none !important;
+    border-radius: .1875em !important; padding: 0 !important; margin: .375em 0 0 !important;
+    background: linear-gradient(to right, #000 var(--kasp-elite-progress), rgba(0, 0, 0, .14) var(--kasp-elite-progress)) !important;
+}
+.kasp-pass-elite .EventBattlePassLobbyComponentStyle-progressBar > div {
+    visibility: hidden !important; pointer-events: none !important; position: absolute !important;
+}
+.kasp-pass-elite .EventBattlePassLobbyComponentStyle-descriptionEventPass,
+.kasp-pass-elite > div:not(.EventBattlePassLobbyComponentStyle-commonBlockProgressBar):not(:has(.ChallengeTimerComponentStyle-timer)) { display: none !important; }
+@media (prefers-reduced-motion: reduce) {
+    .kasp-lobby-pass-card, .AnnouncementHomeScreenComponentStyle-mainContainer { transition: none !important; }
+    .kasp-lobby-pass-card:hover::after, .AnnouncementHomeScreenComponentStyle-mainContainer:hover::after { animation: none; }
+}
+
+.kasp-lobby-has-art { isolation: isolate; }
+.custom-trophy-item.kasp-lobby-has-art { position: relative; pointer-events: auto; }
+.kasp-lobby-art-slice {
+    position: absolute;
+    inset: 0;
+    display: block !important;
+    z-index: -1;
+    pointer-events: none !important;
+    overflow: hidden !important;
+    border-radius: inherit;
+    background: #fff !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    transition: filter .2s ease;
+}
+.kasp-lobby-art-slice::before,
+.kasp-lobby-art-slice::after {
+    content: ''; position: absolute; pointer-events: none;
+    left: var(--kasp-art-x, 0px); top: var(--kasp-art-y, 0px);
+    width: var(--kasp-art-width, 100%); height: var(--kasp-art-height, 100%);
+}
+.kasp-lobby-art-slice::before {
+    background-image: var(--kasp-art-image, none);
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    filter: grayscale(1) blur(2px);
+}
+.kasp-lobby-art-slice::after {
+    background: linear-gradient(180deg, rgba(245, 245, 245, .64), rgba(225, 225, 225, .9));
+}
+.kasp-lobby-has-art:hover > .kasp-lobby-art-slice { filter: brightness(.88); }
+@media (prefers-reduced-motion: reduce) {
+    .kasp-lobby-art-slice { transition: none; }
+}
+

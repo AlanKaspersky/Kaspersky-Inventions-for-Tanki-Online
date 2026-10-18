@@ -1040,7 +1040,7 @@ test('boot updates TAB immediately on every mutation without waiting for a heavy
     const state = { lang: 'EN', currentScreen: 'battle', friendsMenuOpen: false, settingsOpen: false };
     const noop = Object.assign(() => {}, { onTick() {}, sync() {}, setup() {} });
     const modules = new Proxy({}, { get: (_target, name) =>
-        ['changeCounter', 'zeroResists', 'equipmentTracker'].includes(name)
+        ['changeCounter', 'zeroResists', 'enemyWeapons', 'equipmentTracker'].includes(name)
             ? { sync: () => calls.push(name), onTick() {} } : noop });
     const globals = {
         document: { documentElement: { lang: 'en' }, getElementById: () => null,
@@ -1060,16 +1060,16 @@ test('boot updates TAB immediately on every mutation without waiting for a heavy
     tabOpen = true;
     observers[0]();
     observers[0]();
-    assert.deepEqual(calls, ['changeCounter', 'zeroResists', 'equipmentTracker',
-        'changeCounter', 'zeroResists', 'equipmentTracker'], 'both mutations update before the queued frame');
+    assert.deepEqual(calls, ['changeCounter', 'zeroResists', 'enemyWeapons', 'equipmentTracker',
+        'changeCounter', 'zeroResists', 'enemyWeapons', 'equipmentTracker'], 'both mutations update before the queued frame');
     assert.equal(frames.length, 1, 'general work still coalesces into one frame');
     frames.shift()();
-    assert.equal(calls.length, 6, 'the heavy pass does not repeat targeted TAB work');
+    assert.equal(calls.length, 8, 'the heavy pass does not repeat targeted TAB work');
     observers[0]();
-    assert.equal(calls.length, 9, 'TAB remains immediate inside the heavy-pass throttle interval');
+    assert.equal(calls.length, 12, 'TAB remains immediate inside the heavy-pass throttle interval');
     tabOpen = false;
     observers[0]();
-    assert.equal(calls.length, 9, 'closing TAB stops targeted updates');
+    assert.equal(calls.length, 12, 'closing TAB stops targeted updates');
 });
 
 function statisticsMutationFixture() {
@@ -1115,7 +1115,7 @@ function statisticsMutationFixture() {
 
 test('boot ignores TAB presentation insertions and cloned-content feedback without disconnecting or scheduling another pass', () => {
     const f = statisticsMutationFixture();
-    const owned = ['.kasp-change-th', '.kasp-change-td', '.kasp-defence-th', '.kasp-compact-cell', '.kasp-zero-summary', '#kasp-tab-toggle-btn'];
+    const owned = ['.kasp-change-th', '.kasp-change-td', '.kasp-defence-th', '.kasp-compact-cell', '.kasp-zero-summary', '#kasp-tab-toggle-btn', '#kasp-enemy-weapons-btn'];
     const initial = f.mutation(f.row, [f.element('td', f.row)]);
     f.deliver([initial]);
     assert.equal(f.calls.length, 3);
@@ -1130,6 +1130,10 @@ test('boot ignores TAB presentation insertions and cloned-content feedback witho
         f.deliver([f.mutation({ nodeType: 3, parentElement: icon }, [], [{ nodeType: 3 }])]);
     }
     assert.equal(f.calls.length, 3);
+    assert.equal(f.frames.length, 0);
+    const popup = f.element('#kasp-enemy-weapons-tooltip');
+    f.deliver([f.mutation(popup, [f.element('div', popup)])]);
+    assert.equal(f.calls.length, 3, 'popup content does not trigger another TAB pass');
     assert.equal(f.frames.length, 0);
     f.deliver([initial]);
     assert.equal(f.calls.length, 6, 'a later native update still synchronizes immediately');

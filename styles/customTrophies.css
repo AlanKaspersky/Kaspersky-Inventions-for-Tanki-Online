@@ -1,30 +1,29 @@
 .custom-trophy-panel {
     position: absolute;
-    top: 19em;
+    top: var(--kasp-lobby-trophies-top, 19em);
+    left: var(--kasp-lobby-trophies-left, auto);
     right: 3em;
-    display: flex;
-    flex-direction: column;
-    gap: 1.5em;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: .5em;
     font-family: BaseFontRegular, FallbackFontRegular, sans-serif;
     z-index: 1;
     pointer-events: none;
-    width: 17em;
+    width: var(--kasp-lobby-trophies-width, 26em);
+    box-sizing: border-box;
     opacity: 1 !important;
     transform: none !important;
 }
 
 .custom-trophy-item {
-    display: flex;
-    align-items: center;
-    gap: 1em;
-    justify-content: flex-start;
-}
-
-.custom-trophy-icon {
-    width: 3.5em;
-    height: 3.5em;
-    object-fit: contain;
-    filter: drop-shadow(rgba(0, 0, 0, 0.5) 0em 0em 0.25em);
+    min-width: 0;
+    padding: .75em .875em;
+    border-radius: .5em;
+    background: #fff;
+    color: #000;
+    box-sizing: border-box;
+    box-shadow: 0 0 0 .063em #fff;
 }
 
 .custom-trophy-info {
@@ -32,40 +31,61 @@
     flex-direction: column;
     align-items: flex-start;
     width: 100%;
+    min-width: 0;
+    height: 100%;
 }
 
 .custom-trophy-title {
-    color: rgb(255, 255, 255);
-    font-weight: 500;
-    font-size: 1em;
-    text-shadow: rgba(0, 0, 0, 0.5) 0em 0em 0.25em;
-    white-space: nowrap;
+    color: #000;
+    font: max(1em, 13px) BaseFontMedium, FallbackFontMedium, sans-serif;
+    overflow-wrap: anywhere;
+}
+
+.custom-trophy-percent {
+    color: #000;
+    font: max(1.625em, 22px) BaseFontMedium, FallbackFontMedium, sans-serif;
+    font-variant-numeric: tabular-nums;
+    margin-top: .1875em;
 }
 
 .custom-trophy-bar-bg {
-    background-color: rgba(118, 255, 51, 0.5);
-    border-radius: 0.375em;
+    background-color: #d9d9d9;
     position: relative;
-    min-width: 12.5em;
     width: 100%;
-    height: 0.25em;
-    margin-top: 0.375em;
+    height: max(.1875em, 3px);
+    margin-top: .4375em;
+    flex-shrink: 0;
 }
 
 .custom-trophy-bar-fill {
-    background-color: rgb(118, 255, 51);
-    border-radius: 6.25em;
+    background-color: #000;
     height: 100%;
     transition: width 0.5s ease-out;
-    box-shadow: 0 0 0.2em rgba(118, 255, 51, 0.8);
 }
 
 .custom-trophy-text {
-    color: rgb(118, 255, 51);
-    font-weight: 500;
-    font-size: 0.9em;
-    text-shadow: rgba(0, 0, 0, 0.5) 0em 0em 0.25em;
-    margin-top: 0.3em;
+    color: #555 !important;
+    font: max(.75em, 11px) BaseFontRegular, FallbackFontRegular, sans-serif !important;
+    line-height: 1.25;
+    font-variant-numeric: tabular-nums;
+    margin-top: .375em;
+    display: flex;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+    gap: 0 .25em;
+}
+
+.custom-trophy-text > span {
+    color: inherit !important;
+    font: inherit !important;
+    line-height: inherit !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .custom-trophy-bar-fill { transition: none; }
 }
 
 .PaintsCollectionComponentStyle-favoriteIconContainer {

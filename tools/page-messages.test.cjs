@@ -62,3 +62,12 @@ test('sending uses the current page origin and drops malformed outgoing payloads
     postPageMessage(target, { type: 'kasp:discord-presence', version: 1, presence: { details: 'Lobby', state: 'Player', party: { size: [7, 6] } } });
     assert.equal(sent.length, 1);
 });
+
+test('overdrive direction accepts a finite camera pose or a clear event and rejects malformed samples', () => {
+    const message = { type: 'kasp:overdrive-direction', pose: { position: { x: 1, y: 2, z: 3 }, yaw: 0 }, at: 100 };
+    assert.equal(receive(message), message);
+    assert.ok(receive({ ...message, pose: null }));
+    for (const pose of [{ position: {}, yaw: 0 }, { position: { x: 1, y: Infinity, z: 0 }, yaw: 0 },
+        { position: { x: 1, y: 2, z: 3 }, yaw: NaN }]) assert.equal(receive({ ...message, pose }), null);
+    assert.equal(receive({ ...message, at: -1 }), null);
+});

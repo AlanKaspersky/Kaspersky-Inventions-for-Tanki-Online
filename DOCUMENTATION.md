@@ -2,7 +2,7 @@
 
 ## Complete Implementation Reference
 
-**Extension version:** 2.9.7 (`manifest.json`)
+**Extension version:** 2.9.8 (`manifest.json`)
 
 **Documentation updated:** October 17, 2026
 
@@ -205,7 +205,7 @@ On a transition to loading or battle, the scheduler hides the augment tooltip an
 
 | Path | Calls |
 | --- | --- |
-| Every heavy pass | `changeCounter.onTick`, `overdriveTimer.sync`, welcome, nickname privacy, currency privacy, garage skins |
+| Every heavy pass | `changeCounter.onTick`, `overdriveTimer.sync`, welcome, nickname privacy, currency privacy, lobby pass layout, garage skins |
 | Heavy pass in lobby/loading | Enhanced Play |
 | Heavy pass while friends/invitations are open | Friend categories |
 | Heavy pass in lobby/garage/results | Trophy favorites |
@@ -694,6 +694,20 @@ Dataset flags prevent duplicate sidebars and context-menu augmentation. The cont
 
 The module refreshes badges on repeated calls. Filtering is explicitly applied on sidebar clicks and category changes; it does not maintain an independent server-side list subscription.
 
+### Lobby Pass Cards
+
+Sources: [lobbyPasses.ts](src/modules/lobbyPasses.ts), [lobbyPasses.css](styles/lobbyPasses.css), and `gameDOM.lobbyPasses`.
+
+Lobby announcements use [lobbyAnnouncements.css](styles/lobbyAnnouncements.css) and the same 26em light card surface, white outline, panorama and hover treatment as the passes. Native promotional imagery is hidden; the original heading, live timer, Q/E controls and carousel indicators remain. Long titles wrap beside the timer. The native click targets and carousel handlers are retained, with no copied titles, added requests for announcement data, or replacement timers. The panorama adapter also observes announcement replacement/resize and removes its decorative layer during cleanup.
+
+Indicator colors transition over 200ms. The adapter measures the natural caption/timer height and supplies a pixel endpoint for a 200ms body-height transition, allowing both growth and shrinkage without attempting to interpolate `height: auto`. Replaced bodies and feature cleanup release the height variable; reduced-motion preferences disable both transitions.
+
+CSS restyles the native challenge and Elite Pass roots. It changes grid layout, hides reward artwork/redundant descriptions and decorative pass icons, and turns progress into straight gradients. Challenge purchase state remains native and the original status text is never replaced. Root click handlers and all original child nodes remain intact. No copied React tree, proxy button, or native bundle patch is installed.
+
+The adapter adds scoped classes, CSS custom properties, and an absolutely positioned decorative span inside each card. These isolated background layers use assets/art1.png with a light overlay and 2px image-only blur. Assets resolve through chrome.runtime.getURL. Their shared image dimensions and origin preserve a continuous panorama across card gaps, including scaled ancestors, without changing content geometry. Native sibling stacking cannot cover the card-local layers, and the original white backgrounds remain as a fallback. Resize/replacement refreshes their coordinates; cleanup removes the layers and owned classes. `readStarProgress()` reads the native current/required counter. `readCircleProgress()` reads one or two native half-ring rotations, using inline transforms or computed DOM matrices: the first half covers 0–180 degrees, and the second covers 180–360. A second identity matrix represents 100%, while a lone identity matrix represents 0%. Missing/incompatible geometry produces no percentage. Original half-rings are made invisible with `visibility: hidden`, keeping transforms computable; `display: none` would erase their computed angles in Chromium. The displayed bar is transparent when the percentage is unavailable, while the native level/timer remain visible.
+
+Elite card position/width follow the challenge's actual bounds in its offset-parent coordinate space, including parent scaling. Parent custom properties align trophy favorites with the challenge's left edge and width, below the last card. A scoped mutation observer follows native text/class/child changes; it ignores the adapter's own root style changes. A ResizeObserver and window resize listener maintain alignment, and ordinary heavy passes cover source replacement/navigation. Updates retain the native DOM and skip unchanged properties. Cleanup removes owned classes/variables and restores the previous trophy-position/width variables. The CSS-only pseudo-title and level prefix follow `data-kasp-pass-lang` for RU/EN. There is no independent countdown, persistent pass cache, additional request, or account-ownership inference.
+
 ### Trophy Favorites
 
 Source: [src/modules/customTrophies.ts](src/modules/customTrophies.ts).
@@ -710,7 +724,7 @@ Source: [src/modules/customTrophies.ts](src/modules/customTrophies.ts).
 
 `processBattleResults()` parses visible quest progress text and refreshes a favorite's stored current/maximum values when the current value changes. Progress comes from the observed game interface.
 
-`extractIcon()` uses a reward background or the score icon fallback. `formatNumber()` inserts spaces. `createPanel()` sorts turrets before hulls and renders a percentage clamped to 0–100. `updateInterface()` adds the lobby panel beside the battle-pass block when favorites exist, removes it when that anchor disappears, and processes garage cards.
+`extractIcon()` uses a reward background or the score icon fallback for stored favorite metadata. The lobby does not render this artwork. `formatNumber()` inserts spaces. `createPanel()` sorts turrets before hulls and renders a two-column grid of white tiles, each with the localized equipment name, an integer percentage clamped to 0–100, a black progress bar, and exact current/target values. Number groups remain intact when the values need two lines. `updateInterface()` adds the lobby panel beside the battle-pass block when favorites exist, removes it when that anchor disappears, and processes garage cards.
 
 Initialization is one shared dictionary-loading promise; updates wait for it and require `trophyDictionaryLoaded`, avoiding a first panel with untranslated fallback IDs while the dictionary is still pending. `updateInterface()` compares `[favoritesOwner, state.lang, getFavs()]` with `panel.dataset.trophiesKey`; changed language/favorites/progress replace the panel, and empty favorites remove it. Dictionary failure does not automatically retry. Favorite-card handlers are refreshed and reject stale owner/target bindings, and progress remains observed/cached rather than a separate authoritative feed.
 
@@ -793,11 +807,13 @@ Source: [src/modules/hideCurrency.ts](src/modules/hideCurrency.ts).
 
 `getHiddenText()` selects Hidden/Скрыто. `processSpan()` recognizes text containing digits, saves it in `data-original-value`, replaces the span's displayed text, assigns an original-value tooltip to the supported parent, and adds `currency-masked`.
 
-Already masked spans are not overwritten again; missing parent tooltips can be restored from the saved value. Selectors cover `.ksc-22`, `.ksc-24`, native coin blocks, and header icon spans.
+Unchanged masked spans are not rewritten. Native balance updates replace the saved amount, and language changes update the hidden label. Selectors cover native coin blocks and header icon spans. The custom Tankoin counter handles its own privacy and is excluded to avoid competing text writers.
 
-The first eligible call starts a 500 ms interval as well as performing immediate processing. The interval skips battle but does not recheck `k_hideCurrency`; disabling therefore relies on the normal reload to terminate the old timer. There is no general immediate restoration function for the replaced numeric text.
+The first call installs settings and storage listeners. While masking is enabled outside battle, a single 500 ms interval rechecks the setting and processes balances. Disabling restores tracked numeric text immediately and cancels the interval, including when toggled on and off without leaving settings. A newer native numeric value is preserved during restoration. Detached spans are restored and released; battle entry and feature cleanup also restore tracked spans. Only owned masking metadata is removed, and previous parent tooltips are restored.
 
 Currency masking differs from nickname masking: it modifies selected text nodes and is not designed as a before-paint CSS-only identity-preserving mechanism.
+
+The automatic [Tankoin balance module](src/modules/tankoinBalance.ts) keeps a counter in both the main-menu and breadcrumb headers outside the shop. When there is no breadcrumb header, it locates the shared ruby/crystal group and inserts the counter immediately before that group. The native shop counter takes precedence; otherwise the extension displays the most recently observed shop or Ruby exchange balance. A scoped observer follows native balance text updates, including exchange purchases. The initial value is `—` until a balance is observed. The last known amount is stored as validated numeric text in `kasp_tankoin_balance_uid_<userId>` and restored after reload when the verified account ID arrives. Account changes select a separate cache, including different IDs with the same nickname; renaming the same ID retains its balance. An unavailable ID does not block live DOM updates but never permits persistent reads or writes. Storage failures keep the live counter working, and unchanged renders do not repeat writes. The custom counter follows `k_hideCurrency` and does not submit purchases or open the exchange automatically.
 
 ### Garage Skins
 
@@ -906,7 +922,7 @@ Only the local bar's mapped foreground is written. `paint()` requires a writable
 
 ### Overdrive Box Timer
 
-Sources: [src/modules/overdriveTimer.ts](src/modules/overdriveTimer.ts), [src/core/bonusPickup.ts](src/core/bonusPickup.ts), and [styles/overdriveTimer.css](styles/overdriveTimer.css).
+Sources: [src/modules/overdriveTimer.ts](src/modules/overdriveTimer.ts), [src/core/bonusPickup.ts](src/core/bonusPickup.ts), [src/core/overdriveDirection.ts](src/core/overdriveDirection.ts), and [styles/overdriveTimer.css](styles/overdriveTimer.css).
 
 The module is registered as `modules.overdriveTimer`. Boot calls `setup()` once and `sync()` during normal heavy passes. A 250 ms interval maintains the display even when the battle DOM is otherwise idle. The setting `k_overdrive_timer` defaults to `false` and uses the existing settings panel, boolean cache, and settings-close reload workflow.
 
@@ -944,11 +960,19 @@ The message listener requires `event.source === window`, the expected message ty
 
 #### Presentation
 
-`render()` creates `#kasp-overdrive-timer` only during a battle with the setting enabled. It displays only numeric `minutes:seconds`, using `0:00` before the first pickup and after completion. The background is yellow during the normal countdown, reddish during the final ten seconds, and green at zero; the text remains dark in every state, with a 0.2-second background-color transition. Text and title updates are conditional to avoid repeatedly waking the master DOM observer. Disabled or non-battle states remove the panel. The stylesheet uses `top: 2.5em`, `left: 55%`, medium-weight game fonts, and dimensions in `em`, with pointer events disabled, so it does not intercept battle controls.
+`render()` creates `#kasp-overdrive-timer` only during an enabled battle after an observed pickup starts its countdown. It displays numeric `minutes:seconds`, keeping `0:00` after completion. The background is yellow during the normal countdown, reddish during the final ten seconds, and green at zero; the text remains dark in every state, with a 0.2-second background-color transition. Text and title updates are conditional to avoid repeatedly waking the master DOM observer. Disabled or non-battle states remove the panel. The stylesheet places a centered grid wrapper at `top: 2.5em; left: 50%` with `translateX(-50%)` and columns `3.5em 10em 3.5em`. Medium-weight game fonts and dimensions in `em` follow the HUD scale. Pointer events are disabled, so it does not intercept battle controls.
 
 The displayed deadline estimates a box's next appearance from a pickup; it does not confirm that a box is currently on the map. There is no manual restart key, sound alert, paid-access gate, or persistent deadline.
 
-`renderTimer()` uses the `.kasp-overdrive-timer` styling. The primary panel is always shown during an enabled battle at `left: 55%`. `#kasp-overdrive-timer-secondary` appears at `left: 42.86%` after the second learned point is picked up, then remains visible until battle reset or disabling the feature. Both panels use `z-index: 1` and represent the same overdrive model at different positions; speed boosts remain excluded. Both panels retain their left anchors. Completion keeps `0:00` and changes only the background to green. An observer watches section insertion/removal and class, style, or hidden attribute changes: a visible native preview or `.-container` hides both panels without clearing deadlines, and returning to battle restores their current values. Container visibility is checked through layout rectangles and computed display, visibility, and opacity. Selectors are defined in `gameDOM.screens.tankPreview`, `gameDOM.screens.visibleTankPreview`, and `gameDOM.common.container`. The proximity tolerance is heuristic and requires verification on real maps, especially when spawn points are close together or pickup vectors vary significantly.
+`renderTimer()` uses the `.kasp-overdrive-timer` styling. The primary panel occupies the right grid column; `#kasp-overdrive-timer-secondary` occupies the left column after a pickup at the second learned point. Neither is displayed before its first pickup. Both represent the same overdrive model at different positions; speed boosts remain excluded. Completion keeps `0:00` and changes only the background to green. An observer watches section insertion/removal and class, style, or hidden attribute changes: a visible native preview or `.-container` hides both panels without clearing deadlines, and returning to battle restores their current values. Container visibility is checked through layout rectangles and computed display, visibility, and opacity. Selectors are defined in `gameDOM.screens.tankPreview`, `gameDOM.screens.visibleTankPreview`, and `gameDOM.common.container`. The proximity tolerance is heuristic and requires verification on real maps, especially when spawn points are close together or pickup vectors vary significantly.
+
+#### Direction Segment
+
+An independent `overdriveDirection` feature scope observes the local tank body's position and the rendered camera's Euler Z rotation. [overdrive-direction-ast.cjs](tools/overdrive-direction-ast.cjs) identifies the physics component, canonical vector fields, camera controller, local HUD frame, and cleanup using native semantic evidence. Run `node tools/prepare-overdrive-direction.cjs <client.js>` to prepare [overdrive-direction.json](src/generated/overdrive-direction.json). Exact plans and compatibility templates use the shared validated edit merger; ambiguous mappings are skipped. The frame callback is guarded and does not replace native results. Direction does not depend on enabling the critical indicator or arcade reload bar.
+
+`__kaspOverdriveDirection.wanted()` gates sampling to once per 80 ms while the timer setting is enabled and the document is visible. The handler reads mapped fields directly without a graph traversal, posts a validated `kasp:overdrive-direction` pose message, and clears the pose on cleanup or invalid data. The timer rejects stale, out-of-order, or excessively future-dated messages; samples older than 750 ms hide the segment while the countdown continues. Bearing uses horizontal position differences and camera yaw, with zero degrees pointing ahead and positive angles clockwise. Each timer uses its own learned point. Within 100 horizontal world units of a point, its segment is suppressed to avoid unstable direction at zero distance.
+
+The black masked conic gradient occupies only the timer's outer edge. The registered `--kasp-overdrive-bearing` angle interpolates over 100 ms; angle unwrapping prevents a full-circle detour when crossing ±180 degrees. Reduced-motion preferences disable bearing interpolation. Background countdown colors remain independent. This indicates a direct bearing, not an unobstructed path. `window.__kaspOverdriveDirectionDebug.status()` reports mapping, enabled/valid state, sample count, and feature runtime status.
 
 ### Equipment Change Indicators
 
@@ -991,6 +1015,14 @@ The zero-summary pass reads resistance icon filename patterns from native entrie
 `kasp_tab_expanded` controls the body class and active toggle. Computed styles are cached only within the current synchronization pass; the next pass rereads reused native nodes, including changes supplied through CSS. The master observer remains connected and synchronization is not skipped based on row/cell counts. The redundant backdrop blur behind the opaque TAB background is removed.
 
 Hovering a resistance cell retains the original inline reveal: that player's module cell widens and the two neighboring combat-statistic cells temporarily hide. There is no floating panel. Button-controlled expansion of the entire TAB uses `src/modules/tabExpansion.ts`: it snapshots collapsed/expanded pane and column widths on a representative populated header/body row, then drives both the frame and all columns through the same registered CSS progress property for 200 ms. This avoids separately interpolating percentages while the containing pane is itself growing. Rapid reversals reuse the current progress. Temporary pixel geometry is removed after the transition, on resize, or on feature cleanup, returning control to the native responsive CSS. Measurement errors restore the prior state; incomplete layouts skip the animation. No per-player animation-frame loop is installed. Reduced-motion preferences disable the shared transition; browsers without registered-property interpolation still switch to the correct final layout.
+
+#### Enemy Weapons Popup
+
+[enemyWeapons.ts](src/modules/enemyWeapons.ts) adds a matching turret-icon button beside the expansion toggle. It has its own feature scope and cleanup. The master observer synchronizes the control after resistance presentation; inserting it or changing its popup content does not feed back into another TAB pass.
+
+`readEnemyWeapons()` finds the native local selected row inside the blue/red team containers, then reads player rows from the opposite container. A DM table instead counts every other player. Spectators are excluded. Without a recognized local team it returns unavailable rather than guessing by team order or nickname. The first icon in each row's weapon equipment block supplies the weapon; augment and resistance cells do not contribute counts. Image sources and inline mask/background URLs are preferred, with computed styles as fallback. Only validated Tanki image URLs are read. Known filename aliases map to the shared [turretIcons.ts](src/core/turretIcons.ts) resistance assets; Terminator can reuse its native silhouette, and unsupported or missing icons contribute to an unknown count. Results sort by descending count, then key.
+
+Hover or keyboard focus creates a fixed, noninteractive popup above the button, horizontally centered and clamped to the viewport. It shows white weapon names, resistance silhouettes, and counts on an opaque `rgb(21, 21, 21)` background with a white perimeter border. Up to nine distinct weapon types use one column; more than nine use two balanced columns (seventeen types occupy nine and eight rows). A 250 ms interval runs only while open, covering equipment changes without child-node mutations. Native TAB mutations also refresh open counts immediately. Unchanged content is retained; pointer movement does not move the popup. Both TAB action buttons have enlarged square targets and nonshrinking icons. Mouse clicks on the hover button are intercepted to avoid native activation or mouse-focus decoration; keyboard focus uses a white outline. Mouse leave, focus loss, Escape, window blur, document hiding, TAB disappearance, and feature cleanup remove the popup and cancel its interval. No native bundle transformation or additional game request is needed.
 
 ### Garage Button Presentation
 
@@ -1382,6 +1414,8 @@ The manifest declares 20 stylesheets at document start. `mainUI.css` also import
 | `styles/navigation.css` | Native navigation item geometry, hover, shine, and related visual rules. |
 | `styles/cybersport.css` | Scoped Esports prototype and source Sport visual state; custom image variable, gradients, hover/focus, and selection. |
 | `styles/header.css` | Header currencies, icon arrangement, and header presentation. |
+| `styles/lobbyPasses.css` | Native white pass cards, two challenge tracks, lock state, linear progress and hover shine. |
+| `styles/lobbyAnnouncements.css` | Text-only native announcement carousel with timer and monochrome navigation. |
 | `styles/battleStats.css` | Native battle-statistics layout plus related equipment/resistance/skin presentation. |
 | `styles/killBoard.css` | Result-table geometry, columns, headers, and kill-board layout. |
 | `styles/overdriveTimer.css` | Two non-interactive countdown panels, colors, anchors, and visibility. |
@@ -1481,6 +1515,7 @@ All entries below belong to the game origin in the current browser/profile. No a
 | `tankiCustomCategories_uid_<userId>` | JSON object: friend user ID to color | Per native account ID; old keys remain separate |
 | `kasp_trophies_favorites_uid_<userId>` | JSON array of ID/type/icon/current/max entries | Per native account ID; old shared key remains separate |
 | `kasp_equipped_skins_uid_<userId>` | JSON object: canonical equipment to validated artwork URL | Account-ID-scoped equipped skin overrides |
+| `kasp_tankoin_balance_uid_<userId>` | Validated numeric text: last observed Tankoin balance | Per verified native account ID |
 | `kasp_equipped_skins` | Legacy shared skin overrides, no longer read or written | Preserved separately; no automatic migration |
 | `kasp_base_images` | JSON object: equipment to original URL arrays; older strings supported | Origin-wide skin matching cache |
 | `kasp_weapon_augment_tracker` | Legacy JSON configuration object | No longer read or written by the native reload indicator |
@@ -1678,7 +1713,7 @@ The full build and ZIP command stop on failed type checking or regression tests.
 
 ### Dependency Metadata
 
-The manifest, package, and lockfile package versions are 2.9.7. Both package files declare `UNLICENSED`; the package is marked `private: true`. Package/lockfile-root ranges agree: `@types/chrome` `^0.3.0`, esbuild `^0.28.2`, TypeScript `^7.0.2`, Acorn `^8.19.0`, acorn-walk `^8.3.5`, and Astring `^1.9.0`. The parser/walker/generator are development dependencies, not imports of the runtime entries.
+The manifest, package, and lockfile package versions are 2.9.8. Both package files declare `UNLICENSED`; the package is marked `private: true`. Package/lockfile-root ranges agree: `@types/chrome` `^0.3.0`, esbuild `^0.28.2`, TypeScript `^7.0.2`, Acorn `^8.19.0`, acorn-walk `^8.3.5`, and Astring `^1.9.0`. The parser/walker/generator are development dependencies, not imports of the runtime entries.
 
 Use `npm ci` to install the locked dependency graph. Dependency changes should update the manifest and lockfile together; `npm install` can rewrite the lockfile. The project does not declare a Node `engines` field; tooling requires APIs such as `fs.cpSync` and the built-in Node test runner.
 
@@ -1720,7 +1755,7 @@ Generated JSON is statically imported into `dist/kasp_injector.js`; it is not fe
 
 Configured directories are `dist`, `styles`, `assets`, `database`, `_locales`, and `templates`. Configured root files are `manifest.json`, `LICENSE.txt`, `README.md`, `DOCUMENTATION.md`, and `MAINTENANCE.md`.
 
-For 2.9.7, the folder and archive names are `release/Kaspersky's Inventions 2.9.7/` and `release/Kaspersky's Inventions 2.9.7.zip`. The ZIP contains that outer versioned folder.
+For 2.9.8, the folder and archive names are `release/Kaspersky's Inventions 2.9.8/` and `release/Kaspersky's Inventions 2.9.8.zip`. The ZIP contains that outer versioned folder.
 
 The script removes the existing same-version output before recreating it. It throws if no directory or no root file was copied, but does not require every configured input to exist. `build:zip` can package stale bundles or partial resources if invoked without appropriate preparation.
 
@@ -1844,4 +1879,4 @@ Project use and distribution are governed by [LICENSE.txt](LICENSE.txt), which c
 
 ---
 
-Technical documentation aligned with source/manifest version **2.9.7**, updated **October 17, 2026**.
+Technical documentation aligned with source/manifest version **2.9.8**, updated **October 17, 2026**.

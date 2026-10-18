@@ -57,7 +57,6 @@ export const customFriends = lifecycle.initialize(() => {
         if (!element) return '';
         const label = Array.from(element.querySelectorAll('span'))
             .find(span => span.className.includes(gameDOM.fragments.nicknameText));
-        // Native labels include the clan prefix, but RemoteUserData.uid does not.
         const text = label?.textContent ?? (element.innerText || '').split('\n')[0];
         return parseAccountIdentity(text)?.nickname || '';
     };

@@ -1,0 +1,21 @@
+export const RESISTANCE_ICONS: Record<string, string> = {
+    'mine': 'https://s.eu.tankionline.com/static/images/mine_resistance.dd581c90.svg',
+    'crit': 'https://s.eu.tankionline.com/static/images/crit_resistance.94e32312.svg',
+    'firebird': 'https://s.eu.tankionline.com/static/images/firebird_resistance.785a9d6b.svg',
+    'freeze': 'https://s.eu.tankionline.com/static/images/freeze_resistance.33bdf642.svg',
+    'isis': 'https://s.eu.tankionline.com/static/images/isis_resistance.30a69ffc.svg',
+    'tesla': 'https://s.eu.tankionline.com/static/images/tesla_resistance.3e686c8e.svg',
+    'hammer': 'https://s.eu.tankionline.com/static/images/hammer_resistance.6c549d29.svg',
+    'twins': 'https://s.eu.tankionline.com/static/images/twins_resistance.ad189f61.svg',
+    'ricochet': 'https://s.eu.tankionline.com/static/images/ricochet_resistance.8247beaa.svg',
+    'vulcan': 'https://s.eu.tankionline.com/static/images/vulcan_resistance.824f6f0e.svg',
+    'smoky': 'https://s.eu.tankionline.com/static/images/smoky_resistance.845afc14.svg',
+    'rocket_launcher': 'https://s.eu.tankionline.com/static/images/rocket_launcher_resistance.b7dfd64f.svg',
+    'thunder': 'https://s.eu.tankionline.com/static/images/thunder_resistance.6d7f4531.svg',
+    'tsunami': 'https://s.eu.tankionline.com/static/images/tsunami_resistance.6200aad9.svg',
+    'scorpio': 'https://s.eu.tankionline.com/static/images/scorpio_resistance.e8f1787f.svg',
+    'artillery': 'https://s.eu.tankionline.com/static/images/artillery_resistance.9b4cbc34.svg',
+    'railgun': 'https://s.eu.tankionline.com/static/images/railgun_resistance.636a554f.svg',
+    'gauss': 'https://s.eu.tankionline.com/static/images/gauss_resistance.bb8f409c.svg',
+    'shaft': 'https://s.eu.tankionline.com/static/images/shaft_resistance.0778fd3e.svg'
+};

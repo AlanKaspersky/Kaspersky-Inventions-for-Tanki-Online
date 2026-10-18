@@ -35,7 +35,9 @@ export function startBoot() {
 
         modules.welcomeModal();
         modules.hideNickname();
+        modules.tankoinBalance();
         modules.hideCurrency();
+        modules.lobbyPasses();
         modules.customGarageSkins();
 
         modules.cybersport();
@@ -170,10 +172,11 @@ export function startBoot() {
         }
     };
 
-    const statisticsPresentation = '.kasp-change-th, .kasp-change-td, .kasp-defence-th, .kasp-compact-cell, .kasp-zero-summary, #kasp-tab-toggle-btn';
+    const statisticsPresentation = '.kasp-change-th, .kasp-change-td, .kasp-defence-th, .kasp-compact-cell, .kasp-zero-summary, #kasp-tab-toggle-btn, #kasp-enemy-weapons-btn';
     const isOwnStatisticsMutation = (record: MutationRecord): boolean => {
         if (record.type !== 'childList') return false;
         const target = record.target.nodeType === 1 ? record.target as Element : record.target.parentElement;
+        if (target?.closest('#kasp-enemy-weapons-tooltip')) return true;
         if (!target?.closest(gameDOM.statistics.container)) return false;
         if (target.closest(statisticsPresentation)) return true;
         if (record.removedNodes.length) return false;
@@ -186,6 +189,7 @@ export function startBoot() {
         if (document.querySelector(gameDOM.statistics.container)) {
             modules.changeCounter.sync();
             modules.zeroResists.sync();
+            modules.enemyWeapons.sync();
             modules.equipmentTracker.sync();
         }
         if (document.querySelector(gameDOM.garage.actionContainer)) {

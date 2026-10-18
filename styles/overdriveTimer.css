@@ -1,30 +1,73 @@
-.kasp-overdrive-timer {
+.kasp-overdrive-timers {
     position: fixed;
     top: 2.5em;
+    left: 50%;
+    transform: translateX(-50%);
     z-index: 1;
+    display: grid;
+    grid-template-columns: 3.5em 10em 3.5em;
+    align-items: center;
+    font-size: 1.25em;
+    pointer-events: none;
+}
+
+.kasp-overdrive-timer {
+    position: relative;
+    grid-row: 1;
     display: flex;
     align-items: center;
     justify-content: center;
     -webkit-box-align: center;
     -webkit-box-pack: center;
     height: 2em;
-    width: auto;
+    box-sizing: border-box;
+    width: 100%;
     padding: 0em 0.25em;
     border: none;
     border-radius: 0.25em;
     background-color: rgb(255, 204, 0);
-    transition: background-color 0.2s;
+    transition: background-color 0.2s, --kasp-overdrive-bearing 100ms linear;
     color: rgb(0, 25, 38);
     font-family: BaseFontMedium, FallbackFontMedium;
-    font-size: 1.25em;
+    font-size: inherit;
     font-style: normal;
     font-weight: 500;
     text-transform: none;
     pointer-events: none;
 }
-#kasp-overdrive-timer { left: 55%; }
-#kasp-overdrive-timer-secondary { left: 42.86%; }
+#kasp-overdrive-timer { grid-column: 3; }
+#kasp-overdrive-timer-secondary { grid-column: 1; }
 .kasp-overdrive-timer strong { font: inherit; color: inherit; }
 .kasp-overdrive-timer strong { font-variant-numeric: tabular-nums; text-align: center; }
 .kasp-overdrive-timer.kasp-overdrive-soon { background-color: rgb(255, 104, 104); }
 .kasp-overdrive-timer.kasp-overdrive-ready { background-color: rgb(118, 255, 51); }
+
+@property --kasp-overdrive-bearing {
+    syntax: '<angle>';
+    inherits: true;
+    initial-value: 0deg;
+}
+
+.kasp-overdrive-timer::before,
+.kasp-overdrive-timer.kasp-overdrive-direction::after {
+    content: '';
+    position: absolute;
+    inset: -0.18em;
+    padding: 0.18em;
+    border-radius: 0.4em;
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+}
+
+.kasp-overdrive-timer::before { background: #ffffff; }
+.kasp-overdrive-timer.kasp-overdrive-direction::after {
+    background: conic-gradient(from var(--kasp-overdrive-bearing), #000000 0deg 18deg,
+        transparent 18deg 342deg, #000000 342deg 360deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .kasp-overdrive-timer { transition: background-color 0.2s; }
+}

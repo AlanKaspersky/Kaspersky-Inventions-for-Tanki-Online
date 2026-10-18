@@ -2,7 +2,7 @@
 
 ## Complete Documentation
 
-**Extension version:** 2.9.7 (`manifest.json`)
+**Extension version:** 2.9.8 (`manifest.json`)
 
 **Documentation updated:** October 17, 2026
 
@@ -238,9 +238,11 @@ Russian and English are the supported interface languages. Map and paint localiz
 
 **Setting:** `k_overdrive_timer` (disabled by default).
 
-Enable **Overdrive box timer** in the KASPERSKY settings tab. A compact yellow indicator shows only the timer near the top of the battle screen (`top: 2.5em; left: 55%`). It displays `0:00` until an overdrive box pickup is detected, then counts down from `1:25`. Each subsequent pickup restarts the full 85-second countdown. The background transitions over 0.2 seconds, turns reddish during the final ten seconds and green at zero, while the indicator stays at `0:00`.
+Enable **Overdrive box timer** in the KASPERSKY settings tab. The timer appears near the top of the battle screen only after the first observed overdrive pickup, then counts down from `1:25`. Each subsequent pickup restarts the full 85-second countdown. The background transitions over 0.2 seconds, turns reddish during the final ten seconds and green at zero, while the indicator stays at `0:00`.
 
-The indicator tracks overdrive model `1647333199409`. Model `1647333199408` is a speed boost and is ignored by this timer. The first observed pickup position is assigned to the indicator at `left: 55%`. When an overdrive pickup occurs at a distinct position, a second indicator appears at `left: 42.86%` with its own 85-second countdown. Picking up a box near either learned position restarts only that position's timer. Both indicators use the same presentation with `z-index: 1` and reset on battle changes. Both indicators retain their left anchors; completion keeps the numeric `0:00` display. Opening an in-battle section hides both indicators while their countdowns continue. A visible native tank preview (`TankPreviewComponentStyle-visible`) or a visible `.-container` section hides both indicators.
+The indicator tracks overdrive model `1647333199409`. Model `1647333199408` is a speed boost and is ignored by this timer. The first observed pickup position is assigned to the right timer. A pickup at a distinct position reveals the left timer with its own 85-second countdown. Both sit in a centered wrapper with a fixed gap and `z-index: 1`. Picking up a box near either learned position restarts only that position's timer. Both reset on battle changes. Opening an in-battle section, a visible native tank preview (`TankPreviewComponentStyle-visible`), or a visible `.-container` hides both indicators while their countdowns continue.
+
+A black segment moves around each timer's edge to point toward its learned overdrive location relative to the camera: top means ahead, right means right, and bottom means behind. The independent direction hook samples local tank position and actual camera rotation at most once every 80 ms; it does not require the critical-shot indicator. Missing or stale telemetry hides only the segment, as does being within 100 horizontal world units of the point. This is a bearing to the point, not route guidance around obstacles. Inspect recognition with `window.__kaspOverdriveDirectionDebug.status()`.
 
 Positions are learned afresh in each battle, so there is no table of map-specific coordinates. The native bonus instance supplies a detached registered spawn origin; if unavailable, the pickup vector is used. Positions within 1,000 horizontal game-world units of a learned position are grouped together to accommodate small shifts, ignoring height differences. This is a proximity heuristic; points closer than that tolerance or unusually large position changes may be grouped incorrectly. At most two positions are tracked. Once both positions are known, a pickup without valid coordinates or at a third distant position leaves both deadlines unchanged. Debugging can help adjust the tolerance if a map's behavior differs.
 
@@ -250,7 +252,15 @@ Offline AST tools identify the pickup path, pooled bonus registration, and coord
 
 The timer estimates the next appearance from the configured game interval. It does not receive a server respawn deadline or establish whether an uncollected box is currently present. Entering a battle alone does not start a countdown. Leaving the battle or replacing its canvas outside an in-battle section clears both countdowns and learned positions; deadlines are not saved across page reloads. The second indicator appears only after a pickup at its position has been observed.
 
-Game updates may change the internal pickup code or bonus model identifier. If the hook cannot recognize a pickup, the timer remains at `0:00`; it does not invent a deadline. The overlay does not capture mouse input or add a gameplay hotkey.
+Game updates may change the internal pickup code or bonus model identifier. If the hook cannot recognize a pickup, the timer stays hidden; it does not invent a deadline. Unsupported direction mappings leave the countdown operational without the black segment. The overlay does not capture mouse input or add a gameplay hotkey.
+
+### Lobby Pass Cards
+
+Challenges and the Elite Pass use white cards with black text, matching the extension's lobby buttons. The Elite Pass sits directly below Challenges at the same width, with a straight progress line. Reward artwork and repeated captions are hidden; native labels, timers, purchase/lock state, and click handlers remain in place. Favorite trophies follow below the cards.
+
+The pass and favorite-trophy cards share a continuous `assets/art1.png` background with a light overlay and 2px image blur. Only the backdrop is blurred; card content and dimensions stay unchanged.
+
+The redesign is CSS over the existing game elements. A small DOM adapter supplies progress percentages, alignment coordinates, and RU/EN pseudo-labels. It reads stars from the native counter and Elite Pass progress from the native circle's two rendered half-ring angles. It never infers progress from the level number; unsupported ring layouts hide the line. No game bundle hook or additional server request is used.
 
 ### Core Settings Module
 
@@ -369,7 +379,7 @@ The module reads real identity through the shared helper. Nickname masking there
 
 **Purpose:** Shows locally selected equipment trophy progress in the lobby.
 
-Favorite-star controls are added to supported trophy/quest cards. Up to two turret trophies and two hull trophies may be selected. Progress is refreshed from recognized garage cards and result-screen quest progress. The lobby panel displays current points, target points, and an item/reward icon.
+Favorite-star controls are added to supported trophy/quest cards. Up to two turret trophies and two hull trophies may be selected. Progress is refreshed from recognized garage cards and result-screen quest progress. The lobby panel uses a two-column grid of white tiles below the passes, with equipment names, percentages, black progress bars, and exact current/target points. Reward icons are omitted.
 
 Recognition uses `database/trophies.json`. Displayed progress is the latest observed interface value, not a separate live server query. Previously stored progress may remain visible until the relevant card is observed again.
 
@@ -431,6 +441,8 @@ Supported currency/header spans have their original numeric text saved in metada
 Unlike nickname privacy, this module replaces selected span text. It uses the normal update cycle and a 500 ms interval after initialization. Battle-screen processing is skipped; immediate masking of every price or numeric field is not guaranteed.
 
 Coverage follows supported selectors, including displays used for rubies, crystals, and tankoins. Reload after changing this setting to reset the module and timer state consistently.
+
+Tankoins also have an automatic persistent header counter outside the shop. It refreshes from the native shop balance or the Ruby exchange balance, respects currency privacy, and shows `—` until the first balance is observed. The last known amount is stored locally under `kasp_tankoin_balance_uid_<userId>` and restored after reload once the current account ID is verified. Different accounts have separate balances, and a rename keeps the same saved value. Until an ID is verified, live shop/exchange observations still work without reading or writing a persistent cache. The native shop counter is never duplicated.
 
 ### Custom Garage Skins Module
 
@@ -510,6 +522,8 @@ The cache is cleared on detected departure from a battle canvas or a battle-ID r
 The module adds a shield heading, compact equipment/resistance cells, and zero-count summary entries for configured types absent from the native summary. These entries do not independently measure every player's resistance percentage.
 
 A shield toggle switches between compact presentation and always showing all modules. State is saved under `kasp_tab_expanded`. Zero entries are removed when the corresponding resistance appears in the native summary. There is no separate settings switch.
+
+The adjacent turret button opens an **Enemy weapons** popup directly above its button on hover (or keyboard focus). It counts the opposite team's current weapon icons, using the same icons as the resistance summary and sorting by count. DM counts everyone except the local player. Counts refresh while the popup is open; leaving the button or closing TAB hides it. An unidentified local team produces an explicit message, and unreadable weapons are grouped as unknown. The feature reads the displayed TAB only and adds no native hooks or game requests.
 
 ### Garage Buttons Module
 
@@ -626,6 +640,7 @@ An origin includes scheme, hostname, and port. Different game origins, browser p
 | `tankiCustomCategories_uid_<userId>` | Friend user ID to category assignments | Per account user ID |
 | `kasp_trophies_favorites_uid_<userId>` | Trophy favorite selections and cached presentation data | Per account user ID |
 | `kasp_equipped_skins_uid_<userId>` | Observed equipped-skin artwork | Per account user ID |
+| `kasp_tankoin_balance_uid_<userId>` | Last observed Tankoin balance | Per verified account user ID |
 | `kasp_equipped_skins` | Legacy shared skin selections, no longer read or written | Retained separately |
 | `kasp_base_images` | Base artwork used for skin replacement | Shared across accounts |
 | `kasp_weapon_augment_tracker` | Legacy reload configuration; no longer read or written | Shared across accounts |
@@ -752,6 +767,7 @@ The manifest injects the extension's styles at document start. Some rules apply 
 | `navigation.css` | Navigation controls |
 | `cybersport.css` | Scoped Esports card and native Sport selection presentation during the prototype |
 | `header.css` | Header presentation |
+| `lobbyPasses.css` | Native challenge/Elite Pass cards, monochrome presentation and linear progress |
 | `battleStats.css` | Battle statistics and equipment presentation |
 | `killBoard.css` | Kill-board presentation |
 | `overdriveTimer.css` | Independent overdrive countdown panels and visibility |
@@ -913,7 +929,7 @@ After rebuilding, reload the unpacked extension and then reload the game page. A
 
 ### Version metadata
 
-The current manifest, package, and lockfile package versions are **2.9.7**. The browser, welcome window, and release-folder naming use the manifest version. Keep these metadata values aligned when preparing another version.
+The current manifest, package, and lockfile package versions are **2.9.8**. The browser, welcome window, and release-folder naming use the manifest version. Keep these metadata values aligned when preparing another version.
 
 ### Release output
 
@@ -923,13 +939,13 @@ For the current manifest version, output is:
 
 ```text
 release/
-├── Kaspersky's Inventions 2.9.7/
+├── Kaspersky's Inventions 2.9.8/
 │   ├── manifest.json
 │   ├── LICENSE.txt
 │   ├── README.md
 │   ├── DOCUMENTATION.md
 │   └── ... runtime directories
-└── Kaspersky's Inventions 2.9.7.zip
+└── Kaspersky's Inventions 2.9.8.zip
 ```
 
 The archive contains the versioned outer folder. Extract it and select the folder containing `manifest.json` when loading the extension. Source files, tests, `node_modules`, the local game bundle, and raw generated-plan JSON are not separately included. The two root documentation files are included.
@@ -1007,7 +1023,7 @@ Repeat the affected checks in Chromium and Firefox. Manifest support does not su
 - Ordinary critical-cycle indication supports the three specified weapon/augment pairs. Post-Supercharge phase assumptions require verification if the game changes its mechanics.
 - Device tooltips use mouse hover. Equivalent keyboard, gamepad, and mobile tooltip interaction is not implemented.
 - AST compatibility templates reduce dependence on symbol names but still depend on native structure. A runtime exception is not automatically rolled back by the injector's preparation guards.
-- An intermittent missing local tank after entering a loaded map has been reported. Its cause and relationship to the extension remain unconfirmed; it is not listed as fixed in 2.9.7.
+- An intermittent missing local tank after entering a loaded map has been reported. Its cause and relationship to the extension remain unconfirmed; it is not listed as fixed in 2.9.8.
 - Auto Upgrade depends on recognized native dialogs and stops on an unknown confirmation. Its local confirmation count is not an independently verified purchase ledger.
 - Third-party UI modifications can alter the same elements and introduce selector, style, or event conflicts.
 
@@ -1085,4 +1101,4 @@ For the in-game presentation of release information and credits, see [the welcom
 
 ---
 
-Documentation aligned with extension manifest version **2.9.7**, updated **October 17, 2026**.
+Documentation aligned with extension manifest version **2.9.8**, updated **October 17, 2026**.

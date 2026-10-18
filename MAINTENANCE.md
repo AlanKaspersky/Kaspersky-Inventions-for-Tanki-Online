@@ -1,6 +1,6 @@
 # Failure isolation and manual maintenance
 
-Source reference: 2.9.7, October 17, 2026. This guide can be followed without AI.
+Source reference: 2.9.8, October 17, 2026. This guide can be followed without AI.
 
 ## What stops, and when
 

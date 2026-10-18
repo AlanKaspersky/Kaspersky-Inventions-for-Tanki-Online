@@ -71,7 +71,7 @@ div:has(> .HeaderCommonStyle-icons + .HeaderCommonStyle-icons)+div {
     font-family: BaseFontMedium, FallbackFontMedium !important;
     font-weight: 500 !important;
     font-size: 1.125em !important;
-    line-height: 1.313em !important;
+    line-height: 1em !important;
     text-transform: uppercase !important;
     white-space: nowrap !important;
     margin-left: 0.6em !important;

@@ -335,18 +335,18 @@ div.BattleTabStatisticComponentStyle-containerInsideResults {
     filter: brightness(0) saturate(100%) invert(70%) sepia(66%) saturate(2233%) hue-rotate(155deg) brightness(101%) contrast(101%) !important;
 }
 
-.BattleTabStatisticComponentStyle-container table tbody tr>.BattleTabStatisticComponentStyle-resistanceModuleCell:hover {
+:where(body:not(.kasp-tab-expanded)) .BattleTabStatisticComponentStyle-container table tbody tr>.BattleTabStatisticComponentStyle-resistanceModuleCell:hover {
     cursor: pointer !important;
     flex: 0 0 29% !important;
     width: 29% !important;
     justify-content: space-evenly !important;
 }
 
-.BattleTabStatisticComponentStyle-resistanceModuleCell:hover>.kasp-compact-cell {
+:where(body:not(.kasp-tab-expanded)) .BattleTabStatisticComponentStyle-resistanceModuleCell:hover>.kasp-compact-cell {
     display: none !important;
 }
 
-.BattleTabStatisticComponentStyle-resistanceModuleCell:hover> :not(.kasp-compact-cell) {
+:where(body:not(.kasp-tab-expanded)) .BattleTabStatisticComponentStyle-resistanceModuleCell:hover> :not(.kasp-compact-cell) {
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -356,7 +356,7 @@ div.BattleTabStatisticComponentStyle-containerInsideResults {
     padding: 0 !important;
 }
 
-.BattleTabStatisticComponentStyle-resistanceModuleCell:hover .BattleTabStatisticComponentStyle-defenceLabel {
+:where(body:not(.kasp-tab-expanded)) .BattleTabStatisticComponentStyle-resistanceModuleCell:hover .BattleTabStatisticComponentStyle-defenceLabel {
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -364,9 +364,15 @@ div.BattleTabStatisticComponentStyle-containerInsideResults {
     padding: 0 !important;
 }
 
-.BattleTabStatisticComponentStyle-container table tbody tr:has(> .BattleTabStatisticComponentStyle-resistanceModuleCell:hover)> :nth-child(4),
-.BattleTabStatisticComponentStyle-container table tbody tr:has(> .BattleTabStatisticComponentStyle-resistanceModuleCell:hover)> :nth-child(5) {
-    display: none !important;
+:where(body:not(.kasp-tab-expanded)) .BattleTabStatisticComponentStyle-container table tbody tr:has(> .BattleTabStatisticComponentStyle-resistanceModuleCell:hover)> :nth-child(4),
+:where(body:not(.kasp-tab-expanded)) .BattleTabStatisticComponentStyle-container table tbody tr:has(> .BattleTabStatisticComponentStyle-resistanceModuleCell:hover)> :nth-child(5) {
+    flex: 0 0 0% !important;
+    width: 0% !important;
+    min-width: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    overflow: hidden !important;
+    visibility: hidden !important;
 }
 
 .kasp-zero-summary {
@@ -399,13 +405,15 @@ div.BattleTabStatisticComponentStyle-containerInsideResults {
     background-image: url('https://s.eu.tankionline.com/static/images/notification.d58f4b55.svg') !important;
 }
 
-#kasp-tab-toggle-btn {
+:is(#kasp-tab-toggle-btn, #kasp-enemy-weapons-btn) {
     position: absolute;
     right: 1.5em;
     top: 50%;
     transform: translateY(-50%);
-    width: 1.8em;
-    height: 1.8em;
+    width: 2.2em;
+    height: 2.2em;
+    box-sizing: border-box;
+    padding: 0;
     background-color: rgb(255, 255, 255);
     border: 0.063em solid transparent;
     border-radius: 0.4em;
@@ -418,7 +426,7 @@ div.BattleTabStatisticComponentStyle-containerInsideResults {
     overflow: hidden;
 }
 
-#kasp-tab-toggle-btn:hover {
+:is(#kasp-tab-toggle-btn, #kasp-enemy-weapons-btn):hover {
     background-color: rgb(197, 197, 197);
     box-shadow: rgb(255, 255, 255) 0em 0em 0em 2px;
 }
@@ -428,9 +436,10 @@ div.BattleTabStatisticComponentStyle-containerInsideResults {
     border-color: transparent;
 }
 
-#kasp-tab-toggle-btn .kasp-toggle-icon {
-    width: 1em;
-    height: 1em;
+:is(#kasp-tab-toggle-btn, #kasp-enemy-weapons-btn) .kasp-toggle-icon {
+    flex: 0 0 1.2em;
+    width: 1.2em;
+    height: 1.2em;
     background-color: #000000;
     -webkit-mask-size: contain;
     mask-size: contain;
@@ -443,13 +452,13 @@ div.BattleTabStatisticComponentStyle-containerInsideResults {
     z-index: 4;
 }
 
-#kasp-tab-toggle-btn:hover .kasp-toggle-icon,
-#kasp-tab-toggle-btn.kasp-active-toggle .kasp-toggle-icon {
+:is(#kasp-tab-toggle-btn, #kasp-enemy-weapons-btn):hover .kasp-toggle-icon,
+:is(#kasp-tab-toggle-btn, #kasp-enemy-weapons-btn).kasp-active-toggle .kasp-toggle-icon {
     background-color: rgb(0, 0, 0);
     transform: translateY(-0.1em);
 }
 
-#kasp-tab-toggle-btn::after {
+:is(#kasp-tab-toggle-btn, #kasp-enemy-weapons-btn)::after {
     content: "";
     position: absolute;
     top: 0;
@@ -462,9 +471,42 @@ div.BattleTabStatisticComponentStyle-containerInsideResults {
     pointer-events: none;
 }
 
-#kasp-tab-toggle-btn:hover::after {
+:is(#kasp-tab-toggle-btn, #kasp-enemy-weapons-btn):hover::after {
     animation: kasp-metal-shine 0.6s ease-in-out forwards;
 }
+
+#kasp-enemy-weapons-btn { right: 4.2em; outline: none !important; }
+#kasp-enemy-weapons-btn:focus-visible { outline: 0.12em solid #fff !important; outline-offset: 0.15em; }
+#kasp-enemy-weapons-btn::before { content: none !important; display: none !important; }
+#kasp-enemy-weapons-tooltip {
+    position: fixed;
+    z-index: 100000;
+    box-sizing: border-box;
+    max-width: calc(100vw - 16px);
+    padding: 0.75em 0.9em;
+    border: 1px solid #fff;
+    border-radius: 0.4em;
+    background: rgb(21, 21, 21) !important;
+    box-shadow: 0 0.3em 1em rgba(0, 0, 0, 0.5);
+    color: #fff;
+    font: 1rem BaseFontRegular, FallbackFontRegular, sans-serif;
+    pointer-events: none;
+}
+.kasp-enemy-weapons-list { display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 1.5em; }
+.kasp-enemy-weapons-two-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-flow: column; }
+.kasp-enemy-weapon { display: flex; align-items: center; gap: 0.6em; padding: 0.2em 0; }
+.kasp-enemy-weapon i {
+    flex: 0 0 1.25em;
+    height: 1.25em;
+    background: #fff;
+    mask-size: contain;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    -webkit-mask-repeat: no-repeat;
+    mask-position: center;
+    -webkit-mask-position: center;
+}
+.kasp-enemy-weapon b { margin-left: auto; padding-left: 0.75em; color: #fff; font-variant-numeric: tabular-nums; }
 
 div.BattleTabStatisticComponentStyle-containerInsideTeams,
 div.BattleTabStatisticComponentStyle-containerInsideResults {
@@ -472,7 +514,8 @@ div.BattleTabStatisticComponentStyle-containerInsideResults {
 }
 
 .BattleTabStatisticComponentStyle-container table > thead > tr > *,
-.BattleTabStatisticComponentStyle-container table tbody tr > * {
+.BattleTabStatisticComponentStyle-container table tbody tr > *,
+.BattleTabStatisticComponentStyle-container table tbody tr > .BattleTabStatisticComponentStyle-resistanceModuleCell {
     transition: none !important;
 }
 
@@ -578,7 +621,7 @@ body.kasp-tab-expanded .BattleTabStatisticComponentStyle-container table tbody t
 }
 
 body.kasp-tab-expanded .kasp-compact-cell,
-.BattleTabStatisticComponentStyle-resistanceModuleCell:hover > .kasp-compact-cell {
+:where(body:not(.kasp-tab-expanded)) .BattleTabStatisticComponentStyle-resistanceModuleCell:hover > .kasp-compact-cell {
     width: 0% !important;
     opacity: 0 !important;
     visibility: hidden !important;
@@ -586,7 +629,7 @@ body.kasp-tab-expanded .kasp-compact-cell,
 }
 
 body.kasp-tab-expanded .BattleTabStatisticComponentStyle-resistanceModuleCell > :not(.kasp-compact-cell),
-.BattleTabStatisticComponentStyle-resistanceModuleCell:hover > :not(.kasp-compact-cell) {
+:where(body:not(.kasp-tab-expanded)) .BattleTabStatisticComponentStyle-resistanceModuleCell:hover > :not(.kasp-compact-cell) {
     width: 25% !important;
     flex: 0 0 25% !important;
     opacity: 1 !important;
@@ -598,7 +641,6 @@ body.kasp-tab-expanded .BattleTabStatisticComponentStyle-resistanceModuleCell > 
     padding-left: 0.4em !important;
 }
 
-/* Button expansion uses one shared progress, never independent percentage transitions. */
 @property --kasp-tab-progress {
     syntax: '<number>';
     inherits: true;
@@ -718,9 +760,11 @@ body .BattleTabStatisticComponentStyle-container :is(.BattleTabStatisticComponen
     }
 }
 
-/* Preserve the original inline hover reveal independently of the button animation. */
+.BattleTabStatisticComponentStyle-container table tbody tr > :nth-child(4),
+.BattleTabStatisticComponentStyle-container table tbody tr > :nth-child(5),
 .BattleTabStatisticComponentStyle-container table tbody tr > .BattleTabStatisticComponentStyle-resistanceModuleCell {
-    transition: width 200ms ease-in-out, flex 200ms ease-in-out !important;
+    transition: width 200ms ease-in-out, flex 200ms ease-in-out,
+        padding-left 200ms ease-in-out, padding-right 200ms ease-in-out !important;
 }
 
 .BattleTabStatisticComponentStyle-container :is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults)[data-kasp-tab-animating] table > thead > tr {

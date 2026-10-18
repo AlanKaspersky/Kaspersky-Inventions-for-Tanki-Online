@@ -2,6 +2,8 @@ export { };
 
 declare global {
     interface Window {
+        __kaspOverdriveDirection?: { wanted(): boolean; capture(position: unknown, rotation: unknown): void };
+        __kaspOverdriveDirectionDebug?: { status(): unknown };
         __kaspArcadeControl?: ReturnType<typeof import('../core/nativeFeature').createNativeFeature>;
         __kaspArcadeReloadDebug: {
             setEnabled(value: boolean): void;

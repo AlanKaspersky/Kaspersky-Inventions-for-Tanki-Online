@@ -34,6 +34,9 @@ const criticalDevicesModule = { exports: {} };
 runFeatureContext(compile(read('src/core/criticalDevices.ts')), {module:criticalDevicesModule});
 const criticalModule = { exports: {} };
 runFeatureContext(compile(read('src/core/criticalIndicator.ts')), { module: criticalModule, crypto: webcrypto, TextEncoder, require: id => id === './criticalDevices' ? criticalDevicesModule.exports : require('./test-client-patches.cjs') });
+const directionModule = { exports: {} };
+runFeatureContext(compile(read('src/core/overdriveDirection.ts')), { module: directionModule, crypto: webcrypto, TextEncoder,
+    require: id => id === './bonusPickup' ? bonusPickupModule.exports : require('./test-client-patches.cjs') });
 const tick = () => new Promise(resolve => setImmediate(resolve));
 
 function injectorFixture(fetch, plans = JSON.parse(read('src/generated/overdrive.json')).plans, bonusOverrides = {}, arcadePlans = [], arcadeOverrides = {}, augmentOverrides = {}, detailsOverrides = {}, itemsOverrides = {}, inventoryOverrides = {}, presenceOverrides = {}, userAgent = 'Chrome', statisticsOverrides = {}, actionOverrides = {}, criticalOverrides = {}) {
@@ -69,6 +72,7 @@ function injectorFixture(fetch, plans = JSON.parse(read('src/generated/overdrive
             if (id === './core/cybersportNative') return { installCybersportNative() {} };
             if (id === './core/accountIdentityNative') return { installAccountIdentityNative: () => ({ capture() {}, reportMapping() {} }) };
             if (id === './generated/overdrive.json') return { plans };
+            if (id === './generated/overdrive-direction.json') return { plans: [] };
             if (id === './generated/critical.json') return { plans: [] };
             if (id === './generated/user-action.json') return { plans: [] };
             if (id === './generated/battle-statistics.json') return { plans: [] };
@@ -85,6 +89,7 @@ function injectorFixture(fetch, plans = JSON.parse(read('src/generated/overdrive
             if (id === './core/garageItems') return { ...garageItemsModule.exports, ...itemsOverrides };
             if (id === './core/garageInventory') return { ...inventoryModule.exports, ...inventoryOverrides };
             if (id === './core/criticalIndicator') return { ...criticalModule.exports, ...criticalOverrides };
+            if (id === './core/overdriveDirection') return directionModule.exports;
             if (id === './core/userActions') return { ...actionsModule.exports, ...actionOverrides };
             if (id === './core/battleStatistics') return { ...statisticsModule.exports, ...statisticsOverrides };
             if (id === './core/battlePresence') return { ...presenceModule.exports, installBattlePresence() {}, ...presenceOverrides };

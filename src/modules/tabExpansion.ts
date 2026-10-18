@@ -1,7 +1,6 @@
 import type { FeatureScope } from '../core/featureRuntime';
 import { gameDOM } from '../core/gameDOM';
 
-// One inherited progress value drives both the frame and all column widths.
 export function createTabExpansion(scope: FeatureScope) {
     const panes = new Set<HTMLElement>();
     let timer = 0;
@@ -30,7 +29,6 @@ export function createTabExpansion(scope: FeatureScope) {
         if (previous === expanded) return;
         const roots = Array.from(document.querySelectorAll<HTMLElement>(gameDOM.statistics.teams));
         if (!roots.length) { body.classList.toggle('kasp-tab-expanded', expanded); return; }
-        // A rapid reverse uses the existing transition's current progress.
         if (!roots.every(root => panes.has(root))) {
             clear();
             try {
@@ -58,7 +56,6 @@ export function createTabExpansion(scope: FeatureScope) {
                     root.style.setProperty('--kasp-tab-progress', previous ? '1' : '0');
                     root.setAttribute('data-kasp-tab-animating', '');
                 });
-                // Commit the current geometry before changing the shared transition target.
                 roots.forEach(root => { void window.getComputedStyle(root).width; });
             } catch (error) {
                 clear();
@@ -73,7 +70,6 @@ export function createTabExpansion(scope: FeatureScope) {
         scope.cancelTimeout(timer);
         timer = scope.timeout(clear, 240);
     };
-    // Let native responsive rules immediately take over after a resize.
     scope.listen(window, 'resize', clear);
     scope.onCleanup(clear);
     return { setExpanded };

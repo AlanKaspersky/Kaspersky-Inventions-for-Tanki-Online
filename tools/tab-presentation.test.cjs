@@ -8,6 +8,9 @@ const domModule = { exports: {} };
 runFeatureContext(transformSync(fs.readFileSync('src/core/gameDOM.ts', 'utf8'),
     { loader: 'ts', format: 'cjs' }).code, { module: domModule });
 const { gameDOM } = domModule.exports;
+const iconsModule = { exports: {} };
+runFeatureContext(transformSync(fs.readFileSync('src/core/turretIcons.ts', 'utf8'),
+    { loader: 'ts', format: 'cjs' }).code, { module: iconsModule });
 const code = transformSync(fs.readFileSync('src/modules/zeroResists.ts', 'utf8'),
     { loader: 'ts', format: 'cjs' }).code;
 
@@ -99,7 +102,7 @@ function fixture() {
             const snapshot = { ...element.computed };
             return { ...snapshot, getPropertyValue: key => key.includes('mask') ? snapshot.maskImage : '' };
         } },
-        require: id => id.endsWith('/tabExpansion')
+        require: id => id.endsWith('/turretIcons') ? iconsModule.exports : id.endsWith('/tabExpansion')
             ? { createTabExpansion: () => ({ setExpanded() {} }) }
             : { gameDOM, state: { lang: 'EN' } },
     });

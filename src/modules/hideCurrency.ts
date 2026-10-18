@@ -6,49 +6,73 @@ import { utils } from '../core/utils';
 
 export const hideCurrency = lifecycle.initialize(() => {
     let initialized = false;
+    let interval: number | undefined;
+    const masked = new Map<HTMLElement, {
+        value: string; parent: HTMLElement; tooltip: string | null; hadClass: boolean;
+    }>();
 
     function getHiddenText() {
         return state.lang === 'RU' ? 'Скрыто' : 'Hidden';
     }
 
     function processSpan(span: HTMLElement) {
+        if (span.closest('#kasp-tankoin-balance')) return;
         const text = span.textContent?.trim() || '';
         const targetText = getHiddenText();
-
-        const parentElement = (span.closest(gameDOM.account.currencyIcon) || span.parentElement) as HTMLElement;
-
-        if (text && text !== targetText && text !== 'Скрыто' && text !== 'Hidden' && /\d/.test(text)) {
-            span.dataset.originalValue = text;
-            span.textContent = targetText;
-            if (parentElement) {
-                parentElement.setAttribute('data-tooltip', text);
+        const parent = (span.closest(gameDOM.account.currencyIcon) || span.parentElement) as HTMLElement | null;
+        if (!parent) return;
+        let record = masked.get(span);
+        if (record && record.parent !== parent) { restore(span); record = undefined; }
+        if (/\d/.test(text)) {
+            if (record) record.value = text;
+            else {
+                record = { value: text, parent, tooltip: parent.getAttribute('data-tooltip'),
+                    hadClass: parent.classList.contains('currency-masked') };
+                masked.set(span, record);
             }
-        } else if (span.dataset.originalValue && parentElement && !parentElement.hasAttribute('data-tooltip')) {
-            parentElement.setAttribute('data-tooltip', span.dataset.originalValue);
         }
-
-        if (parentElement && !parentElement.classList.contains('currency-masked')) {
-            parentElement.classList.add('currency-masked');
-        }
+        if (!record) return;
+        if (span.dataset.originalValue !== record.value) span.dataset.originalValue = record.value;
+        if (span.textContent !== targetText) span.textContent = targetText;
+        if (parent.getAttribute('data-tooltip') !== record.value) parent.setAttribute('data-tooltip', record.value);
+        if (!parent.classList.contains('currency-masked')) parent.classList.add('currency-masked');
     }
 
-    lifecycle.onCleanup(() => { document.querySelectorAll<HTMLElement>('[data-original-value]').forEach(node=>{if(node.dataset.originalValue && ['Hidden','Скрыто'].includes(node.textContent?.trim() || ''))node.textContent=node.dataset.originalValue;delete node.dataset.originalValue;});document.querySelectorAll('.currency-masked').forEach(node=>{node.classList.remove('currency-masked');node.removeAttribute('data-tooltip');}); });
+    function restore(span: HTMLElement): void {
+        const record = masked.get(span);
+        if (!record) return;
+        if (['Hidden', 'Скрыто'].includes(span.textContent?.trim() || '')) span.textContent = record.value;
+        delete span.dataset.originalValue;
+        if (!record.hadClass) record.parent.classList.remove('currency-masked');
+        if (record.parent.getAttribute('data-tooltip') === record.value) {
+            if (record.tooltip === null) record.parent.removeAttribute('data-tooltip');
+            else record.parent.setAttribute('data-tooltip', record.tooltip);
+        }
+        masked.delete(span);
+    }
+
+    function restoreAll(): void { for (const span of masked.keys()) restore(span); }
+
+    function sync(): void {
+        if (!utils.getSetting('k_hideCurrency', false) || state.currentScreen === 'battle') {
+            lifecycle.cancelInterval(interval);
+            interval = undefined;
+            restoreAll();
+            return;
+        }
+        interval ??= lifecycle.interval(sync, 500);
+        for (const span of masked.keys()) if (!span.isConnected) restore(span);
+        document.querySelectorAll<HTMLElement>(gameDOM.account.currencyValues).forEach(processSpan);
+    }
+
+    lifecycle.onCleanup(() => { interval = undefined; restoreAll(); });
 
     return () => {
-        if (!utils.getSetting('k_hideCurrency', false)) return;
-        if (state.currentScreen === 'battle') return;
-
         if (!initialized) {
             initialized = true;
-
-            lifecycle.interval(() => {
-                if (state.currentScreen === 'battle') return;
-                const spans = document.querySelectorAll(gameDOM.account.currencyValues);
-                spans.forEach(node => processSpan(node as HTMLElement));
-            }, 500);
+            lifecycle.listen(window, 'kasp:settings-changed', sync);
+            lifecycle.listen(window, 'storage', sync);
         }
-
-        const spans = document.querySelectorAll(gameDOM.account.currencyValues);
-        spans.forEach(node => processSpan(node as HTMLElement));
+        sync();
     };
 }, () => {});

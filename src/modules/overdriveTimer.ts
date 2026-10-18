@@ -5,6 +5,8 @@ import { BONUS_PICKUP_MESSAGE, OVERDRIVE_BOX_MODEL, readBonusPosition, BonusPosi
 import { gameDOM } from '../core/gameDOM';
 import { state } from '../core/state';
 import { utils } from '../core/utils';
+import { OVERDRIVE_DIRECTION_MESSAGE, overdriveBearing, continuousBearing } from '../core/overdriveDirection';
+import type { OverdrivePose } from '../core/overdriveDirection';
 
 export const OVERDRIVE_COOLDOWN_MS = 85_000;
 export const OVERDRIVE_POINT_RADIUS = 1000;
@@ -27,7 +29,6 @@ export function createOverdriveCountdown(now: () => number = Date.now, boxModel 
 export function createOverdriveLocations(now: () => number = Date.now) {
     const timers = [0, 1].map(index => ({
         id: index === 0 ? 'kasp-overdrive-timer' : 'kasp-overdrive-timer-secondary',
-        alwaysVisible: index === 0,
         position: null as BonusPosition | null,
         countdown: createOverdriveCountdown(now),
     }));
@@ -65,7 +66,11 @@ export const overdriveTimer = lifecycle.initialize(() => {
         location,
         panel: null as HTMLElement | null,
         time: null as HTMLElement | null,
+        bearing: null as number | null,
     }));
+    let pose: OverdrivePose | null = null;
+    let poseAt = 0;
+    let overlay: HTMLElement | null = null;
     let initialized = false;
     let battleCanvas: Element | null = null;
     let sectionOpen = false;
@@ -75,6 +80,24 @@ export const overdriveTimer = lifecycle.initialize(() => {
 
     function reset(): void {
         locations.reset();
+        pose = null; poseAt = 0;
+    }
+
+    function removeOverlay(): void {
+        overlay?.remove();
+        overlay = null;
+        for (const timer of timers) { timer.panel = timer.time = null; timer.bearing = null; }
+    }
+
+    function renderDirection(timer: typeof timers[number]): void {
+        if (!timer.panel) return;
+        const bearing = pose && Date.now() - poseAt <= 750 && timer.location.position
+            ? overdriveBearing(timer.location.position, pose) : null;
+        timer.panel.classList.toggle('kasp-overdrive-direction', bearing !== null);
+        if (bearing === null) { timer.bearing = null; return; }
+        const next = continuousBearing(timer.bearing, bearing);
+        if (next !== timer.bearing) timer.panel.style.setProperty('--kasp-overdrive-bearing', `${next}deg`);
+        timer.bearing = next;
     }
 
     function isSectionVisible(): boolean {
@@ -116,9 +139,7 @@ export const overdriveTimer = lifecycle.initialize(() => {
             previewObserver?.disconnect();
             battleCanvas = null; sectionOpen = false; resumeUntil = 0;
             reset();
-            for (const timer of timers) {
-                timer.panel?.remove(); timer.panel = timer.time = null;
-            }
+            removeOverlay();
             return;
         }
         if (initialized && renderInterval === undefined) {
@@ -131,31 +152,39 @@ export const overdriveTimer = lifecycle.initialize(() => {
         if (!inBattle) reset();
         const sectionVisible = isSectionVisible();
         for (const timer of timers) renderTimer(timer, inBattle && enabled && !sectionVisible);
+        if (overlay && !overlay.children.length) removeOverlay();
     }
 
     function renderTimer(timer: typeof timers[number], visible: boolean): void {
         const seconds = timer.location.countdown.remaining();
-        if (!visible || (!timer.location.alwaysVisible && seconds === null)) {
+        if (!visible || seconds === null) {
             timer.panel?.remove();
             timer.panel = timer.time = null;
+            timer.bearing = null;
             return;
         }
         if (!document.body) return;
+        if (!overlay?.isConnected) {
+            overlay = document.createElement('div');
+            overlay.id = 'kasp-overdrive-timers';
+            overlay.className = 'kasp-overdrive-timers';
+            document.body.appendChild(overlay);
+        }
         if (!timer.panel?.isConnected) {
             timer.panel = document.createElement('div');
             timer.panel.id = timer.location.id;
             timer.panel.className = 'kasp-overdrive-timer';
             timer.time = document.createElement('strong');
             timer.panel.append(timer.time);
-            document.body.appendChild(timer.panel);
+            overlay.appendChild(timer.panel);
         }
         const { panel, time } = timer;
         const ru = state.lang === 'RU';
-        const value = seconds === null ? '0:00'
-            : `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+        const value = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
         if (time!.textContent !== value) time!.textContent = value;
-        panel.classList.toggle('kasp-overdrive-soon', seconds !== null && seconds > 0 && seconds <= 10);
+        panel.classList.toggle('kasp-overdrive-soon', seconds > 0 && seconds <= 10);
         panel.classList.toggle('kasp-overdrive-ready', seconds === 0);
+        renderDirection(timer);
         const hint = ru ? '85 секунд после подбора коробки. Время появления приблизительное.'
             : '85 seconds after a box pickup. Respawn time is an estimate.';
         if (panel.title !== hint) panel.title = hint;
@@ -166,6 +195,13 @@ export const overdriveTimer = lifecycle.initialize(() => {
         initialized = true;
         lifecycle.listen(window, 'message', event => {
             if (!utils.getSetting('k_overdrive_timer', false)) return;
+            const direction = readPageMessage(event, window, OVERDRIVE_DIRECTION_MESSAGE);
+            if (direction) {
+                if (direction.at > Date.now() + 1000 || direction.at < poseAt || Date.now() - direction.at > 750) return;
+                pose = direction.pose; poseAt = direction.at;
+                for (const timer of timers) renderDirection(timer);
+                return;
+            }
             const message = readPageMessage(event, window, BONUS_PICKUP_MESSAGE);
             if (!message || !syncBattle()) return;
             const pickup = typeof message.detail === 'string' ? { model: message.detail, position: null } : message.detail;
@@ -184,7 +220,7 @@ export const overdriveTimer = lifecycle.initialize(() => {
         });
         render();
     }
-    lifecycle.onCleanup(() => { previewObserver?.disconnect();renderInterval=undefined;reset();for(const timer of timers){timer.panel?.remove();timer.panel=timer.time=null;} });
+    lifecycle.onCleanup(() => { previewObserver?.disconnect();renderInterval=undefined;reset();removeOverlay(); });
 
     return { setup, sync: render };
 }, { setup() {}, sync() {} });
