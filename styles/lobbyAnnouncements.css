@@ -46,7 +46,7 @@
     z-index: 2;
 }
 .AnnouncementHomeScreenComponentStyle-mainContainer .AnnouncementHomeScreenComponentStyle-announceContainer h3 {
-    font: max(.9375em, 13px) BaseFontBold, FallbackFontBold, sans-serif !important;
+    font: 1.231em BaseFontBold, FallbackFontBold, sans-serif !important;
     line-height: 1.35 !important;
     color: #000 !important;
     text-align: left !important;
@@ -71,7 +71,7 @@
 }
 .AnnouncementHomeScreenComponentStyle-mainContainer .AnnouncementHomeScreenComponentStyle-headerTimer span {
     color: #444 !important;
-    font: max(.8125em, 11px) BaseFontRegular, FallbackFontRegular, sans-serif !important;
+    font: 1em BaseFontRegular, FallbackFontRegular, sans-serif !important;
 }
 .AnnouncementHomeScreenComponentStyle-mainContainer .AnnouncementHomeScreenComponentStyle-headerTimer span::before { content: '◷'; margin-right: .3em; }
 .AnnouncementHomeScreenComponentStyle-mainContainer > :not(.AnnouncementHomeScreenComponentStyle-mainBackGroundContainer):not(.kasp-lobby-art-slice) {

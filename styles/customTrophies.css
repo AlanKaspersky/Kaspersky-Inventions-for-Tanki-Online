@@ -12,7 +12,7 @@
     pointer-events: none;
     width: var(--kasp-lobby-trophies-width, 26em);
     box-sizing: border-box;
-    opacity: 1 !important;
+    opacity: 1;
     transform: none !important;
 }
 
@@ -37,22 +37,22 @@
 
 .custom-trophy-title {
     color: #000;
-    font: max(1em, 13px) BaseFontMedium, FallbackFontMedium, sans-serif;
+    font: 1.154em BaseFontMedium, FallbackFontMedium, sans-serif;
     overflow-wrap: anywhere;
 }
 
 .custom-trophy-percent {
     color: #000;
-    font: max(1.625em, 22px) BaseFontMedium, FallbackFontMedium, sans-serif;
+    font: 2.154em BaseFontMedium, FallbackFontMedium, sans-serif;
     font-variant-numeric: tabular-nums;
     margin-top: .1875em;
 }
 
 .custom-trophy-bar-bg {
-    background-color: #d9d9d9;
+    background-color: rgb(182, 182, 182);
     position: relative;
     width: 100%;
-    height: max(.1875em, 3px);
+    height: .231em;
     margin-top: .4375em;
     flex-shrink: 0;
 }
@@ -65,7 +65,7 @@
 
 .custom-trophy-text {
     color: #555 !important;
-    font: max(.75em, 11px) BaseFontRegular, FallbackFontRegular, sans-serif !important;
+    font: 1em BaseFontRegular, FallbackFontRegular, sans-serif !important;
     line-height: 1.25;
     font-variant-numeric: tabular-nums;
     margin-top: .375em;

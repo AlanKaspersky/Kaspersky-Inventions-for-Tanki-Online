@@ -38,17 +38,21 @@ import { postPageMessage } from './core/pageMessages';
 import { installOverdriveDirection, selectDirectionPlan, directionPlanValid } from './core/overdriveDirection';
 import type { DirectionPatchPlan } from './core/overdriveDirection';
 import directionPlans from './generated/overdrive-direction.json';
+import { installSupplyPrivacy, selectSupplyPrivacyPlan, supplyPrivacyPlanValid } from './core/supplyPrivacy';
+import type { SupplyPrivacyPlan } from './core/supplyPrivacy';
+import supplyPrivacyPlans from './generated/supply-privacy.json';
 
 (function (): void {
     'use strict';
     installFeatureDiagnostics(window, 'page');
+    featureScope('supplyPrivacy').run(() => installSupplyPrivacy(window));
 
+    const accountIdentity = featureScope('accountIdentity').run(() => installAccountIdentityNative(window));
+    featureScope('battlePresence').run(() => installBattlePresence(window, value => accountIdentity?.capture(value)));
     featureScope('augments').run(() => installGameAugments(window));
     featureScope('garageSkinCards').run(() => installGarageSkinCardsBridge(window));
     featureScope('criticalIndicator', { budgetMs: 4 }).run(() => installCriticalIndicator(window));
-    const accountIdentity = featureScope('accountIdentity').run(() => installAccountIdentityNative(window));
     const direction = featureScope('overdriveDirection').run(() => installOverdriveDirection(window));
-    featureScope('battlePresence').run(() => installBattlePresence(window, value => accountIdentity?.capture(value)));
     featureScope('battleStatistics').run(() => installBattleStatistics(window));
     featureScope('userActions').run(() => installUserActions(window));
     featureScope('garageInventory').run(() => installGarageInventoryDiagnostics(window));
@@ -269,8 +273,15 @@ import directionPlans from './generated/overdrive-direction.json';
                             } catch {
                                 direction?.reportHook({ ready: false, hooked: false, strategy: 'ast-plan', issues: ['direction-patch-error'] });
                             }
+                            let supplyPrivacyPlan: SupplyPrivacyPlan | undefined;
+                            try {
+                                supplyPrivacyPlan = await selectSupplyPrivacyPlan(originalCode, supplyPrivacyPlans.plans as SupplyPrivacyPlan[]);
+                                if (supplyPrivacyPlan && supplyPrivacyPlanValid(originalCode, supplyPrivacyPlan)) prepared.push(supplyPrivacyPlan);
+                                else console.warn('[KI Supply privacy] Count label mapping unavailable');
+                            } catch { console.warn('[KI Supply privacy] Count label mapping failed'); }
                             const merged = mergeClientPatchPlans(originalCode, prepared);
                             code = merged.code;
+                            if (supplyPrivacyPlan && merged.rejected.includes(supplyPrivacyPlan)) console.warn('[KI Supply privacy] Count label patch conflict');
                             if (bonusPlan && merged.rejected.includes(bonusPlan)) reportBonus({ kind: 'hooks', ready: false, issues: ['overdrive-edit-conflict'] });
                             if (arcadePlan && merged.rejected.includes(arcadePlan)) reportArcade({ hooked: false, ready: false, issues: ['arcade-edit-conflict'] });
                             if (augmentPlan && merged.rejected.includes(augmentPlan)) reportAugments({ hooked: false, ready: false, strategy: 'ast-plan', issues: ['augments-edit-conflict'] });

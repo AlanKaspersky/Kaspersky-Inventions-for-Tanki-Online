@@ -344,7 +344,7 @@ export const customPlayButton = lifecycle.initialize(() => {
             initialized = true;
             utils.injectStyle(`
                         ${gameDOM.play.hiddenNativeDecorations} { display: none !important; }
-                        .custom-inner-btn > *:not(.custom-main-bg-layer):not(.main-lock-icon):not(.custom-main-text) { display: none !important; }
+                        .custom-inner-btn > *:not(.custom-main-bg-layer):not(.main-lock-icon):not(.custom-main-text):not(.kasp-left-art-slice) { display: none !important; }
                         ${gameDOM.play.untreatedContainer} { opacity: 0 !important; pointer-events: none !important; }
                         
                         ${gameDOM.play.autoQueueCards.split(', ').map(selector => `body.kasp-autoqueue-active ${selector}`).join(', ')} {

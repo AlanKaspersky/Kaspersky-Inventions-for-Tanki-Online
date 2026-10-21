@@ -1,4 +1,7 @@
 export const gameDOM = {
+    supplyPrivacy: {
+        counts: '.SuppliesComponentStyle-containersBlocks .SuppliesComponentStyle-cellAdd > span, .GarageCommonStyle-garageContainer:has([class*="GarageSupplies"]) .GarageItemComponentStyle-amountItemsScroll',
+    },
     battleCreate: {
         joinButton: '.JoinToBattleComponentStyle-buttonJoin',
         root: '.BattleCreateComponentStyle-mainContainer',
@@ -144,6 +147,10 @@ export const gameDOM = {
         untreatedContainer: ".MainScreenComponentStyle-playButtonContainer:not([data-overridden=\"true\"])",
         button: ".MainScreenComponentStyle-buttonPlay",
         mainMenu: ".MainScreenComponentStyle-blockMainMenu",
+    },
+    lobbyNavigation: {
+        root: '.MainScreenComponentStyle-containerForMenuGradient',
+        cards: '.MainScreenComponentStyle-playButtonContainer, #quick-play-wrapper .custom-mode-button, .PrimaryMenuItemComponentStyle-menuItemContainer, .FooterComponentStyle-containerMenu',
     },
     lobbyPasses: {
         announcement: '.AnnouncementHomeScreenComponentStyle-mainContainer',

@@ -46,7 +46,7 @@
     padding: 0 !important; margin: 0 !important; display: flex !important; align-items: center !important; font-size: 1em !important;
 }
 .kasp-pass-challenge .BattlePassLobbyComponentStyle-descriptionMenuPass > :first-child span {
-    color: #000 !important; font: max(1.125em, 15px) BaseFontBold, FallbackFontBold, sans-serif !important; text-transform: uppercase;
+    color: #000 !important; font: 1.385em BaseFontBold, FallbackFontBold, sans-serif !important; text-transform: uppercase;
 }
 .kasp-pass-challenge .BattlePassLobbyComponentStyle-timers {
     grid-column: 2; grid-row: 1; display: flex !important; align-items: center !important; gap: .25em;
@@ -55,7 +55,7 @@
 }
 .kasp-pass-challenge .BattlePassLobbyComponentStyle-timers > div { font-size: 1em !important; }
 .kasp-pass-challenge .BattlePassLobbyComponentStyle-timers img { width: 1em !important; height: 1em !important; filter: brightness(0) !important; margin: 0 !important; }
-.kasp-pass-challenge .BattlePassLobbyComponentStyle-timers span { color: #444 !important; font: max(.875em, 12px) BaseFontRegular, FallbackFontRegular, sans-serif !important; margin: 0 !important; }
+.kasp-pass-challenge .BattlePassLobbyComponentStyle-timers span { color: #444 !important; font: 1em BaseFontRegular, FallbackFontRegular, sans-serif !important; margin: 0 !important; }
 .kasp-pass-challenge .BattlePassLobbyComponentStyle-numberStar {
     grid-column: 1 / -1; grid-row: 2; position: static !important; display: flex !important;
     align-items: center !important; gap: .3em; margin: 0 !important; padding: 0 !important; width: 100% !important; height: auto !important;
@@ -65,7 +65,7 @@
     background: linear-gradient(to right, #000 var(--kasp-star-progress), rgba(0, 0, 0, .14) var(--kasp-star-progress));
 }
 .kasp-pass-challenge .BattlePassLobbyComponentStyle-numberStar img { width: 1em !important; height: 1em !important; margin: 0 !important; filter: brightness(0) !important; }
-.kasp-pass-challenge .BattlePassLobbyComponentStyle-numberStar span { font: max(.875em, 12px) BaseFontMedium, FallbackFontMedium, sans-serif !important; color: #000 !important; margin: 0 !important; }
+.kasp-pass-challenge .BattlePassLobbyComponentStyle-numberStar span { font: 1.077em BaseFontMedium, FallbackFontMedium, sans-serif !important; color: #000 !important; margin: 0 !important; }
 .kasp-pass-challenge .BattlePassLobbyComponentStyle-blockBattlePass {
     display: flex !important; align-items: center !important; gap: .4375em;
     position: relative !important; width: 100% !important; height: auto !important; min-height: 0 !important;
@@ -79,8 +79,8 @@
     min-width: 0 !important; width: auto !important; height: auto !important; background: none !important; border: none !important; margin: 0 !important; padding: 0 !important; gap: .125em;
     font-size: 1em !important; opacity: 1 !important;
 }
-.kasp-pass-challenge .BattlePassLobbyComponentStyle-commonDescription > span { font: max(.875em, 12px) BaseFontMedium, FallbackFontMedium, sans-serif !important; color: #000 !important; margin: 0 !important; }
-.kasp-pass-challenge .BattlePassLobbyComponentStyle-commonDescription > p { font: max(.8125em, 11px) BaseFontRegular, FallbackFontRegular, sans-serif !important; color: #444 !important; margin: 0 !important; }
+.kasp-pass-challenge .BattlePassLobbyComponentStyle-commonDescription > span { font: 1.077em BaseFontMedium, FallbackFontMedium, sans-serif !important; color: #000 !important; margin: 0 !important; }
+.kasp-pass-challenge .BattlePassLobbyComponentStyle-commonDescription > p { font: 1em BaseFontRegular, FallbackFontRegular, sans-serif !important; color: #444 !important; margin: 0 !important; }
 .kasp-pass-challenge :is(.BattlePassLobbyComponentStyle-imagePass, .BattlePassLobbyComponentStyle-imageClosed) { display: none !important; }
 .kasp-pass-elite {
     display: grid !important; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center !important; gap: 0 .5em;
@@ -90,17 +90,17 @@
 }
 .kasp-pass-elite::before {
     content: 'Elite Pass'; display: block; grid-column: 1; grid-row: 1;
-    color: #000; font: max(.9375em, 13px) BaseFontBold, FallbackFontBold, sans-serif;
+    color: #000; font: 1.231em BaseFontBold, FallbackFontBold, sans-serif;
 }
 .kasp-pass-elite[data-kasp-pass-lang='RU']::before { content: 'Элитный пропуск'; }
-.kasp-pass-elite > div:has(> .ChallengeTimerComponentStyle-timer) { grid-column: 3; grid-row: 1; display: block !important; position: static !important; margin: 0 !important; padding: 0 !important; }
-.kasp-pass-elite .ChallengeTimerComponentStyle-timer { position: static !important; display: block !important; margin: 0 !important; padding: 0 !important; background: none !important; }
-.kasp-pass-elite .ChallengeTimerComponentStyle-textTime { font: max(.8125em, 11px) BaseFontRegular, FallbackFontRegular, sans-serif !important; color: #444 !important; background: none !important; padding: 0 !important; margin: 0 !important; border-radius: 0 !important; white-space: nowrap; }
+.kasp-pass-elite > div:has(> .ChallengeTimerComponentStyle-timer) { grid-column: 3; grid-row: 1; display: block !important; position: static !important; margin: 0 !important; padding: 0 !important; font-size: 1em !important; }
+.kasp-pass-elite .ChallengeTimerComponentStyle-timer { position: static !important; display: block !important; margin: 0 !important; padding: 0 !important; background: none !important; font-size: 1em !important; }
+.kasp-pass-elite .ChallengeTimerComponentStyle-textTime { font: 1em BaseFontRegular, FallbackFontRegular, sans-serif !important; color: #444 !important; background: none !important; padding: 0 !important; margin: 0 !important; border-radius: 0 !important; white-space: nowrap; }
 .kasp-pass-elite .ChallengeTimerComponentStyle-textTime::before { content: '◷'; margin-right: .3em; }
 .kasp-pass-elite .EventBattlePassLobbyComponentStyle-commonBlockProgressBar { display: contents !important; }
 .kasp-pass-elite .EventBattlePassLobbyComponentStyle-commonBlockProgressBar > h2 {
     grid-column: 2; grid-row: 1; position: static !important; margin: 0 !important; color: #000 !important;
-    font: max(.8125em, 11px) BaseFontMedium, FallbackFontMedium, sans-serif !important; white-space: nowrap;
+    font: 1em BaseFontMedium, FallbackFontMedium, sans-serif !important; white-space: nowrap;
 }
 .kasp-pass-elite .EventBattlePassLobbyComponentStyle-commonBlockProgressBar > h2::before { content: 'Lv. '; }
 .kasp-pass-elite[data-kasp-pass-lang='RU'] .EventBattlePassLobbyComponentStyle-commonBlockProgressBar > h2::before { content: 'Ур. '; }
@@ -114,7 +114,30 @@
     visibility: hidden !important; pointer-events: none !important; position: absolute !important;
 }
 .kasp-pass-elite .EventBattlePassLobbyComponentStyle-descriptionEventPass,
-.kasp-pass-elite > div:not(.EventBattlePassLobbyComponentStyle-commonBlockProgressBar):not(:has(.ChallengeTimerComponentStyle-timer)) { display: none !important; }
+.kasp-pass-elite > div:not(.EventBattlePassLobbyComponentStyle-commonBlockProgressBar):not(:has(.ChallengeTimerComponentStyle-timer)):not(.-flexCenterAlignCenter) { display: none !important; }
+/* Keep the native reward notification, styled like the other lobby badges. */
+.kasp-lobby-pass-card > div.-flexCenterAlignCenter {
+    position: absolute !important;
+    top: .45em !important;
+    right: .45em !important;
+    bottom: auto !important;
+    left: auto !important;
+    width: .4em !important;
+    height: .4em !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 50% !important;
+    background: #000 !important;
+    box-shadow: none !important;
+    transform: none !important;
+    font-size: 1em !important;
+    z-index: 10;
+    pointer-events: none !important;
+}
+.kasp-lobby-pass-card > div.-flexCenterAlignCenter > * { display: none !important; }
 @media (prefers-reduced-motion: reduce) {
     .kasp-lobby-pass-card, .AnnouncementHomeScreenComponentStyle-mainContainer { transition: none !important; }
     .kasp-lobby-pass-card:hover::after, .AnnouncementHomeScreenComponentStyle-mainContainer:hover::after { animation: none; }
@@ -133,12 +156,13 @@
     background: #fff !important;
     opacity: 1 !important;
     visibility: visible !important;
+    font-size: inherit !important;
     transition: filter .2s ease;
 }
 .kasp-lobby-art-slice::before,
 .kasp-lobby-art-slice::after {
     content: ''; position: absolute; pointer-events: none;
-    left: var(--kasp-art-x, 0px); top: var(--kasp-art-y, 0px);
+    left: var(--kasp-art-x, 0em); top: var(--kasp-art-y, 0em);
     width: var(--kasp-art-width, 100%); height: var(--kasp-art-height, 100%);
 }
 .kasp-lobby-art-slice::before {

@@ -1,0 +1,35 @@
+#kasp-account-search-notice {
+    position: fixed;
+    left: 50%;
+    bottom: 2em;
+    z-index: 40;
+    padding: .875em 1.25em;
+    max-width: calc(100% - 2em);
+    box-sizing: border-box;
+    border: 1px solid transparent;
+    border-radius: .5em;
+    box-shadow: 0 0 0 .063em #fff;
+    background: #fff;
+    color: rgb(0, 0, 0);
+    font-family: BaseFontMedium, FallbackFontMedium, sans-serif;
+    line-height: 1.3;
+    text-align: center;
+    pointer-events: none;
+    opacity: 0;
+    transform: translate(-50%, .5em);
+    transition: opacity .2s ease, transform .2s ease;
+}
+#kasp-account-search-notice[data-visible="true"] {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+#kasp-account-search-notice > :not(.kasp-lobby-art-slice) {
+    color: #000 !important;
+    -webkit-text-fill-color: #000 !important;
+    font: 1.154em BaseFontMedium, FallbackFontMedium, sans-serif !important;
+    text-shadow: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #kasp-account-search-notice { transition: none; }
+}

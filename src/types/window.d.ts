@@ -2,6 +2,7 @@ export { };
 
 declare global {
     interface Window {
+        __kaspSupplyPrivacy?: ReturnType<typeof import('../core/supplyPrivacy').installSupplyPrivacy>;
         __kaspOverdriveDirection?: { wanted(): boolean; capture(position: unknown, rotation: unknown): void };
         __kaspOverdriveDirectionDebug?: { status(): unknown };
         __kaspArcadeControl?: ReturnType<typeof import('../core/nativeFeature').createNativeFeature>;

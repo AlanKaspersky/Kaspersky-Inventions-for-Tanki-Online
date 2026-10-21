@@ -76,6 +76,10 @@ export const lobbyPasses = lifecycle.initialize(() => {
     function setStyle(element: HTMLElement, key: string, value: string): void {
         if (element.style.getPropertyValue(key) !== value) element.style.setProperty(key, value);
     }
+    function fontSize(element: HTMLElement): number {
+        return parseFloat(getComputedStyle(element).fontSize) || 16;
+    }
+    function em(value: number, font: number): string { return `${value / font}em`; }
     function sizeAnnouncement(root: HTMLElement | null): void {
         const body = root?.querySelector<HTMLElement>(selectors.announcementBody) ?? null;
         if (announcementBody !== body) {
@@ -90,7 +94,7 @@ export const lobbyPasses = lifecycle.initialize(() => {
         const content = Math.max(caption.scrollHeight, timer?.scrollHeight ?? 0);
         const height = Math.max(px(css.minHeight), content + px(css.paddingTop) + px(css.paddingBottom)
             + px(css.borderTopWidth) + px(css.borderBottomWidth));
-        setStyle(body, ANNOUNCEMENT_HEIGHT, `${Math.ceil(height)}px`);
+        setStyle(body, ANNOUNCEMENT_HEIGHT, em(Math.ceil(height), parseFloat(css.fontSize) || 16));
     }
     function clearPanorama(): void {
         for (const [card, layer] of artLayers) {
@@ -125,10 +129,11 @@ export const lobbyPasses = lifecycle.initialize(() => {
             setStyle(layer, '--kasp-art-image', artImage);
             const scaleX = card.offsetWidth ? rect.width / card.offsetWidth || 1 : 1;
             const scaleY = card.offsetHeight ? rect.height / card.offsetHeight || 1 : 1;
-            setStyle(layer, '--kasp-art-width', String((right - left) / scaleX) + 'px');
-            setStyle(layer, '--kasp-art-height', String((bottom - top) / scaleY) + 'px');
-            setStyle(layer, '--kasp-art-x', String(-(rect.left - left) / scaleX - card.clientLeft) + 'px');
-            setStyle(layer, '--kasp-art-y', String(-(rect.top - top) / scaleY - card.clientTop) + 'px');
+            const font = fontSize(layer);
+            setStyle(layer, '--kasp-art-width', em((right - left) / scaleX, font));
+            setStyle(layer, '--kasp-art-height', em((bottom - top) / scaleY, font));
+            setStyle(layer, '--kasp-art-x', em(-(rect.left - left) / scaleX - card.clientLeft, font));
+            setStyle(layer, '--kasp-art-y', em(-(rect.top - top) / scaleY - card.clientTop, font));
             if (!card.classList.contains('kasp-lobby-has-art')) card.classList.add('kasp-lobby-has-art');
         }
     }
@@ -147,15 +152,17 @@ export const lobbyPasses = lifecycle.initialize(() => {
         return { x: (x - rect.left) / scaleX + parent.scrollLeft - parent.clientLeft,
             y: (y - rect.top) / scaleY + parent.scrollTop - parent.clientTop, scaleX };
     }
-    function position(challenge: HTMLElement, elite: HTMLElement | null): void {
+    function position(challenge: HTMLElement, elite: HTMLElement | null, trophies: HTMLElement | null): void {
         const rect = challenge.getBoundingClientRect();
         if (!rect.width || !rect.height) return;
-        const font = parseFloat(getComputedStyle(challenge).fontSize) || 16;
+        const font = fontSize(challenge);
+        const scaleY = challenge.offsetHeight ? rect.height / challenge.offsetHeight || 1 : 1;
+        const gap = font * scaleY;
         let bottom = rect.bottom;
         if (elite) {
-            const point = coordinates(elite, rect.left, rect.bottom + font * .5);
-            setStyle(elite, '--kasp-pass-left', `${point.x}px`); setStyle(elite, '--kasp-pass-top', `${point.y}px`);
-            setStyle(elite, '--kasp-pass-width', `${rect.width / point.scaleX}px`);
+            const point = coordinates(elite, rect.left, rect.bottom + gap * .5), eliteFont = fontSize(elite);
+            setStyle(elite, '--kasp-pass-left', em(point.x, eliteFont)); setStyle(elite, '--kasp-pass-top', em(point.y, eliteFont));
+            setStyle(elite, '--kasp-pass-width', em(rect.width / point.scaleX, eliteFont));
             bottom = elite.getBoundingClientRect().bottom;
         }
         if (trophiesParent !== challenge.parentElement) {
@@ -166,10 +173,11 @@ export const lobbyPasses = lifecycle.initialize(() => {
             });
         }
         if (trophiesParent) {
-            const point = coordinates(challenge, rect.left, bottom + font);
-            setStyle(trophiesParent, TROPHY_TOP, `${point.y}px`);
-            setStyle(trophiesParent, TROPHY_LEFT, `${point.x}px`);
-            setStyle(trophiesParent, TROPHY_WIDTH, `${rect.width / point.scaleX}px`);
+            const point = coordinates(trophies || challenge, rect.left, bottom + gap);
+            const trophiesFont = fontSize(trophies || trophiesParent);
+            setStyle(trophiesParent, TROPHY_TOP, em(point.y, trophiesFont));
+            setStyle(trophiesParent, TROPHY_LEFT, em(point.x, trophiesFont));
+            setStyle(trophiesParent, TROPHY_WIDTH, em(rect.width / point.scaleX, trophiesFont));
         }
     }
     function schedule(): void {
@@ -209,7 +217,7 @@ export const lobbyPasses = lifecycle.initialize(() => {
             decorate(elite, 'elite'); progress(elite, 'elite', readCircleProgress(elite.querySelector(selectors.eliteCircle)));
             decoratedElite = elite;
         } else if (elite && records.has(elite)) release(elite);
-        position(challenge, decoratedElite);
+        position(challenge, decoratedElite, trophies);
         paintPanorama(challenge, decoratedElite, trophies, announcement);
     }
     lifecycle.onCleanup(() => {

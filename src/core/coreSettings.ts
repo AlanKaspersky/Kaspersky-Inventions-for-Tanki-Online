@@ -6,7 +6,7 @@ import { getVerifiedAccount } from './accountIdentity';
 
 export const coreSettings = (() => {
     let needsReload = false;
-    const liveSettings = new Set(['k_arcade_reload', 'k_critical_indicator']);
+    const liveSettings = new Set(['k_arcade_reload', 'k_critical_indicator', 'k_hideSupplies']);
         let initialSettingsState: Record<string, boolean> = {};
         let stylesInjected = false;
 
@@ -27,6 +27,7 @@ export const coreSettings = (() => {
             { id: 'k_paints', label: { RU: 'Умный поиск красок', EN: 'Smart paint search' }, default: false },
             { id: 'k_hideCurrency', label: { RU: 'Скрыть валюту', EN: 'Hide currency' }, default: false },
             { id: 'k_hideNicknameXP', label: { RU: 'Скрыть никнейм и опыт', EN: 'Hide nickname and score' }, default: false },
+            { id: 'k_hideSupplies', label: { RU: 'Скрыть припасы', EN: 'Hide supplies' }, default: false },
             { id: 'k_history', label: { RU: 'Вести историю битв', EN: 'Keep a history of battles' }, default: false },
             { id: 'k_overdrive_timer', label: { RU: 'Таймер коробки овердрайва', EN: 'Overdrive box timer' }, default: false },
             { id: 'k_arcade_reload', label: { RU: 'Полоса аркадной перезарядки', EN: 'Arcade reload indicator' }, default: true },

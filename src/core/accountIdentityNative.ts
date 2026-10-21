@@ -20,8 +20,15 @@ function methodSource(value: object): string {
     return '';
 }
 
-const nativeSchemas = new Map<string, { model: string; fields: Map<string, string> }>();
+type NativeSchema = { model: string; fields: Map<string, string> };
+const nativeSchemas = new Map<string, NativeSchema>();
+const prototypeSchemas = new WeakMap<object, NativeSchema>();
 function nativeSchema(value: object) {
+    // Generated model prototypes are stable throughout this game bundle.
+    const prototype = Object.getPrototypeOf(value) as object | null;
+    const ownMethod = Object.getOwnPropertyDescriptor(value, 'toString');
+    const cached = !ownMethod && prototype ? prototypeSchemas.get(prototype) : undefined;
+    if (cached) return cached;
     const source = methodSource(value);
     let schema = nativeSchemas.get(source);
     if (!schema) {
@@ -31,49 +38,192 @@ function nativeSchema(value: object) {
         if (nativeSchemas.size >= 512) nativeSchemas.clear();
         nativeSchemas.set(source, schema);
     }
+    if (!ownMethod && prototype) prototypeSchemas.set(prototype, schema);
     return schema;
 }
-function nativeField(value: object, label: string): unknown {
-    const key = nativeSchema(value).fields.get(label);
+function nativeField(value: object, label: string, schema = nativeSchema(value)): unknown {
+    const key = schema.fields.get(label);
     return key ? Object.getOwnPropertyDescriptor(value, key)?.value : undefined;
 }
-function visitModels(root: object, depthLimit: number, budget: number, visit: (value: object, model: string) => void): void {
-    const queue: Array<[object, number]> = [[root, 0]], seen = new Set<object>();
-    for (let head = 0; head < queue.length && seen.size < budget; head++) {
-        const [value, depth] = queue[head];
-        if (seen.has(value) || typeof Node !== 'undefined' && value instanceof Node) continue;
+
+interface NativeBinding { value: object; path: string[]; schema: NativeSchema }
+// TOState.user is the authoritative local owner. Inspect only the store's direct
+// slots, yielding between them; unrelated services and remote users are not traversed.
+function* directUser(store: object, error: (cause: unknown) => void): Generator<void, NativeBinding | null> {
+    const states: NativeBinding[] = [], seen = new Set<object>();
+    const inspect = (value: object, path: string[]) => {
+        if (seen.has(value)) return;
         seen.add(value);
-        visit(value, nativeSchema(value).model);
-        if (depth >= depthLimit) continue;
-        for (const descriptor of Object.values(Object.getOwnPropertyDescriptors(value)).slice(0, budget)) {
-            const child = descriptor.value;
-            if (child && typeof child === 'object' && queue.length < budget * 2) queue.push([child, depth + 1]);
+        try {
+            const schema = nativeSchema(value);
+            if (schema.model === 'TOState') states.push({ value, path, schema });
+        } catch (cause) { error(cause); }
+    };
+    yield;
+    inspect(store, []);
+    if (!states.length) {
+        let keys: string[];
+        try { keys = Object.getOwnPropertyNames(store); } catch (cause) { error(cause); return null; }
+        if (keys.length > 32) return null;
+        for (const key of keys) {
+            yield;
+            try {
+                const value = Object.getOwnPropertyDescriptor(store, key)?.value;
+                if (value && typeof value === 'object') inspect(value, [key]);
+            } catch (cause) { error(cause); }
         }
+    }
+    if (states.length !== 1) return null;
+    const state = states[0], key = state.schema.fields.get('user');
+    if (!key) return null;
+    try {
+        const value = Object.getOwnPropertyDescriptor(state.value, key)?.value;
+        if (!value || typeof value !== 'object') return null;
+        const schema = nativeSchema(value);
+        return schema.model === 'User' ? { value, path: [...state.path, key], schema } : null;
+    } catch (cause) { error(cause); return null; }
+}
+function resolvePath(root: object, path: readonly string[]): object | null {
+    let value: unknown = root;
+    for (const key of path) {
+        if (!value || typeof value !== 'object') return null;
+        value = Object.getOwnPropertyDescriptor(value, key)?.value;
+    }
+    return value && typeof value === 'object' ? value : null;
+}
+
+// Yield between properties as well as models: a wide container must not consume a whole frame.
+function* visitModels(root: object, depthLimit: number, budget: number,
+    visit: (binding: NativeBinding) => boolean, error: (cause: unknown) => void): Generator<void> {
+    const queue: Array<{ value: object; path: string[] }> = [{ value: root, path: [] }];
+    const seen = new Set<object>();
+    for (let head = 0; head < queue.length && seen.size < budget; head++) {
+        yield;
+        const { value, path } = queue[head];
+        if (seen.has(value)) continue;
+        seen.add(value);
+        try {
+            if (typeof Node !== 'undefined' && value instanceof Node) continue;
+            if (!visit({ value, path, schema: nativeSchema(value) }) || path.length >= depthLimit) continue;
+            const keys = Object.getOwnPropertyNames(value);
+            for (let index = 0; index < keys.length && index < budget * 2 && queue.length < budget * 2; index++) {
+                yield;
+                const key = keys[index];
+                try {
+                    const child = Object.getOwnPropertyDescriptor(value, key)?.value;
+                    if (child && typeof child === 'object') queue.push({ value: child, path: [...path, key] });
+                } catch (cause) { error(cause); }
+            }
+        } catch (cause) { error(cause); }
     }
 }
 
-export function readNativeAccountSnapshot(store: object): AccountSnapshot {
-    const accounts: VerifiedAccount[] = [], remote: object[] = [];
-    visitModels(store, 3, 500, (value, model) => {
-        if (model === 'User' && nativeField(value, 'isUserPropertiesLoaded') === true) {
-            const userId = normalizeAccountId(nativeField(value, 'id'));
-            const nickname = nativeField(value, 'uid'), clanTag = nativeField(value, 'clanTag');
+export function createNativeAccountReader(store: object) {
+    let users: NativeBinding[] = [], remote: NativeBinding[] = [];
+    let localJob: Generator<void> | null = null, remoteJob: Generator<void> | null = null;
+    let account: VerifiedAccount | null = null, players: AccountSnapshot['players'] = [];
+    let nextDiscovery = 0, nextAccountDiscovery = 0, nextPlayers = 0, slices = 0, lastError: string | null = null;
+    let invalidPath = false, publishPending = false, direct = false;
+    const error = (cause: unknown) => { lastError = String(cause); };
+    const discover = () => {
+        const foundUsers: NativeBinding[] = [], foundRemote: NativeBinding[] = [];
+        localJob = (function* () {
+            const owner = yield* directUser(store, error);
+            if (owner) {
+                users = [owner]; invalidPath = false; direct = true; publishPending = true;
+                yield;
+            }
+            yield* visitModels(store, 4, 4000, binding => {
+                if (binding.schema.model === 'User') { foundUsers.push(binding); return false; }
+                if (binding.schema.model === 'RemoteUserDataStorage') { foundRemote.push(binding); return false; }
+                return binding.schema.model !== 'RemoteUserData';
+            }, error);
+            users = owner ? [owner] : foundUsers; remote = foundRemote; direct = owner !== null;
+            invalidPath = false;
+            nextAccountDiscovery = Date.now() + 1000;
+            nextDiscovery = Date.now() + 5000;
+        })();
+        nextAccountDiscovery = Date.now() + 1000;
+        nextDiscovery = Date.now() + 5000;
+    };
+    const snapshot = (): AccountSnapshot => {
+        const accounts: VerifiedAccount[] = [];
+        for (const binding of users) try {
+            if (resolvePath(store, binding.path) !== binding.value) { invalidPath = true; continue; }
+            const field = (label: string) => nativeField(binding.value, label, binding.schema);
+            if (field('isUserPropertiesLoaded') !== true) continue;
+            const userId = normalizeAccountId(field('id')), nickname = field('uid'), clanTag = field('clanTag');
             if (userId && typeof nickname === 'string' && nickname.trim()) {
                 accounts.push({ userId, nickname, clanTag: typeof clanTag === 'string' ? clanTag : '' });
             }
-        } else if (model === 'RemoteUserDataStorage') {
-            const data = nativeField(value, 'userIdToData');
-            if (data && typeof data === 'object') remote.push(data);
-        }
-    });
-    if (accounts.length !== 1) return { account: null, players: [] };
-    const players = new Map<string, string>();
-    for (const root of remote.slice(0, 1)) visitModels(root, 5, 6000, (value, model) => {
-        if (model !== 'RemoteUserData') return;
-        const userId = normalizeAccountId(nativeField(value, 'userId')), nickname = nativeField(value, 'uid');
-        if (userId && typeof nickname === 'string' && nickname.trim()) players.set(userId, nickname);
-    });
-    return { account: accounts[0], players: [...players].map(([userId, nickname]) => ({ userId, nickname })) };
+        } catch (cause) { invalidPath = true; error(cause); }
+        const next = !invalidPath && accounts.length === 1 ? accounts[0] : null;
+        if (next?.userId !== account?.userId) { players = []; remoteJob = null; nextPlayers = 0; }
+        account = next;
+        return { account, players: account ? players : [] };
+    };
+    const refresh = () => {
+        snapshot();
+        if (!localJob && ((invalidPath || !users.length) && Date.now() >= nextAccountDiscovery
+            || account && !remote.length && Date.now() >= nextDiscovery)) discover();
+        // Remote nicknames/IDs are secondary; never delay the local account for them.
+        if (!account || localJob || remoteJob || Date.now() < nextPlayers) return;
+        const binding = remote[0];
+        if (!binding) return;
+        nextPlayers = Date.now() + 5000;
+        try {
+            if (resolvePath(store, binding.path) !== binding.value) { remote = []; players = []; nextPlayers = 0; return; }
+            const root = nativeField(binding.value, 'userIdToData', binding.schema);
+            if (!root || typeof root !== 'object') { players = []; return; }
+            const found = new Map<string, string>(), owner = account.userId;
+            remoteJob = (function* () {
+                yield* visitModels(root, 5, 6000, item => {
+                    if (item.schema.model !== 'RemoteUserData') return true;
+                    const userId = normalizeAccountId(nativeField(item.value, 'userId', item.schema));
+                    const nickname = nativeField(item.value, 'uid', item.schema);
+                    if (userId && typeof nickname === 'string' && nickname.trim()) found.set(userId, nickname);
+                    return false;
+                }, error);
+                if (snapshot().account?.userId === owner && resolvePath(store, binding.path) === binding.value
+                    && nativeField(binding.value, 'userIdToData', binding.schema) === root) {
+                    players = [...found].map(([userId, nickname]) => ({ userId, nickname }));
+                    nextPlayers = Date.now() + 5000;
+                } else { players = []; nextPlayers = 0; }
+            })();
+        } catch (cause) { error(cause); }
+    };
+    discover();
+    return {
+        refresh, snapshot,
+        pending: () => localJob !== null || remoteJob !== null,
+        step(): boolean {
+            const job = localJob || remoteJob;
+            if (!job) return false;
+            const start = performance.now();
+            slices++;
+            try {
+                for (let operations = 0; operations < 64; operations++) {
+                    const result = job.next();
+                    if (publishPending) { publishPending = false; return true; }
+                    if (result.done) {
+                        if (localJob === job) localJob = null;
+                        if (remoteJob === job) remoteJob = null;
+                        refresh();
+                        return true;
+                    }
+                    if (performance.now() - start >= 2) break;
+                }
+            } catch (cause) {
+                error(cause);
+                if (localJob === job) localJob = null;
+                if (remoteJob === job) remoteJob = null;
+                return true;
+            }
+            return false;
+        },
+        status: () => ({ pending: localJob ? 'account' : remoteJob ? 'players' : null, direct, slices, lastError,
+            userPaths: users.map(binding => binding.path.join('.')) }),
+    };
 }
 
 export function inspectIdentityStores(stores: readonly object[]): {
@@ -138,33 +288,59 @@ export function installAccountIdentityNative(page: Window): {
     const seenStores = new WeakSet<object>();
     let storeCount = 0;
     let currentStore: object | null = null;
+    let reader: ReturnType<typeof createNativeAccountReader> | null = null;
+    let work: number | null = null;
+    let publishedOwner: string | null = null;
     let mapping: BattlePresenceHookStatus | null = null;
-    const bridge = page as Window & { __kaspAccountDebug?: { status(): object } };
+    const bridge = page as Window & { __kaspAccountDebug?: { status(): object; inspect(): object } };
     bridge.__kaspAccountDebug = {
         status() {
-            try { return { captured: currentStore !== null, stores: storeCount, mapping,
-                account: currentStore ? readNativeAccountSnapshot(currentStore).account : null, ...inspectIdentityStores(currentStore ? [currentStore] : []) }; }
+            return { captured: currentStore !== null, stores: storeCount, mapping,
+                account: reader?.snapshot().account || null, discovery: reader?.status(), runtime: lifecycle.status() };
+        },
+        inspect() {
+            try { return { ...this.status(), ...inspectIdentityStores(currentStore ? [currentStore] : []) }; }
             catch (error) { return { captured: currentStore !== null, stores: storeCount, mapping, error: String(error) }; }
         },
     };
     const publish = () => {
-        let snapshot: AccountSnapshot = { account: null, players: [] };
-        try { if (currentStore) snapshot = readNativeAccountSnapshot(currentStore); } catch (error) { lifecycle.fail(error); }
+        const snapshot = reader?.snapshot() || { account: null, players: [] };
+        publishedOwner = snapshot.account?.userId || null;
         postPageMessage(page, { type: ACCOUNT_IDENTITY_MESSAGE, snapshot });
     };
-    page.addEventListener('message', event => {
-        if (readPageMessage(event, page, ACCOUNT_IDENTITY_REQUEST)) publish();
+    const schedule = (delay = 8) => {
+        if (work !== null || !reader?.pending() || lifecycle.disabled) return;
+        work = lifecycle.timeout(() => {
+            work = null;
+            if (reader?.step()) publish();
+            schedule();
+        }, delay);
+    };
+    const poll = () => { reader?.refresh(); publish(); schedule(); };
+    lifecycle.listen(page, 'message', event => {
+        if (readPageMessage(event, page, ACCOUNT_IDENTITY_REQUEST)) poll();
     });
-    lifecycle.interval(publish, 1000);
-    lifecycle.onCleanup(() => { currentStore = null; postPageMessage(page, { type: ACCOUNT_IDENTITY_MESSAGE, snapshot: { account: null, players: [] } }); });
+    lifecycle.interval(poll, 1000);
+    lifecycle.onCleanup(() => { currentStore = null; reader = null; work = null;
+        postPageMessage(page, { type: ACCOUNT_IDENTITY_MESSAGE, snapshot: { account: null, players: [] } }); });
     return {
         capture(value) {
             if (lifecycle.disabled) return;
+            if (value === currentStore) {
+                // Native initialization can finish between heartbeats. Once the
+                // user path is known, a store access can publish it immediately.
+                if (!publishedOwner && reader?.snapshot().account) publish();
+                return;
+            }
+            if (work !== null) { lifecycle.cancelTimeout(work); work = null; }
             currentStore = value;
+            reader = createNativeAccountReader(value);
             if (!seenStores.has(value)) {
                 seenStores.add(value);
                 storeCount++;
             }
+            publish();
+            schedule(0);
         },
         reportMapping(status) { mapping = { ...status, issues: [...status.issues] }; },
     };

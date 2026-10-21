@@ -1,6 +1,6 @@
 # Failure isolation and manual maintenance
 
-Source reference: 2.9.8, October 17, 2026. This guide can be followed without AI.
+Source reference: 2.9.9, October 17, 2026. This guide can be followed without AI.
 
 ## What stops, and when
 
@@ -53,6 +53,7 @@ The old `__kaspArcadeReloadDebug.setEnabled()` controls whether its hook is inst
 | Paint search | Removes search controls and releases filtering; no paint is equipped or purchased by cleanup. |
 | Garage action buttons | Restores captured icon styles and extension classes where they still equal the extension's last write. |
 | Nickname/currency privacy | Stops owned callbacks and removes the privacy root class or restores captured currency text and masking metadata. |
+| Supply privacy | Removes garage masking classes; restores latest native WebGL label text, clears weak label references and stops the settings poll. Actual stock and activation are unchanged. Refresh mappings with `npm run prepare:supply-privacy -- ./main.js`. |
 | Esports | Releases parameter locks, pending rank work, map filters, and the additional format card. It does not undo a battle creation request. |
 | Battle history | Invalidates pending views, releases navigation observers, and removes extension overlays/entry. Committed records are preserved. |
 | Change Counter/resistance display | Removes added columns, summaries and controls; shared static layout CSS remains loaded. |

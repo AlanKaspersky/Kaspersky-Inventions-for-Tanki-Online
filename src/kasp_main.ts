@@ -3,6 +3,7 @@ import { state } from './core/state';
 import { utils } from './core/utils';
 import { startBoot } from './boot';
 import { setupNicknamePrivacy } from './modules/hideNickname';
+import { hideSupplies } from './modules/hideSupplies';
 import { setupDiscordPresence } from './modules/discordPresence';
 import { setupAccountIdentity } from './core/accountIdentity';
 import { featureScope, installFeatureDiagnostics } from './core/featureRuntime';
@@ -17,6 +18,7 @@ if (window === window.top) {
 
   state.lang = utils.getLang();
   featureScope('hideNickname').run(setupNicknamePrivacy);
+  featureScope('hideSupplies').run(hideSupplies);
 
   startBoot();
   featureScope('discordPresence').run(setupDiscordPresence);

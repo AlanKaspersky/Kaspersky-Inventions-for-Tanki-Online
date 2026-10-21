@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Tanki Online: Kaspersky's Inventions",
-  "version": "2.9.8",
+  "version": "2.9.9",
   "default_locale": "en",
   "description": "__MSG_extensionDescription__",
   "icons": {
@@ -26,8 +26,10 @@
         "styles/navigation.css",
         "styles/cybersport.css",
         "styles/header.css",
+        "styles/accountSearchNotice.css",
         "styles/lobbyPasses.css",
         "styles/lobbyAnnouncements.css",
+        "styles/lobbyNavigation.css",
         "styles/battleStats.css",
         "styles/overdriveTimer.css",
         "styles/killBoard.css",
@@ -37,6 +39,7 @@
         "styles/customTrophies.css",
         "styles/hideCurrency.css",
         "styles/hideNickname.css",
+        "styles/hideSupplies.css",
         "styles/settings.css",
         "styles/welcomeModal.css"
       ],

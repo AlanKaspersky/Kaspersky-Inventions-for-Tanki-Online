@@ -156,6 +156,22 @@ function fixture({ storage = new Map(), userId = '1001', name = 'First', storage
     };
 }
 
+test('lobby Tankoins wait for verified ownership, then reveal once with the cached balance', () => {
+    const f = fixture({ userId: null, storage: new Map([['kasp_tankoin_balance_uid_1001', '42']]) });
+    f.state.currentScreen = 'lobby'; f.sync();
+    assert.equal(f.panel(), null);
+    f.verify('1001');
+    assert.equal(f.text(), '42');
+    assert.match(f.panel().className, /kasp-lobby-reveal/);
+    const panel = f.panel(); f.sync();
+    assert.equal(f.panel(), panel, 'unchanged balances do not recreate the entering counter');
+    f.state.currentScreen = 'garage'; f.replaceHeader();
+    f.state.currentScreen = 'lobby'; f.replaceHeader();
+    assert.doesNotMatch(f.panel().className, /kasp-lobby-reveal/, 'section navigation does not replay ID reveal');
+    f.verify(null);
+    assert.equal(f.panel(), null);
+});
+
 test('Tankoin header shows an unknown balance until observed, preserves zero and avoids duplicate native balances', () => {
     const f = fixture();
     f.sync();

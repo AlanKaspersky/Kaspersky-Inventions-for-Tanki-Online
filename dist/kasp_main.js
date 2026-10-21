@@ -115,6 +115,7 @@
         "k_paints",
         "k_hideCurrency",
         "k_hideNicknameXP",
+        "k_hideSupplies",
         "k_history",
         "k_overdrive_timer",
         "k_arcade_reload",
@@ -457,6 +458,9 @@
     "src/core/gameDOM.ts"() {
       "use strict";
       gameDOM = {
+        supplyPrivacy: {
+          counts: '.SuppliesComponentStyle-containersBlocks .SuppliesComponentStyle-cellAdd > span, .GarageCommonStyle-garageContainer:has([class*="GarageSupplies"]) .GarageItemComponentStyle-amountItemsScroll'
+        },
         battleCreate: {
           joinButton: ".JoinToBattleComponentStyle-buttonJoin",
           root: ".BattleCreateComponentStyle-mainContainer",
@@ -602,6 +606,10 @@
           untreatedContainer: '.MainScreenComponentStyle-playButtonContainer:not([data-overridden="true"])',
           button: ".MainScreenComponentStyle-buttonPlay",
           mainMenu: ".MainScreenComponentStyle-blockMainMenu"
+        },
+        lobbyNavigation: {
+          root: ".MainScreenComponentStyle-containerForMenuGradient",
+          cards: ".MainScreenComponentStyle-playButtonContainer, #quick-play-wrapper .custom-mode-button, .PrimaryMenuItemComponentStyle-menuItemContainer, .FooterComponentStyle-containerMenu"
         },
         lobbyPasses: {
           announcement: ".AnnouncementHomeScreenComponentStyle-mainContainer",
@@ -819,13 +827,13 @@
   function setupAccountIdentity() {
     if (initialized) return;
     initialized = true;
-    const lifecycle26 = featureScope("accountIdentity");
-    lifecycle26.onCleanup(() => {
+    const lifecycle29 = featureScope("accountIdentity");
+    lifecycle29.onCleanup(() => {
       nativeAccount = null;
       players.clear();
       receivedAt = 0;
     });
-    lifecycle26.listen(window, "message", (event) => {
+    lifecycle29.listen(window, "message", (event) => {
       const message = readPageMessage(event, window, ACCOUNT_IDENTITY_MESSAGE);
       if (!message) return;
       const snapshot = message.snapshot;
@@ -852,13 +860,13 @@
     postPageMessage(window, { type: ACCOUNT_IDENTITY_REQUEST });
   }
   function getVerifiedAccount() {
-    if (!nativeAccount || Date.now() - receivedAt > 5e3) return null;
+    if (!nativeAccount) return null;
     const visible = getAccountIdentity();
     if (visible && visible.nickname !== nativeAccount.nickname) return null;
     return { ...nativeAccount };
   }
   function getPlayerUserId(nickname) {
-    return getVerifiedAccount() ? players.get(nickname) || null : null;
+    return getVerifiedAccount() && Date.now() - receivedAt <= 5e3 ? players.get(nickname) || null : null;
   }
   function getAccountIdentityRevision() {
     return identityRevision;
@@ -966,7 +974,7 @@
       init_accountIdentity();
       coreSettings = /* @__PURE__ */ (() => {
         let needsReload = false;
-        const liveSettings = /* @__PURE__ */ new Set(["k_arcade_reload", "k_critical_indicator"]);
+        const liveSettings = /* @__PURE__ */ new Set(["k_arcade_reload", "k_critical_indicator", "k_hideSupplies"]);
         let initialSettingsState = {};
         let stylesInjected = false;
         const t = {
@@ -987,6 +995,7 @@
           { id: "k_paints", label: { RU: "\u0423\u043C\u043D\u044B\u0439 \u043F\u043E\u0438\u0441\u043A \u043A\u0440\u0430\u0441\u043E\u043A", EN: "Smart paint search" }, default: false },
           { id: "k_hideCurrency", label: { RU: "\u0421\u043A\u0440\u044B\u0442\u044C \u0432\u0430\u043B\u044E\u0442\u0443", EN: "Hide currency" }, default: false },
           { id: "k_hideNicknameXP", label: { RU: "\u0421\u043A\u0440\u044B\u0442\u044C \u043D\u0438\u043A\u043D\u0435\u0439\u043C \u0438 \u043E\u043F\u044B\u0442", EN: "Hide nickname and score" }, default: false },
+          { id: "k_hideSupplies", label: { RU: "\u0421\u043A\u0440\u044B\u0442\u044C \u043F\u0440\u0438\u043F\u0430\u0441\u044B", EN: "Hide supplies" }, default: false },
           { id: "k_history", label: { RU: "\u0412\u0435\u0441\u0442\u0438 \u0438\u0441\u0442\u043E\u0440\u0438\u044E \u0431\u0438\u0442\u0432", EN: "Keep a history of battles" }, default: false },
           { id: "k_overdrive_timer", label: { RU: "\u0422\u0430\u0439\u043C\u0435\u0440 \u043A\u043E\u0440\u043E\u0431\u043A\u0438 \u043E\u0432\u0435\u0440\u0434\u0440\u0430\u0439\u0432\u0430", EN: "Overdrive box timer" }, default: false },
           { id: "k_arcade_reload", label: { RU: "\u041F\u043E\u043B\u043E\u0441\u0430 \u0430\u0440\u043A\u0430\u0434\u043D\u043E\u0439 \u043F\u0435\u0440\u0435\u0437\u0430\u0440\u044F\u0434\u043A\u0438", EN: "Arcade reload indicator" }, default: true },
@@ -2714,7 +2723,7 @@
             initialized2 = true;
             utils.injectStyle(`
                         ${gameDOM.play.hiddenNativeDecorations} { display: none !important; }
-                        .custom-inner-btn > *:not(.custom-main-bg-layer):not(.main-lock-icon):not(.custom-main-text) { display: none !important; }
+                        .custom-inner-btn > *:not(.custom-main-bg-layer):not(.main-lock-icon):not(.custom-main-text):not(.kasp-left-art-slice) { display: none !important; }
                         ${gameDOM.play.untreatedContainer} { opacity: 0 !important; pointer-events: none !important; }
                         
                         ${gameDOM.play.autoQueueCards.split(", ").map((selector) => `body.kasp-autoqueue-active ${selector}`).join(", ")} {
@@ -3328,6 +3337,64 @@
     }
   });
 
+  // src/modules/hideSupplies.ts
+  var lifecycle9, hideSupplies;
+  var init_hideSupplies = __esm({
+    "src/modules/hideSupplies.ts"() {
+      "use strict";
+      init_featureRuntime();
+      init_utils();
+      init_gameDOM();
+      lifecycle9 = featureScope("hideSupplies");
+      hideSupplies = lifecycle9.initialize(() => {
+        let initialized2 = false;
+        let observer = null;
+        const marked = /* @__PURE__ */ new Set();
+        function restore() {
+          for (const element of marked) element.classList.remove("kasp-private-supply-value", "kasp-private-supply-static");
+          marked.clear();
+        }
+        const sync = () => {
+          const enabled = utils.getSetting("k_hideSupplies", false);
+          document.documentElement.classList.toggle("kasp-hide-supplies", enabled);
+          if (!enabled) {
+            observer?.disconnect();
+            restore();
+            return;
+          }
+          observer ??= lifecycle9.observer((changes) => {
+            if (changes.some((change) => change.type !== "attributes" || marked.has(change.target))) sync();
+          });
+          observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+          for (const element of marked) if (!element.isConnected || !element.matches(gameDOM.supplyPrivacy.counts)) {
+            element.classList.remove("kasp-private-supply-value", "kasp-private-supply-static");
+            marked.delete(element);
+          }
+          document.querySelectorAll(gameDOM.supplyPrivacy.counts).forEach((element) => {
+            if (marked.has(element) && element.classList.contains("kasp-private-supply-value")) return;
+            if (getComputedStyle(element).position === "static") element.classList.add("kasp-private-supply-static");
+            element.classList.add("kasp-private-supply-value");
+            marked.add(element);
+          });
+        };
+        lifecycle9.onCleanup(() => {
+          observer?.disconnect();
+          restore();
+          document.documentElement.classList.remove("kasp-hide-supplies");
+        });
+        return () => {
+          if (!initialized2) {
+            initialized2 = true;
+            lifecycle9.listen(window, "kasp:settings-changed", sync);
+            lifecycle9.listen(window, "storage", sync);
+          }
+          sync();
+        };
+      }, () => {
+      });
+    }
+  });
+
   // src/modules/tankoinBalance.ts
   function parseBalance(value) {
     const text2 = value?.trim() || "";
@@ -3336,7 +3403,7 @@
   function readBalance(element) {
     return parseBalance(element?.textContent) ?? parseBalance(element?.dataset.originalValue);
   }
-  var lifecycle9, PANEL_ID, COIN_ICON, STORAGE_PREFIX, tankoinBalance;
+  var lifecycle10, PANEL_ID, COIN_ICON, STORAGE_PREFIX, tankoinBalance;
   var init_tankoinBalance = __esm({
     "src/modules/tankoinBalance.ts"() {
       "use strict";
@@ -3347,11 +3414,11 @@
       init_gameDOM();
       init_state();
       init_utils();
-      lifecycle9 = featureScope("tankoinBalance");
+      lifecycle10 = featureScope("tankoinBalance");
       PANEL_ID = "kasp-tankoin-balance";
       COIN_ICON = "https://s.eu.tankionline.com/static/images/coin.3a16e831.svg";
       STORAGE_PREFIX = "kasp_tankoin_balance_uid_";
-      tankoinBalance = lifecycle9.initialize(() => {
+      tankoinBalance = lifecycle10.initialize(() => {
         let owner = null;
         let ownerId = null;
         let balance = null;
@@ -3364,6 +3431,7 @@
         let observer = null;
         let sources = [];
         let initialized2 = false;
+        const presentedOwners = /* @__PURE__ */ new Set();
         function removePanel() {
           panel?.remove();
           panel = iconContainer = image = value = null;
@@ -3371,9 +3439,9 @@
         function sync() {
           if (!initialized2) {
             initialized2 = true;
-            lifecycle9.listen(window, "kasp:settings-changed", sync);
-            lifecycle9.listen(window, "storage", sync);
-            lifecycle9.listen(window, "message", (event) => {
+            lifecycle10.listen(window, "kasp:settings-changed", sync);
+            lifecycle10.listen(window, "storage", sync);
+            lifecycle10.listen(window, "message", (event) => {
               if (readPageMessage(event, window, ACCOUNT_IDENTITY_MESSAGE)) sync();
             });
           }
@@ -3405,7 +3473,7 @@
           const exchange = document.querySelector(gameDOM.account.exchangeBalance);
           const nextSources = [native, exchange].filter((element) => !!element);
           if (sources.length !== nextSources.length || sources.some((element, index) => element !== nextSources[index])) {
-            observer ??= lifecycle9.observer(sync);
+            observer ??= lifecycle10.observer(sync);
             observer.disconnect();
             sources = nextSources;
             for (const source of sources) observer.observe(source, { childList: true, subtree: true, characterData: true });
@@ -3421,7 +3489,8 @@
           }
           const sourceIcon = (exchange ? document.querySelector(gameDOM.account.exchangeIcon) : null) || native?.querySelector(gameDOM.account.tankoinIcon);
           if (sourceIcon?.src) iconUrl2 = sourceIcon.src;
-          if (!header || native) {
+          if (!header || native || state.currentScreen === "lobby" && !account) {
+            if (header && native && account) presentedOwners.add(account.userId);
             removePanel();
             return;
           }
@@ -3429,7 +3498,7 @@
             removePanel();
             panel = document.createElement("div");
             panel.id = PANEL_ID;
-            panel.className = gameDOM.classes.tankoinContainer;
+            panel.className = gameDOM.classes.tankoinContainer + (state.currentScreen === "lobby" && account && !presentedOwners.has(account.userId) ? " kasp-lobby-reveal" : "");
             iconContainer = document.createElement("div");
             iconContainer.className = gameDOM.classes.currencyIcon;
             const block = document.createElement("div");
@@ -3443,6 +3512,7 @@
             panel.appendChild(iconContainer);
             header.insertBefore(panel, currencies?.parentElement === header ? currencies : header.firstChild);
           }
+          if (account) presentedOwners.add(account.userId);
           if (image.getAttribute("src") !== iconUrl2) image.src = iconUrl2;
           const hidden = utils.getSetting("k_hideCurrency", false) && balance !== null;
           const text2 = hidden ? state.lang === "RU" ? "\u0421\u043A\u0440\u044B\u0442\u043E" : "Hidden" : balance ?? "\u2014";
@@ -3458,12 +3528,109 @@
           const hint = balance === null ? state.lang === "RU" ? "\u041E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043C\u0430\u0433\u0430\u0437\u0438\u043D \u0438\u043B\u0438 \u043E\u0431\u043C\u0435\u043D \u0440\u0443\u0431\u0438\u043D\u043E\u0432, \u0447\u0442\u043E\u0431\u044B \u043E\u0431\u043D\u043E\u0432\u0438\u0442\u044C \u0431\u0430\u043B\u0430\u043D\u0441 \u0442\u0430\u043D\u043A\u043E\u0438\u043D\u043E\u0432." : "Open the shop or Ruby exchange to refresh the Tankoin balance." : state.lang === "RU" ? "\u0422\u0430\u043D\u043A\u043E\u0438\u043D\u044B" : "Tankoins";
           if (panel.title !== hint) panel.title = hint;
         }
-        lifecycle9.onCleanup(() => {
+        lifecycle10.onCleanup(() => {
           observer?.disconnect();
           sources = [];
           balance = owner = ownerId = lastSaveAttempt = null;
           removePanel();
         });
+        return sync;
+      }, () => {
+      });
+    }
+  });
+
+  // src/modules/accountSearchNotice.ts
+  var lifecycle11, accountSearchNotice;
+  var init_accountSearchNotice = __esm({
+    "src/modules/accountSearchNotice.ts"() {
+      "use strict";
+      init_featureRuntime();
+      init_accountIdentity();
+      init_accountId();
+      init_pageMessages();
+      init_gameDOM();
+      init_state();
+      lifecycle11 = featureScope("accountSearchNotice");
+      accountSearchNotice = lifecycle11.initialize(() => {
+        let notice = null, label = null;
+        let showTimer = null, removeTimer = null, identityTimer = null;
+        let initialized2 = false;
+        const searching = () => state.currentScreen === "lobby" && !!document.querySelector(gameDOM.play.mainMenu) && !getVerifiedAccount();
+        function remove() {
+          notice?.remove();
+          notice = label = null;
+          if (removeTimer !== null) lifecycle11.cancelTimeout(removeTimer);
+          removeTimer = null;
+        }
+        function hide() {
+          if (showTimer !== null) lifecycle11.cancelTimeout(showTimer);
+          showTimer = null;
+          if (!notice || removeTimer !== null) return;
+          if (notice.dataset.visible !== "true") {
+            remove();
+            return;
+          }
+          notice.dataset.visible = "false";
+          removeTimer = lifecycle11.timeout(remove, 200);
+        }
+        function caption() {
+          const text2 = state.lang === "RU" ? "\u041F\u043E\u0438\u0441\u043A ID \u0430\u043A\u043A\u0430\u0443\u043D\u0442\u0430" : "Searching for account ID";
+          if (label && label.textContent !== text2) label.textContent = text2;
+        }
+        function show() {
+          showTimer = null;
+          if (!searching()) return;
+          const root = document.querySelector(gameDOM.common.appContainer) || document.body;
+          if (!root) return;
+          notice = document.createElement("div");
+          notice.id = "kasp-account-search-notice";
+          notice.className = "kasp-lobby-has-art";
+          notice.setAttribute("role", "status");
+          notice.setAttribute("aria-live", "polite");
+          notice.setAttribute("aria-atomic", "true");
+          const art = document.createElement("span");
+          art.className = "kasp-lobby-art-slice";
+          art.setAttribute("aria-hidden", "true");
+          art.style.setProperty("--kasp-art-image", `url(${JSON.stringify(chrome.runtime.getURL("assets/art1.png"))})`);
+          label = document.createElement("span");
+          label.className = "kasp-account-search-label";
+          notice.append(art, label);
+          caption();
+          root.appendChild(notice);
+          const target = notice;
+          lifecycle11.frame(() => lifecycle11.frame(() => {
+            if (notice === target && searching()) target.dataset.visible = "true";
+          }));
+        }
+        function sync() {
+          if (!initialized2) {
+            initialized2 = true;
+            lifecycle11.listen(window, "message", (event) => {
+              if (!readPageMessage(event, window, ACCOUNT_IDENTITY_MESSAGE) || identityTimer !== null) return;
+              identityTimer = lifecycle11.timeout(() => {
+                identityTimer = null;
+                sync();
+              }, 0);
+            });
+          }
+          if (!searching()) {
+            hide();
+            return;
+          }
+          if (notice && !notice.isConnected) remove();
+          if (notice) {
+            if (removeTimer !== null) {
+              lifecycle11.cancelTimeout(removeTimer);
+              removeTimer = null;
+              notice.dataset.visible = "true";
+            }
+            caption();
+            return;
+          }
+          if (showTimer === null) showTimer = lifecycle11.timeout(show, 600);
+        }
+        lifecycle11.onCleanup(remove);
         return sync;
       }, () => {
       });
@@ -3506,16 +3673,16 @@
     }
     return Math.round(degrees / 3.6 * 100) / 100;
   }
-  var lifecycle10, selectors, lobbyPasses;
+  var lifecycle12, selectors, lobbyPasses;
   var init_lobbyPasses = __esm({
     "src/modules/lobbyPasses.ts"() {
       "use strict";
       init_featureRuntime();
       init_gameDOM();
       init_state();
-      lifecycle10 = featureScope("lobbyPasses");
+      lifecycle12 = featureScope("lobbyPasses");
       selectors = gameDOM.lobbyPasses;
-      lobbyPasses = lifecycle10.initialize(() => {
+      lobbyPasses = lifecycle12.initialize(() => {
         const records = /* @__PURE__ */ new Map();
         let sources = [], observer = null;
         let resize = null, initialized2 = false, queued = false;
@@ -3561,6 +3728,12 @@
         function setStyle(element, key, value) {
           if (element.style.getPropertyValue(key) !== value) element.style.setProperty(key, value);
         }
+        function fontSize(element) {
+          return parseFloat(getComputedStyle(element).fontSize) || 16;
+        }
+        function em(value, font) {
+          return `${value / font}em`;
+        }
         function sizeAnnouncement(root) {
           const body = root?.querySelector(selectors.announcementBody) ?? null;
           if (announcementBody !== body) {
@@ -3574,7 +3747,7 @@
           const px = (value) => parseFloat(value) || 0;
           const content = Math.max(caption.scrollHeight, timer?.scrollHeight ?? 0);
           const height = Math.max(px(css.minHeight), content + px(css.paddingTop) + px(css.paddingBottom) + px(css.borderTopWidth) + px(css.borderBottomWidth));
-          setStyle(body, ANNOUNCEMENT_HEIGHT, `${Math.ceil(height)}px`);
+          setStyle(body, ANNOUNCEMENT_HEIGHT, em(Math.ceil(height), parseFloat(css.fontSize) || 16));
         }
         function clearPanorama() {
           for (const [card, layer] of artLayers) {
@@ -3618,10 +3791,11 @@
             setStyle(layer, "--kasp-art-image", artImage);
             const scaleX = card.offsetWidth ? rect.width / card.offsetWidth || 1 : 1;
             const scaleY = card.offsetHeight ? rect.height / card.offsetHeight || 1 : 1;
-            setStyle(layer, "--kasp-art-width", String((right - left) / scaleX) + "px");
-            setStyle(layer, "--kasp-art-height", String((bottom - top) / scaleY) + "px");
-            setStyle(layer, "--kasp-art-x", String(-(rect.left - left) / scaleX - card.clientLeft) + "px");
-            setStyle(layer, "--kasp-art-y", String(-(rect.top - top) / scaleY - card.clientTop) + "px");
+            const font = fontSize(layer);
+            setStyle(layer, "--kasp-art-width", em((right - left) / scaleX, font));
+            setStyle(layer, "--kasp-art-height", em((bottom - top) / scaleY, font));
+            setStyle(layer, "--kasp-art-x", em(-(rect.left - left) / scaleX - card.clientLeft, font));
+            setStyle(layer, "--kasp-art-y", em(-(rect.top - top) / scaleY - card.clientTop, font));
             if (!card.classList.contains("kasp-lobby-has-art")) card.classList.add("kasp-lobby-has-art");
           }
         }
@@ -3643,16 +3817,18 @@
             scaleX
           };
         }
-        function position(challenge, elite) {
+        function position(challenge, elite, trophies) {
           const rect = challenge.getBoundingClientRect();
           if (!rect.width || !rect.height) return;
-          const font = parseFloat(getComputedStyle(challenge).fontSize) || 16;
+          const font = fontSize(challenge);
+          const scaleY = challenge.offsetHeight ? rect.height / challenge.offsetHeight || 1 : 1;
+          const gap = font * scaleY;
           let bottom = rect.bottom;
           if (elite) {
-            const point = coordinates(elite, rect.left, rect.bottom + font * 0.5);
-            setStyle(elite, "--kasp-pass-left", `${point.x}px`);
-            setStyle(elite, "--kasp-pass-top", `${point.y}px`);
-            setStyle(elite, "--kasp-pass-width", `${rect.width / point.scaleX}px`);
+            const point = coordinates(elite, rect.left, rect.bottom + gap * 0.5), eliteFont = fontSize(elite);
+            setStyle(elite, "--kasp-pass-left", em(point.x, eliteFont));
+            setStyle(elite, "--kasp-pass-top", em(point.y, eliteFont));
+            setStyle(elite, "--kasp-pass-width", em(rect.width / point.scaleX, eliteFont));
             bottom = elite.getBoundingClientRect().bottom;
           }
           if (trophiesParent !== challenge.parentElement) {
@@ -3664,16 +3840,17 @@
             });
           }
           if (trophiesParent) {
-            const point = coordinates(challenge, rect.left, bottom + font);
-            setStyle(trophiesParent, TROPHY_TOP, `${point.y}px`);
-            setStyle(trophiesParent, TROPHY_LEFT, `${point.x}px`);
-            setStyle(trophiesParent, TROPHY_WIDTH, `${rect.width / point.scaleX}px`);
+            const point = coordinates(trophies || challenge, rect.left, bottom + gap);
+            const trophiesFont = fontSize(trophies || trophiesParent);
+            setStyle(trophiesParent, TROPHY_TOP, em(point.y, trophiesFont));
+            setStyle(trophiesParent, TROPHY_LEFT, em(point.x, trophiesFont));
+            setStyle(trophiesParent, TROPHY_WIDTH, em(rect.width / point.scaleX, trophiesFont));
           }
         }
         function schedule() {
           if (queued) return;
           queued = true;
-          lifecycle10.microtask(() => {
+          lifecycle12.microtask(() => {
             queued = false;
             sync();
           });
@@ -3681,11 +3858,11 @@
         function sync() {
           if (!initialized2) {
             initialized2 = true;
-            lifecycle10.listen(window, "resize", schedule);
-            observer = lifecycle10.observer((changes) => {
+            lifecycle12.listen(window, "resize", schedule);
+            observer = lifecycle12.observer((changes) => {
               if (changes.some((change) => !(change.type === "attributes" && change.attributeName === "style" && sources.includes(change.target)))) schedule();
             });
-            if (typeof ResizeObserver !== "undefined") resize = new ResizeObserver(lifecycle10.guard(schedule));
+            if (typeof ResizeObserver !== "undefined") resize = new ResizeObserver(lifecycle12.guard(schedule));
           }
           const challenge = document.querySelector(selectors.challenge), elite = document.querySelector(selectors.elite);
           const trophies = document.getElementById("custom-trophy-panel");
@@ -3717,10 +3894,10 @@
             progress(elite, "elite", readCircleProgress(elite.querySelector(selectors.eliteCircle)));
             decoratedElite = elite;
           } else if (elite && records.has(elite)) release(elite);
-          position(challenge, decoratedElite);
+          position(challenge, decoratedElite, trophies);
           paintPanorama(challenge, decoratedElite, trophies, announcement);
         }
-        lifecycle10.onCleanup(() => {
+        lifecycle12.onCleanup(() => {
           observer?.disconnect();
           resize?.disconnect();
           sources = [];
@@ -3730,6 +3907,128 @@
           restoreTrophies();
           clearPanorama();
         });
+        return sync;
+      }, () => {
+      });
+    }
+  });
+
+  // src/modules/lobbyNavigation.ts
+  var lifecycle13, lobbyNavigation;
+  var init_lobbyNavigation = __esm({
+    "src/modules/lobbyNavigation.ts"() {
+      "use strict";
+      init_featureRuntime();
+      init_gameDOM();
+      lifecycle13 = featureScope("lobbyNavigation");
+      lobbyNavigation = lifecycle13.initialize(() => {
+        const cards = /* @__PURE__ */ new Map();
+        let root = null, group = null;
+        let hadRootClass = false, hadGroupClass = false;
+        let initialized2 = false, queued = false;
+        let observer = null, resize = null;
+        let observed = [];
+        const art = `url(${JSON.stringify(chrome.runtime.getURL("assets/art3.jpg"))})`;
+        function releaseCard(card) {
+          const record = cards.get(card);
+          if (!record) return;
+          record.layer.remove();
+          if (!record.hadClass) card.classList.remove("kasp-left-card");
+          cards.delete(card);
+        }
+        function release() {
+          observer?.disconnect();
+          resize?.disconnect();
+          observed = [];
+          for (const card of cards.keys()) releaseCard(card);
+          if (!hadRootClass) root?.classList.remove("kasp-lobby-left");
+          if (!hadGroupClass) group?.classList.remove("kasp-left-play-group");
+          root = group = null;
+        }
+        function schedule() {
+          if (queued) return;
+          queued = true;
+          lifecycle13.microtask(() => {
+            queued = false;
+            sync();
+          });
+        }
+        function ownMutation(change) {
+          if (change.target instanceof Element && change.target.classList.contains("kasp-left-art-slice")) return true;
+          if (change.type !== "childList") return false;
+          const nodes = [...Array.from(change.addedNodes), ...Array.from(change.removedNodes)];
+          return nodes.length > 0 && nodes.every((node) => node instanceof Element && node.classList.contains("kasp-left-art-slice"));
+        }
+        function setStyle(element, name, value) {
+          if (element.style.getPropertyValue(name) !== value) element.style.setProperty(name, value);
+        }
+        function sync() {
+          if (!initialized2) {
+            initialized2 = true;
+            lifecycle13.listen(window, "resize", schedule);
+            observer = lifecycle13.observer((changes) => {
+              if (changes.some((change) => !ownMutation(change))) schedule();
+            });
+            if (typeof ResizeObserver !== "undefined") resize = new ResizeObserver(lifecycle13.guard(schedule));
+          }
+          const nextRoot = document.querySelector(gameDOM.lobbyNavigation.root);
+          const play = nextRoot?.querySelector(gameDOM.play.container);
+          const nextGroup = play?.closest(gameDOM.common.flexDiv) ?? play?.parentElement ?? null;
+          if (nextRoot !== root || nextGroup !== group) {
+            release();
+            root = nextRoot;
+            group = nextGroup;
+            hadRootClass = !!root?.classList.contains("kasp-lobby-left");
+            hadGroupClass = !!group?.classList.contains("kasp-left-play-group");
+          }
+          if (!root) return;
+          if (!root.classList.contains("kasp-lobby-left")) root.classList.add("kasp-lobby-left");
+          if (group && !group.classList.contains("kasp-left-play-group")) group.classList.add("kasp-left-play-group");
+          const current = Array.from(root.querySelectorAll(gameDOM.lobbyNavigation.cards));
+          for (const card of cards.keys()) if (!current.includes(card)) releaseCard(card);
+          for (const card of current) {
+            const existing = cards.get(card);
+            if (!existing) {
+              const layer = document.createElement("span");
+              layer.className = "kasp-left-art-slice";
+              layer.setAttribute("aria-hidden", "true");
+              cards.set(card, { layer, hadClass: card.classList.contains("kasp-left-card") });
+              card.appendChild(layer);
+            } else if (existing.layer.parentElement !== card) card.appendChild(existing.layer);
+            if (!card.classList.contains("kasp-left-card")) card.classList.add("kasp-left-card");
+          }
+          const next = [root, ...group ? [group] : [], ...current];
+          if (observed.length !== next.length || observed.some((node, i) => node !== next[i])) {
+            observer?.disconnect();
+            resize?.disconnect();
+            observed = next;
+            observer?.observe(root, {
+              childList: true,
+              subtree: true,
+              characterData: true,
+              attributes: true,
+              attributeFilter: ["class", "style"]
+            });
+            for (const node of next) resize?.observe(node);
+          }
+          const measured = current.map((card) => ({ card, rect: card.getBoundingClientRect() })).filter(({ rect }) => rect.width > 0 && rect.height > 0);
+          if (!measured.length) return;
+          const left = Math.min(...measured.map(({ rect }) => rect.left));
+          const top = Math.min(...measured.map(({ rect }) => rect.top));
+          const right = Math.max(...measured.map(({ rect }) => rect.right));
+          const bottom = Math.max(...measured.map(({ rect }) => rect.bottom));
+          for (const { card, rect } of measured) {
+            const layer = cards.get(card).layer;
+            const scaleX = card.offsetWidth ? rect.width / card.offsetWidth || 1 : 1;
+            const scaleY = card.offsetHeight ? rect.height / card.offsetHeight || 1 : 1;
+            setStyle(layer, "--kasp-left-art", art);
+            setStyle(layer, "--kasp-left-art-width", `${(right - left) / scaleX}px`);
+            setStyle(layer, "--kasp-left-art-height", `${(bottom - top) / scaleY}px`);
+            setStyle(layer, "--kasp-left-art-x", `${-(rect.left - left) / scaleX - card.clientLeft}px`);
+            setStyle(layer, "--kasp-left-art-y", `${-(rect.top - top) / scaleY - card.clientTop}px`);
+          }
+        }
+        lifecycle13.onCleanup(release);
         return sync;
       }, () => {
       });
@@ -3756,7 +4055,7 @@
   });
 
   // src/modules/customTrophies.ts
-  var lifecycle11, customTrophies;
+  var lifecycle14, customTrophies;
   var init_customTrophies = __esm({
     "src/modules/customTrophies.ts"() {
       "use strict";
@@ -3765,8 +4064,10 @@
       init_state();
       init_accountIdentity();
       init_imageUrl();
-      lifecycle11 = featureScope("customTrophies");
-      customTrophies = lifecycle11.initialize(() => {
+      init_accountId();
+      init_pageMessages();
+      lifecycle14 = featureScope("customTrophies");
+      customTrophies = lifecycle14.initialize(() => {
         let initialization = null;
         const STORAGE_PREFIX2 = "kasp_trophies_favorites_uid_";
         const ICON_UNFAV = "https://s.eu.tankionline.com/static/images/unfavoriteStar.0e39d67a.svg";
@@ -3787,6 +4088,7 @@
         }
         let cachedFavs = null;
         let favoritesOwner = null;
+        const presentedOwners = /* @__PURE__ */ new Set();
         function syncOwner() {
           const userId = getVerifiedAccount()?.userId || null;
           if (favoritesOwner !== userId) {
@@ -3901,7 +4203,7 @@
               const expectedIcon = favItem ? ICON_FAV : ICON_UNFAV;
               if (img && img.src !== expectedIcon) img.src = expectedIcon;
             }
-            starContainer.onclick = lifecycle11.guard((e) => {
+            starContainer.onclick = lifecycle14.guard((e) => {
               e.stopPropagation();
               if (syncOwner() !== owner || parseItem(card.textContent || "")?.id !== itemInfo.id) return;
               toggleFavorite(itemInfo.id, type, extractIcon(card), currentPoints, maxPoints);
@@ -3995,6 +4297,9 @@
             if (getFavs().length === 0) panel?.remove();
             else if (challengesBlock.parentElement && (!panel || panel.dataset.trophiesKey !== key)) {
               const replacement = createPanel();
+              if (!panel && state.currentScreen === "lobby" && favoritesOwner && !presentedOwners.has(favoritesOwner))
+                replacement.className += " kasp-lobby-reveal";
+              if (favoritesOwner) presentedOwners.add(favoritesOwner);
               replacement.dataset.trophiesKey = key;
               if (panel) panel.replaceWith(replacement);
               else challengesBlock.parentElement.appendChild(replacement);
@@ -4005,16 +4310,16 @@
           const cards = document.querySelectorAll(gameDOM.trophies.cards);
           if (cards.length > 0) processGarageMissions(Array.from(cards));
         }
-        lifecycle11.onCleanup(() => {
+        lifecycle14.onCleanup(() => {
           cachedFavs = null;
           favoritesOwner = null;
           document.querySelectorAll(".custom-trophy-panel, [data-kasp-trophy-star]").forEach((node) => node.remove());
         });
-        return async () => {
+        const update = async () => {
           const owner = syncOwner();
           if (!initialization) initialization = loadTrophyDictionary();
           await initialization;
-          if (lifecycle11.disabled) return;
+          if (lifecycle14.disabled) return;
           if (!trophyDictionaryLoaded || !owner || syncOwner() !== owner) return;
           if (state.currentScreen === "lobby" || state.currentScreen === "garage") {
             updateInterface();
@@ -4023,6 +4328,16 @@
             if (battleCards.length > 0) processBattleResults(Array.from(battleCards));
           }
         };
+        initialization = loadTrophyDictionary();
+        let identityUpdate = null;
+        lifecycle14.listen(window, "message", (event) => {
+          if (!readPageMessage(event, window, ACCOUNT_IDENTITY_MESSAGE) || identityUpdate !== null) return;
+          identityUpdate = lifecycle14.timeout(() => {
+            identityUpdate = null;
+            if ((getVerifiedAccount()?.userId || null) !== favoritesOwner) return update();
+          }, 0);
+        });
+        return update;
       }, () => {
       });
     }
@@ -4158,7 +4473,7 @@
   });
 
   // src/modules/autoUpgrade.ts
-  var lifecycle12, autoUpgrade;
+  var lifecycle15, autoUpgrade;
   var init_autoUpgrade = __esm({
     "src/modules/autoUpgrade.ts"() {
       "use strict";
@@ -4167,8 +4482,8 @@
       init_state();
       init_utils();
       init_modal();
-      lifecycle12 = featureScope("autoUpgrade");
-      autoUpgrade = lifecycle12.initialize(() => {
+      lifecycle15 = featureScope("autoUpgrade");
+      autoUpgrade = lifecycle15.initialize(() => {
         let initialized2 = false;
         let isRunning = false;
         let upgradeQueue = 0;
@@ -4210,30 +4525,30 @@
           activationEvent = event;
           pressedGamepadButtons = gamepadButtons();
           for (const type of ["keydown", "pointerdown", "mousedown", "click"]) {
-            lifecycle12.listen(document, type, stopOnInput, true);
+            lifecycle15.listen(document, type, stopOnInput, true);
           }
           const poll = () => {
             inputFrame = null;
             if (!isRunning) return;
             checkGamepadInput();
-            if (isRunning) inputFrame = lifecycle12.frame(poll);
+            if (isRunning) inputFrame = lifecycle15.frame(poll);
           };
-          inputFrame = lifecycle12.frame(poll);
+          inputFrame = lifecycle15.frame(poll);
         }
         function finish() {
           isRunning = false;
           upgradeQueue = 0;
           unavailableRetries = 0;
           if (timer !== null) {
-            lifecycle12.cancelTimeout(timer);
+            lifecycle15.cancelTimeout(timer);
             timer = null;
           }
           if (inputFrame !== null) {
-            lifecycle12.cancelFrame(inputFrame);
+            lifecycle15.cancelFrame(inputFrame);
             inputFrame = null;
           }
           for (const type of ["keydown", "pointerdown", "mousedown", "click"]) {
-            lifecycle12.unlisten(document, type, stopOnInput, true);
+            lifecycle15.unlisten(document, type, stopOnInput, true);
           }
           activationEvent = void 0;
           pressedGamepadButtons.clear();
@@ -4400,8 +4715,8 @@
           };
           modal.onClose(() => {
             isClosing = true;
-            lifecycle12.unlisten(document, "keydown", onKeyDown, true);
-            lifecycle12.timeout(() => lifecycle12.unlisten(document, "keyup", onKeyUp, true), 700);
+            lifecycle15.unlisten(document, "keydown", onKeyDown, true);
+            lifecycle15.timeout(() => lifecycle15.unlisten(document, "keyup", onKeyUp, true), 700);
           });
           const onKeyDown = (event) => {
             if (event.key !== "Enter" || isClosing) return;
@@ -4418,14 +4733,14 @@
               event.stopImmediatePropagation();
             }
           };
-          lifecycle12.listen(confirmBtn, "click", (event) => {
+          lifecycle15.listen(confirmBtn, "click", (event) => {
             if (isClosing) return;
             closeDialog();
             callback(event);
           });
-          lifecycle12.listen(cancelBtn, "click", closeDialog);
-          lifecycle12.listen(document, "keydown", onKeyDown, true);
-          lifecycle12.listen(document, "keyup", onKeyUp, true);
+          lifecycle15.listen(cancelBtn, "click", closeDialog);
+          lifecycle15.listen(document, "keydown", onKeyDown, true);
+          lifecycle15.listen(document, "keyup", onKeyUp, true);
         }
         function performAction(count) {
           if (isRunning) return;
@@ -4444,7 +4759,7 @@
               }
               if (isWaitingForDialogClose) {
                 if (isDialogOpen()) {
-                  timer = lifecycle12.timeout(doStep, DELAY);
+                  timer = lifecycle15.timeout(doStep, DELAY);
                   return;
                 }
                 isWaitingForDialogClose = false;
@@ -4460,7 +4775,7 @@
               if (!shouldShowQuickButtons() && !isDialogOpen()) {
                 if (unavailableRetries < MAX_UNAVAILABLE_RETRIES) {
                   unavailableRetries++;
-                  timer = lifecycle12.timeout(doStep, RETRY_DELAY);
+                  timer = lifecycle15.timeout(doStep, RETRY_DELAY);
                   return;
                 }
                 finish();
@@ -4484,16 +4799,16 @@
                   }
                   upgraded++;
                   isWaitingForDialogClose = true;
-                  timer = lifecycle12.timeout(doStep, DELAY);
+                  timer = lifecycle15.timeout(doStep, DELAY);
                   return;
                 }
                 finish();
                 return;
               }
               pressEnter();
-              timer = lifecycle12.timeout(doStep, DELAY);
+              timer = lifecycle15.timeout(doStep, DELAY);
             }
-            timer = lifecycle12.timeout(doStep, DELAY);
+            timer = lifecycle15.timeout(doStep, DELAY);
           });
         }
         function createButtons() {
@@ -4524,11 +4839,11 @@
             const el = document.createElement("div");
             el.className = gameDOM.classes.upgradeButton;
             el.style.cssText = `cursor: pointer; background-color: rgb(218, 218, 218) !important; transition: background-color 0.2s, box-shadow 0.2s; box-shadow: rgba(255, 255, 255, 0.25) 0em 0em 0em 0.063em; border-radius: 0.75em; display: flex; min-width: 0; align-items: center; justify-content: center; height: 3em; box-sizing: border-box;`;
-            lifecycle12.listen(el, "mouseenter", () => {
+            lifecycle15.listen(el, "mouseenter", () => {
               el.style.backgroundColor = "rgb(197, 197, 197)";
               el.style.boxShadow = "rgb(255, 255, 255) 0em 0em 0em 1.4px";
             });
-            lifecycle12.listen(el, "mouseleave", () => {
+            lifecycle15.listen(el, "mouseleave", () => {
               el.style.backgroundColor = "rgb(218, 218, 218)";
               el.style.boxShadow = "rgba(255, 255, 255, 0.25) 0em 0em 0em 0.063em";
             });
@@ -4537,7 +4852,7 @@
             span.textContent = btn.label;
             el.appendChild(span);
             el.title = btn.value === Infinity ? tooltipMax : tooltipSteps.replace("{n}", btn.value.toString());
-            lifecycle12.listen(el, "click", (e) => {
+            lifecycle15.listen(el, "click", (e) => {
               e.stopPropagation();
               if (typeof isRunning !== "undefined" && !isRunning) performAction(btn.value);
             });
@@ -4545,9 +4860,9 @@
           });
           panel.appendChild(quickButtonsWrapper);
         }
-        lifecycle12.onCleanup(() => {
+        lifecycle15.onCleanup(() => {
           finish();
-          if (categorySwitchTimeout !== null) lifecycle12.cancelTimeout(categorySwitchTimeout);
+          if (categorySwitchTimeout !== null) lifecycle15.cancelTimeout(categorySwitchTimeout);
           const overlay = document.getElementById("quick-upgrade-overlay");
           overlay?.closeDialogMethod?.();
           document.getElementById("quick-buttons")?.remove();
@@ -4557,10 +4872,10 @@
           if (state.currentScreen !== "garage") return;
           if (!initialized2) {
             initialized2 = true;
-            categorySwitchTimeout = lifecycle12.timeout(() => {
+            categorySwitchTimeout = lifecycle15.timeout(() => {
               isCategorySwitch = false;
             }, 2e3);
-            lifecycle12.listen(document, "click", (e) => {
+            lifecycle15.listen(document, "click", (e) => {
               const target = e.target;
               if (!(target instanceof Element))
                 return;
@@ -4575,40 +4890,40 @@
               const backButton = target.closest(gameDOM.navigation.backControls);
               if (menuCategory || mainGarageBlock || backButton) {
                 isCategorySwitch = true;
-                if (categorySwitchTimeout) lifecycle12.cancelTimeout(categorySwitchTimeout);
-                categorySwitchTimeout = lifecycle12.timeout(() => {
+                if (categorySwitchTimeout) lifecycle15.cancelTimeout(categorySwitchTimeout);
+                categorySwitchTimeout = lifecycle15.timeout(() => {
                   isCategorySwitch = false;
                 }, 1e3);
               } else if (itemElement) {
                 isCategorySwitch = false;
-                if (categorySwitchTimeout) lifecycle12.cancelTimeout(categorySwitchTimeout);
+                if (categorySwitchTimeout) lifecycle15.cancelTimeout(categorySwitchTimeout);
               }
               if (menuCategory || mainGarageBlock || itemElement || backButton) {
                 if (isRunning) finish();
                 lastItemSignature = "";
                 const existing = document.getElementById("quick-buttons");
                 if (existing) existing.remove();
-                lifecycle12.timeout(createButtons, 10);
+                lifecycle15.timeout(createButtons, 10);
               }
             }, true);
-            lifecycle12.listen(document, "keydown", (e) => {
+            lifecycle15.listen(document, "keydown", (e) => {
               if (document.getElementById("quick-upgrade-overlay")) return;
               if (e.key === "Escape" || e.code === "KeyZ" || e.key.toLowerCase() === "z") {
                 if (document.activeElement && ["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
                 isCategorySwitch = true;
-                if (categorySwitchTimeout) lifecycle12.cancelTimeout(categorySwitchTimeout);
-                categorySwitchTimeout = lifecycle12.timeout(() => {
+                if (categorySwitchTimeout) lifecycle15.cancelTimeout(categorySwitchTimeout);
+                categorySwitchTimeout = lifecycle15.timeout(() => {
                   isCategorySwitch = false;
                 }, 1e3);
                 lastItemSignature = "";
               }
             }, true);
-            lifecycle12.listen(document, "mousedown", (e) => {
+            lifecycle15.listen(document, "mousedown", (e) => {
               if (document.getElementById("quick-upgrade-overlay")) return;
               if (e.button === 3 || e.button === 4) {
                 isCategorySwitch = true;
-                if (categorySwitchTimeout) lifecycle12.cancelTimeout(categorySwitchTimeout);
-                categorySwitchTimeout = lifecycle12.timeout(() => {
+                if (categorySwitchTimeout) lifecycle15.cancelTimeout(categorySwitchTimeout);
+                categorySwitchTimeout = lifecycle15.timeout(() => {
                   isCategorySwitch = false;
                 }, 1e3);
                 lastItemSignature = "";
@@ -4647,15 +4962,15 @@
   });
 
   // src/modules/changeCounter.ts
-  var lifecycle13, changeCounter;
+  var lifecycle16, changeCounter;
   var init_changeCounter = __esm({
     "src/modules/changeCounter.ts"() {
       "use strict";
       init_featureRuntime();
       init_gameDOM();
       init_pageMessages();
-      lifecycle13 = featureScope("changeCounter");
-      changeCounter = lifecycle13.initialize(() => {
+      lifecycle16 = featureScope("changeCounter");
+      changeCounter = lifecycle16.initialize(() => {
         const CACHE_KEY = "kasp_player_changes_cache";
         const playerChanges = /* @__PURE__ */ new Map();
         let isUpdating = false;
@@ -4681,11 +4996,11 @@
           playerChanges.clear();
           sessionStorage.removeItem(CACHE_KEY);
         };
-        lifecycle13.listen(window, "message", (e) => {
+        lifecycle16.listen(window, "message", (e) => {
           const message = readPageMessage(e, window, "kasp:battle-kind");
           if (message) window.__kaspBattleKind = message.detail;
         });
-        lifecycle13.listen(window, "message", (e) => {
+        lifecycle16.listen(window, "message", (e) => {
           const message = readPageMessage(e, window, "kasp:useraction");
           if (!message || message.detail[2] !== "CHANGE_EQUIPMENT") return;
           const detail = message.detail;
@@ -4697,7 +5012,7 @@
             update();
           }
         });
-        lifecycle13.listen(document, "kasp:battle:id", () => {
+        lifecycle16.listen(document, "kasp:battle:id", () => {
           clearCache();
           update();
         });
@@ -4746,7 +5061,7 @@
         function update() {
           sync();
         }
-        lifecycle13.onCleanup(() => {
+        lifecycle16.onCleanup(() => {
           document.querySelectorAll(".kasp-change-th, .kasp-change-td").forEach((node) => node.remove());
         });
         return {
@@ -4764,7 +5079,7 @@
   });
 
   // src/modules/customGarageSkins.ts
-  var lifecycle14, customGarageSkins;
+  var lifecycle17, customGarageSkins;
   var init_customGarageSkins = __esm({
     "src/modules/customGarageSkins.ts"() {
       "use strict";
@@ -4773,8 +5088,8 @@
       init_accountIdentity();
       init_gameAugments();
       init_imageUrl();
-      lifecycle14 = featureScope("customGarageSkins");
-      customGarageSkins = lifecycle14.initialize(() => {
+      lifecycle17 = featureScope("customGarageSkins");
+      customGarageSkins = lifecycle17.initialize(() => {
         const STORAGE_PREFIX2 = "kasp_equipped_skins_uid_";
         const BASE_IMG_KEY = "kasp_base_images";
         let ownerId = null;
@@ -5082,7 +5397,7 @@
           }
           updateGlobalCSS();
         }
-        lifecycle14.onCleanup(() => {
+        lifecycle17.onCleanup(() => {
           pendingLearn = null;
           ownerId = null;
           parsedStorage.clear();
@@ -5219,7 +5534,7 @@
   });
 
   // src/modules/zeroResists.ts
-  var lifecycle15, zeroResists;
+  var lifecycle18, zeroResists;
   var init_zeroResists = __esm({
     "src/modules/zeroResists.ts"() {
       "use strict";
@@ -5228,13 +5543,13 @@
       init_state();
       init_turretIcons();
       init_tabExpansion();
-      lifecycle15 = featureScope("zeroResists");
-      zeroResists = lifecycle15.initialize(() => {
+      lifecycle18 = featureScope("zeroResists");
+      zeroResists = lifecycle18.initialize(() => {
         const SHIELD_ICON_URL = chrome.runtime.getURL("assets/modulesTAB.svg");
         const TAB_SELECTOR = gameDOM.statistics.teams;
         let isTabExpanded = localStorage.getItem("kasp_tab_expanded") === "true";
         let initialExpandedSet = false;
-        const expansion = createTabExpansion(lifecycle15);
+        const expansion = createTabExpansion(lifecycle18);
         function getCssUrl(el, readStyle) {
           if (!el) return null;
           const cs = readStyle(el);
@@ -5396,7 +5711,7 @@
           btn.className = isTabExpanded ? "kasp-active-toggle" : "";
           btn.title = state.lang === "RU" ? "\u0412\u0441\u0435\u0433\u0434\u0430 \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u0432\u0441\u0435 \u043C\u043E\u0434\u0443\u043B\u0438" : "Always show all modules";
           btn.innerHTML = `<div class="kasp-toggle-icon" style="-webkit-mask-image: url('${SHIELD_ICON_URL}'); mask-image: url('${SHIELD_ICON_URL}');"></div>`;
-          lifecycle15.listen(btn, "click", (e) => {
+          lifecycle18.listen(btn, "click", (e) => {
             e.stopPropagation();
             const nextExpanded = !isTabExpanded;
             expansion.setExpanded(nextExpanded);
@@ -5431,7 +5746,7 @@
         function update() {
           sync();
         }
-        lifecycle15.onCleanup(() => {
+        lifecycle18.onCleanup(() => {
           document.body.classList.remove("kasp-tab-expanded");
           document.querySelectorAll(".kasp-defence-th, .kasp-compact-cell, .kasp-zero-summary, #kasp-tab-toggle-btn, .kasp-custom-summary-row").forEach((node) => node.remove());
         });
@@ -5482,7 +5797,7 @@
     }
     return [...counts.values()].sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
   }
-  var lifecycle16, BUTTON, TOOLTIP, TURRETS_ICON, WEAPONS, ALIASES, enemyWeapons;
+  var lifecycle19, BUTTON, TOOLTIP, TURRETS_ICON, WEAPONS, ALIASES, enemyWeapons;
   var init_enemyWeapons = __esm({
     "src/modules/enemyWeapons.ts"() {
       "use strict";
@@ -5491,7 +5806,7 @@
       init_state();
       init_turretIcons();
       init_imageUrl();
-      lifecycle16 = featureScope("enemyWeapons");
+      lifecycle19 = featureScope("enemyWeapons");
       BUTTON = "kasp-enemy-weapons-btn";
       TOOLTIP = "kasp-enemy-weapons-tooltip";
       TURRETS_ICON = "https://s.eu.tankionline.com/static/images/turrets.20be27f5.svg";
@@ -5516,13 +5831,13 @@
         terminator: ["\u0422\u0435\u0440\u043C\u0438\u043D\u0430\u0442\u043E\u0440", "Terminator"]
       };
       ALIASES = { isida: "isis", striker: "rocket_launcher", magnum: "artillery", scorpion: "scorpio", jugger: "terminator" };
-      enemyWeapons = lifecycle16.initialize(() => {
+      enemyWeapons = lifecycle19.initialize(() => {
         let button = null, tooltip = null;
         let initialized2 = false, open = false, focused = false, interval;
         let size = { width: 0, height: 0 }, signature = "";
         function hide() {
           open = focused = false;
-          lifecycle16.cancelInterval(interval);
+          lifecycle19.cancelInterval(interval);
           interval = void 0;
           tooltip?.remove();
           tooltip = null;
@@ -5591,44 +5906,44 @@
           open = true;
           button?.setAttribute("aria-expanded", "true");
           refresh();
-          if (open) interval ??= lifecycle16.interval(refresh, 250);
+          if (open) interval ??= lifecycle19.interval(refresh, 250);
         }
         function setup() {
           if (initialized2) return;
           initialized2 = true;
-          lifecycle16.listen(document, "mouseover", (event) => {
+          lifecycle19.listen(document, "mouseover", (event) => {
             if (!(event.target instanceof Element) || !button?.contains(event.target)) return;
             if (event.relatedTarget instanceof Node && button.contains(event.relatedTarget)) return;
             show();
           });
-          lifecycle16.listen(document, "mouseout", (event) => {
+          lifecycle19.listen(document, "mouseout", (event) => {
             if (focused || !(event.target instanceof Node) || !button?.contains(event.target)) return;
             if (!(event.relatedTarget instanceof Node) || !button.contains(event.relatedTarget)) hide();
           });
-          lifecycle16.listen(document, "focusin", (event) => {
+          lifecycle19.listen(document, "focusin", (event) => {
             if (!button || event.target !== button) return;
             focused = true;
             show();
           });
-          for (const type of ["mousedown", "click"]) lifecycle16.listen(document, type, (event) => {
+          for (const type of ["mousedown", "click"]) lifecycle19.listen(document, type, (event) => {
             if (!(event.target instanceof Node) || !button?.contains(event.target)) return;
             event.preventDefault();
             event.stopPropagation();
           }, true);
-          lifecycle16.listen(document, "focusout", (event) => {
+          lifecycle19.listen(document, "focusout", (event) => {
             if (event.target === button) hide();
           });
-          lifecycle16.listen(document, "keydown", (event) => {
+          lifecycle19.listen(document, "keydown", (event) => {
             if (event.key === "Escape") hide();
           });
-          lifecycle16.listen(window, "blur", hide);
-          lifecycle16.listen(window, "resize", () => {
+          lifecycle19.listen(window, "blur", hide);
+          lifecycle19.listen(window, "resize", () => {
             if (tooltip) {
               size = { width: tooltip.offsetWidth, height: tooltip.offsetHeight };
               position();
             }
           });
-          lifecycle16.listen(document, "visibilitychange", () => {
+          lifecycle19.listen(document, "visibilitychange", () => {
             if (document.hidden) hide();
           });
         }
@@ -5660,7 +5975,7 @@
           button.setAttribute("aria-label", state.lang === "RU" ? "\u041F\u0443\u0448\u043A\u0438 \u043F\u0440\u043E\u0442\u0438\u0432\u043D\u0438\u043A\u0430" : "Enemy weapons");
           refresh();
         }
-        lifecycle16.onCleanup(() => {
+        lifecycle19.onCleanup(() => {
           hide();
           button?.remove();
           button = null;
@@ -5672,15 +5987,15 @@
   });
 
   // src/modules/equipmentTracker.ts
-  var lifecycle17, equipmentTracker;
+  var lifecycle20, equipmentTracker;
   var init_equipmentTracker = __esm({
     "src/modules/equipmentTracker.ts"() {
       "use strict";
       init_featureRuntime();
       init_gameDOM();
       init_accountIdentity();
-      lifecycle17 = featureScope("equipmentTracker");
-      equipmentTracker = lifecycle17.initialize(() => {
+      lifecycle20 = featureScope("equipmentTracker");
+      equipmentTracker = lifecycle20.initialize(() => {
         const STORAGE_KEY = "kasp_my_equipment";
         let lastSignature = "";
         const urlFrom = (el) => {
@@ -5761,10 +6076,10 @@
           localStorage.removeItem(STORAGE_KEY);
           lastSignature = "";
         };
-        lifecycle17.onCleanup(() => {
+        lifecycle20.onCleanup(() => {
           clear();
         });
-        return { sync: lifecycle17.guard(sync), get: lifecycle17.guard(get), clear };
+        return { sync: lifecycle20.guard(sync), get: lifecycle20.guard(get), clear };
       }, { sync() {
       }, get() {
         return null;
@@ -6324,8 +6639,8 @@
       const finish = () => {
         if (finished) return;
         finished = true;
-        lifecycle18.cancelTimeout(timer);
-        lifecycle18.unlisten(element, "animationend", onAnimationEnd);
+        lifecycle21.cancelTimeout(timer);
+        lifecycle21.unlisten(element, "animationend", onAnimationEnd);
         element.classList.remove(className);
         resolve();
       };
@@ -6334,9 +6649,9 @@
       };
       element.classList.remove(className);
       void element.offsetWidth;
-      lifecycle18.listen(element, "animationend", onAnimationEnd);
+      lifecycle21.listen(element, "animationend", onAnimationEnd);
       element.classList.add(className);
-      timer = lifecycle18.timeout(finish, duration + 50);
+      timer = lifecycle21.timeout(finish, duration + 50);
     });
     const renderDetailedMatch = async (b, dict, lang) => {
       if (historyContext.invalidated) return;
@@ -6386,7 +6701,7 @@
       const card = document.createElement("article");
       card.innerHTML = buildCardMarkup(b, dict, lang, await loadTemplate("card"));
       card.style.cursor = "pointer";
-      lifecycle18.listen(card, "click", () => renderDetailedMatch(b, dict, lang));
+      lifecycle21.listen(card, "click", () => renderDetailedMatch(b, dict, lang));
       return card;
     };
     const buildPageNumbers = (current, total) => {
@@ -6414,7 +6729,7 @@
       prev.className = "bh-page bh-page-arrow";
       prev.textContent = "\u2039";
       prev.disabled = current <= 1;
-      lifecycle18.listen(prev, "click", () => renderBattleList(current - 1));
+      lifecycle21.listen(prev, "click", () => renderBattleList(current - 1));
       list.appendChild(prev);
       const pages = buildPageNumbers(current, total);
       for (const p of pages) {
@@ -6429,7 +6744,7 @@
         btn.type = "button";
         btn.className = "bh-page" + (p === current ? " bh-page-active" : "");
         btn.textContent = String(p);
-        lifecycle18.listen(btn, "click", () => renderBattleList(p));
+        lifecycle21.listen(btn, "click", () => renderBattleList(p));
         list.appendChild(btn);
       }
       const next = document.createElement("button");
@@ -6437,7 +6752,7 @@
       next.className = "bh-page bh-page-arrow";
       next.textContent = "\u203A";
       next.disabled = current >= total;
-      lifecycle18.listen(next, "click", () => renderBattleList(current + 1));
+      lifecycle21.listen(next, "click", () => renderBattleList(current + 1));
       list.appendChild(next);
     };
     const getBattleKey = (battle) => battle.id !== void 0 ? `id:${battle.id}` : `date:${battle.date}|${battle.map}|${battle.mode}`;
@@ -6448,7 +6763,7 @@
         listEl.classList.add("bh-list--animations-ready");
         listEl.querySelectorAll(".bh-card--rise-in").forEach((card) => {
           const delay = parseFloat(card.style.animationDelay) || 0;
-          lifecycle18.timeout(() => {
+          lifecycle21.timeout(() => {
             card.classList.remove("bh-card--rise-in");
             card.style.removeProperty("animation-delay");
             card.style.removeProperty("z-index");
@@ -6569,7 +6884,7 @@
       }
     };
   }
-  var lifecycle18;
+  var lifecycle21;
   var init_views = __esm({
     "src/modules/battleHistory/views.ts"() {
       "use strict";
@@ -6579,7 +6894,7 @@
       init_repository();
       init_localization();
       init_context();
-      lifecycle18 = featureScope("battleHistory");
+      lifecycle21 = featureScope("battleHistory");
     }
   });
 
@@ -6696,8 +7011,8 @@
         const confirmButton = createActionButton(dict.confirm);
         modal.actions.append(cancelButton, confirmButton);
         let confirmed = false;
-        lifecycle19.listen(cancelButton, "click", modal.close);
-        lifecycle19.listen(confirmButton, "click", () => {
+        lifecycle22.listen(cancelButton, "click", modal.close);
+        lifecycle22.listen(confirmButton, "click", () => {
           if (confirmed) return;
           confirmed = true;
           modal.close();
@@ -6714,7 +7029,7 @@
       void showClearConfirmModal(async () => {
         try {
           account.updateIdentity();
-          if (lifecycle19.disabled || userId !== account.getUserId()) return;
+          if (lifecycle22.disabled || userId !== account.getUserId()) return;
           await clearAccountHistory(userId);
           await renderBattleList(1);
         } catch (error) {
@@ -6729,7 +7044,7 @@
       try {
         const battles = await getAllBattles(userId);
         account.updateIdentity();
-        if (lifecycle19.disabled || userId !== account.getUserId() || battles.length === 0) return;
+        if (lifecycle22.disabled || userId !== account.getUserId() || battles.length === 0) return;
         const blob = new Blob([JSON.stringify(battles, null, 2)], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         try {
@@ -6755,33 +7070,33 @@
       const input = document.createElement("input");
       input.type = "file";
       input.accept = ".json";
-      input.onchange = lifecycle19.guard((e) => {
+      input.onchange = lifecycle22.guard((e) => {
         const target = e.target;
         const file = target.files?.[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = lifecycle19.guard(async (ev) => {
+        reader.onload = lifecycle22.guard(async (ev) => {
           try {
             account.updateIdentity();
-            if (lifecycle19.disabled || userId !== account.getUserId()) return;
+            if (lifecycle22.disabled || userId !== account.getUserId()) return;
             const battles = parseHistoryImport(String(ev.target?.result ?? ""), userId);
             const added = await addBattles(battles, userId);
-            if (lifecycle19.disabled) return;
+            if (lifecycle22.disabled) return;
             await renderBattleList(1);
-            if (lifecycle19.disabled) return;
+            if (lifecycle22.disabled) return;
             window.alert(getHistoryMessages(state.lang).imported(added));
           } catch (err) {
             showImportError(err);
           }
         });
-        reader.onerror = lifecycle19.guard(() => showImportError(reader.error));
+        reader.onerror = lifecycle22.guard(() => showImportError(reader.error));
         reader.readAsText(file);
       });
       input.click();
     };
     return { clearHistoryDb, exportHistoryData, importHistoryData };
   }
-  var lifecycle19;
+  var lifecycle22;
   var init_actions = __esm({
     "src/modules/battleHistory/actions.ts"() {
       "use strict";
@@ -6791,7 +7106,7 @@
       init_repository();
       init_validation();
       init_localization();
-      lifecycle19 = featureScope("battleHistory");
+      lifecycle22 = featureScope("battleHistory");
     }
   });
 
@@ -6849,7 +7164,7 @@
       overlay.style.setProperty("transition", "opacity 0.1s ease", "important");
       void overlay.offsetHeight;
       overlay.style.setProperty("opacity", "0", "important");
-      lifecycle20.timeout(() => overlay.remove(), 120);
+      lifecycle23.timeout(() => overlay.remove(), 120);
     };
     const flashHideSettings = () => {
       if (document.getElementById("bh-flash-cover")) return;
@@ -6865,26 +7180,26 @@
             transition: opacity 0.15s ease;
         `;
       document.body.appendChild(cover);
-      const watch = lifecycle20.observer(() => {
+      const watch = lifecycle23.observer(() => {
         if (!document.querySelector(gameDOM.navigation.header)) {
           cover.style.opacity = "0";
-          lifecycle20.timeout(() => {
+          lifecycle23.timeout(() => {
             watch.disconnect();
             cover.remove();
           }, 200);
         }
       });
       watch.observe(document.body, { childList: true, subtree: true });
-      lifecycle20.timeout(() => {
+      lifecycle23.timeout(() => {
         watch.disconnect();
         cover.remove();
       }, 2e3);
     };
     const disarmReturnWatcher = () => {
       exitAfterReturn = false;
-      lifecycle20.cancelTimeout(returnTimer);
-      lifecycle20.cancelTimeout(returnBackTimer);
-      lifecycle20.cancelTimeout(returnLoaderTimer);
+      lifecycle23.cancelTimeout(returnTimer);
+      lifecycle23.cancelTimeout(returnBackTimer);
+      lifecycle23.cancelTimeout(returnLoaderTimer);
       returnLoaderObserver?.disconnect();
       returnLoaderObserver = null;
       returnObserver?.disconnect();
@@ -6893,7 +7208,7 @@
     const armExitAfterReturn = () => {
       disarmReturnWatcher();
       exitAfterReturn = true;
-      returnObserver = lifecycle20.observer(() => {
+      returnObserver = lifecycle23.observer(() => {
         if (!exitAfterReturn) return;
         if (!document.querySelector(gameDOM.navigation.header)) {
           disarmReturnWatcher();
@@ -6909,17 +7224,17 @@
           const finishLoading = () => {
             returnLoaderObserver?.disconnect();
             returnLoaderObserver = null;
-            lifecycle20.cancelTimeout(returnLoaderTimer);
+            lifecycle23.cancelTimeout(returnLoaderTimer);
             hideFakeLoader();
           };
-          returnLoaderObserver = lifecycle20.observer(() => {
+          returnLoaderObserver = lifecycle23.observer(() => {
             if (!document.querySelector(gameDOM.navigation.header)) {
               finishLoading();
             }
           });
           returnLoaderObserver.observe(document.body, { childList: true, subtree: true });
-          returnLoaderTimer = lifecycle20.timeout(finishLoading, 2e3);
-          returnBackTimer = lifecycle20.timeout(() => {
+          returnLoaderTimer = lifecycle23.timeout(finishLoading, 2e3);
+          returnBackTimer = lifecycle23.timeout(() => {
             const backBtn = document.querySelector(
               gameDOM.navigation.back
             );
@@ -6932,7 +7247,7 @@
         subtree: true,
         characterData: true
       });
-      returnTimer = lifecycle20.timeout(() => {
+      returnTimer = lifecycle23.timeout(() => {
         if (exitAfterReturn) {
           disarmReturnWatcher();
         }
@@ -6951,7 +7266,7 @@
       nativeContent = null;
       pageObserver?.disconnect();
       pageObserver = null;
-      if (resizeHandler) lifecycle20.unlisten(window, "resize", resizeHandler);
+      if (resizeHandler) lifecycle23.unlisten(window, "resize", resizeHandler);
       resizeHandler = null;
     };
     const closeHistoryOverlay = (overlay, auto = false) => {
@@ -6965,7 +7280,7 @@
     };
     const watchNativePage = (overlay, ourTitle) => {
       pageObserver?.disconnect();
-      pageObserver = lifecycle20.observer(() => {
+      pageObserver = lifecycle23.observer(() => {
         if (!document.querySelector(gameDOM.navigation.header)) {
           releasePage(overlay);
           return;
@@ -6989,15 +7304,15 @@
         let timer = 0;
         const finish = (element) => {
           obs.disconnect();
-          lifecycle20.cancelTimeout(timer);
+          lifecycle23.cancelTimeout(timer);
           resolve(element);
         };
-        const obs = lifecycle20.observer(() => {
+        const obs = lifecycle23.observer(() => {
           const el = document.querySelector(selector);
           if (el) finish(el);
         });
         obs.observe(document.body, { childList: true, subtree: true });
-        timer = lifecycle20.timeout(() => finish(null), timeoutMs);
+        timer = lifecycle23.timeout(() => finish(null), timeoutMs);
       });
     };
     const bindOverlayToHeader = (overlay, header) => {
@@ -7007,9 +7322,9 @@
         overlay.style.height = `calc(100vh - ${r.bottom}px)`;
       };
       update();
-      if (resizeHandler) lifecycle20.unlisten(window, "resize", resizeHandler);
+      if (resizeHandler) lifecycle23.unlisten(window, "resize", resizeHandler);
       resizeHandler = update;
-      lifecycle20.listen(window, "resize", update);
+      lifecycle23.listen(window, "resize", update);
     };
     const openAsNativePage = async (overlay) => {
       const dict = getHistoryDictionary(state.lang);
@@ -7064,7 +7379,7 @@
       btn.className = gameDOM.classes.footerEntry + " custom-history-button";
       btn.innerHTML = "<div></div>";
       btn.title = dict.title;
-      lifecycle20.listen(btn, "click", async () => {
+      lifecycle23.listen(btn, "click", async () => {
         if (opening) return;
         opening = true;
         const hidden = [];
@@ -7100,7 +7415,7 @@
           if (!overlay) return;
           await renderBattleList(1, true);
           const duration = 500 + Math.random() * 2500;
-          await new Promise((r) => lifecycle20.timeout(r, duration));
+          await new Promise((r) => lifecycle23.timeout(r, duration));
           if (document.querySelector(".custom-history-overlay") !== overlay) return;
           const ok = await openAsNativePage(overlay);
           if (document.querySelector(".custom-history-overlay") !== overlay) return;
@@ -7118,9 +7433,9 @@
             const tick = () => {
               frames++;
               if (frames >= 3) resolve();
-              else lifecycle20.frame(tick);
+              else lifecycle23.frame(tick);
             };
-            lifecycle20.frame(tick);
+            lifecycle23.frame(tick);
           });
         } catch (error) {
           console.error("[BattleHistory] Failed to open history:", error);
@@ -7135,7 +7450,7 @@
     const bindShortcuts = () => {
       if (shortcutsBound) return;
       shortcutsBound = true;
-      lifecycle20.listen(document, "keydown", (e) => {
+      lifecycle23.listen(document, "keydown", (e) => {
         const overlay = document.querySelector(".custom-history-overlay");
         const isHistoryOpen = overlay && window.getComputedStyle(overlay).display !== "none";
         if (!isHistoryOpen) return;
@@ -7146,7 +7461,7 @@
           e.stopImmediatePropagation();
         }
       }, true);
-      lifecycle20.listen(window, "keydown", (e) => {
+      lifecycle23.listen(window, "keydown", (e) => {
         if (document.getElementById("clear-confirm-overlay")) return;
         const overlay = document.querySelector(".custom-history-overlay");
         if (overlay && overlay.style.display === "flex") {
@@ -7157,7 +7472,7 @@
           }
         }
       });
-      lifecycle20.listen(document, "mousedown", (e) => {
+      lifecycle23.listen(document, "mousedown", (e) => {
         const overlay = document.querySelector(".custom-history-overlay");
         if (overlay && overlay.style.display === "flex" && e.button === 3) {
           closeHistoryOverlay(overlay);
@@ -7175,7 +7490,7 @@
       }
     };
   }
-  var lifecycle20;
+  var lifecycle23;
   var init_navigation = __esm({
     "src/modules/battleHistory/navigation.ts"() {
       "use strict";
@@ -7183,7 +7498,7 @@
       init_gameDOM();
       init_state();
       init_localization();
-      lifecycle20 = featureScope("battleHistory");
+      lifecycle23 = featureScope("battleHistory");
     }
   });
 
@@ -7431,7 +7746,7 @@
   });
 
   // src/modules/battleHistory.ts
-  var lifecycle21, battleHistory;
+  var lifecycle24, battleHistory;
   var init_battleHistory = __esm({
     "src/modules/battleHistory.ts"() {
       "use strict";
@@ -7447,8 +7762,8 @@
       init_navigation();
       init_capture();
       init_context();
-      lifecycle21 = featureScope("battleHistory");
-      battleHistory = lifecycle21.initialize(() => {
+      lifecycle24 = featureScope("battleHistory");
+      battleHistory = lifecycle24.initialize(() => {
         let initialized2 = false;
         let currentUserId = null;
         let currentNickname = "Unknown";
@@ -7493,7 +7808,7 @@
             throw new Error(`Failed to load history template: ${response.status}`);
           }
           const template = await response.text();
-          if (lifecycle21.disabled || historyContext.invalidated || userId !== account.getUserId() || document.querySelector(".custom-history-overlay")) return;
+          if (lifecycle24.disabled || historyContext.invalidated || userId !== account.getUserId() || document.querySelector(".custom-history-overlay")) return;
           const replacements = {
             title: String(dict.title ?? ""),
             clear: String(dict.clear ?? ""),
@@ -7528,7 +7843,7 @@
           }
           return historyPagePromise;
         };
-        lifecycle21.onCleanup(() => {
+        lifecycle24.onCleanup(() => {
           historyContext.invalidated = true;
           results.reset();
           views.reset();
@@ -7545,7 +7860,7 @@
           updateIdentity();
           const inResults = document.querySelector(gameDOM.results.status);
           if (document.querySelector(gameDOM.results.selfRow) && inResults) {
-            void results.capture().catch((error) => lifecycle21.fail(error));
+            void results.capture().catch((error) => lifecycle24.fail(error));
           } else if (!inResults) {
             results.reset();
           }
@@ -7553,7 +7868,7 @@
           if (!initialized2) {
             initialized2 = true;
             navigation.bindShortcuts();
-            lifecycle21.timeout(updateIdentity, 5e3);
+            lifecycle24.timeout(updateIdentity, 5e3);
           }
           navigation.injectFooterButton();
           void ensureHistoryPage();
@@ -7671,7 +7986,7 @@
       }
     };
   }
-  var lifecycle22, OVERDRIVE_COOLDOWN_MS, OVERDRIVE_POINT_RADIUS, overdriveTimer;
+  var lifecycle25, OVERDRIVE_COOLDOWN_MS, OVERDRIVE_POINT_RADIUS, overdriveTimer;
   var init_overdriveTimer = __esm({
     "src/modules/overdriveTimer.ts"() {
       "use strict";
@@ -7682,10 +7997,10 @@
       init_state();
       init_utils();
       init_overdriveDirection();
-      lifecycle22 = featureScope("overdriveTimer");
+      lifecycle25 = featureScope("overdriveTimer");
       OVERDRIVE_COOLDOWN_MS = 85e3;
       OVERDRIVE_POINT_RADIUS = 1e3;
-      overdriveTimer = lifecycle22.initialize(() => {
+      overdriveTimer = lifecycle25.initialize(() => {
         const locations = createOverdriveLocations();
         const timers = locations.timers.map((location2) => ({
           location: location2,
@@ -7758,7 +8073,7 @@
         function render() {
           const enabled = utils.getSetting("k_overdrive_timer", false);
           if (!enabled) {
-            if (renderInterval !== void 0) lifecycle22.cancelInterval(renderInterval);
+            if (renderInterval !== void 0) lifecycle25.cancelInterval(renderInterval);
             renderInterval = void 0;
             previewObserver?.disconnect();
             battleCanvas = null;
@@ -7775,7 +8090,7 @@
               attributeFilter: ["class", "style", "hidden"],
               subtree: true
             });
-            renderInterval = lifecycle22.interval(render, 250);
+            renderInterval = lifecycle25.interval(render, 250);
           }
           const inBattle = syncBattle();
           if (!inBattle) reset();
@@ -7819,7 +8134,7 @@
         function setup() {
           if (initialized2) return;
           initialized2 = true;
-          lifecycle22.listen(window, "message", (event) => {
+          lifecycle25.listen(window, "message", (event) => {
             if (!utils.getSetting("k_overdrive_timer", false)) return;
             const direction = readPageMessage(event, window, OVERDRIVE_DIRECTION_MESSAGE);
             if (direction) {
@@ -7834,20 +8149,20 @@
             const pickup = typeof message.detail === "string" ? { model: message.detail, position: null } : message.detail;
             if (locations.pickup(pickup.model, pickup.position)) render();
           });
-          lifecycle22.listen(document, "kasp:battle:id", () => {
+          lifecycle25.listen(document, "kasp:battle:id", () => {
             reset();
             render();
           });
-          lifecycle22.listen(window, "kasp:settings-changed", render);
-          lifecycle22.listen(window, "storage", render);
-          previewObserver = lifecycle22.observer((records) => {
+          lifecycle25.listen(window, "kasp:settings-changed", render);
+          lifecycle25.listen(window, "storage", render);
+          previewObserver = lifecycle25.observer((records) => {
             if (!utils.getSetting("k_overdrive_timer", false)) return;
             const selector = `${gameDOM.screens.tankPreview}, ${gameDOM.common.container}`;
             if (records.some((record) => record.type === "childList" ? [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)].some((node) => node.matches?.(selector) || node.querySelector?.(selector)) : record.target.matches(selector))) render();
           });
           render();
         }
-        lifecycle22.onCleanup(() => {
+        lifecycle25.onCleanup(() => {
           previewObserver?.disconnect();
           renderInterval = void 0;
           reset();
@@ -7911,7 +8226,7 @@
       control?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
     };
     const finishRank = (close = false) => {
-      if (rankTimer !== null) lifecycle23.cancelTimeout(rankTimer);
+      if (rankTimer !== null) lifecycle26.cancelTimeout(rankTimer);
       rankTimer = null;
       if (close && rankJob?.opened && rankJob.dropdown.isConnected && rankJob.dropdown.querySelector(dom.dropdownMenu)) {
         const previousWriting = writing2;
@@ -7942,7 +8257,7 @@
       finishRank(true);
       observer?.disconnect();
       observer = null;
-      events.forEach((type) => lifecycle23.unlisten(root, type, onInteraction, true));
+      events.forEach((type) => lifecycle26.unlisten(root, type, onInteraction, true));
       releaseLocks();
       creationRoot?.removeAttribute(CYBERSPORT_ACTIVE);
       creationRoot = null;
@@ -8028,7 +8343,7 @@
         rankJob.clicked = true;
         firstOption.click();
       }
-      if (rankTimer === null) rankTimer = lifecycle23.timeout(() => {
+      if (rankTimer === null) rankTimer = lifecycle26.timeout(() => {
         rankTimer = null;
         schedule();
       }, 100);
@@ -8046,8 +8361,8 @@
       if (root !== panel) {
         clear();
         root = panel;
-        events.forEach((type) => lifecycle23.listen(panel, type, onInteraction, true));
-        observer = lifecycle23.observer(schedule);
+        events.forEach((type) => lifecycle26.listen(panel, type, onInteraction, true));
+        observer = lifecycle26.observer(schedule);
         observer.observe(panel, {
           subtree: true,
           childList: true,
@@ -8076,22 +8391,22 @@
         writing2 = false;
       }
     };
-    lifecycle23.onCleanup(clear);
-    return { sync: lifecycle23.guard(sync), clear };
+    lifecycle26.onCleanup(clear);
+    return { sync: lifecycle26.guard(sync), clear };
   }
-  var lifecycle23;
+  var lifecycle26;
   var init_cybersportSettings = __esm({
     "src/modules/cybersportSettings.ts"() {
       "use strict";
       init_featureRuntime();
       init_gameDOM();
       init_cybersportNative();
-      lifecycle23 = featureScope("cybersportSettings");
+      lifecycle26 = featureScope("cybersportSettings");
     }
   });
 
   // src/modules/cybersport.ts
-  var lifecycle24, cybersport;
+  var lifecycle27, cybersport;
   var init_cybersport = __esm({
     "src/modules/cybersport.ts"() {
       "use strict";
@@ -8099,8 +8414,8 @@
       init_gameDOM();
       init_state();
       init_cybersportSettings();
-      lifecycle24 = featureScope("cybersport");
-      cybersport = lifecycle24.initialize(() => {
+      lifecycle27 = featureScope("cybersport");
+      cybersport = lifecycle27.initialize(() => {
         let row = null;
         let sport = null;
         let card = null;
@@ -8145,7 +8460,7 @@
         const schedule = () => {
           if (scheduled) return;
           scheduled = true;
-          lifecycle24.frame(() => {
+          lifecycle27.frame(() => {
             scheduled = false;
             sync();
           });
@@ -8153,7 +8468,7 @@
         const settings = createCybersportSettings(schedule);
         const cancelModeSelection = () => {
           modeUntil = 0;
-          if (modeTimer !== null) lifecycle24.cancelTimeout(modeTimer);
+          if (modeTimer !== null) lifecycle27.cancelTimeout(modeTimer);
           modeTimer = null;
         };
         const selectMode = (container) => {
@@ -8167,7 +8482,7 @@
             cancelModeSelection();
             ctf.click();
           } else if (modeTimer === null) {
-            modeTimer = lifecycle24.timeout(() => {
+            modeTimer = lifecycle27.timeout(() => {
               modeTimer = null;
               sync();
             }, 100);
@@ -8212,7 +8527,7 @@
           if (mapRow !== container) {
             clearMaps();
             mapRow = container;
-            mapObserver = lifecycle24.observer(schedule);
+            mapObserver = lifecycle27.observer(schedule);
             mapObserver.observe(container, {
               childList: true,
               subtree: true,
@@ -8273,7 +8588,7 @@
         const cleanup = () => {
           observer?.disconnect();
           observer = null;
-          lifecycle24.unlisten(row, "click", onNativeClick, true);
+          lifecycle27.unlisten(row, "click", onNativeClick, true);
           sport?.removeAttribute("data-kasp-cybersport-source-active");
           sport?.lastElementChild?.querySelector("h2")?.removeAttribute("data-kasp-select-label");
           card?.remove();
@@ -8324,20 +8639,20 @@
             card.setAttribute("role", "button");
             card.tabIndex = 0;
             card.style.setProperty("--kasp-cybersport-image", `url("${chrome.runtime.getURL("assets/cybersport.png")}")`);
-            lifecycle24.listen(card, "click", (event) => {
+            lifecycle27.listen(card, "click", (event) => {
               event.preventDefault();
               event.stopPropagation();
               select();
             });
-            lifecycle24.listen(card, "keydown", (event) => {
+            lifecycle27.listen(card, "keydown", (event) => {
               if (event.key !== "Enter") return;
               event.preventDefault();
               event.stopPropagation();
               if (!event.repeat) select();
             });
             row.insertBefore(card, nativeSport.nextSibling);
-            lifecycle24.listen(row, "click", onNativeClick, true);
-            observer = lifecycle24.observer(schedule);
+            lifecycle27.listen(row, "click", onNativeClick, true);
+            observer = lifecycle27.observer(schedule);
             observer.observe(row, {
               childList: true,
               subtree: true,
@@ -8373,7 +8688,7 @@
           if (sport.nextSibling !== card) row.insertBefore(card, sport.nextSibling);
           if (chosen && !nativeSelected && Date.now() < selectionUntil) schedule();
         }
-        lifecycle24.onCleanup(() => {
+        lifecycle27.onCleanup(() => {
           cancelEsports();
           cleanup();
         });
@@ -8405,8 +8720,11 @@
       init_welcomeModal();
       init_hideNickname();
       init_hideCurrency();
+      init_hideSupplies();
       init_tankoinBalance();
+      init_accountSearchNotice();
       init_lobbyPasses();
+      init_lobbyNavigation();
       init_customTrophies();
       init_autoUpgrade();
       init_changeCounter();
@@ -8426,8 +8744,11 @@
         welcomeModal,
         hideNickname,
         hideCurrency,
+        hideSupplies,
         tankoinBalance,
+        accountSearchNotice,
         lobbyPasses,
+        lobbyNavigation,
         customTrophies,
         autoUpgrade,
         changeCounter,
@@ -8469,6 +8790,7 @@
       modules.welcomeModal();
       modules.hideNickname();
       modules.tankoinBalance();
+      modules.accountSearchNotice();
       modules.hideCurrency();
       modules.lobbyPasses();
       modules.customGarageSkins();
@@ -8476,6 +8798,7 @@
       if (state.currentScreen === "lobby" || state.currentScreen === "loading") {
         modules.customPlayButton();
       }
+      modules.lobbyNavigation();
       if (state.friendsMenuOpen) {
         modules.customFriends();
       }
@@ -8696,7 +9019,7 @@
     };
     const screenLabels = new Map(Object.entries(labels));
     let battle = null, receivedAt2 = 0, end;
-    lifecycle25.listen(window, "message", (event) => {
+    lifecycle28.listen(window, "message", (event) => {
       const message = readPageMessage(event, window, BATTLE_PRESENCE_MESSAGE);
       if (!message) return;
       const next = message.battle;
@@ -8729,27 +9052,27 @@
     const start = () => {
       if (timer !== void 0) return;
       send();
-      timer = lifecycle25.interval(send, 3e3);
+      timer = lifecycle28.interval(send, 3e3);
     };
-    lifecycle25.onCleanup(() => {
+    lifecycle28.onCleanup(() => {
       postPageMessage(window, { type: "kasp:discord-presence", version: 1, presence: null });
     });
     start();
     const refreshPrivacy = () => {
       if (timer !== void 0) send();
     };
-    lifecycle25.listen(window, "kasp:settings-changed", refreshPrivacy);
-    lifecycle25.listen(window, "storage", (event) => {
+    lifecycle28.listen(window, "kasp:settings-changed", refreshPrivacy);
+    lifecycle28.listen(window, "storage", (event) => {
       if (event.key === "k_hideNicknameXP") refreshPrivacy();
     });
-    lifecycle25.listen(window, "pageshow", start);
-    lifecycle25.listen(window, "pagehide", () => {
-      lifecycle25.cancelInterval(timer);
+    lifecycle28.listen(window, "pageshow", start);
+    lifecycle28.listen(window, "pagehide", () => {
+      lifecycle28.cancelInterval(timer);
       timer = void 0;
       postPageMessage(window, { type: "kasp:discord-presence", version: 1, presence: null });
     });
   }
-  var lifecycle25;
+  var lifecycle28;
   var init_discordPresence = __esm({
     "src/modules/discordPresence.ts"() {
       "use strict";
@@ -8761,7 +9084,7 @@
       init_dataLoader();
       init_battlePresence();
       init_pageMessages();
-      lifecycle25 = featureScope("discordPresence");
+      lifecycle28 = featureScope("discordPresence");
     }
   });
 
@@ -8773,6 +9096,7 @@
       init_utils();
       init_boot();
       init_hideNickname();
+      init_hideSupplies();
       init_discordPresence();
       init_accountIdentity();
       init_featureRuntime();
@@ -8784,6 +9108,7 @@
         document.documentElement.style.setProperty("--kasp-loader-bg", `url("${loaderBg}")`);
         state.lang = utils.getLang();
         featureScope("hideNickname").run(setupNicknamePrivacy);
+        featureScope("hideSupplies").run(hideSupplies);
         startBoot();
         featureScope("discordPresence").run(setupDiscordPresence);
       }

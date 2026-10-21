@@ -68,6 +68,8 @@ function injectorFixture(fetch, plans = JSON.parse(read('src/generated/overdrive
     const head = { appendChild(script) { appended.push(script); } };
     const context = {
         require: id => {
+            if (id === './core/supplyPrivacy') return { installSupplyPrivacy() {}, selectSupplyPrivacyPlan: async () => undefined, supplyPrivacyPlanValid: () => false };
+            if (id === './generated/supply-privacy.json') return { plans: [] };
             if (id === './core/bonusPickup') return { ...bonusPickupModule.exports, ...bonusOverrides };
             if (id === './core/cybersportNative') return { installCybersportNative() {} };
             if (id === './core/accountIdentityNative') return { installAccountIdentityNative: () => ({ capture() {}, reportMapping() {} }) };

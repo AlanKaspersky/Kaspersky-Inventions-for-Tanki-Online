@@ -4,6 +4,8 @@ import { gameDOM } from '../core/gameDOM';
 import { state } from '../core/state';
 import { getVerifiedAccount } from '../core/accountIdentity';
 import { getTankiImageUrl } from '../core/imageUrl';
+import { ACCOUNT_IDENTITY_MESSAGE } from '../core/accountId';
+import { readPageMessage } from '../core/pageMessages';
 
 export const customTrophies = lifecycle.initialize(() => {
     let initialization: Promise<void> | null = null;
@@ -32,6 +34,7 @@ export const customTrophies = lifecycle.initialize(() => {
 
     let cachedFavs: Trophy[] | null = null;
     let favoritesOwner: string | null = null;
+    const presentedOwners = new Set<string>();
 
     function syncOwner(): string | null {
         const userId = getVerifiedAccount()?.userId || null;
@@ -265,6 +268,9 @@ export const customTrophies = lifecycle.initialize(() => {
             if (getFavs().length === 0) panel?.remove();
             else if (challengesBlock.parentElement && (!panel || panel.dataset.trophiesKey !== key)) {
                 const replacement = createPanel();
+                if (!panel && state.currentScreen === 'lobby' && favoritesOwner && !presentedOwners.has(favoritesOwner))
+                    replacement.className += ' kasp-lobby-reveal';
+                if (favoritesOwner) presentedOwners.add(favoritesOwner);
                 replacement.dataset.trophiesKey = key;
                 if (panel) panel.replaceWith(replacement);
                 else challengesBlock.parentElement.appendChild(replacement);
@@ -279,7 +285,7 @@ export const customTrophies = lifecycle.initialize(() => {
 
     lifecycle.onCleanup(() => { cachedFavs=null;favoritesOwner=null;document.querySelectorAll('.custom-trophy-panel, [data-kasp-trophy-star]').forEach(node=>node.remove()); });
 
-    return async () => {
+    const update = async () => {
         const owner = syncOwner();
         if (!initialization) initialization = loadTrophyDictionary();
         await initialization;
@@ -293,4 +299,17 @@ export const customTrophies = lifecycle.initialize(() => {
             if (battleCards.length > 0) processBattleResults(Array.from(battleCards) as HTMLElement[]);
         }
     };
+
+    // Warm the packaged dictionary while the game establishes native ownership.
+    initialization = loadTrophyDictionary();
+    let identityUpdate: number | null = null;
+    lifecycle.listen(window, 'message', event => {
+        if (!readPageMessage(event, window, ACCOUNT_IDENTITY_MESSAGE) || identityUpdate !== null) return;
+        // Run after all identity listeners, regardless of module import order.
+        identityUpdate = lifecycle.timeout(() => {
+            identityUpdate = null;
+            if ((getVerifiedAccount()?.userId || null) !== favoritesOwner) return update();
+        }, 0);
+    });
+    return update;
 }, () => {});

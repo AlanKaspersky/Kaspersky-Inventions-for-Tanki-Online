@@ -1,0 +1,19 @@
+html.kasp-hide-supplies .kasp-private-supply-value { visibility: hidden !important; }
+html.kasp-hide-supplies .kasp-private-supply-static { position: relative !important; }
+html.kasp-hide-supplies .kasp-private-supply-value::after {
+    content: '0';
+    visibility: visible !important;
+    position: absolute;
+    inset: 0;
+    font: inherit;
+    color: inherit;
+    text-align: inherit;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+/* Inventory cards omit the count entirely, including the replacement zero. */
+html.kasp-hide-supplies .GarageItemComponentStyle-amountItemsScroll.kasp-private-supply-value::after {
+    content: none;
+    display: none;
+}

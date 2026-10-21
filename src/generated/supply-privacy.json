@@ -1,0 +1,138 @@
+{
+  "plans": [
+    {
+      "format": "ki-supply-privacy-v1",
+      "sourceLength": 22383020,
+      "sha256": "4ef9f256178c771071ce9cc0baf2a00d939073746badf40c8656c6d5760c3db4",
+      "status": {
+        "ready": true,
+        "issues": [],
+        "renderers": 4
+      },
+      "edits": [
+        {
+          "start": 18114294,
+          "end": 18114381,
+          "expected": "1e4 <= t && t <= 999999 ? (t / 1e3 | 0) + \"k\" : t >= 1e6 ? (t / 1e6 | 0) + \"m\" : \"\" + t",
+          "text": "(window.__kaspSupplyPrivacy?.text(this.d12b_1,\"f67\",1e4 <= t && t <= 999999 ? (t / 1e3 | 0) + \"k\" : t >= 1e6 ? (t / 1e6 | 0) + \"m\" : \"\" + t)??(1e4 <= t && t <= 999999 ? (t / 1e3 | 0) + \"k\" : t >= 1e6 ? (t / 1e6 | 0) + \"m\" : \"\" + t))",
+          "before": "        this.d12b_1.f67(",
+          "after": ")\r\n                    }"
+        },
+        {
+          "start": 18120206,
+          "end": 18120293,
+          "expected": "1e4 <= t && t <= 999999 ? (t / 1e3 | 0) + \"k\" : t >= 1e6 ? (t / 1e6 | 0) + \"m\" : \"\" + t",
+          "text": "(window.__kaspSupplyPrivacy?.text(this.d12f_1,\"f67\",1e4 <= t && t <= 999999 ? (t / 1e3 | 0) + \"k\" : t >= 1e6 ? (t / 1e6 | 0) + \"m\" : \"\" + t)??(1e4 <= t && t <= 999999 ? (t / 1e3 | 0) + \"k\" : t >= 1e6 ? (t / 1e6 | 0) + \"m\" : \"\" + t))",
+          "before": "        this.d12f_1.f67(",
+          "after": ")\r\n                    }"
+        },
+        {
+          "start": 20682443,
+          "end": 20682530,
+          "expected": "1e4 <= t && t <= 999999 ? (t / 1e3 | 0) + \"k\" : t >= 1e6 ? (t / 1e6 | 0) + \"m\" : \"\" + t",
+          "text": "(window.__kaspSupplyPrivacy?.text(this.u1hc_1,\"f67\",1e4 <= t && t <= 999999 ? (t / 1e3 | 0) + \"k\" : t >= 1e6 ? (t / 1e6 | 0) + \"m\" : \"\" + t)??(1e4 <= t && t <= 999999 ? (t / 1e3 | 0) + \"k\" : t >= 1e6 ? (t / 1e6 | 0) + \"m\" : \"\" + t))",
+          "before": "        this.u1hc_1.f67(",
+          "after": ")\r\n                    }"
+        },
+        {
+          "start": 20721721,
+          "end": 20721808,
+          "expected": "1e4 <= t && t <= 999999 ? (t / 1e3 | 0) + \"k\" : t >= 1e6 ? (t / 1e6 | 0) + \"m\" : \"\" + t",
+          "text": "(window.__kaspSupplyPrivacy?.text(this.a1hh_1,\"f67\",1e4 <= t && t <= 999999 ? (t / 1e3 | 0) + \"k\" : t >= 1e6 ? (t / 1e6 | 0) + \"m\" : \"\" + t)??(1e4 <= t && t <= 999999 ? (t / 1e3 | 0) + \"k\" : t >= 1e6 ? (t / 1e6 | 0) + \"m\" : \"\" + t))",
+          "before": "        this.a1hh_1.f67(",
+          "after": ")\r\n                    }"
+        }
+      ],
+      "templates": [
+        {
+          "pattern": "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*if(?![$\\w])\\s*\\(\\s*!\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*>=\\s*0\\s*\\)\\s*\\)\\s*throw(?![$\\w])\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:\"Count must be non-negative, was \"|'Count must be non-negative, was ')\\s*\\+\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\)\\s*;\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\((?<e0start>)\\s*1e4\\s*<=\\s*\\k<s3>(?![$\\w])\\s*&&\\s*\\k<s3>(?![$\\w])\\s*<=\\s*999999\\s*\\?\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*/\\s*1e3\\s*\\|\\s*0\\s*\\)\\s*\\+\\s*(?:\"k\"|'k')\\s*:\\s*\\k<s3>(?![$\\w])\\s*>=\\s*1e6\\s*\\?\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*/\\s*1e6\\s*\\|\\s*0\\s*\\)\\s*\\+\\s*(?:\"m\"|'m')\\s*:\\s*(?:\"\"|'')\\s*\\+\\s*\\k<s3>(?![$\\w])(?<e0end>)\\s*\\)\\s*\\}",
+          "roles": {},
+          "count": 4,
+          "search": {
+            "literal": "Count must be non-negative, was ",
+            "margin": 2464
+          },
+          "edits": [
+            {
+              "start": "e0start",
+              "end": "e0end",
+              "parts": [
+                "(window.__kaspSupplyPrivacy?.text(this.",
+                {
+                  "capture": "s6",
+                  "quoted": false
+                },
+                ",",
+                {
+                  "capture": "s7",
+                  "quoted": true
+                },
+                ",1e4 <= ",
+                {
+                  "capture": "s3",
+                  "quoted": false
+                },
+                " && ",
+                {
+                  "capture": "s3",
+                  "quoted": false
+                },
+                " <= 999999 ? (",
+                {
+                  "capture": "s3",
+                  "quoted": false
+                },
+                " / 1e3 | 0) + \"k\" : ",
+                {
+                  "capture": "s3",
+                  "quoted": false
+                },
+                " >= 1e6 ? (",
+                {
+                  "capture": "s3",
+                  "quoted": false
+                },
+                " / 1e6 | 0) + \"m\" : \"\" + ",
+                {
+                  "capture": "s3",
+                  "quoted": false
+                },
+                ")??(1e4 <= ",
+                {
+                  "capture": "s3",
+                  "quoted": false
+                },
+                " && ",
+                {
+                  "capture": "s3",
+                  "quoted": false
+                },
+                " <= 999999 ? (",
+                {
+                  "capture": "s3",
+                  "quoted": false
+                },
+                " / 1e3 | 0) + \"k\" : ",
+                {
+                  "capture": "s3",
+                  "quoted": false
+                },
+                " >= 1e6 ? (",
+                {
+                  "capture": "s3",
+                  "quoted": false
+                },
+                " / 1e6 | 0) + \"m\" : \"\" + ",
+                {
+                  "capture": "s3",
+                  "quoted": false
+                },
+                "))"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

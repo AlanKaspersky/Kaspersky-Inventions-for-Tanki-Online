@@ -5542,6 +5542,9 @@
     "src/core/gameDOM.ts"() {
       "use strict";
       gameDOM = {
+        supplyPrivacy: {
+          counts: '.SuppliesComponentStyle-containersBlocks .SuppliesComponentStyle-cellAdd > span, .GarageCommonStyle-garageContainer:has([class*="GarageSupplies"]) .GarageItemComponentStyle-amountItemsScroll'
+        },
         battleCreate: {
           joinButton: ".JoinToBattleComponentStyle-buttonJoin",
           root: ".BattleCreateComponentStyle-mainContainer",
@@ -5687,6 +5690,10 @@
           untreatedContainer: '.MainScreenComponentStyle-playButtonContainer:not([data-overridden="true"])',
           button: ".MainScreenComponentStyle-buttonPlay",
           mainMenu: ".MainScreenComponentStyle-blockMainMenu"
+        },
+        lobbyNavigation: {
+          root: ".MainScreenComponentStyle-containerForMenuGradient",
+          cards: ".MainScreenComponentStyle-playButtonContainer, #quick-play-wrapper .custom-mode-button, .PrimaryMenuItemComponentStyle-menuItemContainer, .FooterComponentStyle-containerMenu"
         },
         lobbyPasses: {
           announcement: ".AnnouncementHomeScreenComponentStyle-mainContainer",
@@ -14466,6 +14473,10 @@
     return "";
   }
   function nativeSchema(value) {
+    const prototype = Object.getPrototypeOf(value);
+    const ownMethod = Object.getOwnPropertyDescriptor(value, "toString");
+    const cached = !ownMethod && prototype ? prototypeSchemas.get(prototype) : void 0;
+    if (cached) return cached;
     const source = methodSource(value);
     let schema = nativeSchemas.get(source);
     if (!schema) {
@@ -14475,48 +14486,242 @@
       if (nativeSchemas.size >= 512) nativeSchemas.clear();
       nativeSchemas.set(source, schema);
     }
+    if (!ownMethod && prototype) prototypeSchemas.set(prototype, schema);
     return schema;
   }
-  function nativeField(value, label) {
-    const key = nativeSchema(value).fields.get(label);
+  function nativeField(value, label, schema = nativeSchema(value)) {
+    const key = schema.fields.get(label);
     return key ? Object.getOwnPropertyDescriptor(value, key)?.value : void 0;
   }
-  function visitModels(root, depthLimit, budget, visit) {
-    const queue = [[root, 0]], seen = /* @__PURE__ */ new Set();
-    for (let head = 0; head < queue.length && seen.size < budget; head++) {
-      const [value, depth] = queue[head];
-      if (seen.has(value) || typeof Node !== "undefined" && value instanceof Node) continue;
+  function* directUser(store, error) {
+    const states = [], seen = /* @__PURE__ */ new Set();
+    const inspect = (value, path) => {
+      if (seen.has(value)) return;
       seen.add(value);
-      visit(value, nativeSchema(value).model);
-      if (depth >= depthLimit) continue;
-      for (const descriptor of Object.values(Object.getOwnPropertyDescriptors(value)).slice(0, budget)) {
-        const child = descriptor.value;
-        if (child && typeof child === "object" && queue.length < budget * 2) queue.push([child, depth + 1]);
+      try {
+        const schema = nativeSchema(value);
+        if (schema.model === "TOState") states.push({ value, path, schema });
+      } catch (cause) {
+        error(cause);
+      }
+    };
+    yield;
+    inspect(store, []);
+    if (!states.length) {
+      let keys;
+      try {
+        keys = Object.getOwnPropertyNames(store);
+      } catch (cause) {
+        error(cause);
+        return null;
+      }
+      if (keys.length > 32) return null;
+      for (const key2 of keys) {
+        yield;
+        try {
+          const value = Object.getOwnPropertyDescriptor(store, key2)?.value;
+          if (value && typeof value === "object") inspect(value, [key2]);
+        } catch (cause) {
+          error(cause);
+        }
+      }
+    }
+    if (states.length !== 1) return null;
+    const state = states[0], key = state.schema.fields.get("user");
+    if (!key) return null;
+    try {
+      const value = Object.getOwnPropertyDescriptor(state.value, key)?.value;
+      if (!value || typeof value !== "object") return null;
+      const schema = nativeSchema(value);
+      return schema.model === "User" ? { value, path: [...state.path, key], schema } : null;
+    } catch (cause) {
+      error(cause);
+      return null;
+    }
+  }
+  function resolvePath(root, path) {
+    let value = root;
+    for (const key of path) {
+      if (!value || typeof value !== "object") return null;
+      value = Object.getOwnPropertyDescriptor(value, key)?.value;
+    }
+    return value && typeof value === "object" ? value : null;
+  }
+  function* visitModels(root, depthLimit, budget, visit, error) {
+    const queue = [{ value: root, path: [] }];
+    const seen = /* @__PURE__ */ new Set();
+    for (let head = 0; head < queue.length && seen.size < budget; head++) {
+      yield;
+      const { value, path } = queue[head];
+      if (seen.has(value)) continue;
+      seen.add(value);
+      try {
+        if (typeof Node !== "undefined" && value instanceof Node) continue;
+        if (!visit({ value, path, schema: nativeSchema(value) }) || path.length >= depthLimit) continue;
+        const keys = Object.getOwnPropertyNames(value);
+        for (let index = 0; index < keys.length && index < budget * 2 && queue.length < budget * 2; index++) {
+          yield;
+          const key = keys[index];
+          try {
+            const child = Object.getOwnPropertyDescriptor(value, key)?.value;
+            if (child && typeof child === "object") queue.push({ value: child, path: [...path, key] });
+          } catch (cause) {
+            error(cause);
+          }
+        }
+      } catch (cause) {
+        error(cause);
       }
     }
   }
-  function readNativeAccountSnapshot(store) {
-    const accounts = [], remote = [];
-    visitModels(store, 3, 500, (value, model) => {
-      if (model === "User" && nativeField(value, "isUserPropertiesLoaded") === true) {
-        const userId = normalizeAccountId(nativeField(value, "id"));
-        const nickname = nativeField(value, "uid"), clanTag = nativeField(value, "clanTag");
+  function createNativeAccountReader(store) {
+    let users = [], remote = [];
+    let localJob = null, remoteJob = null;
+    let account = null, players = [];
+    let nextDiscovery = 0, nextAccountDiscovery = 0, nextPlayers = 0, slices = 0, lastError = null;
+    let invalidPath = false, publishPending = false, direct = false;
+    const error = (cause) => {
+      lastError = String(cause);
+    };
+    const discover = () => {
+      const foundUsers = [], foundRemote = [];
+      localJob = (function* () {
+        const owner = yield* directUser(store, error);
+        if (owner) {
+          users = [owner];
+          invalidPath = false;
+          direct = true;
+          publishPending = true;
+          yield;
+        }
+        yield* visitModels(store, 4, 4e3, (binding) => {
+          if (binding.schema.model === "User") {
+            foundUsers.push(binding);
+            return false;
+          }
+          if (binding.schema.model === "RemoteUserDataStorage") {
+            foundRemote.push(binding);
+            return false;
+          }
+          return binding.schema.model !== "RemoteUserData";
+        }, error);
+        users = owner ? [owner] : foundUsers;
+        remote = foundRemote;
+        direct = owner !== null;
+        invalidPath = false;
+        nextAccountDiscovery = Date.now() + 1e3;
+        nextDiscovery = Date.now() + 5e3;
+      })();
+      nextAccountDiscovery = Date.now() + 1e3;
+      nextDiscovery = Date.now() + 5e3;
+    };
+    const snapshot = () => {
+      const accounts = [];
+      for (const binding of users) try {
+        if (resolvePath(store, binding.path) !== binding.value) {
+          invalidPath = true;
+          continue;
+        }
+        const field2 = (label) => nativeField(binding.value, label, binding.schema);
+        if (field2("isUserPropertiesLoaded") !== true) continue;
+        const userId = normalizeAccountId(field2("id")), nickname = field2("uid"), clanTag = field2("clanTag");
         if (userId && typeof nickname === "string" && nickname.trim()) {
           accounts.push({ userId, nickname, clanTag: typeof clanTag === "string" ? clanTag : "" });
         }
-      } else if (model === "RemoteUserDataStorage") {
-        const data = nativeField(value, "userIdToData");
-        if (data && typeof data === "object") remote.push(data);
+      } catch (cause) {
+        invalidPath = true;
+        error(cause);
       }
-    });
-    if (accounts.length !== 1) return { account: null, players: [] };
-    const players = /* @__PURE__ */ new Map();
-    for (const root of remote.slice(0, 1)) visitModels(root, 5, 6e3, (value, model) => {
-      if (model !== "RemoteUserData") return;
-      const userId = normalizeAccountId(nativeField(value, "userId")), nickname = nativeField(value, "uid");
-      if (userId && typeof nickname === "string" && nickname.trim()) players.set(userId, nickname);
-    });
-    return { account: accounts[0], players: [...players].map(([userId, nickname]) => ({ userId, nickname })) };
+      const next = !invalidPath && accounts.length === 1 ? accounts[0] : null;
+      if (next?.userId !== account?.userId) {
+        players = [];
+        remoteJob = null;
+        nextPlayers = 0;
+      }
+      account = next;
+      return { account, players: account ? players : [] };
+    };
+    const refresh = () => {
+      snapshot();
+      if (!localJob && ((invalidPath || !users.length) && Date.now() >= nextAccountDiscovery || account && !remote.length && Date.now() >= nextDiscovery)) discover();
+      if (!account || localJob || remoteJob || Date.now() < nextPlayers) return;
+      const binding = remote[0];
+      if (!binding) return;
+      nextPlayers = Date.now() + 5e3;
+      try {
+        if (resolvePath(store, binding.path) !== binding.value) {
+          remote = [];
+          players = [];
+          nextPlayers = 0;
+          return;
+        }
+        const root = nativeField(binding.value, "userIdToData", binding.schema);
+        if (!root || typeof root !== "object") {
+          players = [];
+          return;
+        }
+        const found = /* @__PURE__ */ new Map(), owner = account.userId;
+        remoteJob = (function* () {
+          yield* visitModels(root, 5, 6e3, (item) => {
+            if (item.schema.model !== "RemoteUserData") return true;
+            const userId = normalizeAccountId(nativeField(item.value, "userId", item.schema));
+            const nickname = nativeField(item.value, "uid", item.schema);
+            if (userId && typeof nickname === "string" && nickname.trim()) found.set(userId, nickname);
+            return false;
+          }, error);
+          if (snapshot().account?.userId === owner && resolvePath(store, binding.path) === binding.value && nativeField(binding.value, "userIdToData", binding.schema) === root) {
+            players = [...found].map(([userId, nickname]) => ({ userId, nickname }));
+            nextPlayers = Date.now() + 5e3;
+          } else {
+            players = [];
+            nextPlayers = 0;
+          }
+        })();
+      } catch (cause) {
+        error(cause);
+      }
+    };
+    discover();
+    return {
+      refresh,
+      snapshot,
+      pending: () => localJob !== null || remoteJob !== null,
+      step() {
+        const job = localJob || remoteJob;
+        if (!job) return false;
+        const start = performance.now();
+        slices++;
+        try {
+          for (let operations = 0; operations < 64; operations++) {
+            const result = job.next();
+            if (publishPending) {
+              publishPending = false;
+              return true;
+            }
+            if (result.done) {
+              if (localJob === job) localJob = null;
+              if (remoteJob === job) remoteJob = null;
+              refresh();
+              return true;
+            }
+            if (performance.now() - start >= 2) break;
+          }
+        } catch (cause) {
+          error(cause);
+          if (localJob === job) localJob = null;
+          if (remoteJob === job) remoteJob = null;
+          return true;
+        }
+        return false;
+      },
+      status: () => ({
+        pending: localJob ? "account" : remoteJob ? "players" : null,
+        direct,
+        slices,
+        lastError,
+        userPaths: users.map((binding) => binding.path.join("."))
+      })
+    };
   }
   function inspectIdentityStores(stores) {
     const models = [];
@@ -14574,55 +14779,84 @@
     const seenStores = /* @__PURE__ */ new WeakSet();
     let storeCount = 0;
     let currentStore = null;
+    let reader = null;
+    let work = null;
+    let publishedOwner = null;
     let mapping = null;
     const bridge = page;
     bridge.__kaspAccountDebug = {
       status() {
+        return {
+          captured: currentStore !== null,
+          stores: storeCount,
+          mapping,
+          account: reader?.snapshot().account || null,
+          discovery: reader?.status(),
+          runtime: lifecycle.status()
+        };
+      },
+      inspect() {
         try {
-          return {
-            captured: currentStore !== null,
-            stores: storeCount,
-            mapping,
-            account: currentStore ? readNativeAccountSnapshot(currentStore).account : null,
-            ...inspectIdentityStores(currentStore ? [currentStore] : [])
-          };
+          return { ...this.status(), ...inspectIdentityStores(currentStore ? [currentStore] : []) };
         } catch (error) {
           return { captured: currentStore !== null, stores: storeCount, mapping, error: String(error) };
         }
       }
     };
     const publish = () => {
-      let snapshot = { account: null, players: [] };
-      try {
-        if (currentStore) snapshot = readNativeAccountSnapshot(currentStore);
-      } catch (error) {
-        lifecycle.fail(error);
-      }
+      const snapshot = reader?.snapshot() || { account: null, players: [] };
+      publishedOwner = snapshot.account?.userId || null;
       postPageMessage(page, { type: ACCOUNT_IDENTITY_MESSAGE, snapshot });
     };
-    page.addEventListener("message", (event) => {
-      if (readPageMessage(event, page, ACCOUNT_IDENTITY_REQUEST)) publish();
+    const schedule = (delay = 8) => {
+      if (work !== null || !reader?.pending() || lifecycle.disabled) return;
+      work = lifecycle.timeout(() => {
+        work = null;
+        if (reader?.step()) publish();
+        schedule();
+      }, delay);
+    };
+    const poll = () => {
+      reader?.refresh();
+      publish();
+      schedule();
+    };
+    lifecycle.listen(page, "message", (event) => {
+      if (readPageMessage(event, page, ACCOUNT_IDENTITY_REQUEST)) poll();
     });
-    lifecycle.interval(publish, 1e3);
+    lifecycle.interval(poll, 1e3);
     lifecycle.onCleanup(() => {
       currentStore = null;
+      reader = null;
+      work = null;
       postPageMessage(page, { type: ACCOUNT_IDENTITY_MESSAGE, snapshot: { account: null, players: [] } });
     });
     return {
       capture(value) {
         if (lifecycle.disabled) return;
+        if (value === currentStore) {
+          if (!publishedOwner && reader?.snapshot().account) publish();
+          return;
+        }
+        if (work !== null) {
+          lifecycle.cancelTimeout(work);
+          work = null;
+        }
         currentStore = value;
+        reader = createNativeAccountReader(value);
         if (!seenStores.has(value)) {
           seenStores.add(value);
           storeCount++;
         }
+        publish();
+        schedule(0);
       },
       reportMapping(status) {
         mapping = { ...status, issues: [...status.issues] };
       }
     };
   }
-  var nativeSchemas;
+  var nativeSchemas, prototypeSchemas;
   var init_accountIdentityNative = __esm({
     "src/core/accountIdentityNative.ts"() {
       "use strict";
@@ -14631,6 +14865,7 @@
       init_pageMessages();
       init_accountId();
       nativeSchemas = /* @__PURE__ */ new Map();
+      prototypeSchemas = /* @__PURE__ */ new WeakMap();
     }
   });
 
@@ -15008,6 +15243,245 @@
     }
   });
 
+  // src/core/supplyPrivacy.ts
+  async function selectSupplyPrivacyPlan(code, plans) {
+    const candidates = plans.filter((plan) => plan.status.ready && plan.sourceLength === code.length);
+    if (candidates.length) {
+      const hash = await clientSourceHash(code);
+      const exact = candidates.find((plan) => plan.sha256 === hash);
+      if (exact) return exact;
+    }
+    for (const plan of [...plans].reverse()) {
+      if (plan.format !== "ki-supply-privacy-v1" || !plan.status.ready) continue;
+      const adapted = resolveTemplateEdits(code, plan);
+      if (adapted) return { ...plan, sourceLength: code.length, edits: adapted.edits };
+    }
+    return void 0;
+  }
+  function installSupplyPrivacy(page) {
+    const scope = featureScope("supplyPrivacy");
+    const labels = /* @__PURE__ */ new Set();
+    let byLabel = /* @__PURE__ */ new WeakMap();
+    let enabled = false;
+    const write = (label, method, text2) => {
+      const setter = label[method];
+      if (typeof setter === "function") setter.call(label, text2);
+    };
+    const refresh = () => {
+      for (const record of labels) {
+        const label = record.label.deref();
+        if (!label) {
+          labels.delete(record);
+          continue;
+        }
+        try {
+          write(label, record.method, enabled ? "0" : record.text);
+        } catch (error) {
+          labels.delete(record);
+          byLabel.delete(label);
+          scope.fail(error);
+        }
+      }
+    };
+    const sync = () => {
+      let next = false;
+      try {
+        next = localStorage.getItem("k_hideSupplies") === "true";
+      } catch {
+      }
+      if (next === enabled) return;
+      enabled = next;
+      refresh();
+    };
+    scope.listen(page, "kasp:settings-changed", sync);
+    scope.listen(page, "storage", sync);
+    scope.interval(sync, 250);
+    scope.onCleanup(() => {
+      enabled = false;
+      refresh();
+      labels.clear();
+      byLabel = /* @__PURE__ */ new WeakMap();
+    });
+    sync();
+    const bridge = {
+      text(label, method, text2) {
+        return scope.run(() => {
+          let record = byLabel.get(label);
+          if (!record) {
+            for (const item of labels) if (!item.label.deref()) labels.delete(item);
+            if (labels.size >= 128) {
+              scope.dispose("label-limit");
+              return text2;
+            }
+            record = { label: new WeakRef(label), method, text: text2 };
+            labels.add(record);
+            byLabel.set(label, record);
+          } else {
+            record.text = text2;
+            record.method = method;
+          }
+          return enabled ? "0" : text2;
+        }) ?? text2;
+      }
+    };
+    page.__kaspSupplyPrivacy = bridge;
+    return bridge;
+  }
+  var supplyPrivacyPlanValid;
+  var init_supplyPrivacy = __esm({
+    "src/core/supplyPrivacy.ts"() {
+      "use strict";
+      init_featureRuntime();
+      init_clientPatches();
+      supplyPrivacyPlanValid = (code, plan) => plan.format === "ki-supply-privacy-v1" && plan.status.ready && validatePatchEdits(code, plan);
+    }
+  });
+
+  // src/generated/supply-privacy.json
+  var supply_privacy_default;
+  var init_supply_privacy = __esm({
+    "src/generated/supply-privacy.json"() {
+      supply_privacy_default = {
+        plans: [
+          {
+            format: "ki-supply-privacy-v1",
+            sourceLength: 22383020,
+            sha256: "4ef9f256178c771071ce9cc0baf2a00d939073746badf40c8656c6d5760c3db4",
+            status: {
+              ready: true,
+              issues: [],
+              renderers: 4
+            },
+            edits: [
+              {
+                start: 18114294,
+                end: 18114381,
+                expected: '1e4 <= t && t <= 999999 ? (t / 1e3 | 0) + "k" : t >= 1e6 ? (t / 1e6 | 0) + "m" : "" + t',
+                text: '(window.__kaspSupplyPrivacy?.text(this.d12b_1,"f67",1e4 <= t && t <= 999999 ? (t / 1e3 | 0) + "k" : t >= 1e6 ? (t / 1e6 | 0) + "m" : "" + t)??(1e4 <= t && t <= 999999 ? (t / 1e3 | 0) + "k" : t >= 1e6 ? (t / 1e6 | 0) + "m" : "" + t))',
+                before: "        this.d12b_1.f67(",
+                after: ")\r\n                    }"
+              },
+              {
+                start: 18120206,
+                end: 18120293,
+                expected: '1e4 <= t && t <= 999999 ? (t / 1e3 | 0) + "k" : t >= 1e6 ? (t / 1e6 | 0) + "m" : "" + t',
+                text: '(window.__kaspSupplyPrivacy?.text(this.d12f_1,"f67",1e4 <= t && t <= 999999 ? (t / 1e3 | 0) + "k" : t >= 1e6 ? (t / 1e6 | 0) + "m" : "" + t)??(1e4 <= t && t <= 999999 ? (t / 1e3 | 0) + "k" : t >= 1e6 ? (t / 1e6 | 0) + "m" : "" + t))',
+                before: "        this.d12f_1.f67(",
+                after: ")\r\n                    }"
+              },
+              {
+                start: 20682443,
+                end: 20682530,
+                expected: '1e4 <= t && t <= 999999 ? (t / 1e3 | 0) + "k" : t >= 1e6 ? (t / 1e6 | 0) + "m" : "" + t',
+                text: '(window.__kaspSupplyPrivacy?.text(this.u1hc_1,"f67",1e4 <= t && t <= 999999 ? (t / 1e3 | 0) + "k" : t >= 1e6 ? (t / 1e6 | 0) + "m" : "" + t)??(1e4 <= t && t <= 999999 ? (t / 1e3 | 0) + "k" : t >= 1e6 ? (t / 1e6 | 0) + "m" : "" + t))',
+                before: "        this.u1hc_1.f67(",
+                after: ")\r\n                    }"
+              },
+              {
+                start: 20721721,
+                end: 20721808,
+                expected: '1e4 <= t && t <= 999999 ? (t / 1e3 | 0) + "k" : t >= 1e6 ? (t / 1e6 | 0) + "m" : "" + t',
+                text: '(window.__kaspSupplyPrivacy?.text(this.a1hh_1,"f67",1e4 <= t && t <= 999999 ? (t / 1e3 | 0) + "k" : t >= 1e6 ? (t / 1e6 | 0) + "m" : "" + t)??(1e4 <= t && t <= 999999 ? (t / 1e3 | 0) + "k" : t >= 1e6 ? (t / 1e6 | 0) + "m" : "" + t))',
+                before: "        this.a1hh_1.f67(",
+                after: ")\r\n                    }"
+              }
+            ],
+            templates: [
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*if(?![$\\w])\\s*\\(\\s*!\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*>=\\s*0\\s*\\)\\s*\\)\\s*throw(?![$\\w])\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"Count must be non-negative, was "|'Count must be non-negative, was ')\\s*\\+\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\)\\s*;\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\((?<e0start>)\\s*1e4\\s*<=\\s*\\k<s3>(?![$\\w])\\s*&&\\s*\\k<s3>(?![$\\w])\\s*<=\\s*999999\\s*\\?\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*/\\s*1e3\\s*\\|\\s*0\\s*\\)\\s*\\+\\s*(?:"k"|'k')\\s*:\\s*\\k<s3>(?![$\\w])\\s*>=\\s*1e6\\s*\\?\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*/\\s*1e6\\s*\\|\\s*0\\s*\\)\\s*\\+\\s*(?:"m"|'m')\\s*:\\s*(?:""|'')\\s*\\+\\s*\\k<s3>(?![$\\w])(?<e0end>)\\s*\\)\\s*\\}`,
+                roles: {},
+                count: 4,
+                search: {
+                  literal: "Count must be non-negative, was ",
+                  margin: 2464
+                },
+                edits: [
+                  {
+                    start: "e0start",
+                    end: "e0end",
+                    parts: [
+                      "(window.__kaspSupplyPrivacy?.text(this.",
+                      {
+                        capture: "s6",
+                        quoted: false
+                      },
+                      ",",
+                      {
+                        capture: "s7",
+                        quoted: true
+                      },
+                      ",1e4 <= ",
+                      {
+                        capture: "s3",
+                        quoted: false
+                      },
+                      " && ",
+                      {
+                        capture: "s3",
+                        quoted: false
+                      },
+                      " <= 999999 ? (",
+                      {
+                        capture: "s3",
+                        quoted: false
+                      },
+                      ' / 1e3 | 0) + "k" : ',
+                      {
+                        capture: "s3",
+                        quoted: false
+                      },
+                      " >= 1e6 ? (",
+                      {
+                        capture: "s3",
+                        quoted: false
+                      },
+                      ' / 1e6 | 0) + "m" : "" + ',
+                      {
+                        capture: "s3",
+                        quoted: false
+                      },
+                      ")??(1e4 <= ",
+                      {
+                        capture: "s3",
+                        quoted: false
+                      },
+                      " && ",
+                      {
+                        capture: "s3",
+                        quoted: false
+                      },
+                      " <= 999999 ? (",
+                      {
+                        capture: "s3",
+                        quoted: false
+                      },
+                      ' / 1e3 | 0) + "k" : ',
+                      {
+                        capture: "s3",
+                        quoted: false
+                      },
+                      " >= 1e6 ? (",
+                      {
+                        capture: "s3",
+                        quoted: false
+                      },
+                      ' / 1e6 | 0) + "m" : "" + ',
+                      {
+                        capture: "s3",
+                        quoted: false
+                      },
+                      "))"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      };
+    }
+  });
+
   // src/kasp_injector.ts
   var require_kasp_injector = __commonJS({
     "src/kasp_injector.ts"() {
@@ -15039,15 +15513,18 @@
       init_pageMessages();
       init_overdriveDirection();
       init_overdrive_direction();
+      init_supplyPrivacy();
+      init_supply_privacy();
       (function() {
         "use strict";
         installFeatureDiagnostics(window, "page");
+        featureScope("supplyPrivacy").run(() => installSupplyPrivacy(window));
+        const accountIdentity = featureScope("accountIdentity").run(() => installAccountIdentityNative(window));
+        featureScope("battlePresence").run(() => installBattlePresence(window, (value) => accountIdentity?.capture(value)));
         featureScope("augments").run(() => installGameAugments(window));
         featureScope("garageSkinCards").run(() => installGarageSkinCardsBridge(window));
         featureScope("criticalIndicator", { budgetMs: 4 }).run(() => installCriticalIndicator(window));
-        const accountIdentity = featureScope("accountIdentity").run(() => installAccountIdentityNative(window));
         const direction = featureScope("overdriveDirection").run(() => installOverdriveDirection(window));
-        featureScope("battlePresence").run(() => installBattlePresence(window, (value) => accountIdentity?.capture(value)));
         featureScope("battleStatistics").run(() => installBattleStatistics(window));
         featureScope("userActions").run(() => installUserActions(window));
         featureScope("garageInventory").run(() => installGarageInventoryDiagnostics(window));
@@ -15283,8 +15760,17 @@
                   } catch {
                     direction?.reportHook({ ready: false, hooked: false, strategy: "ast-plan", issues: ["direction-patch-error"] });
                   }
+                  let supplyPrivacyPlan;
+                  try {
+                    supplyPrivacyPlan = await selectSupplyPrivacyPlan(originalCode, supply_privacy_default.plans);
+                    if (supplyPrivacyPlan && supplyPrivacyPlanValid(originalCode, supplyPrivacyPlan)) prepared.push(supplyPrivacyPlan);
+                    else console.warn("[KI Supply privacy] Count label mapping unavailable");
+                  } catch {
+                    console.warn("[KI Supply privacy] Count label mapping failed");
+                  }
                   const merged = mergeClientPatchPlans(originalCode, prepared);
                   code = merged.code;
+                  if (supplyPrivacyPlan && merged.rejected.includes(supplyPrivacyPlan)) console.warn("[KI Supply privacy] Count label patch conflict");
                   if (bonusPlan && merged.rejected.includes(bonusPlan)) reportBonus({ kind: "hooks", ready: false, issues: ["overdrive-edit-conflict"] });
                   if (arcadePlan && merged.rejected.includes(arcadePlan)) reportArcade({ hooked: false, ready: false, issues: ["arcade-edit-conflict"] });
                   if (augmentPlan && merged.rejected.includes(augmentPlan)) reportAugments({ hooked: false, ready: false, strategy: "ast-plan", issues: ["augments-edit-conflict"] });

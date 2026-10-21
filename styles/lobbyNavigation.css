@@ -1,0 +1,201 @@
+/* Tile lobby: keep native nodes, masks, localized names, badges and handlers. */
+.kasp-lobby-left { --kasp-left-width: 27.5em; }
+.kasp-lobby-left .kasp-left-play-group {
+    width: var(--kasp-left-width) !important;
+    height: auto !important;
+    margin-left: 5em !important;
+    margin-top: 10em !important;
+    flex: 0 0 auto !important;
+}
+.kasp-lobby-left .kasp-left-card {
+    position: relative !important;
+    isolation: isolate;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    border: 1px solid transparent !important;
+    border-radius: .5em !important;
+    background: #fff !important;
+    box-shadow: 0 0 0 .063em #fff !important;
+    color: #000 !important;
+    font-family: BaseFontRegular, FallbackFontRegular, sans-serif !important;
+    text-shadow: none !important;
+    transition: background-color .2s, box-shadow .2s !important;
+}
+.kasp-lobby-left .kasp-left-card:hover { box-shadow: 0 0 0 2px #fff !important; }
+.kasp-lobby-left .custom-main-bg-layer,
+.kasp-lobby-left .custom-btn-bg-layer { display: none !important; }
+.kasp-lobby-left .MainScreenComponentStyle-playButtonContainer {
+    width: 100% !important;
+    height: 7.7em !important;
+    flex: 0 0 auto !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background-image: none !important;
+}
+.kasp-lobby-left .MainScreenComponentStyle-playButtonContainer .custom-main-text {
+    box-sizing: border-box !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: .5em !important;
+    font: 2.35em/1.1 BaseFontBold, FallbackFontBold, sans-serif !important;
+    color: #000 !important;
+    text-align: center !important;
+    text-shadow: none !important;
+    z-index: 4 !important;
+}
+.kasp-lobby-left .MainScreenComponentStyle-playButtonContainer > span:not(.kasp-left-art-slice) {
+    position: relative;
+    color: #000 !important;
+    font-family: BaseFontBold, FallbackFontBold, sans-serif !important;
+}
+.kasp-lobby-left .MainScreenComponentStyle-playButtonContainer:has(.custom-main-text) span:not(.kasp-left-art-slice) {
+    /* React can reset custom-inner-btn while retaining our presentation nodes. */
+    display: none !important;
+}
+.kasp-lobby-left .main-lock-icon { background-color: #555 !important; }
+.kasp-lobby-left #quick-play-wrapper { width: 100% !important; }
+.kasp-lobby-left #quick-play-wrapper > div { height: 3.15em !important; }
+.kasp-lobby-left .mode-icon-el { background-color: #000 !important; }
+.kasp-lobby-left .wide-mode-btn-text {
+    color: #000 !important;
+    font: 1.1em BaseFontMedium, FallbackFontMedium, sans-serif !important;
+}
+.kasp-lobby-left .custom-mode-button > div:not(.custom-btn-bg-layer):not(.mode-icon-el) { gap: .4em !important; z-index: 4 !important; }
+.kasp-lobby-left .custom-mode-button > .mode-icon-el { z-index: 4 !important; }
+.kasp-lobby-left .custom-mode-button::after,
+.kasp-lobby-left .MainScreenComponentStyle-playButtonContainer::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -150%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .5), transparent);
+    transform: skewX(-25deg);
+    z-index: 3;
+    pointer-events: none;
+}
+.kasp-lobby-left .custom-mode-button:hover::after,
+.kasp-lobby-left:not(:has(.MainScreenComponentStyle-disabledButtonPlay)) .MainScreenComponentStyle-playButtonContainer:hover::after { animation: kasp-metal-shine .6s ease-in-out forwards; }
+.kasp-lobby-left .MainScreenComponentStyle-disabledButtonPlay .custom-main-text { color: #555 !important; }
+.kasp-lobby-left:has(.MainScreenComponentStyle-disabledButtonPlay) #quick-play-wrapper { opacity: .55; }
+.kasp-lobby-left:has(.MainScreenComponentStyle-disabledButtonPlay) .MainScreenComponentStyle-playButtonContainer > .kasp-left-art-slice { filter: brightness(.42) !important; }
+.kasp-lobby-left:has(.MainScreenComponentStyle-disabledButtonPlay) .main-lock-icon { background-color: #ddd !important; }
+.kasp-lobby-left .MainScreenComponentStyle-blockMainMenu {
+    width: var(--kasp-left-width) !important;
+    margin: .8em 0 0 5em !important;
+    height: auto !important;
+    flex: 0 0 auto !important;
+}
+.kasp-lobby-left .MainScreenComponentStyle-blockMainMenu ul {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100% !important;
+    height: auto !important;
+    gap: .55em !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    flex: none !important;
+}
+.kasp-lobby-left .PrimaryMenuItemComponentStyle-menuItemContainer {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 5.7em !important;
+    max-height: none !important;
+    min-width: 0 !important;
+    padding: .7em .5em !important;
+    gap: .4em;
+    margin: 0 !important;
+    flex: none !important;
+}
+.kasp-lobby-left .PrimaryMenuItemComponentStyle-menuItemContainer:last-child {
+    grid-column: 1 / -1;
+    min-height: 3.25em !important;
+    flex-direction: row !important;
+    gap: .65em;
+}
+.kasp-lobby-left .PrimaryMenuItemComponentStyle-menuItemContainer > div {
+    width: 2em !important;
+    height: 2em !important;
+    flex: 0 0 2em !important;
+    margin: 0 !important;
+    background-color: #000 !important;
+}
+.kasp-lobby-left .PrimaryMenuItemComponentStyle-menuItemContainer:last-child > div { width: 1.6em !important; height: 1.6em !important; flex-basis: 1.6em !important; }
+.kasp-lobby-left span.PrimaryMenuItemComponentStyle-itemName {
+    display: block !important;
+    color: #000 !important;
+    font: 1.125em BaseFontMedium, FallbackFontMedium, sans-serif !important;
+    text-transform: none !important;
+    text-shadow: none !important;
+    text-align: center !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+    margin: 0 !important;
+}
+.kasp-lobby-left .FooterComponentStyle-footer {
+    width: 100% !important;
+    height: 3.9em !important;
+    margin-top: auto !important;
+    margin-bottom: 1em !important;
+    flex: 0 0 auto !important;
+}
+.kasp-lobby-left .FooterComponentStyle-footer ul {
+    gap: .65em !important;
+    width: auto !important;
+    height: 3.9em !important;
+    padding: 0 !important;
+    margin: 0 0 0 5em !important;
+}
+.kasp-lobby-left .FooterComponentStyle-containerMenu {
+    width: 3.9em !important;
+    height: 3.9em !important;
+    flex: 0 0 3.9em !important;
+}
+.kasp-lobby-left .FooterComponentStyle-containerMenu > div { width: 1.85em !important; height: 1.85em !important; background-color: #000 !important; }
+.kasp-lobby-left .kasp-left-card.PrimaryMenuItemComponentStyle-itemCommonLi::before,
+.kasp-lobby-left .FooterComponentStyle-footer .kasp-left-card.FooterComponentStyle-containerMenu::before {
+    top: .45em !important; right: .45em !important;
+    width: .4em !important; height: .4em !important;
+    border-radius: 50% !important;
+    background: #000 !important;
+}
+.kasp-lobby-left .kasp-left-card > .kasp-left-art-slice {
+    position: absolute !important;
+    inset: 0 !important;
+    display: block !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    z-index: -1 !important;
+    pointer-events: none !important;
+    transform: none !important;
+    border-radius: inherit;
+    overflow: hidden !important;
+    background: #fff !important;
+    transition: filter .2s ease !important;
+}
+.kasp-left-art-slice::before {
+    content: '';
+    position: absolute;
+    left: var(--kasp-left-art-x, 0px);
+    top: var(--kasp-left-art-y, 0px);
+    width: var(--kasp-left-art-width, 100%);
+    height: var(--kasp-left-art-height, 100%);
+    background: var(--kasp-left-art, none) center / cover no-repeat;
+    filter: grayscale(1) blur(2px);
+}
+.kasp-left-art-slice::after { content: ''; position: absolute; inset: 0; background: rgba(245, 245, 245, .72); }
+.kasp-lobby-left .kasp-left-card:hover > .kasp-left-art-slice { filter: brightness(.88); }
+@media (prefers-reduced-motion: reduce) {
+    .kasp-lobby-left .kasp-left-card, .kasp-lobby-left .kasp-left-card > .kasp-left-art-slice { transition: none !important; }
+    .kasp-lobby-left .kasp-left-card::after { animation: none !important; }
+}

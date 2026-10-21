@@ -67,14 +67,16 @@ export function setupAccountIdentity(): void {
 }
 
 export function getVerifiedAccount(): VerifiedAccount | null {
-    if (!nativeAccount || Date.now() - receivedAt > 5000) return null;
+    // Logout reloads the page. Keep the verified owner through delayed background
+    // heartbeats; explicit native invalidation and cleanup still clear this cache.
+    if (!nativeAccount) return null;
     const visible = getAccountIdentity();
     if (visible && visible.nickname !== nativeAccount.nickname) return null;
     return { ...nativeAccount };
 }
 
 export function getPlayerUserId(nickname: string): string | null {
-    return getVerifiedAccount() ? players.get(nickname) || null : null;
+    return getVerifiedAccount() && Date.now() - receivedAt <= 5000 ? players.get(nickname) || null : null;
 }
 
 export function getAccountIdentityRevision(): number { return identityRevision; }

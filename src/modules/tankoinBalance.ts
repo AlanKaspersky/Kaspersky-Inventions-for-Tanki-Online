@@ -33,6 +33,7 @@ export const tankoinBalance = lifecycle.initialize(() => {
     let observer: MutationObserver | null = null;
     let sources: HTMLElement[] = [];
     let initialized = false;
+    const presentedOwners = new Set<string>();
 
     function removePanel(): void {
         panel?.remove();
@@ -87,12 +88,16 @@ export const tankoinBalance = lifecycle.initialize(() => {
         const sourceIcon = (exchange ? document.querySelector<HTMLImageElement>(gameDOM.account.exchangeIcon) : null)
             || native?.querySelector<HTMLImageElement>(gameDOM.account.tankoinIcon);
         if (sourceIcon?.src) iconUrl = sourceIcon.src;
-        if (!header || native) { removePanel(); return; }
+        if (!header || native || state.currentScreen === 'lobby' && !account) {
+            if (header && native && account) presentedOwners.add(account.userId);
+            removePanel(); return;
+        }
         if (!panel?.isConnected || panel.parentElement !== header) {
             removePanel();
             panel = document.createElement('div');
             panel.id = PANEL_ID;
-            panel.className = gameDOM.classes.tankoinContainer;
+            panel.className = gameDOM.classes.tankoinContainer
+                + (state.currentScreen === 'lobby' && account && !presentedOwners.has(account.userId) ? ' kasp-lobby-reveal' : '');
             iconContainer = document.createElement('div');
             iconContainer.className = gameDOM.classes.currencyIcon;
             const block = document.createElement('div');
@@ -106,6 +111,7 @@ export const tankoinBalance = lifecycle.initialize(() => {
             panel.appendChild(iconContainer);
             header.insertBefore(panel, currencies?.parentElement === header ? currencies : header.firstChild);
         }
+        if (account) presentedOwners.add(account.userId);
         if (image!.getAttribute('src') !== iconUrl) image!.src = iconUrl;
         const hidden = utils.getSetting('k_hideCurrency', false) && balance !== null;
         const text = hidden ? (state.lang === 'RU' ? 'Скрыто' : 'Hidden') : balance ?? '—';

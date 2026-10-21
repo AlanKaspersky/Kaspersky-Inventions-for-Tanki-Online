@@ -2,7 +2,7 @@
 
 ## Complete Documentation
 
-**Extension version:** 2.9.8 (`manifest.json`)
+**Extension version:** 2.9.9 (`manifest.json`)
 
 **Documentation updated:** October 17, 2026
 
@@ -212,6 +212,7 @@ Nickname privacy also updates its root CSS state immediately when switched on or
 | `k_paints` | Smart paint search | Disabled | Garage paint collection |
 | `k_hideCurrency` | Hide currency | Disabled | Supported currency displays outside battle |
 | `k_hideNicknameXP` | Hide nickname and score | Disabled | Nickname, XP, self-player fields, and client UID |
+| `k_hideSupplies` | Hide supplies | Disabled | Supply quantities in the garage and battle HUD; applies live |
 | `k_history` | Keep a history of battles | Disabled | Result capture and Battle History |
 | `k_overdrive_timer` | Overdrive box timer | Disabled | Automatic 85-second box countdown during battles |
 | `k_arcade_reload` | Arcade reload indicator | Enabled | Additional Shaft/Scorpio bar; live switch |
@@ -443,6 +444,12 @@ Unlike nickname privacy, this module replaces selected span text. It uses the no
 Coverage follows supported selectors, including displays used for rubies, crystals, and tankoins. Reload after changing this setting to reset the module and timer state consistently.
 
 Tankoins also have an automatic persistent header counter outside the shop. It refreshes from the native shop balance or the Ruby exchange balance, respects currency privacy, and shows `—` until the first balance is observed. The last known amount is stored locally under `kasp_tankoin_balance_uid_<userId>` and restored after reload once the current account ID is verified. Different accounts have separate balances, and a rename keeps the same saved value. Until an ID is verified, live shop/exchange observations still work without reading or writing a persistent cache. The native shop counter is never duplicated.
+
+### Hide Supplies Module
+
+The **Hide supplies** switch (`k_hideSupplies`, disabled by default) omits supply item quantities on garage cards and displays `0` for the supply strip and native supply count labels in the WebGL battle HUD. RU/EN settings labels are available. Switching it off restores the latest native display, including changes received while hidden. Prices, cooldowns, availability and actual stock are unchanged.
+
+Garage values remain in the DOM and are masked with CSS. Battle privacy intercepts only the formatted text sent to the four recognized native count label renderers. An offline AST plan and rename-compatible templates identify these methods; unsupported client structures are left unchanged. Prepare an updated mapping with `npm run prepare:supply-privacy -- ./main.js`. The page-side switch also polls the saved setting every 250 ms for cross-world changes. Label references are weak and diagnostic cleanup restores their last native text.
 
 ### Custom Garage Skins Module
 
@@ -929,7 +936,7 @@ After rebuilding, reload the unpacked extension and then reload the game page. A
 
 ### Version metadata
 
-The current manifest, package, and lockfile package versions are **2.9.8**. The browser, welcome window, and release-folder naming use the manifest version. Keep these metadata values aligned when preparing another version.
+The current manifest, package, and lockfile package versions are **2.9.9**. The browser, welcome window, and release-folder naming use the manifest version. Keep these metadata values aligned when preparing another version.
 
 ### Release output
 
@@ -939,13 +946,13 @@ For the current manifest version, output is:
 
 ```text
 release/
-├── Kaspersky's Inventions 2.9.8/
+├── Kaspersky's Inventions 2.9.9/
 │   ├── manifest.json
 │   ├── LICENSE.txt
 │   ├── README.md
 │   ├── DOCUMENTATION.md
 │   └── ... runtime directories
-└── Kaspersky's Inventions 2.9.8.zip
+└── Kaspersky's Inventions 2.9.9.zip
 ```
 
 The archive contains the versioned outer folder. Extract it and select the folder containing `manifest.json` when loading the extension. Source files, tests, `node_modules`, the local game bundle, and raw generated-plan JSON are not separately included. The two root documentation files are included.
@@ -1023,7 +1030,7 @@ Repeat the affected checks in Chromium and Firefox. Manifest support does not su
 - Ordinary critical-cycle indication supports the three specified weapon/augment pairs. Post-Supercharge phase assumptions require verification if the game changes its mechanics.
 - Device tooltips use mouse hover. Equivalent keyboard, gamepad, and mobile tooltip interaction is not implemented.
 - AST compatibility templates reduce dependence on symbol names but still depend on native structure. A runtime exception is not automatically rolled back by the injector's preparation guards.
-- An intermittent missing local tank after entering a loaded map has been reported. Its cause and relationship to the extension remain unconfirmed; it is not listed as fixed in 2.9.8.
+- An intermittent missing local tank after entering a loaded map has been reported. Its cause and relationship to the extension remain unconfirmed; it is not listed as fixed in 2.9.9.
 - Auto Upgrade depends on recognized native dialogs and stops on an unknown confirmation. Its local confirmation count is not an independently verified purchase ledger.
 - Third-party UI modifications can alter the same elements and introduce selector, style, or event conflicts.
 
@@ -1101,4 +1108,4 @@ For the in-game presentation of release information and credits, see [the welcom
 
 ---
 
-Documentation aligned with extension manifest version **2.9.8**, updated **October 17, 2026**.
+Documentation aligned with extension manifest version **2.9.9**, updated **October 17, 2026**.

@@ -1,3 +1,12 @@
+@keyframes kasp-lobby-reveal {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+.kasp-lobby-reveal { animation: kasp-lobby-reveal .25s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+    .kasp-lobby-reveal { animation: none; }
+}
+
 @keyframes kasp-btn-anim {
     0% {
         background-color: rgb(255, 255, 255);

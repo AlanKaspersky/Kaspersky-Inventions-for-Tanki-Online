@@ -7,8 +7,11 @@ import { garageButtons } from './garageButtons';
 import { welcomeModal } from './welcomeModal';
 import { hideNickname } from './hideNickname';
 import { hideCurrency } from './hideCurrency';
+import { hideSupplies } from './hideSupplies';
 import { tankoinBalance } from './tankoinBalance';
+import { accountSearchNotice } from './accountSearchNotice';
 import { lobbyPasses } from './lobbyPasses';
+import { lobbyNavigation } from './lobbyNavigation';
 import { customTrophies } from './customTrophies';
 import { autoUpgrade } from './autoUpgrade';
 import { changeCounter } from './changeCounter';
@@ -29,8 +32,11 @@ const implementations = {
   welcomeModal,
   hideNickname,
   hideCurrency,
+  hideSupplies,
   tankoinBalance,
+  accountSearchNotice,
   lobbyPasses,
+  lobbyNavigation,
   customTrophies,
   autoUpgrade,
   changeCounter,

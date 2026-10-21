@@ -1,6 +1,6 @@
 {
   "name": "Kaspersky's Inventions",
-  "version": "2.9.8",
+  "version": "2.9.9",
   "description": "Advanced Interface for «Tanki Online».",
   "private": true,
   "scripts": {
@@ -22,7 +22,8 @@
     "prepare:battle-presence": "node tools/prepare-battle-presence.cjs",
     "prepare:battle-statistics": "node tools/prepare-battle-statistics.cjs",
     "prepare:user-action": "node tools/prepare-user-action.cjs",
-    "prepare:critical": "node tools/prepare-critical.cjs"
+    "prepare:critical": "node tools/prepare-critical.cjs",
+    "prepare:supply-privacy": "node tools/prepare-supply-privacy.cjs"
   },
   "author": "Alan Kaspersky",
   "license": "UNLICENSED",

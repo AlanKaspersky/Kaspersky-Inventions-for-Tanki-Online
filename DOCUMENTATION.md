@@ -2,7 +2,7 @@
 
 ## Complete Implementation Reference
 
-**Extension version:** 2.9.8 (`manifest.json`)
+**Extension version:** 2.9.9 (`manifest.json`)
 
 **Documentation updated:** October 17, 2026
 
@@ -477,9 +477,13 @@ Source: [src/core/accountIdentity.ts](src/core/accountIdentity.ts).
 
 `getAccountIdentity()` checks the native header first, then client information parameters matching `UID:`, then the current player's result-row name. It reads current original text each time rather than keeping a global account cache.
 
-Identity is separate from presentation. `getAccountIdentity()` reads display text and never supplies storage ownership. `setupAccountIdentity()` receives same-window/same-origin snapshots; `getVerifiedAccount()` requires a fresh native identity (five-second TTL) consistent with any visible account name. `getPlayerUserId(nickname)` resolves the currently displayed friend from native remote-user data; ambiguous names return null. Nickname hiding preserves the original text.
+Identity is separate from presentation. `getAccountIdentity()` reads display text and never supplies storage ownership. `setupAccountIdentity()` starts at document start and receives same-window/same-origin snapshots. `getVerifiedAccount()` returns the verified native account cached for the current page, consistent with any visible account name. Delayed or throttled heartbeats do not expire this ID. An explicit empty native snapshot, a new account or cleanup clears/replaces it; logout reloads the page, and a new page must establish native ownership again. `getPlayerUserId(nickname)` still requires a snapshot within five seconds to resolve the currently displayed friend from native remote-user data; ambiguous names return null. Nickname hiding preserves the original text.
 
-Sources: [accountId.ts](src/core/accountId.ts), [accountIdentityNative.ts](src/core/accountIdentityNative.ts). The MAIN-world bridge captures the native DI store through the existing prepared store-getter hooks. It identifies the loaded local `User` model semantically and reads `id`, `uid`, and `clanTag`; remote data and matching nicknames cannot establish account ownership. Bounded read-only traversal extracts `RemoteUserData` IDs for friend labels. Exact decimal strings preserve 64-bit IDs. No network request or root client-file read is involved. Snapshots publish once a second; Discord activity remains Electron-only. `window.__kaspAccountDebug.status()` exposes the verified native account and bounded model diagnostics without passwords/tokens.
+Sources: [accountId.ts](src/core/accountId.ts), [accountIdentityNative.ts](src/core/accountIdentityNative.ts). The MAIN-world identity module and store hook initialize before other native modules. The bridge captures the native DI store through the existing prepared store-getter hooks. Capture schedules discovery in the next task with a zero-delay timer, without traversing the graph inside the game hook or waiting for the one-second heartbeat. Discovery yields between models and properties, with at most 64 generator steps and a soft 2 ms budget per slice, separated by 8 ms timers. Individual reflection operations cannot be preempted. The local search stops at identity models, examines up to 4,000 objects at depth 4, and caches paths, model references and semantic field keys. Loaded local `User.id`, `uid`, and `clanTag` establish ownership; remote data and matching nicknames cannot. Once found, the account is read directly without another graph/prototype scan. This cache lives only in the current page; nothing restores ownership from a stored nickname or an old persisted ID. Missing models retry after one second, unloaded properties are polled directly, and replaced paths or stores invalidate the old owner. Login without a page reload is supported.
+
+Before the general search, an incremental fast path checks the store itself or its direct slots (up to 32) for one native `TOState`. Its semantic `user` field must point to a `User`; the path and schema are cached, and the loaded account publishes before the remaining graph is walked. Aliases of the same state are deduplicated; distinct states fall back to the general search. No generated property name is hardcoded. If the cached User becomes loaded between heartbeats, the next capture of the same store publishes it immediately without another search. An absent or changed native layout uses the bounded general search above.
+
+The account publishes before secondary friend discovery. `RemoteUserData` IDs are gathered separately in bounded slices (depth 5, up to 6,000 objects); another scan starts no sooner than five seconds after completion. A missing remote storage is rediscovered at five-second intervals without blocking the account. Unreadable native objects are skipped and recorded in diagnostics rather than repeatedly disabling the feature. Exact decimal strings preserve 64-bit IDs. No network request or root client-file read is involved. Snapshots publish once a second, when the fast path establishes the owner, and on discovery completion; Discord activity remains Electron-only. `window.__kaspAccountDebug.status()` exposes the cached account, discovery progress (including `direct`) and runtime status without a deep scan. Explicit `window.__kaspAccountDebug.inspect()` retains the bounded synchronous model diagnostics without passwords/tokens. Cleanup cancels discovery timers, the heartbeat and the request listener, and publishes an empty identity.
 
 ### Shared Modal Controller
 
@@ -589,9 +593,19 @@ Quick Battle, PRO, and festive mode are direct targets. TDM, CP, CTF, SGE, JGR, 
 
 Hotkeys reject repeated events, Ctrl/Alt/Meta combinations, editable focus, unsupported screen state, disabled settings, active search/selection, and recognized native dialogs.
 
-The main artwork is sliced from `assets/playButton.png` using shared dimensions and offsets. Native children are hidden by the injected `kasp-playbtn-styles`; `data-overridden` and `buttonsCreated` distinguish treated elements and avoid duplicate wrappers. A newly created native Play button resets the wrapper creation state.
+Enhanced Play retains its original artwork fallback from `assets/playButton.png`; the scoped lobby-navigation presentation described below hides those old layers and supplies its own panorama. Native children are hidden by the injected `kasp-playbtn-styles`, which allows the lobby art layer; `data-overridden` and `buttonsCreated` distinguish treated elements and avoid duplicate wrappers. A newly created native Play button resets the wrapper creation state.
 
 `syncButtonStates()` skips work when searching state is unchanged unless forced. Language text is updated within that synchronization path, so changing language alone is not a universal immediate refresh of all existing button labels.
+
+### Lobby Navigation Tiles
+
+Sources: [lobbyNavigation.ts](src/modules/lobbyNavigation.ts), [lobbyNavigation.css](styles/lobbyNavigation.css), and `gameDOM.lobbyNavigation`.
+
+Boot synchronizes the presentation after Enhanced Play. The existing left-menu entries use a two-column tile grid with their original localized labels; Settings spans the last row. The two direct-mode buttons, seven standard-mode buttons and compact footer controls retain their existing handlers and native icon masks. A separate panorama from `assets/art3.jpg` uses a 72% light overlay, 2px grayscale image blur matching the pass cards, and white .063em outlines. Pointer-transparent card-local layers share one image origin, including scaled ancestors. Hover darkens the background; notification indicators remain visible as black dots. The custom Play label uses border-box sizing so its padding stays inside the full-button overlay and does not offset the text from the center.
+
+The adapter adds scoped classes and decorative spans without replacing or moving native entries, changing menu text, or altering queue selection/hotkeys. Mutation and resize observers refresh card geometry after language changes, delayed footer insertion and native root replacement. Owned-layer mutations are ignored, and unchanged classes/styles are not rewritten. Removed cards/roots and feature cleanup release all owned layers/classes. Search locks and disabled-mode pointer states remain controlled by Enhanced Play; reduced-motion preferences disable the added hover transitions.
+
+The native Play span stays hidden while the custom label exists, including when React resets the button classes. Main/menu/mode labels use larger game fonts. Mode controls share the metal-shine hover effect; matchmaking dims the main artwork to 42% brightness with a light lock symbol. Footer controls are 3.9em squares with 1.85em icons and return to the bottom of the native full-height lobby column, with a 1em bottom inset.
 
 ### Cybersport Format Prototype
 
@@ -694,6 +708,12 @@ Dataset flags prevent duplicate sidebars and context-menu augmentation. The cont
 
 The module refreshes badges on repeated calls. Filtering is explicitly applied on sidebar clicks and category changes; it does not maintain an independent server-side list subscription.
 
+### Account Search Notice
+
+Sources: [accountSearchNotice.ts](src/modules/accountSearchNotice.ts) and [accountSearchNotice.css](styles/accountSearchNotice.css). The automatic module runs with the heavy lobby pass and receives validated account-identity messages. It reads the verified content-world cache after message listeners finish; a message payload alone does not establish ownership. When the native main menu is present and the verified ID remains unavailable for 600ms, a non-interactive status card appears at the bottom center. Its localized RU/EN caption uses the same art1 image, monochrome overlay, 2px image blur and white outline as the right lobby panels. Position, padding and text scale in em.
+
+The card fades/slides in over 200ms and fades/slides out when the ID arrives or the lobby closes; removal waits for the exit transition. A fast lookup cancels the pending card, and an interrupted exit reverses on the same element. Screen changes and cleanup release pending timers, frames and presentation. Reduced-motion preferences disable transitions. No additional account search or polling is introduced.
+
 ### Lobby Pass Cards
 
 Sources: [lobbyPasses.ts](src/modules/lobbyPasses.ts), [lobbyPasses.css](styles/lobbyPasses.css), and `gameDOM.lobbyPasses`.
@@ -706,7 +726,7 @@ CSS restyles the native challenge and Elite Pass roots. It changes grid layout, 
 
 The adapter adds scoped classes, CSS custom properties, and an absolutely positioned decorative span inside each card. These isolated background layers use assets/art1.png with a light overlay and 2px image-only blur. Assets resolve through chrome.runtime.getURL. Their shared image dimensions and origin preserve a continuous panorama across card gaps, including scaled ancestors, without changing content geometry. Native sibling stacking cannot cover the card-local layers, and the original white backgrounds remain as a fallback. Resize/replacement refreshes their coordinates; cleanup removes the layers and owned classes. `readStarProgress()` reads the native current/required counter. `readCircleProgress()` reads one or two native half-ring rotations, using inline transforms or computed DOM matrices: the first half covers 0–180 degrees, and the second covers 180–360. A second identity matrix represents 100%, while a lone identity matrix represents 0%. Missing/incompatible geometry produces no percentage. Original half-rings are made invisible with `visibility: hidden`, keeping transforms computable; `display: none` would erase their computed angles in Chromium. The displayed bar is transparent when the percentage is unavailable, while the native level/timer remain visible.
 
-Elite card position/width follow the challenge's actual bounds in its offset-parent coordinate space, including parent scaling. Parent custom properties align trophy favorites with the challenge's left edge and width, below the last card. A scoped mutation observer follows native text/class/child changes; it ignores the adapter's own root style changes. A ResizeObserver and window resize listener maintain alignment, and ordinary heavy passes cover source replacement/navigation. Updates retain the native DOM and skip unchanged properties. Cleanup removes owned classes/variables and restores the previous trophy-position/width variables. The CSS-only pseudo-title and level prefix follow `data-kasp-pass-lang` for RU/EN. There is no independent countdown, persistent pass cache, additional request, or account-ownership inference.
+Elite card position/width follow the challenge's actual bounds in its offset-parent coordinate space, including parent scaling. Parent custom properties align trophy favorites with the challenge's left edge and width, below the last card. Typography, progress-bar sizes and calculated geometry use `em`; measured coordinates, announcement height and panorama offsets are converted using the font size of the element consuming each value. Spacing accounts for parent transforms. Pixel minimums no longer clamp text when the game font or browser zoom changes. Existing 1px borders, 2px hover outline and 2px artwork blur remain unchanged. A scoped mutation observer follows native text/class/child changes; it ignores the adapter's own root style changes. A ResizeObserver and window resize listener maintain alignment, and ordinary heavy passes cover source replacement/navigation. Updates retain the native DOM and skip unchanged properties. Cleanup removes owned classes/variables and restores the previous trophy-position/width variables. The CSS-only pseudo-title and level prefix follow `data-kasp-pass-lang` for RU/EN. There is no independent countdown, persistent pass cache, additional request, or account-ownership inference.
 
 ### Trophy Favorites
 
@@ -714,7 +734,7 @@ Source: [src/modules/customTrophies.ts](src/modules/customTrophies.ts).
 
 **Activation:** Automatic in lobby, garage, and result-screen processing.
 
-`loadTrophyDictionary()` fetches `database/trophies.json`, checks HTTP status, and stores the dictionary. First module initialization awaits this load. The public update function does not automatically restart initialization after a failed first attempt.
+`loadTrophyDictionary()` fetches `database/trophies.json`, checks HTTP status, and stores the dictionary. Module initialization preloads it while native account discovery runs; updates await the shared promise. The public update function does not automatically restart initialization after a failed first attempt.
 
 `getFavs()` parses and caches the current account list under `kasp_trophies_favorites_uid_<userId>`. `syncOwner()` clears old panels/stars/cache when the ID changes or becomes unavailable. `saveFavs()` checks the captured owner before updating memory and local storage. The old shared list is preserved separately. There is no storage-event invalidation for this private cache.
 
@@ -724,9 +744,9 @@ Source: [src/modules/customTrophies.ts](src/modules/customTrophies.ts).
 
 `processBattleResults()` parses visible quest progress text and refreshes a favorite's stored current/maximum values when the current value changes. Progress comes from the observed game interface.
 
-`extractIcon()` uses a reward background or the score icon fallback for stored favorite metadata. The lobby does not render this artwork. `formatNumber()` inserts spaces. `createPanel()` sorts turrets before hulls and renders a two-column grid of white tiles, each with the localized equipment name, an integer percentage clamped to 0–100, a black progress bar, and exact current/target values. Number groups remain intact when the values need two lines. `updateInterface()` adds the lobby panel beside the battle-pass block when favorites exist, removes it when that anchor disappears, and processes garage cards.
+`extractIcon()` uses a reward background or the score icon fallback for stored favorite metadata. The lobby does not render this artwork. `formatNumber()` inserts spaces. `createPanel()` sorts turrets before hulls and renders a two-column grid of white tiles, each with the localized equipment name, an integer percentage clamped to 0–100, a black progress bar, and exact current/target values. Number groups remain intact when the values need two lines. `updateInterface()` adds the lobby panel beside the battle-pass block when favorites exist, removes it when that anchor disappears, and processes garage cards. A newly mounted lobby panel fades in over 250ms; replacing it for language, progress or favorite updates does not replay the entrance. Reduced-motion preferences disable the fade.
 
-Initialization is one shared dictionary-loading promise; updates wait for it and require `trophyDictionaryLoaded`, avoiding a first panel with untranslated fallback IDs while the dictionary is still pending. `updateInterface()` compares `[favoritesOwner, state.lang, getFavs()]` with `panel.dataset.trophiesKey`; changed language/favorites/progress replace the panel, and empty favorites remove it. Dictionary failure does not automatically retry. Favorite-card handlers are refreshed and reject stale owner/target bindings, and progress remains observed/cached rather than a separate authoritative feed.
+Initialization is one shared dictionary-loading promise; updates wait for it and require `trophyDictionaryLoaded`, avoiding a first panel with untranslated fallback IDs while the dictionary is still pending. A validated identity message schedules a coalesced zero-delay update after identity listeners have updated the verified cache; an owner change or invalidation updates trophies without waiting for the next heavy DOM pass. The message payload alone never establishes trophy ownership. Cleanup removes the listener and pending timer. `updateInterface()` compares `[favoritesOwner, state.lang, getFavs()]` with `panel.dataset.trophiesKey`; changed language/favorites/progress replace the panel, and empty favorites remove it. Dictionary failure does not automatically retry. Favorite-card handlers are refreshed and reject stale owner/target bindings, and progress remains observed/cached rather than a separate authoritative feed.
 
 ### Auto Upgrade
 
@@ -813,7 +833,7 @@ The first call installs settings and storage listeners. While masking is enabled
 
 Currency masking differs from nickname masking: it modifies selected text nodes and is not designed as a before-paint CSS-only identity-preserving mechanism.
 
-The automatic [Tankoin balance module](src/modules/tankoinBalance.ts) keeps a counter in both the main-menu and breadcrumb headers outside the shop. When there is no breadcrumb header, it locates the shared ruby/crystal group and inserts the counter immediately before that group. The native shop counter takes precedence; otherwise the extension displays the most recently observed shop or Ruby exchange balance. A scoped observer follows native balance text updates, including exchange purchases. The initial value is `—` until a balance is observed. The last known amount is stored as validated numeric text in `kasp_tankoin_balance_uid_<userId>` and restored after reload when the verified account ID arrives. Account changes select a separate cache, including different IDs with the same nickname; renaming the same ID retains its balance. An unavailable ID does not block live DOM updates but never permits persistent reads or writes. Storage failures keep the live counter working, and unchanged renders do not repeat writes. The custom counter follows `k_hideCurrency` and does not submit purchases or open the exchange automatically.
+The automatic [Tankoin balance module](src/modules/tankoinBalance.ts) keeps a counter in both the main-menu and breadcrumb headers outside the shop. When there is no breadcrumb header, it locates the shared ruby/crystal group and inserts the counter immediately before that group. The native shop counter takes precedence; otherwise the extension displays the most recently observed shop or Ruby exchange balance. A scoped observer follows native balance text updates, including exchange purchases. The initial value is `—` until a balance is observed. The last known amount is stored as validated numeric text in `kasp_tankoin_balance_uid_<userId>` and restored after reload when the verified account ID arrives. In the lobby, the custom counter waits for a verified ID before mounting, then fades in over 250ms without replaying on balance/privacy changes; reduced-motion preferences disable the fade. Account changes select a separate cache, including different IDs with the same nickname; renaming the same ID retains its balance. An unavailable ID does not block live DOM observations but never permits persistent reads or writes. Storage failures keep the live counter working, and unchanged renders do not repeat writes. The custom counter follows `k_hideCurrency` and does not submit purchases or open the exchange automatically.
 
 ### Garage Skins
 
@@ -1414,8 +1434,10 @@ The manifest declares 20 stylesheets at document start. `mainUI.css` also import
 | `styles/navigation.css` | Native navigation item geometry, hover, shine, and related visual rules. |
 | `styles/cybersport.css` | Scoped Esports prototype and source Sport visual state; custom image variable, gradients, hover/focus, and selection. |
 | `styles/header.css` | Header currencies, icon arrangement, and header presentation. |
+| `styles/accountSearchNotice.css` | Delayed lobby identity-search status, monochrome artwork and fade transitions. |
 | `styles/lobbyPasses.css` | Native white pass cards, two challenge tracks, lock state, linear progress and hover shine. |
 | `styles/lobbyAnnouncements.css` | Text-only native announcement carousel with timer and monochrome navigation. |
+| `styles/lobbyNavigation.css` | Native left-menu tiles, original icon masks, Crystal panorama and compact footer. |
 | `styles/battleStats.css` | Native battle-statistics layout plus related equipment/resistance/skin presentation. |
 | `styles/killBoard.css` | Result-table geometry, columns, headers, and kill-board layout. |
 | `styles/overdriveTimer.css` | Two non-interactive countdown panels, colors, anchors, and visibility. |
@@ -1713,7 +1735,7 @@ The full build and ZIP command stop on failed type checking or regression tests.
 
 ### Dependency Metadata
 
-The manifest, package, and lockfile package versions are 2.9.8. Both package files declare `UNLICENSED`; the package is marked `private: true`. Package/lockfile-root ranges agree: `@types/chrome` `^0.3.0`, esbuild `^0.28.2`, TypeScript `^7.0.2`, Acorn `^8.19.0`, acorn-walk `^8.3.5`, and Astring `^1.9.0`. The parser/walker/generator are development dependencies, not imports of the runtime entries.
+The manifest, package, and lockfile package versions are 2.9.9. Both package files declare `UNLICENSED`; the package is marked `private: true`. Package/lockfile-root ranges agree: `@types/chrome` `^0.3.0`, esbuild `^0.28.2`, TypeScript `^7.0.2`, Acorn `^8.19.0`, acorn-walk `^8.3.5`, and Astring `^1.9.0`. The parser/walker/generator are development dependencies, not imports of the runtime entries.
 
 Use `npm ci` to install the locked dependency graph. Dependency changes should update the manifest and lockfile together; `npm install` can rewrite the lockfile. The project does not declare a Node `engines` field; tooling requires APIs such as `fs.cpSync` and the built-in Node test runner.
 
@@ -1755,7 +1777,7 @@ Generated JSON is statically imported into `dist/kasp_injector.js`; it is not fe
 
 Configured directories are `dist`, `styles`, `assets`, `database`, `_locales`, and `templates`. Configured root files are `manifest.json`, `LICENSE.txt`, `README.md`, `DOCUMENTATION.md`, and `MAINTENANCE.md`.
 
-For 2.9.8, the folder and archive names are `release/Kaspersky's Inventions 2.9.8/` and `release/Kaspersky's Inventions 2.9.8.zip`. The ZIP contains that outer versioned folder.
+For 2.9.9, the folder and archive names are `release/Kaspersky's Inventions 2.9.9/` and `release/Kaspersky's Inventions 2.9.9.zip`. The ZIP contains that outer versioned folder.
 
 The script removes the existing same-version output before recreating it. It throws if no directory or no root file was copied, but does not require every configured input to exist. `build:zip` can package stale bundles or partial resources if invoked without appropriate preparation.
 
@@ -1879,4 +1901,4 @@ Project use and distribution are governed by [LICENSE.txt](LICENSE.txt), which c
 
 ---
 
-Technical documentation aligned with source/manifest version **2.9.8**, updated **October 17, 2026**.
+Technical documentation aligned with source/manifest version **2.9.9**, updated **October 17, 2026**.

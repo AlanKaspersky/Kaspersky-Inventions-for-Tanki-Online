@@ -36,6 +36,7 @@ export function startBoot() {
         modules.welcomeModal();
         modules.hideNickname();
         modules.tankoinBalance();
+        modules.accountSearchNotice();
         modules.hideCurrency();
         modules.lobbyPasses();
         modules.customGarageSkins();
@@ -44,6 +45,7 @@ export function startBoot() {
         if (state.currentScreen === 'lobby' || state.currentScreen === 'loading') {
             modules.customPlayButton();
         }
+        modules.lobbyNavigation();
         if (state.friendsMenuOpen) {
             modules.customFriends();
         }
