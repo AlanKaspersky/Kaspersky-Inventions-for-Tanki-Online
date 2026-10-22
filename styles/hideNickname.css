@@ -1,7 +1,12 @@
-html.kasp-hide-nickname .UserInfoContainerStyle-userNameRank,
-html.kasp-hide-nickname .UserInfoContainerStyle-progressValue,
 html.kasp-hide-nickname .ClientInfoComponentStyle-parameterText:first-child:not([data-kasp-public-parameter]),
 html.kasp-hide-nickname [data-kasp-private-uid],
+html.kasp-hide-nickname .ClientInfoComponentStyle-parameterText:first-child:not([data-kasp-public-parameter]) + .ClientInfoComponentStyle-delimiter,
+html.kasp-hide-nickname [data-kasp-private-uid] + .ClientInfoComponentStyle-delimiter {
+    display: none !important;
+}
+
+html.kasp-hide-nickname .UserInfoContainerStyle-userNameRank,
+html.kasp-hide-nickname .UserInfoContainerStyle-progressValue,
 html.kasp-hide-nickname [data-kasp-private-nickname],
 html.kasp-hide-nickname .BattleTabStatisticComponentStyle-selectedRowBackGround .BattleTabStatisticComponentStyle-nicknameCell span,
 html.kasp-hide-nickname #selfUserBg [class*="BattleKillBoardComponentStyle-col1"] span.-whiteSpaceNoWrap,
@@ -18,7 +23,6 @@ html.kasp-hide-nickname .players-table tr.current-player .player-name {
 html.kasp-hide-nickname .UserInfoContainerStyle-userNameRank *,
 html.kasp-hide-nickname .UserInfoContainerStyle-progressValue *,
 html.kasp-hide-nickname [data-kasp-private-nickname] *,
-html.kasp-hide-nickname [data-kasp-private-uid] *,
 html.kasp-hide-nickname #selfUserBg [class*="BattleKillBoardComponentStyle-col1"] span.-whiteSpaceNoWrap *,
 html.kasp-hide-nickname .players-table tr.current-player .player-name * {
     color: transparent !important;
@@ -29,8 +33,6 @@ html.kasp-hide-nickname .players-table tr.current-player .player-name * {
 
 html.kasp-hide-nickname .UserInfoContainerStyle-userNameRank::before,
 html.kasp-hide-nickname .UserInfoContainerStyle-progressValue::before,
-html.kasp-hide-nickname .ClientInfoComponentStyle-parameterText:first-child:not([data-kasp-public-parameter])::before,
-html.kasp-hide-nickname [data-kasp-private-uid]::before,
 html.kasp-hide-nickname [data-kasp-private-nickname]::before,
 html.kasp-hide-nickname .BattleTabStatisticComponentStyle-selectedRowBackGround .BattleTabStatisticComponentStyle-nicknameCell span::before,
 html.kasp-hide-nickname #selfUserBg [class*="BattleKillBoardComponentStyle-col1"] span.-whiteSpaceNoWrap::before,
@@ -45,11 +47,6 @@ html.kasp-hide-nickname .players-table tr.current-player .player-name::before {
     white-space: nowrap;
     font-weight: 500;
     pointer-events: none;
-}
-
-html.kasp-hide-nickname .ClientInfoComponentStyle-parameterText:first-child:not([data-kasp-public-parameter])::before,
-html.kasp-hide-nickname [data-kasp-private-uid]::before {
-    content: "UID: " var(--kasp-hidden-label, "Hidden");
 }
 
 html.kasp-hide-nickname .UserInfoContainerStyle-progressValue::before {

@@ -2,9 +2,9 @@
 
 ## Complete Implementation Reference
 
-**Extension version:** 2.9.9 (`manifest.json`)
+**Extension version:** 3.0.0 (`manifest.json`)
 
-**Documentation updated:** October 17, 2026
+**Documentation updated:** October 22, 2026
 
 **Interface languages:** English and Russian
 
@@ -25,6 +25,9 @@ The source implementation is authoritative. `dist/` contains generated browser e
 4. [Shared Core Services](#shared-core-services)
 5. [Settings Integration](#settings-integration)
 6. [Feature Module Reference](#feature-module-reference)
+   - [Lobby Navigation Tiles](#lobby-navigation-tiles)
+   - [Account Search Notice](#account-search-notice)
+   - [Lobby Pass Cards](#lobby-pass-cards)
    - [Enhanced Play](#enhanced-play)
    - [Cybersport Format Prototype](#cybersport-format-prototype)
    - [Augment Specifications](#augment-specifications)
@@ -62,7 +65,12 @@ The source implementation is authoritative. `dist/` contains generated browser e
 13. [Build and Packaging Implementation](#build-and-packaging-implementation)
 14. [Regression Test Reference](#regression-test-reference)
 15. [Maintenance Scenarios](#maintenance-scenarios)
-16. [Implementation Limits and Project Terms](#implementation-limits-and-project-terms)
+16. [Additional Native Presentation Contracts](#additional-native-presentation-contracts)
+   - [Supply Privacy](#supply-privacy-dom-and-webgl)
+   - [Kill-Feed Privacy and Font Safety](#kill-feed-privacy-and-font-safety)
+   - [Box Pickup Visuals](#box-pickup-visuals)
+   - [Supported Features versus Diagnostics](#supported-features-versus-diagnostics)
+17. [Implementation Limits and Project Terms](#implementation-limits-and-project-terms)
 
 ## Repository and Execution Model
 
@@ -74,7 +82,7 @@ Both browsers consume `dist/kasp_injector.js` at document start in the `MAIN` wo
 
 Chromium uses unpacked loading. Firefox local development uses **Load Temporary Add-on** and the inner `manifest.json` in `about:debugging#/runtime/this-firefox`; the temporary installation ends on browser restart. Persistent installation in standard Firefox requires a signed add-on. See the [installation workflows](README.md#installation), Mozilla's [temporary installation guide](https://www.extensionworkshop.com/documentation/develop/temporary-installation-in-firefox/), and [signed distribution guide](https://extensionworkshop.com/documentation/publish/install-self-distributed/).
 
-The release script creates a ZIP with a versioned outer folder. It neither creates nor signs an XPI; adding Gecko metadata does not change that packaging behavior. Live verification should cover injection, packaged resource loading, settings, storage, navigation, and native battle HUD behavior in each supported browser.
+The release script creates an ordinary ZIP with a versioned outer folder and a second `-firefox.zip` with `manifest.json` at its root. Neither archive is a Mozilla signature; adding Gecko metadata or changing archive layout does not sign an XPI. Live verification should cover injection, packaged resource loading, settings, storage, navigation, and native battle HUD behavior in each supported browser.
 
 ### Source Layout
 
@@ -86,7 +94,7 @@ The release script creates a ZIP with a versioned outer folder. It neither creat
 | `src/core/` | State, settings, identity, resource loading, shared dialogs, markup, and Electron adaptation |
 | `src/core/gameDOM.ts` | Central native-game selectors, class names, IDs, and class fragments used by feature modules |
 | `src/core/clientPatches.ts`, `clientLexical.ts` | Runtime plan validation, merging, hashing, shared searches, and lexical filtering |
-| `src/generated/` | Ten prepared JSON plan sets embedded into the injector build |
+| `src/generated/` | Fourteen prepared JSON plan sets embedded into the injector build |
 | `src/modules/index.ts` | Imports and exposes the feature-module registry |
 | `src/modules/*.ts` | Feature entry points and private module state |
 | `src/modules/battleHistory/` | History repository, capture, validation, presentation, views, navigation, actions, types, and dictionaries |
@@ -205,15 +213,16 @@ On a transition to loading or battle, the scheduler hides the augment tooltip an
 
 | Path | Calls |
 | --- | --- |
-| Every heavy pass | `changeCounter.onTick`, `overdriveTimer.sync`, welcome, nickname privacy, currency privacy, lobby pass layout, garage skins |
+| Every heavy pass | `changeCounter.onTick`, `overdriveTimer.sync`, welcome, nickname privacy, Tankoin balance, account-search notice, currency privacy, lobby pass layout, garage skins and cybersport |
 | Heavy pass in lobby/loading | Enhanced Play |
+| Every heavy pass after Enhanced Play | Lobby navigation artwork/layout synchronization |
 | Heavy pass while friends/invitations are open | Friend categories |
 | Heavy pass in lobby/garage/results | Trophy favorites |
 | Heavy pass in garage | Auto Upgrade, augment specifications, paint search |
 | Every master check in garage | Garage button presentation |
 | Every master check | Battle History |
 | Every master check in lobby/results | Kill-board header synchronization |
-| Mutation callback with native battle statistics present | Change indicators, resistance presentation, equipment tracking |
+| Mutation callback with native battle statistics present | Change indicators, resistance presentation, enemy-weapons popup synchronization and equipment tracking |
 | Heavy pass with supported garage/loot-box markers | Augment specifications |
 | Mutation callback with native garage action controls present | Auto Upgrade button presentation |
 
@@ -237,13 +246,17 @@ Other modules generally read `state.lang` when generating or updating their UI. 
 
 ### Error Boundary
 
-The heavy pass has a `try/catch` around its conditional Play/Friends/Trophies/Garage group. The automatic calls made before that block are outside it. Furthermore, the scheduler does not await async modules, so a synchronous catch is not a universal handler for rejected promises. Individual async resource and history functions provide their own handling where implemented.
+Feature calls are independently guarded by `featureScope` through the module registry; the heavy pass no longer relies on one broad catch for a whole group. A synchronous failure in one entry does not skip later module calls. Scope-owned listeners, timers, frames, microtasks and observers use the same boundary. Returned promises register rejection handling; synchronous duration metrics do not measure the time spent awaiting a promise.
+
+Three failures within ten seconds quarantine a scope for the current page and run its registered cleanups in reverse order. Slow calls only increase diagnostics. The default diagnostic threshold is 16ms; selected native animation/indicator scopes use 4ms. A callback that never returns cannot be preempted by this mechanism. Native errors outside guarded extension code remain native errors, and an accepted game action or committed transaction is not rolled back by cleanup.
+
+Scopes expose separate diagnostics in MAIN and isolated worlds. Use the failure-isolation section and `MAINTENANCE.md` to distinguish setting-off, unavailable mapping, uninitialized state and repeated-error quarantine.
 
 ## Game Bundle Injector
 
 Source: [src/kasp_injector.ts](src/kasp_injector.ts).
 
-The MAIN-world injector installs augment, critical, presence, statistics, action, inventory, arcade-diagnostic, and bonus bridges before observing script URLs containing `/static/js/main.`. Presence instrumentation is selected only for an Electron user agent. Runtime behavior depends on the installed `dist/` build, not unbuilt source files.
+The MAIN-world injector installs augment, critical, presence, statistics, action, inventory, arcade-diagnostic, and bonus bridges before observing script URLs containing `/static/js/main.`. Full Discord battle-presence instrumentation is selected for an Electron user agent. Account store capture also has a store-only profile for ordinary browsers; identity is not Electron-only. Supply privacy, box pickup visuals, kill-feed privacy and overdrive direction have independent prepared plans. Runtime behavior depends on the installed `dist/` build, not unbuilt source files.
 
 ### User Action Hook
 
@@ -292,6 +305,10 @@ Sources: [clientPatches.ts](src/core/clientPatches.ts), [clientLexical.ts](src/c
 | `battle-statistics.json` | `selectBattleStatisticsPlan` | Statistics constructor and loaded battle metadata |
 | `user-action.json` | `selectUserActionPlan` | Action constructor and mapped player/action fields |
 | `critical.json` | `selectCriticalPlan` | Critical readiness, shots, lifecycle, damage, Supercharge, equipment, local HUD |
+| `overdrive-direction.json` | `selectDirectionPlan` | Independent local tank position/camera bearing and lifecycle |
+| `supply-privacy.json` | `selectSupplyPrivacyPlan` | Four native supply-count text renderers |
+| `box-pickup.json` | `selectBoxPickupPlan` | Native pickup animation, pooled box rendering and completion |
+| `kill-feed-privacy.json` | `selectKillFeedPrivacyPlan` | Action-log text measurement, glyph atlas, geometry input and dirty refresh |
 
 Plans store `format`, `sha256`, `sourceLength`, `status`, guarded `edits`, and `templates`, plus feature schemas/profiles. Each edit uses original offsets, `expected` text, and up to 24 characters of context on each side. Templates store patterns, shared-role captures, counts, bounded search anchors, and generated insertion parts. Captured identifiers and role agreement are validated; quoted data uses JSON serialization. Temporary identifier collisions are avoided.
 
@@ -315,7 +332,7 @@ Fallback loading does not reinstall interception or guarantee instrumentation. A
 
 Source: [src/core/settings.ts](src/core/settings.ts).
 
-`SETTINGS_KEYS` defines eleven keys. At import time, nine are read with default `false`; `k_arcade_reload` and `k_critical_indicator` default to `true`. Values are cached in `settingsCache`.
+`SETTINGS_KEYS` defines thirteen keys. At import time, eleven are read with default `false`; `k_arcade_reload` and `k_critical_indicator` default to `true`. Values are cached in `settingsCache`.
 
 | Function | Contract |
 | --- | --- |
@@ -479,7 +496,7 @@ Source: [src/core/accountIdentity.ts](src/core/accountIdentity.ts).
 
 Identity is separate from presentation. `getAccountIdentity()` reads display text and never supplies storage ownership. `setupAccountIdentity()` starts at document start and receives same-window/same-origin snapshots. `getVerifiedAccount()` returns the verified native account cached for the current page, consistent with any visible account name. Delayed or throttled heartbeats do not expire this ID. An explicit empty native snapshot, a new account or cleanup clears/replaces it; logout reloads the page, and a new page must establish native ownership again. `getPlayerUserId(nickname)` still requires a snapshot within five seconds to resolve the currently displayed friend from native remote-user data; ambiguous names return null. Nickname hiding preserves the original text.
 
-Sources: [accountId.ts](src/core/accountId.ts), [accountIdentityNative.ts](src/core/accountIdentityNative.ts). The MAIN-world identity module and store hook initialize before other native modules. The bridge captures the native DI store through the existing prepared store-getter hooks. Capture schedules discovery in the next task with a zero-delay timer, without traversing the graph inside the game hook or waiting for the one-second heartbeat. Discovery yields between models and properties, with at most 64 generator steps and a soft 2 ms budget per slice, separated by 8 ms timers. Individual reflection operations cannot be preempted. The local search stops at identity models, examines up to 4,000 objects at depth 4, and caches paths, model references and semantic field keys. Loaded local `User.id`, `uid`, and `clanTag` establish ownership; remote data and matching nicknames cannot. Once found, the account is read directly without another graph/prototype scan. This cache lives only in the current page; nothing restores ownership from a stored nickname or an old persisted ID. Missing models retry after one second, unloaded properties are polled directly, and replaced paths or stores invalidate the old owner. Login without a page reload is supported.
+Sources: [accountId.ts](src/core/accountId.ts), [accountIdentityNative.ts](src/core/accountIdentityNative.ts). The MAIN-world identity module is installed before the battle-presence/store-capture consumer. Independent supply/box scopes are initialized earlier, but local account discovery has priority over remote-player discovery once the store is captured. The bridge captures the native DI store through the existing prepared store-getter hooks. Capture schedules discovery in the next task with a zero-delay timer, without traversing the graph inside the game hook or waiting for the one-second heartbeat. Discovery yields between models and properties, with at most 64 generator steps and a soft 2 ms budget per slice, separated by 8 ms timers. Individual reflection operations cannot be preempted. The local search stops at identity models, examines up to 4,000 objects at depth 4, and caches paths, model references and semantic field keys. Loaded local `User.id`, `uid`, and `clanTag` establish ownership; remote data and matching nicknames cannot. Once found, the account is read directly without another graph/prototype scan. This cache lives only in the current page; nothing restores ownership from a stored nickname or an old persisted ID. Missing models retry after one second, unloaded properties are polled directly, and replaced paths or stores invalidate the old owner. Login without a page reload is supported.
 
 Before the general search, an incremental fast path checks the store itself or its direct slots (up to 32) for one native `TOState`. Its semantic `user` field must point to a `User`; the path and schema are cached, and the loaded account publishes before the remaining graph is walked. Aliases of the same state are deduplicated; distinct states fall back to the general search. No generated property name is hardcoded. If the cached User becomes loaded between heartbeats, the next capture of the same store publishes it immediately without another search. An absent or changed native layout uses the bounded general search above.
 
@@ -525,31 +542,33 @@ Mouse button 3 generates synthetic Z keydown and keyup events unless focus is in
 
 ## Settings Integration
 
-Source: [src/core/coreSettings.ts](src/core/coreSettings.ts).
+Source: [coreSettings.ts](src/core/coreSettings.ts), [settings.ts](src/core/settings.ts), [settings.css](styles/settings.css).
 
-`coreSettings.inject()` requires the native options block and its menu. An existing `kaspersky-tab` prevents duplicate injection. It creates a reload tooltip, the KASPERSKY tab, and eleven localized switches.
+`coreSettings.inject()` requires the native settings block and menu, and exits if its tab already exists. It appends KASPERSKY, a custom content host and a reload tooltip. The native settings components retain their event handlers and content. There are **13 localized checkbox switches** in four categories, followed by Information links.
 
-| Key | Feature | Default |
-| --- | --- | --- |
-| `k_ext_btn` | Enhanced Play | `false` |
-| `k_augments` | Augment specifications | `false` |
-| `k_auto_upgrade` | Quick upgrades | `false` |
-| `k_friends` | Friend categories | `false` |
-| `k_paints` | Paint search | `false` |
-| `k_hideCurrency` | Currency masking | `false` |
-| `k_hideNicknameXP` | Nickname/XP masking | `false` |
-| `k_history` | Battle History | `false` |
-| `k_overdrive_timer` | Overdrive box timer | `false` |
-| `k_arcade_reload` | Arcade reload indicator | `true` |
-| `k_critical_indicator` | Critical shot indicator | `true` |
+| Category | Key | Default | Apply behavior |
+| --- | --- | --- | --- |
+| Standard | `k_friends` | false | Settings-close reload |
+| Standard | `k_augments` | false | Settings-close reload |
+| Standard | `k_auto_upgrade` | false | Settings-close reload |
+| Standard | `k_ext_btn` | false | Settings-close reload |
+| Standard | `k_paints` | false | Settings-close reload |
+| Standard | `k_history` | false | Settings-close reload |
+| Streamer | `k_hideNicknameXP` | false | DOM masking updates immediately; settings-close reload remains required |
+| Streamer | `k_hideCurrency` | false | Module listeners can restore/update live; settings-close reload remains required |
+| Streamer | `k_hideSupplies` | false | Live |
+| Advanced | `k_overdrive_timer` | false | Settings-close reload |
+| Advanced | `k_arcade_reload` | true | Live |
+| Advanced | `k_critical_indicator` | true | Live |
+| Visual changes | `k_box_pickup` | false | Live |
 
-Injection records the current values in `initialSettingsState`. Clicking an accepted label or switch changes its active class, persists the value, and computes `needsReload` by comparing all final values against that snapshot. Reverting all changes cancels the reload requirement.
+The `liveSettings` set contains exactly supply privacy, box pickup, arcade reload and critical indication. On switch change, the native input's checked state drives the active class and saved setting. `needsReload` compares every non-live option with `initialSettingsState`; reverting changes cancels the reload. Baselines survive a language rebuild while settings remain open. Normal close clears them and reloads only if required.
 
-Nickname privacy receives an immediate special action: enabling calls `setupNicknamePrivacy()` and disabling removes the root privacy class. The observer can remain installed but its callback exits when the setting is disabled.
+The Standard card spans the two upper rows of the left column; Streamer and Advanced occupy the right. Visual changes and Information span both columns. A content container query collapses the layout to one column. The custom host scrolls with scrollbar chrome hidden. Selecting a native tab restores native content and hides the custom host; it does not replace native settings bodies with extension controls.
 
-Selecting KASPERSKY hides the native content and slider highlight; selecting another eligible native tab restores the native content and hides the extension panel. Tooltip mouse movement positions the reload message near the cursor.
+Both the five content cards and the nine left navigation buttons use shared artwork slices within their respective groups. Menu offsets span the first through last button, so each button displays a different image region. `ResizeObserver` watches the menu and buttons even on native sections; on custom-tab opening it also observes the grid and panels. Coordinates and size variables are written in em and compared before mutation. Panel slice calculations remove entrance translation using `DOMMatrixReadOnly`. Existing image blur is 2px, with thin fixed pixel borders; text is outside the blurred layers. `stopArt` disconnects the observer on close/reinjection.
 
-`coreSettings.onClose()` hides the tooltip and calls `window.location.reload()` when `needsReload` is true. The code does not implement a per-module teardown/reconfiguration transaction in place; the reload is the shared application mechanism.
+Information contains the store, extension repository, companion-client repository, current License/Terms and FAQ links. Google Drive links are external documents, not a remotely executable configuration or runtime data dependency. Their publication state is independent of the bundled local guides. The custom top title was removed; category headings supply the visible structure.
 
 ## Feature Module Reference
 
@@ -604,6 +623,8 @@ Sources: [lobbyNavigation.ts](src/modules/lobbyNavigation.ts), [lobbyNavigation.
 Boot synchronizes the presentation after Enhanced Play. The existing left-menu entries use a two-column tile grid with their original localized labels; Settings spans the last row. The two direct-mode buttons, seven standard-mode buttons and compact footer controls retain their existing handlers and native icon masks. A separate panorama from `assets/art3.jpg` uses a 72% light overlay, 2px grayscale image blur matching the pass cards, and white .063em outlines. Pointer-transparent card-local layers share one image origin, including scaled ancestors. Hover darkens the background; notification indicators remain visible as black dots. The custom Play label uses border-box sizing so its padding stays inside the full-button overlay and does not offset the text from the center.
 
 The adapter adds scoped classes and decorative spans without replacing or moving native entries, changing menu text, or altering queue selection/hotkeys. Mutation and resize observers refresh card geometry after language changes, delayed footer insertion and native root replacement. Owned-layer mutations are ignored, and unchanged classes/styles are not rewritten. Removed cards/roots and feature cleanup release all owned layers/classes. Search locks and disabled-mode pointer states remain controlled by Enhanced Play; reduced-motion preferences disable the added hover transitions.
+
+Section icon boxes are 2.3em, the last Settings icon is 1.85em, and the last caption uses `text-transform: uppercase`; native localized text itself is retained.
 
 The native Play span stays hidden while the custom label exists, including when React resets the button classes. Main/menu/mode labels use larger game fonts. Mode controls share the metal-shine hover effect; matchmaking dims the main artwork to 42% brightness with a light lock symbol. Footer controls are 3.9em squares with 1.85em icons and return to the bottom of the native full-height lobby column, with a 1em bottom inset.
 
@@ -744,7 +765,7 @@ Source: [src/modules/customTrophies.ts](src/modules/customTrophies.ts).
 
 `processBattleResults()` parses visible quest progress text and refreshes a favorite's stored current/maximum values when the current value changes. Progress comes from the observed game interface.
 
-`extractIcon()` uses a reward background or the score icon fallback for stored favorite metadata. The lobby does not render this artwork. `formatNumber()` inserts spaces. `createPanel()` sorts turrets before hulls and renders a two-column grid of white tiles, each with the localized equipment name, an integer percentage clamped to 0–100, a black progress bar, and exact current/target values. Number groups remain intact when the values need two lines. `updateInterface()` adds the lobby panel beside the battle-pass block when favorites exist, removes it when that anchor disappears, and processes garage cards. A newly mounted lobby panel fades in over 250ms; replacing it for language, progress or favorite updates does not replay the entrance. Reduced-motion preferences disable the fade.
+`extractIcon()` uses a reward background or the score icon fallback for stored favorite metadata. The lobby does not render this artwork. `formatNumber()` inserts spaces. `createPanel()` sorts turrets before hulls and renders a two-column grid of white tiles, each with the localized equipment name, an integer percentage clamped to 0–100, a black progress bar, and exact current/target values. Number groups remain intact when the values need two lines. `updateInterface()` adds the lobby panel beside the battle-pass block when favorites exist, removes it when that anchor disappears, and processes garage cards. The first lobby panel presentation for a verified owner fades in over 250ms. A page-local `presentedOwners` set prevents replay after section navigation, replacement, language, progress or favorite changes for that owner. A new page starts a new presentation session. Reduced-motion preferences disable the fade.
 
 Initialization is one shared dictionary-loading promise; updates wait for it and require `trophyDictionaryLoaded`, avoiding a first panel with untranslated fallback IDs while the dictionary is still pending. A validated identity message schedules a coalesced zero-delay update after identity listeners have updated the verified cache; an owner change or invalidation updates trophies without waiting for the next heavy DOM pass. The message payload alone never establishes trophy ownership. Cleanup removes the listener and pending timer. `updateInterface()` compares `[favoritesOwner, state.lang, getFavs()]` with `panel.dataset.trophiesKey`; changed language/favorites/progress replace the panel, and empty favorites remove it. Dictionary failure does not automatically retry. Favorite-card handlers are refreshed and reject stale owner/target bindings, and progress remains observed/cached rather than a separate authoritative feed.
 
@@ -813,9 +834,9 @@ Sources: [src/modules/hideNickname.ts](src/modules/hideNickname.ts), [styles/hid
 
 Header nickname and XP receive original-text tooltips. Client parameters matching `UID:` receive `data-kasp-private-uid`; other parameters receive `data-kasp-public-parameter` and have stale UID metadata removed. Native statistics spans matching the actual self nickname receive `data-kasp-private-nickname`; stale self markings are removed.
 
-CSS makes original text transparent, disables selection/transitions, and paints a pseudo-element label. Known header, selected self-row, result self-row, history current-player, selectors can mask without waiting for an observer annotation. The first client parameter is provisionally masked until identified as public, allowing an immediately inserted UID-first block to remain covered.
+CSS makes original text transparent, disables selection/transitions, and paints a pseudo-element label. Known header, selected self-row, result self-row, history current-player, selectors can mask without waiting for an observer annotation. The first client parameter is provisionally hidden until identified as public, covering the normal UID-first startup layout.
 
-The source text and children remain intact. UID presentation retains the `UID:` prefix; TYPE, VER, UPD, and SRV remain public once classified. Tooltip metadata intentionally reveals original values on hover.
+The source text and children remain intact. The UID element and its following delimiter use `display: none` while privacy is enabled; no `UID: Hidden` placeholder occupies space. TYPE, VER, UPD and SRV remain public once classified. Removing the root class restores the native UID and delimiter. Other supported nickname/XP fields retain their masking and hover-reveal behavior; the hidden UID cannot be hovered. Native nodes are not removed, preserving React ownership and the shared identity reader.
 
 The observer avoids watching its own metadata attributes, and comparison guards reduce repeated mutations. Disabling removes the root class through Core Settings; observers remain page-lifetime but callbacks exit while disabled. New unrecognized selectors are outside current coverage.
 
@@ -833,7 +854,7 @@ The first call installs settings and storage listeners. While masking is enabled
 
 Currency masking differs from nickname masking: it modifies selected text nodes and is not designed as a before-paint CSS-only identity-preserving mechanism.
 
-The automatic [Tankoin balance module](src/modules/tankoinBalance.ts) keeps a counter in both the main-menu and breadcrumb headers outside the shop. When there is no breadcrumb header, it locates the shared ruby/crystal group and inserts the counter immediately before that group. The native shop counter takes precedence; otherwise the extension displays the most recently observed shop or Ruby exchange balance. A scoped observer follows native balance text updates, including exchange purchases. The initial value is `—` until a balance is observed. The last known amount is stored as validated numeric text in `kasp_tankoin_balance_uid_<userId>` and restored after reload when the verified account ID arrives. In the lobby, the custom counter waits for a verified ID before mounting, then fades in over 250ms without replaying on balance/privacy changes; reduced-motion preferences disable the fade. Account changes select a separate cache, including different IDs with the same nickname; renaming the same ID retains its balance. An unavailable ID does not block live DOM observations but never permits persistent reads or writes. Storage failures keep the live counter working, and unchanged renders do not repeat writes. The custom counter follows `k_hideCurrency` and does not submit purchases or open the exchange automatically.
+The automatic [Tankoin balance module](src/modules/tankoinBalance.ts) keeps a counter in both the main-menu and breadcrumb headers outside the shop. When there is no breadcrumb header, it locates the shared ruby/crystal group and inserts the counter immediately before that group. The native shop counter takes precedence; otherwise the extension displays the most recently observed shop or Ruby exchange balance. A scoped observer follows native balance text updates, including exchange purchases. The initial value is `—` until a balance is observed. The last known amount is stored as validated numeric text in `kasp_tankoin_balance_uid_<userId>` and restored after reload when the verified account ID arrives. In the lobby, the custom counter waits for a verified ID before mounting, then can fade in once per owner/page session over 250ms, without replaying on section re-entry or balance/privacy changes; reduced-motion preferences disable the fade. Account changes select a separate cache, including different IDs with the same nickname; renaming the same ID retains its balance. An unavailable ID does not block live DOM observations but never permits persistent reads or writes. Storage failures keep the live counter working, and unchanged renders do not repeat writes. The custom counter follows `k_hideCurrency` and does not submit purchases or open the exchange automatically.
 
 ### Garage Skins
 
@@ -1082,7 +1103,7 @@ Source: [src/modules/welcomeModal.ts](src/modules/welcomeModal.ts).
 
 The function fetches and checks `welcome-modal.html`, replaces known localization placeholders, creates a dedicated full-screen overlay/dialog, and binds the close button. Closing removes the overlay and stores the acknowledged version.
 
-This window does not use the shared modal controller, so it does not inherit all shared backdrop/key/cleanup behavior. Template failure is logged, and the session guard prevents an automatic retry during the same page execution. Version acknowledgement is origin-wide.
+This window does not use the shared modal controller, so it does not inherit all shared backdrop/key/cleanup behavior. Template failure is logged, and the session guard prevents an automatic retry during the same page execution. Version acknowledgement is origin-wide. The template now has seven role placeholders, including `role7` for Assistants; both EN/RU dictionaries and replacement calls cover them. Exact current names and roles are reproduced at the end of README and both full publication descriptions.
 
 ## Battle History Implementation
 
@@ -1421,7 +1442,7 @@ History template replacement has an explicit escaped-value/trusted-fragment boun
 
 ### Stylesheet Responsibilities
 
-The manifest declares 20 stylesheets at document start. `mainUI.css` also imports seven component styles already listed by the manifest; the current loading configuration therefore references those resources through both mechanisms.
+The manifest declares 25 stylesheets at document start. `mainUI.css` also imports seven component styles already listed by the manifest; the current loading configuration therefore references those resources through both mechanisms.
 
 | Stylesheet | Implementation role |
 | --- | --- |
@@ -1446,8 +1467,9 @@ The manifest declares 20 stylesheets at document start. `mainUI.css` also import
 | `styles/customPaints.css` | Paint search input and collection layout. |
 | `styles/customTrophies.css` | Favorite stars, limits, lobby trophy panel, and progress bars. |
 | `styles/hideCurrency.css` | Masked currency/tooltip presentation. |
-| `styles/hideNickname.css` | Immediate visual privacy, UID/self selectors, pseudo-labels, and hover reveal. |
-| `styles/settings.css` | KASPERSKY tab, switch rows, highlight, and reload tooltip. |
+| `styles/hideNickname.css` | Immediate nickname/XP masking, full UID-and-delimiter hiding, self selectors, pseudo-labels and supported hover reveal. |
+| `styles/hideSupplies.css` | Zero replacement on the supply strip and omitted quantity labels on garage inventory cards. |
+| `styles/settings.css` | Tiled settings navigation; four feature groups; Information links; shared image slices, entrance, scrolling and switches. |
 | `styles/welcomeModal.css` | Welcome/project-link buttons and their interaction styling. |
 
 Not every filename limits its rules to one feature; native selector styles can cross module boundaries. Many rules use `!important`, generated game class names, CSS masks, pseudo-elements, and modern selectors. Disabling a feature does not unload the manifest's global style resources.
@@ -1467,7 +1489,9 @@ When debugging a visual conflict, inspect all applicable stylesheet, dynamic-sty
 | Asset | Use |
 | --- | --- |
 | `assets/background.png` | Custom game-loading background through the root CSS property |
-| `assets/playButton.png` | Enhanced Play artwork and sliced button backgrounds |
+| `assets/playButton.png` | Legacy/native enhanced Play artwork used by its underlying controller |
+| `assets/art1.png` | Shared right-lobby card artwork and account-search notice |
+| `assets/art3.jpg` | Shared left-lobby tile and settings artwork |
 | `assets/cybersport.png` | Native Sport-clone artwork for the first Esports UI stage |
 | `assets/map-icon.png` | History map icon |
 | `assets/modulesTAB.svg` | Resistance heading and expansion-control shield |
@@ -1530,7 +1554,7 @@ All entries below belong to the game origin in the current browser/profile. No a
 
 | Key/store | Format | Owner and lifecycle |
 | --- | --- | --- |
-| Nine `k_*` feature keys | `true`/`false` strings | Origin-wide settings; cached by Core Settings services |
+| Thirteen `k_*` feature keys | `true`/`false` strings | Origin-wide settings; cached by Core Settings services |
 | `kasp_arcade_reload_enabled` | Diagnostic Boolean string, absent means enabled | Read once for hook selection on each page load |
 | `kasp_bonus_debug` | Opt-in Boolean string | Enables page-local bounded bonus journal; does not persist journal records |
 | `language_store_key` | Game-owned language text | Read for language selection; not an extension setting |
@@ -1546,6 +1570,7 @@ All entries below belong to the game origin in the current browser/profile. No a
 | `kasp_last_version` | Manifest-version string | Origin-wide welcome acknowledgement |
 | `kasp_last_nickname` | Legacy nickname string | Retained, no longer read or written by history |
 | `kasp_player_changes_cache` | Session-storage JSON object: nickname to count | Session/battle observations |
+| `kasp_history_unassigned_v1` | Session-storage buffer of complete unassigned results | At most 20 records, 2,000,000 characters; 24-hour read-time age bound; never adopted by nickname |
 | `kasp_augments_session_json` | Session-storage fallback for the device snapshot | Replaced on each page load; never restored as a data source |
 | OPFS `kasp-augments.json` | Current serialized device snapshot | Game-origin private file; reset on page load, last writer across tabs |
 | `TankiBattlesDB` / `battles` | IndexedDB records | Shared database, logical ownership through `userId`; legacy rows remain unassigned |
@@ -1645,6 +1670,13 @@ Do not describe a guard as cancellation when it only ignores stale completion. E
 | --- | --- |
 | 150 ms | Shared heavy-module throttle |
 | 250 ms | Additional garage skin observation; separate overdrive rendering interval while enabled |
+| 250 ms | Supply privacy, kill-feed privacy and box-effect setting polling across worlds |
+| 600 ms / 200 ms | Lobby account-search notice delay / removal transition |
+| 250 ms | First verified-owner lobby presentation for trophies/Tankoin counter; not every section re-entry |
+| Soft 2 ms / at most 64 steps | One native identity-discovery work slice; individual operations are not preempted |
+| 0 ms then 8 ms | Initial captured-store discovery scheduling / subsequent slice delay |
+| 1,000 ms | Account identity heartbeat and missing local-path retry; independent of presence heartbeat |
+| 5,000 ms | Minimum secondary remote-player discovery interval after completion |
 | 100 ms | Coalesced augment snapshot publication with late card binding |
 | 1,000 ms | Augment binding scan while enabled; separate Electron battle-presence polling |
 | 3,000 ms | Electron extension presence heartbeat |
@@ -1713,7 +1745,7 @@ esbuild consumes `src/kasp_main.ts` and `src/kasp_injector.ts`, bundles imports,
 | `test` | Recursively discover and execute all `tools/**/*.test.cjs` locally |
 | `check` | Strict type checking followed by the complete test suite |
 | `parse:client` | Development-only Acorn CLI in `tools/client-parser.cjs`; local JS input, optional JSON AST export |
-| `prepare:<feature>` | Ten development-only analyzer CLIs, detailed below; not invoked automatically by build |
+| `prepare:<feature>` | Thirteen npm analyzer CLIs; one additional direction analyzer uses a direct Node command; none run automatically during build |
 | `build:js` | esbuild both entry points with bundle/IIFE/Chrome target flags |
 | `build:zip` | Run local checks, then execute the Node release script |
 | `build` | Type check → tests → bundle → package |
@@ -1735,7 +1767,7 @@ The full build and ZIP command stop on failed type checking or regression tests.
 
 ### Dependency Metadata
 
-The manifest, package, and lockfile package versions are 2.9.9. Both package files declare `UNLICENSED`; the package is marked `private: true`. Package/lockfile-root ranges agree: `@types/chrome` `^0.3.0`, esbuild `^0.28.2`, TypeScript `^7.0.2`, Acorn `^8.19.0`, acorn-walk `^8.3.5`, and Astring `^1.9.0`. The parser/walker/generator are development dependencies, not imports of the runtime entries.
+The manifest, package, and lockfile package versions are 3.0.0. Both package files declare `UNLICENSED`; the package is marked `private: true`. Package/lockfile-root ranges agree: `@types/chrome` `^0.3.0`, esbuild `^0.28.2`, TypeScript `^7.0.2`, Acorn `^8.19.0`, acorn-walk `^8.3.5`, and Astring `^1.9.0`. The parser/walker/generator are development dependencies, not imports of the runtime entries.
 
 Use `npm ci` to install the locked dependency graph. Dependency changes should update the manifest and lockfile together; `npm install` can rewrite the lockfile. The project does not declare a Node `engines` field; tooling requires APIs such as `fs.cpSync` and the built-in Node test runner.
 
@@ -1753,12 +1785,16 @@ Use `npm ci` to install the locked dependency graph. Dependency changes should u
 | `prepare:battle-statistics` | `battle-statistics.json` |
 | `prepare:user-action` | `user-action.json` |
 | `prepare:critical` | `critical.json` |
+| `prepare:supply-privacy` | `supply-privacy.json` |
+| `prepare:box-pickup` | `box-pickup.json` |
+| `prepare:kill-feed-privacy` | `kill-feed-privacy.json` |
+| `node tools/prepare-overdrive-direction.cjs <main.js>` | `overdrive-direction.json` |
 
-Every command accepts `<main.js> [--out <plans.json>]` and `--help`. Run from the project root with an existing, unmodified local game bundle, for example `npm run prepare:critical -- ./main.js`. Root `main.js` is permitted analysis input; it is not the extension's main bundle. No AST JSON export is required.
+The original ten npm tools accept `<main.js> [--out <plans.json>]` and `--help`. The three newer privacy/box tools and direct direction CLI accept exactly one local JavaScript input and write their fixed output path. Run from the project root with an existing, unmodified local game bundle, for example `npm run prepare:critical -- ./main.js`. Root `main.js` is permitted analysis input; it is not the extension's main bundle. No AST JSON export is required.
 
-The CLI strips an initial BOM, parses/analyzes JavaScript without evaluating it, requires a complete unambiguous plan, applies its edits in memory, and parses the resulting syntax. Before writing it checks the destination plan-set format. Plans with the same SHA are replaced; historical hashes are retained and the new plan is appended with `sourceName`. Incompatible analysis does not write a replacement file. Syntax validation does not establish runtime correctness.
+Preparation strips an initial BOM, parses/analyzes JavaScript without evaluating it, requires a complete unambiguous plan, applies its edits in memory, and parses the resulting syntax. The original ten tools also validate their destination plan-set formats and carry their own source metadata. The newer fixed-output tools use simpler `{ plans: [...] }` collections; do not assume they support every original CLI option or metadata field. Plans with the same SHA are replaced while other hashes are retained. Incompatible native analysis does not write a replacement plan. Syntax validation does not establish runtime correctness.
 
-Use the [all-feature PowerShell workflow](README.md#refreshing-all-generated-mappings) for all ten files. Commands are independent: failure of a later analyzer does not undo earlier successful outputs. Inspect JSON diffs and cross-plan tests, rebuild JavaScript, reload the extension, and fully reload the game. Build/watch/package do not run preparation automatically.
+Use the [all-feature PowerShell workflow](README.md#refreshing-all-generated-mappings) for all fourteen plan sets. Commands are independent: failure of a later analyzer does not undo earlier successful outputs. Inspect JSON diffs and cross-plan tests, rebuild JavaScript, reload the extension, and fully reload the game. Build/watch/package do not run preparation automatically.
 
 Generated JSON is statically imported into `dist/kasp_injector.js`; it is not fetched by the installed extension. `build:zip` therefore needs no separate `generated` runtime directory. Acorn, acorn-walk, Astring, tools, root game input/AST exports, and archived backups remain outside the runtime package. Follow [Prepared Plans and Runtime Matching](#prepared-plans-and-runtime-matching) for hash/compatibility semantics.
 
@@ -1772,16 +1808,17 @@ Generated JSON is statically imported into `dist/kasp_injector.js`; it is not fe
 | `rmIfExists(target)` | Recursively remove an existing generated target. |
 | `copyDir(src, dest)` | Copy an available resource directory and report success; log/skip a missing one. |
 | `copyFile(src, dest)` | Copy an available file and report success; log/skip a missing one. |
-| `zipFolder(source, zip)` | Invoke Windows `tar -a` or non-Windows `zip -r`. |
+| `zipFolder(source, zip)` | Archive the versioned outer folder using Windows `tar -a` or non-Windows `zip -r`. |
+| `zipFolderContents(source, zip)` | Archive the folder contents directly for the Firefox-layout ZIP, with a root manifest. |
 | `main()` | Determine version, replace generated targets, copy configured inputs, check broad counts, archive, and log size. |
 
-Configured directories are `dist`, `styles`, `assets`, `database`, `_locales`, and `templates`. Configured root files are `manifest.json`, `LICENSE.txt`, `README.md`, `DOCUMENTATION.md`, and `MAINTENANCE.md`.
+Configured directories are `dist`, `styles`, `assets`, `database`, `_locales`, `templates` and `docs`. Configured root files are `manifest.json`, `LICENSE.txt`, `README.md`, `DOCUMENTATION.md`, and `MAINTENANCE.md`.
 
-For 2.9.9, the folder and archive names are `release/Kaspersky's Inventions 2.9.9/` and `release/Kaspersky's Inventions 2.9.9.zip`. The ZIP contains that outer versioned folder.
+For 3.0.0, the folder and archive names are `release/Kaspersky's Inventions 3.0.0/` and `release/Kaspersky's Inventions 3.0.0.zip`. The ordinary ZIP contains that outer versioned folder. A second `Kaspersky's Inventions 3.0.0-firefox.zip` contains its contents directly, including the root manifest. Both are unsigned distribution archives.
 
 The script removes the existing same-version output before recreating it. It throws if no directory or no root file was copied, but does not require every configured input to exist. `build:zip` can package stale bundles or partial resources if invoked without appropriate preparation.
 
-All three root documentation files are copied. `src/`, raw plan JSON, tools/tests, dependencies, root `main.js`, AST exports, and `archived/` are not configured copy inputs. `.gitignore` currently excludes `node_modules/`, `release/`, ZIPs, `archived/`, and root `main.js`; an already tracked file remains tracked despite an ignore entry.
+All three root documentation files and the `docs/` directory are copied. `src/`, raw plan JSON, tools/tests, dependencies, root `main.js`, AST exports, and `archived/` are not configured copy inputs. `.gitignore` currently excludes `node_modules/`, `release/`, ZIPs, `archived/`, and root `main.js`; an already tracked file remains tracked despite an ignore entry.
 
 ### Source and Generated Files
 
@@ -1821,6 +1858,10 @@ This approach can verify deterministic state transitions and race handling witho
 | `tools/battle-presence-ast.test.cjs` | Store/capacity profiles, compatible getter/writer interception, exact/adaptive merge and CLI. |
 | `tools/battle-statistics-ast.test.cjs` | Loaded fields, native matchmaking Boolean, mode extraction, decoys and constructor behavior. |
 | `tools/user-action-ast.test.cjs` | Mapped UID/action/relation, getter avoidance, scope ambiguity, native construction and CLI. |
+| `tools/supply-privacy.test.cjs` | Garage count masking, native text restoration, setting polling and mapped WebGL count contracts. |
+| `tools/box-pickup.test.cjs` | Native completion preservation, pooled pieces, limits, geometry ownership, disable and battle/world cleanup. |
+| `tools/kill-feed-privacy.test.cjs` | Own-name matching, dirty revisions, glyph fallback, real native width/geometry crash regression, renamed atlases and cross-plan merging. |
+| `tools/overdrive-direction.test.cjs` | Native local pose/camera mapping, stale telemetry, bearing and independent direction lifecycle. |
 | `tools/custom-trophies.test.cjs` | Initial dictionary readiness/localization and panel updates after language/favorite/progress changes. |
 | `tools/custom-garage-skins.test.cjs` | Unavailable/owned previews with identical titles, actual mounting and standard reset, missing native card data, account switching outside garage, renames, logout, pending learning, and legacy preservation. |
 | `tools/electron-discord/discord-presence.test.cjs` | Payload validation/privacy, battle store/clock/capacity, IPC handshake/framing, reconnect and fixed session timestamps. |
@@ -1887,6 +1928,63 @@ Align manifest/package/lockfile version metadata, reconcile dependency declarati
 
 Update technical documentation when dispatch conditions, storage keys, schemas, function contracts, or lifecycle guarantees change. Update README and release notes for user-visible behavior.
 
+## Additional Native Presentation Contracts
+
+### Supply Privacy: DOM and WebGL
+
+Sources: `src/modules/hideSupplies.ts`, `src/core/supplyPrivacy.ts`, `styles/hideSupplies.css`, `tools/supply-privacy-ast.cjs`.
+
+The content module initializes before boot and owns `html.kasp-hide-supplies` plus a set of marked quantity elements. Its observer follows native insertion and relevant class changes; detached or repurposed nodes release markers. Quantity text remains native. The strip displays a pseudo-element zero; inventory-card quantity labels suppress that pseudo-element entirely, so no black zero remains in the open Supplies section. Item price, duration, cooldown, hotkey and availability elements are outside these quantity selectors. Native Nuclear Energy selection does not intentionally disable masking; inserted replacement counts are observed again.
+
+The MAIN bridge changes only strings sent to four mapped supply-count label methods. It retains each label's latest native string, including stock changes received while masked, and returns `0` when enabled. It keeps weak label references, prunes dead entries and stops at a 128-label bound. Disabling/cleanup restores the latest native strings. A 250ms setting poll handles isolated-world event limitations. The bridge does not alter supply amounts, gameplay eligibility or activation.
+
+### Kill-Feed Privacy and Font Safety
+
+Sources: `src/core/killFeedPrivacy.ts`, `tools/kill-feed-privacy-ast.cjs`, `src/generated/kill-feed-privacy.json`.
+
+The account's original nickname is matched as a complete parsed player label, with an optional clan prefix. Substring matches and other players are unchanged. Both text-width calculation and glyph generation receive the same replacement, with the current native glyph table supplied explicitly. The localized candidate is accepted only when every UTF-16 character code exists in that table. Russian can fall back to `Hidden`; when neither label is supported, the name is empty rather than exposing the original. The same rule applies to attacker, victim, self-destruction, equipment-change and join/leave records.
+
+The renderer bridge remembers at most 32 weak renderer references and a revision per renderer. Settings, account and language changes increment the revision and mark retained native geometry dirty, so existing entries rebuild. It does not rewrite stored action objects, rank icons, colors or event icons. Polling is 250ms; quarantine/cleanup returns native rendering. A missing bridge leaves original expressions intact.
+
+The offline analyzer verifies the font-table path in measurement and geometry, rejects missing/ambiguous evidence and binds those paths in compatibility templates. The regression runs actual extracted width/glyph loops as well as lightweight fixtures. An unconditional Cyrillic replacement previously caused `undefined.t63_1` during width calculation. Catching only the draw wrapper would miss that preparation failure. See [the renderer investigation](docs/kill-feed-rendering.md) for the local-bundle call chain and GuiMain layer 23; generated names in that investigation are not a stable API.
+
+### Box Pickup Visuals
+
+Sources: `src/core/boxPickup.ts`, `tools/box-pickup-ast.cjs`, `src/generated/box-pickup.json`.
+
+The default-off `k_box_pickup` switch replaces recognized pickup presentation. Original pickup completion/callback order remains once per pickup; the effect does not issue reward, inventory or spawn mutations. The AST contract maps native box renderers, pooling, world ownership, positions, materials, opacity and terrain-ray interfaces. Unsupported contracts retain the native path.
+
+| Constant | Meaning |
+| --- | --- |
+| `count: 14` | Pieces emitted per pickup |
+| `maxShards: 140` | Scene-wide piece cap |
+| `fadeStart: 2.2` / `fadeDuration: .8` | Fade begins/lasts in seconds |
+| `flashSec: .22` | Picked-up box flash duration |
+| `glowSec: .7` | Tint cooling duration |
+| `gravity: 2400` | Visual acceleration in world units per second squared |
+| `speedHMin: 350` / `speedHMax: 950` | Horizontal visual speed range |
+| `speedVMin: 650` / `speedVMax: 1500` | Vertical visual speed range |
+| `boxHalf: 50` | Native box half-size used to size pieces |
+| `groundOffset: 75` | Fallback ground offset |
+| `bounce: .36` | Retained vertical speed after a bounce |
+| `rayBudget: 6` / `rayInterval: 100` | Probes per frame / minimum per-piece interval in milliseconds |
+
+Animation frames run while pieces exist. Flashes have a separate bound of 64. Mesh ownership is local: optional replacement BufferGeometry restores the original geometry before returning the pooled renderer, and only owned geometry is disposed. Engines lacking that interface retain scaled native geometry. Shared game materials and geometry must not be disposed by cleanup.
+
+Disable, world replacement, battle-canvas removal, recognized battle exit, pagehide and scope quarantine clear owned visuals. Limits bound work; they are not proof of zero FPS cost. Preserve native control flow when changing the effect, and test completion/exception paths before live verification.
+
+### Supported Features versus Diagnostics
+
+Self-equipment artwork still comes from the native statistics DOM through `equipmentTracker.sync()`. Console experiments that found TankInfoCC IDs and inventory previews did not add a shipped continuously updated native loadout/icon service. Device artwork may be absent until the native statistics UI has provided it. Do not document those experiments as an implemented automatic HUD feature.
+
+There is no shipped general daily/weekly/special mission-completion observer or in-battle mission-completion notification module in the registry. Favorite trophy progress uses observed native quest/result text and cached values. These are different data sources. The separately discussed grenade-tracer userscript is not an extension setting or packaged module.
+
+### Documentation and Credits Maintenance
+
+The full publication descriptions live in `docs/DESCRIPTION.en.md` and `docs/DESCRIPTION.ru.md`; browser metadata remains a short localized sentence. Credit names/roles come from `templates/welcome-modal.html` and the `welcomeModal.ts` dictionaries. Keep Master/Niced as Assistants, Lukas as Design, safwan/Tenobyte/KOCMOHABTUK as Testing and safwan/Tenobyte/Shiya as Coding. Preserve all listed co-creation/quality-review names when reproducing the complete credits. These acknowledgements are not runtime dependencies.
+
+Update source behavior first, then the user guide, technical contract, FAQ, publication descriptions and relevant maintenance checklists. Rebuild bundles after TypeScript/plan changes. CSS/template/reference-data changes are loaded directly but still require extension/page reload for a reproducible installed-page check. Existing release archives and hosted Drive documents do not change merely because local documentation was edited.
+
 ## Implementation Limits and Project Terms
 
 The implementation depends on observed native DOM, generated bundle patterns, known labels, exact artwork identifiers, and packaged reference snapshots. It cannot reconstruct unobserved events or guarantee compatibility with future game changes.
@@ -1901,4 +1999,4 @@ Project use and distribution are governed by [LICENSE.txt](LICENSE.txt), which c
 
 ---
 
-Technical documentation aligned with source/manifest version **2.9.9**, updated **October 17, 2026**.
+Technical documentation aligned with source/manifest version **3.0.0**, updated **October 22, 2026**.

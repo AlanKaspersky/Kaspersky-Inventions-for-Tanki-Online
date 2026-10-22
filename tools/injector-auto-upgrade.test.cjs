@@ -68,6 +68,10 @@ function injectorFixture(fetch, plans = JSON.parse(read('src/generated/overdrive
     const head = { appendChild(script) { appended.push(script); } };
     const context = {
         require: id => {
+            if (id === './core/killFeedPrivacy') return { installKillFeedPrivacy() {}, selectKillFeedPrivacyPlan: async () => undefined, killFeedPrivacyPlanValid: () => false };
+            if (id === './generated/kill-feed-privacy.json') return { plans: [] };
+            if (id === './core/boxPickup') return { installBoxPickup() {}, selectBoxPickupPlan: async () => undefined, boxPickupPlanValid: () => false };
+            if (id === './generated/box-pickup.json') return { plans: [] };
             if (id === './core/supplyPrivacy') return { installSupplyPrivacy() {}, selectSupplyPrivacyPlan: async () => undefined, supplyPrivacyPlanValid: () => false };
             if (id === './generated/supply-privacy.json') return { plans: [] };
             if (id === './core/bonusPickup') return { ...bonusPickupModule.exports, ...bonusOverrides };

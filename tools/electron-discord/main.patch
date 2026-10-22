@@ -28,7 +28,7 @@ index 88e6974..e03619b 100644
          show: false
      });
      if (OS.platform() === "win32")
-@@ -109,6 +112,58 @@ function createMainWindow() {
+@@ -109,6 +112,56 @@ function createMainWindow() {
          window.setIcon(Path.join(application.getAppPath(),
              "resources/icons/icon.png"));
      window.setMenuBarVisibility(false);
@@ -85,29 +85,3 @@ index 88e6974..e03619b 100644
  
      window.webContents.setWindowOpenHandler(
          ({ url }) => {
-@@ -146,8 +201,13 @@ async function updateAndLoadExtensions(userDataPath: string) {
-         }
-     }
- 
--    if (!extensions.some((extension) =>
--        extension.manifest.key === KASPERSKY_EXTENSION_KEY)) {
-+    const isKI = (extension: { manifest: any }) =>
-+        extension.manifest.key === KASPERSKY_EXTENSION_KEY ||
-+        extension.manifest.name === "Tanki Online: Kaspersky's Inventions";
-+    const kiCandidates = extensions.filter(isKI);
-+    const preferredKI = kiCandidates.find(extension => !extension.manifest.key) || kiCandidates[0];
-+    if (!preferredKI) {
-         const kiExtension = {
-             path: Path.join(extensionsPath, "kaspersky-inventions"),
-             manifest: {
-@@ -158,6 +218,10 @@ async function updateAndLoadExtensions(userDataPath: string) {
-     }
- 
-     for (const extension of extensions) {
-+        if (preferredKI && isKI(extension) && extension !== preferredKI) {
-+            log.info(`[KI] Skipping duplicate extension: ${extension.path}; using ${preferredKI.path}`);
-+            continue;
-+        }
-         try {
-             await updateExtension(extension);
-             await session.defaultSession

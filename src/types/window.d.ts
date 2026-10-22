@@ -2,6 +2,8 @@ export { };
 
 declare global {
     interface Window {
+        __kaspKillFeedPrivacy?: ReturnType<typeof import('../core/killFeedPrivacy').installKillFeedPrivacy>;
+        __kaspBoxPickup?: ReturnType<typeof import('../core/boxPickup').installBoxPickup>;
         __kaspSupplyPrivacy?: ReturnType<typeof import('../core/supplyPrivacy').installSupplyPrivacy>;
         __kaspOverdriveDirection?: { wanted(): boolean; capture(position: unknown, rotation: unknown): void };
         __kaspOverdriveDirectionDebug?: { status(): unknown };

@@ -41,13 +41,21 @@ import directionPlans from './generated/overdrive-direction.json';
 import { installSupplyPrivacy, selectSupplyPrivacyPlan, supplyPrivacyPlanValid } from './core/supplyPrivacy';
 import type { SupplyPrivacyPlan } from './core/supplyPrivacy';
 import supplyPrivacyPlans from './generated/supply-privacy.json';
+import { installBoxPickup, selectBoxPickupPlan, boxPickupPlanValid } from './core/boxPickup';
+import type { BoxPickupPlan } from './core/boxPickup';
+import boxPickupPlans from './generated/box-pickup.json';
+import { installKillFeedPrivacy, selectKillFeedPrivacyPlan, killFeedPrivacyPlanValid } from './core/killFeedPrivacy';
+import type { KillFeedPrivacyPlan } from './core/killFeedPrivacy';
+import killFeedPrivacyPlans from './generated/kill-feed-privacy.json';
 
 (function (): void {
     'use strict';
     installFeatureDiagnostics(window, 'page');
     featureScope('supplyPrivacy').run(() => installSupplyPrivacy(window));
+    featureScope('boxPickup').run(() => installBoxPickup(window));
 
     const accountIdentity = featureScope('accountIdentity').run(() => installAccountIdentityNative(window));
+    featureScope('killFeedPrivacy').run(() => installKillFeedPrivacy(window));
     featureScope('battlePresence').run(() => installBattlePresence(window, value => accountIdentity?.capture(value)));
     featureScope('augments').run(() => installGameAugments(window));
     featureScope('garageSkinCards').run(() => installGarageSkinCardsBridge(window));
@@ -279,8 +287,22 @@ import supplyPrivacyPlans from './generated/supply-privacy.json';
                                 if (supplyPrivacyPlan && supplyPrivacyPlanValid(originalCode, supplyPrivacyPlan)) prepared.push(supplyPrivacyPlan);
                                 else console.warn('[KI Supply privacy] Count label mapping unavailable');
                             } catch { console.warn('[KI Supply privacy] Count label mapping failed'); }
+                            let boxPickupPlan: BoxPickupPlan | undefined;
+                            try {
+                                boxPickupPlan = await selectBoxPickupPlan(originalCode, boxPickupPlans.plans as BoxPickupPlan[]);
+                                if (boxPickupPlan && boxPickupPlanValid(originalCode, boxPickupPlan)) prepared.push(boxPickupPlan);
+                                else console.warn('[KI Box pickup] Animation mapping unavailable; using the original animation');
+                            } catch { console.warn('[KI Box pickup] Animation mapping failed; using the original animation'); }
+                            let killFeedPrivacyPlan: KillFeedPrivacyPlan | undefined;
+                            try {
+                                killFeedPrivacyPlan = await selectKillFeedPrivacyPlan(originalCode, killFeedPrivacyPlans.plans as KillFeedPrivacyPlan[]);
+                                if (killFeedPrivacyPlan && killFeedPrivacyPlanValid(originalCode, killFeedPrivacyPlan)) prepared.push(killFeedPrivacyPlan);
+                                else console.warn('[KI Kill feed privacy] Text mapping unavailable');
+                            } catch { console.warn('[KI Kill feed privacy] Text mapping failed'); }
                             const merged = mergeClientPatchPlans(originalCode, prepared);
                             code = merged.code;
+                            if (killFeedPrivacyPlan && merged.rejected.includes(killFeedPrivacyPlan)) console.warn('[KI Kill feed privacy] Text patch conflict');
+                            if (boxPickupPlan && merged.rejected.includes(boxPickupPlan)) console.warn('[KI Box pickup] Animation patch conflict; using the original animation');
                             if (supplyPrivacyPlan && merged.rejected.includes(supplyPrivacyPlan)) console.warn('[KI Supply privacy] Count label patch conflict');
                             if (bonusPlan && merged.rejected.includes(bonusPlan)) reportBonus({ kind: 'hooks', ready: false, issues: ['overdrive-edit-conflict'] });
                             if (arcadePlan && merged.rejected.includes(arcadePlan)) reportArcade({ hooked: false, ready: false, issues: ['arcade-edit-conflict'] });

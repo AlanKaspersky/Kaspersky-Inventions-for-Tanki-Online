@@ -1,162 +1,309 @@
-.SettingsComponentStyle-blockContentOptions>ul {
+.SettingsComponentStyle-blockContentOptions > ul {
     position: relative !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: .5em;
+    width: 18em !important;
+    min-height: 0;
+    margin-top: 0 !important;
+    padding: 0 .125em !important;
+    box-sizing: border-box;
+    overflow-x: hidden;
     overflow-y: auto !important;
     scrollbar-width: none !important;
 }
-
-.SettingsComponentStyle-blockContentOptions>ul::-webkit-scrollbar {
-    display: none !important;
-}
-
-#kaspersky-tab {
+.SettingsComponentStyle-blockContentOptions > ul::-webkit-scrollbar { display: none !important; }
+.SettingsComponentStyle-blockContentOptions > ul > .SettingsMenuComponentStyle-menuItemOptions {
     position: relative !important;
-    width: 100% !important;
-    height: 5em !important;
-    z-index: 5;
+    isolation: isolate;
     display: flex;
     align-items: center;
     justify-content: flex-start;
+    flex: 0 0 3.625em;
+    width: 100% !important;
+    height: 3.625em !important;
+    margin: 0 !important;
+    padding: 0 1.25em;
+    box-sizing: border-box;
+    border: 1px solid rgba(255, 255, 255, .2);
+    border-radius: .75em;
+    background: #242729;
+    color: #e6e6e6;
+    overflow: hidden;
     cursor: pointer;
-    margin-top: 21em;
+    transition: background-color .2s, border-color .2s, color .2s;
 }
-
-#kaspersky-tab span {
-    font-family: BaseFontBold, FallbackFontBold, sans-serif;
-    font-style: normal;
-    font-weight: 500;
-    font-size: 1.125em;
-    text-transform: uppercase;
-    margin-left: 1.875em;
-    margin-top: 0.1em;
-    color: rgba(255, 255, 255, 0.6);
-    position: relative;
-    z-index: 5;
-    transition: 0.5s;
-}
-
-#kaspersky-tab span:hover,
-#kaspersky-tab.SettingsMenuComponentStyle-activeItemOptions span {
-    color: white;
-}
-
-.kasp-hide-native-slider .SettingsMenuComponentStyle-slideMenuOptions {
-    opacity: 0 !important;
-}
-
-.kasp-fake-highlight {
-    display: none;
-    flex-direction: column;
-    justify-content: center;
-    background: linear-gradient(to right, rgb(46, 50, 53), rgba(46, 50, 53, 0));
-    width: 18em;
-    height: 2.5em;
+.SettingsComponentStyle-blockContentOptions > ul > .SettingsMenuComponentStyle-menuItemOptions::before {
+    content: '';
     position: absolute;
-    left: 0;
-    top: 1.25em;
-    z-index: 1;
+    left: var(--kasp-settings-art-x, 0em);
+    top: var(--kasp-settings-art-y, 0em);
+    width: var(--kasp-settings-art-width, 100%);
+    height: var(--kasp-settings-art-height, 100%);
+    z-index: -1;
+    background: var(--kasp-settings-art, none) center / cover no-repeat;
+    filter: grayscale(1) blur(2px);
+    opacity: .12;
     pointer-events: none;
 }
-
-.kasp-fake-line {
-    background-color: rgb(255, 188, 9);
-    box-shadow: rgb(255, 188, 9) 0px 0px 0.676em 0px;
-    width: 0.313em;
-    height: 2.5em;
-    position: absolute;
-    left: 0;
-    top: 0;
-    z-index: 3;
+.SettingsComponentStyle-blockContentOptions > ul > .SettingsMenuComponentStyle-menuItemOptions > span {
+    position: relative;
+    margin: 0 !important;
+    color: inherit !important;
+    font: 1.125em BaseFontBold, FallbackFontBold, sans-serif;
+    text-transform: uppercase;
+    transition: none;
 }
-
-#kaspersky-tab.SettingsMenuComponentStyle-activeItemOptions .kasp-fake-highlight {
-    display: flex;
+.SettingsComponentStyle-blockContentOptions > ul > .SettingsMenuComponentStyle-menuItemOptions:hover {
+    background-color: #393c3e;
+    border-color: rgba(255, 255, 255, .55);
+    color: #fff;
 }
-
+.SettingsComponentStyle-blockContentOptions > ul > .SettingsMenuComponentStyle-activeItemOptions,
+.SettingsComponentStyle-blockContentOptions > ul > .SettingsMenuComponentStyle-activeItemOptions:hover {
+    background-color: #e1e1e1;
+    border-color: #fff;
+    color: #111;
+}
+.SettingsComponentStyle-blockContentOptions > ul > .SettingsMenuComponentStyle-activeItemOptions::before { opacity: .16; }
+.SettingsComponentStyle-blockContentOptions > ul > .SettingsMenuComponentStyle-slideMenuOptions,
+#kaspersky-tab > .kasp-fake-highlight { display: none !important; }
+@media (prefers-reduced-motion: reduce) {
+    .SettingsComponentStyle-blockContentOptions > ul > .SettingsMenuComponentStyle-menuItemOptions { transition: none; }
+}
 .kasp-hidden {
     display: none !important;
 }
 
+.SettingsComponentStyle-blockContentOptions:has(> #kaspersky-settings-content) {
+    flex-wrap: nowrap;
+    width: min(80em, calc(100vw - 4em));
+}
+.SettingsComponentStyle-blockContentOptions:has(> #kaspersky-settings-content) > ul {
+    flex: 0 0 18em;
+}
+
 #kaspersky-settings-content {
+    --kasp-settings-gutter: 1.286em;
     display: flex;
     flex-direction: column;
     align-items: stretch;
     justify-content: flex-start;
-    width: 46.875em;
+    flex: 1 1 0;
+    width: 0;
+    max-width: none;
+    min-width: 0;
+    min-height: 0;
     height: 100%;
     margin-left: 2.625em;
-    margin-top: 0px;
-    padding: 1.875em 1.875em 0px;
+    padding: 0 0 1.875em;
     position: relative;
-    background-color: rgba(255, 255, 255, 0.1);
+    box-sizing: border-box;
+    background: transparent;
     overflow-x: hidden;
     overflow-y: auto;
-    scrollbar-color: rgb(188, 188, 188) rgba(255, 255, 255, 0.2);
-    scrollbar-width: thin;
-}
-
-.kasp-toggle-row {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    width: 100%;
-    height: 2.25em;
-    margin-bottom: 1.25em;
-}
-
-.kasp-toggle-switch {
-    width: 2.75em;
-    height: 1.5em;
-    border: 0.063em solid rgba(255, 255, 255, 0.2);
-    border-radius: 6.25rem;
-    background-color: rgba(191, 213, 255, 0.25);
-    display: flex;
-    align-items: center;
-    position: relative;
-    transition: background-color 0.2s;
-    flex-shrink: 0;
-    cursor: pointer;
-}
-
-.kasp-toggle-row.kasp-active .kasp-toggle-switch {
-    background-color: rgba(118, 255, 51, 0.25);
-}
-
-.kasp-toggle-switch::before {
-    content: "";
-    position: absolute;
-    width: 1em;
-    height: 1em;
-    left: 0.25em;
-    background: url(https://s.eu.tankionline.com/static/images/incorrectCheck.1918884a.svg) 50% 50% / 100% 100% no-repeat;
-    transition: left 0.2s ease, background 0.2s ease;
-}
-
-.kasp-toggle-row.kasp-active .kasp-toggle-switch::before {
-    background: url(https://s.eu.tankionline.com/static/images/correct.afad1b22.svg) 50% 50% / 100% 100% no-repeat;
-    left: 1.5em;
-}
-
-.kasp-toggle-label {
-    color: rgba(255, 255, 255, 0.5);
+    scrollbar-width: none;
+    container-type: inline-size;
+    color: #fff;
+    font-size: 1.077em;
     font-family: BaseFontRegular, FallbackFontRegular, sans-serif;
-    font-size: 1em;
-    margin-left: 1em;
-    margin-right: 1em;
-    z-index: 2;
-    user-select: none;
+}
+
+#kaspersky-settings-content::-webkit-scrollbar { display: none; }
+#kaspersky-settings-content .kasp-settings-grid {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .857em;
+    align-items: stretch;
+}
+#kaspersky-settings-content .kasp-settings-normal { grid-column: 1; grid-row: 1 / 3; }
+#kaspersky-settings-content .kasp-settings-streamer { grid-column: 2; grid-row: 1; }
+#kaspersky-settings-content .kasp-settings-advanced { grid-column: 2; grid-row: 2; }
+#kaspersky-settings-content .kasp-settings-graphics { grid-column: 1 / -1; grid-row: 3; }
+#kaspersky-settings-content .kasp-settings-information { grid-column: 1 / -1; grid-row: 4; }
+#kaspersky-settings-content .kasp-settings-panel {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    isolation: isolate;
+    min-width: 0;
+    border: 1px solid #fff;
+    border-radius: 1.143em;
+    overflow: hidden;
+    box-sizing: border-box;
+    background: #e1e1e1;
+    color: #111;
+    animation: kasp-settings-appear .2s ease-out both;
+}
+#kaspersky-settings-content .kasp-settings-art {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    overflow: hidden;
+    border-radius: inherit;
+    background: #fff;
+}
+#kaspersky-settings-content .kasp-settings-art::before {
+    content: '';
+    position: absolute;
+    left: var(--kasp-settings-art-x, 0em);
+    top: var(--kasp-settings-art-y, 0em);
+    width: var(--kasp-settings-art-width, 100%);
+    height: var(--kasp-settings-art-height, 100%);
+    background: var(--kasp-settings-art, none) center / cover no-repeat;
+    filter: grayscale(1) blur(2px);
+}
+#kaspersky-settings-content .kasp-settings-art::after {
+    content: '';
+    position: absolute;
+    left: var(--kasp-settings-art-x, 0em);
+    top: var(--kasp-settings-art-y, 0em);
+    width: var(--kasp-settings-art-width, 100%);
+    height: var(--kasp-settings-art-height, 100%);
+    background: linear-gradient(180deg, rgba(245, 245, 245, .64), rgba(225, 225, 225, .9));
+}
+#kaspersky-settings-content .kasp-settings-panel-heading {
+    flex: 0 0 auto;
+    padding: 1.214em var(--kasp-settings-gutter) 1em;
+    border-bottom: 1px solid rgba(0, 0, 0, .13);
+}
+#kaspersky-settings-content .kasp-settings-panel-heading h3 {
+    margin: 0;
+    color: #111;
+    font: 1.071em/1.35 BaseFontBold, FallbackFontBold, sans-serif;
+    text-transform: none;
+    overflow-wrap: anywhere;
+}
+#kaspersky-settings-content .kasp-settings-panel-heading p {
+    margin: .417em 0 0;
+    color: #4a4a4a;
+    font: .857em/1.4 BaseFontRegular, FallbackFontRegular, sans-serif;
+}
+#kaspersky-settings-content .kasp-settings-rows {
+    display: flex;
+    flex-direction: column;
+    flex: 1 0 auto;
+    padding: 0 var(--kasp-settings-gutter);
+}
+#kaspersky-settings-content .kasp-settings-normal .kasp-toggle-row { min-height: 4.5em; }
+#kaspersky-settings-content .kasp-settings-information .kasp-settings-panel-heading { padding: 1em var(--kasp-settings-gutter) .875em; }
+#kaspersky-settings-content .kasp-settings-links {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .5em;
+    padding: .857em var(--kasp-settings-gutter) 1em;
+}
+#kaspersky-settings-content .kasp-settings-links a {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75em;
+    min-width: 0;
+    padding: .625em .75em;
+    border: 1px solid rgba(0, 0, 0, .12);
+    border-radius: .5em;
+    background: rgba(255, 255, 255, .4);
+    color: #111;
+    text-decoration: none;
+    font: 1em/1.4 BaseFontMedium, FallbackFontMedium, sans-serif;
+    transition: background-color .2s, border-color .2s;
+}
+#kaspersky-settings-content .kasp-settings-links a:first-child { grid-column: 1 / -1; }
+#kaspersky-settings-content .kasp-settings-links a span { color: inherit; overflow-wrap: anywhere; }
+#kaspersky-settings-content .kasp-settings-links a:hover { background: rgba(255, 255, 255, .8); border-color: rgba(0, 0, 0, .35); }
+#kaspersky-settings-content .kasp-settings-links a:focus-visible { outline: 2px solid #111; outline-offset: 2px; }
+#kaspersky-settings-content .kasp-settings-link-arrow { flex-shrink: 0; font-family: sans-serif; }
+#kaspersky-settings-content .kasp-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex: 1 0 auto;
+    gap: 1em;
+    width: 100%;
+    margin: 0;
+    padding: .786em 0;
+    border-bottom: 1px solid rgba(0, 0, 0, .1);
+    box-sizing: border-box;
     cursor: pointer;
 }
-
-.kasp-toggle-row.kasp-active .kasp-toggle-label {
-    color: rgb(255, 255, 255);
+#kaspersky-settings-content .kasp-toggle-row:last-child { border-bottom: 0; }
+#kaspersky-settings-content .kasp-toggle-text { display: block; min-width: 0; }
+#kaspersky-settings-content .kasp-toggle-label {
+    display: block;
+    color: #111;
+    font: 1em/1.4 BaseFontMedium, FallbackFontMedium, sans-serif;
+    overflow-wrap: anywhere;
+    user-select: none;
 }
-
+#kaspersky-settings-content .kasp-toggle-description {
+    display: block;
+    margin-top: .333em;
+    color: #4a4a4a;
+    font: .857em/1.4 BaseFontRegular, FallbackFontRegular, sans-serif;
+}
+#kaspersky-settings-content .kasp-toggle-switch {
+    appearance: none;
+    -webkit-appearance: none;
+    flex: 0 0 2.429em;
+    width: 2.429em;
+    height: 1.429em;
+    border: 1px solid #8b8b8b;
+    border-radius: 6.25em;
+    background: #b9b9b9;
+    position: relative;
+    box-sizing: border-box;
+    margin: 0;
+    font-size: 1em;
+    cursor: pointer;
+    transition: background-color .2s, border-color .2s;
+}
+#kaspersky-settings-content .kasp-toggle-switch::before {
+    content: '';
+    position: absolute;
+    left: .214em;
+    top: 50%;
+    width: .857em;
+    height: .857em;
+    border-radius: 50%;
+    background: #f7f7f7;
+    transform: translateY(-50%);
+    transition: transform .2s;
+}
+#kaspersky-settings-content .kasp-toggle-switch:checked { background: #171717; border-color: #171717; }
+#kaspersky-settings-content .kasp-toggle-switch:checked::before { transform: translate(1em, -50%); }
+#kaspersky-settings-content .kasp-toggle-row:hover { background: rgba(0, 0, 0, .025); }
+#kaspersky-settings-content .kasp-settings-notice {
+    color: #c5c5c5;
+    margin: 1.25em 0 0;
+    font: .857em/1.5 BaseFontRegular, FallbackFontRegular, sans-serif;
+}
+@keyframes kasp-settings-appear {
+    from { opacity: 0; transform: translateY(.5em); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@container (max-width: 38em) {
+    #kaspersky-settings-content .kasp-settings-grid { grid-template-columns: minmax(0, 1fr); }
+    #kaspersky-settings-content .kasp-settings-panel { grid-column: auto; grid-row: auto; }
+    #kaspersky-settings-content .kasp-settings-links { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 48em) {
+    #kaspersky-settings-content { margin-left: 1em; }
+}
+@media (prefers-reduced-motion: reduce) {
+    #kaspersky-settings-content .kasp-settings-panel { animation: none; }
+    #kaspersky-settings-content .kasp-toggle-switch,
+    #kaspersky-settings-content .kasp-toggle-switch::before,
+    #kaspersky-settings-content .kasp-settings-links a { transition: none; }
+}
 .kasp-tooltip {
     position: fixed !important;
-    background-color: #032930 !important;
+    background-color: #e1e1e1 !important;
     border-radius: .4em !important;
     box-shadow: 0 0 .2em rgba(0, 0, 0, .5) !important;
-    color: #fff !important;
+    color: #111 !important;
     padding: .3em .7em !important;
     text-transform: uppercase !important;
     transform: translate(-50%, -3.3em) !important;
@@ -169,7 +316,7 @@
 
 .kasp-tooltip::before {
     border: .6em solid transparent !important;
-    border-top-color: #032930 !important;
+    border-top-color: #e1e1e1 !important;
     content: "" !important;
     height: 0 !important;
     left: 50% !important;

@@ -1,53 +1,106 @@
-Copyright (c) 2026 Alan Kaspersky. All Rights Reserved.
+KASPERSKY'S INVENTIONS
+LICENSE AND TERMS OF USE
+International edition / Revision 2026-10-22
 
-PROPRIETARY AND CONFIDENTIAL
+Copyright (c) 2026 Alan Kaspersky. All rights reserved.
 
-This software, including all associated source code and documentation (the "Software"), 
-is the exclusive property of Kaspersky (the "Author").
+This document sets out the permission to use Kaspersky's Inventions and the conditions attached to that permission. The author is Alan Kaspersky (the Author). Copyright © 2026 Alan Kaspersky. All rights reserved except as expressly granted below.
 
-1. RESTRICTIONS ON USE AND DISTRIBUTION
-You may not copy, reproduce, distribute, publish, display, modify, create derivative works, transmit, 
-or in any way exploit any part of this Software without the express prior written consent of the Author. 
-Unauthorized copying, reverse engineering, decompiling, or disassembling of this Software is strictly prohibited.
+The Software is provided as is, at your own risk. To the maximum extent permitted by applicable law, the Author disclaims warranties and excludes liability arising from its use. Read sections 6 to 10 before installing or using it.
 
-2. EXCLUSIVE RIGHTS FOR "TANKI TWEAKS"
-This Software is developed specifically and exclusively for integration with the "Tanki Tweaks" extension. 
-The official developers and maintainers of "Tanki Tweaks" are granted the express right to use, modify, 
-and merge this Software into their project. 
+1  SCOPE AND ACCEPTANCE
 
-3. DISCLAIMER OF WARRANTY
-THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, 
-BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. 
-IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- DAMAGES ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+The Software means the Author-owned code and documentation of the Kaspersky's Inventions extension supplied with this edition of these terms. Author-owned companion client components are covered only where their distribution expressly incorporates these terms. Third-party software and game assets are not relicensed by this document.
 
-OFFICIAL DISCLAIMER AND USER AGREEMENT
+These terms govern the permissions granted here. Where legally effective, installing or using a copy supplied with these terms after having an opportunity to read them signifies acceptance. If you do not agree, do not install or use that copy. No provision overrides rights that applicable law makes non-waivable.
 
-By downloading, installing, and using the “Kaspersky's Inventions” extension (hereinafter the “Extension”), 
-you automatically and unconditionally accept the following terms:
+2  PERMISSION FOR ORDINARY USE
 
-1. Provision on an “AS IS” Basis:
-The Extension is provided to the user in its current state, without any express or implied warranties. 
-The author does not warrant uninterrupted operation of the code, absence of errors, or continued compatibility
-of the Extension upon the release of new updates to the game “Tanki Online.”
+The Author grants you a limited, non-exclusive, royalty-free, non-transferable permission to install and run official, unmodified copies for your own use, and to make copies reasonably necessary for installation and backup. You must retain copyright and license notices. Ownership of the Software is not transferred.
 
-2. Complete Limitation of Liability:
-Under no circumstances shall the author of the Extension bear any legal, financial, or other liability 
-for any direct, indirect, incidental, or consequential damages arising out of or in connection with 
-the use of or inability to use this software.
+You may show the Software's interface in screenshots, videos and streams, including monetized content. This permission does not authorize distribution of code or grant rights in Tanki Online or other third-party material.
 
-3. Assumption of Risk by the User:
-The user acknowledges that they use this third-party modification at their own risk. 
-All responsibility for possible consequences rests entirely with the user. Such consequences include, 
-but are not limited to: technical malfunctions, browser instability, reduced frame rate (FPS), 
-as well as possible disciplinary measures (including suspension of account) on the part of the 
-administration of the original game for violation of its User Agreement.
+3  PUBLIC SOURCE AND RESERVED RIGHTS
 
-4. Independent Status:
-This software is an independent development created solely for integration with the “Tanki Tweaks” 
-project and is in no way affiliated with, approved by, or supported by the official developers 
-or rights holders of the game “Tanki Online.”
+Public access to source code is not an open-source license. You may view and study lawfully published source. Rights to view or fork a public repository under the hosting platform's terms, and exceptions required by law, remain unaffected. All other rights not expressly granted are reserved.
 
-Continued installation or use of the Extension constitutes your full acceptance of these terms. 
-If you do not agree with the provisions of this document, you must refrain from installing 
-the Extension or immediately delete it from your device.
+4  RESTRICTIONS
+
+Except as permitted by section 5, applicable law or a separate written permission from the Author, you may not modify, adapt, translate code, redistribute, sublicense, sell, rebrand or incorporate the Software into another product. You may not remove ownership notices or falsely imply official endorsement.
+
+Reverse engineering, decompilation and disassembly are prohibited only to the extent such restrictions are lawful. This section does not prohibit ordinary use, lawful inspection of public source or good-faith reporting of defects.
+
+5  SPECIAL PERMISSION FOR TANKI TWEAKS
+
+The official developers and maintainers of Tanki Tweaks retain the express permission to use, modify and merge the Author-owned Software into the Tanki Tweaks project. This permission is an exception to sections 3 and 4. It does not grant ownership, rights in third-party material or a general right to relicense the Software.
+
+Nothing in this edition withdraws rights already granted to Tanki Tweaks under an earlier license. Rights beyond the express grant require a separate written agreement with the Author.
+
+RISKS AND ALLOCATION OF RESPONSIBILITY
+
+6  INDEPENDENT PROJECT AND GAME RULES
+
+The Software is an independent third-party project. It is not represented as affiliated with, approved by or supported by the developers, publisher or rights holders of Tanki Online. Names, trademarks, game code, artwork and other third-party materials remain subject to their owners' rights and terms.
+
+You must comply with the game's rules and the terms of relevant platforms. The Author does not determine what the game permits and does not guarantee that any feature is allowed, undetectable or free from account restrictions. A feature category such as Standard or Advanced is not a statement of approval by the game operator.
+
+7  YOUR DECISIONS AND SAFEGUARDS
+
+You decide whether and where to use the Software. Keep backups of local data you need, protect access to your device and account, and review actions before confirming them. Quick upgrades can trigger real in-game purchases using your account's resources. Stopping a queue does not reverse actions already accepted by the game.
+
+Privacy features change selected displays; they do not anonymize your account or remove information from game servers, logs or exports. Third-party overlays, tooltips, recordings and client integrations may expose information. Check your screen and activity settings before sharing.
+
+8  NO WARRANTIES OR SERVICE COMMITMENT
+
+To the maximum extent permitted by applicable law, the Software is supplied AS IS and AS AVAILABLE, without express, implied or statutory warranties, including warranties of merchantability, fitness for a particular purpose, satisfactory quality, title and non-infringement.
+
+The Author does not warrant accuracy, security, uninterrupted operation, absence of defects, compatibility with any device, browser, client, game update or other extension, or preservation of data and account access. No statement in the FAQ creates a warranty. There is no guaranteed response time, maintenance period or obligation to provide updates, support, fixes or continued distribution, except where required by law.
+
+9  EXCLUSION OF LIABILITY
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE AUTHOR SHALL NOT BE LIABLE FOR ANY LOSS, DAMAGE, CLAIM, COST OR EXPENSE ARISING OUT OF OR IN CONNECTION WITH THE SOFTWARE, ITS USE OR INABILITY TO BE USED, OR RELIANCE ON ITS OUTPUT.
+
+This exclusion includes direct, indirect, incidental, special, exemplary and consequential losses; loss of profits, revenue, opportunities, data, progress, virtual items or currency; interrupted access; crashes; reduced performance; erroneous actions; incompatibility; and warnings, suspension, bans or other measures imposed by the game operator or a third party.
+
+It applies regardless of the legal basis asserted, including contract, tort or negligence, to the extent the exclusion is lawful, even if the Author was advised of the possibility of the loss. The Author does not undertake to reimburse game purchases, restore accounts or compensate for such consequences.
+
+10  MANDATORY LEGAL LIMITS
+
+Nothing in these terms excludes or restricts liability or remedies that cannot lawfully be excluded or restricted. This includes liability for fraud, intentional wrongdoing, death or personal injury caused by negligence, or other protected rights, wherever and to the extent applicable law makes them non-excludable.
+
+Where a complete exclusion is not lawful, the exclusion applies only to the maximum lawful extent. These terms do not waive mandatory consumer, privacy or other statutory protections. The applicable legal rules, rather than the wording of a disclaimer alone, determine the available rights and remedies.
+
+DATA AND ADMINISTRATION OF THESE TERMS
+
+11  LOCAL DATA AND CONNECTED SERVICES
+
+The extension processes game data available in the page, including account identifiers, nicknames, equipment and battle information, to provide its functions. Settings, categories, favorites, cached values and recorded history may be stored locally in the browser profile or client using web storage and IndexedDB. Some records are separated by account ID; not every setting is account-specific.
+
+In a compatible companion client, Discord Rich Presence can pass activity to the local Discord application for publication under Discord's settings and terms. Activity may include your nickname, current screen, map, mode, time and player counts. Hiding the nickname changes that presence field but does not hide every activity field. Ordinary browser use does not enable this client-only integration.
+
+Game connections, store and client updates, external links, and files or diagnostics you choose to share involve separate services or recipients. Their terms and privacy practices apply. The FAQ describes the reviewed implementation; it is not a claim that the entire game or client makes no network requests. Local data may be lost when site data, profiles or installations are removed.
+
+12  UPDATES AND TERMINATION
+
+The Author may change future releases or stop distributing them. Changes to these terms are identified by a new revision and apply to copies distributed with that revision; they do not automatically rewrite an earlier grant or waive accrued mandatory rights. Continued use is not treated as acceptance of unseen changes.
+
+If you materially breach a condition of the permission granted here, that permission may terminate to the extent permitted by law. You must then stop using and remove unauthorized copies. You may retain your own lawful data and exports. Ownership, reserved rights and the warranty and liability provisions survive termination insofar as applicable law allows.
+
+13  INTERNATIONAL APPLICATION
+
+These terms do not select a country's law, an exclusive court or a mandatory arbitration forum. Applicable law and jurisdiction are determined by the relevant legal rules. No provision deprives you of a non-waivable right to bring a claim in a competent forum.
+
+If a provision is unenforceable, it applies to the lawful extent, or is severed if necessary, while the remaining provisions continue insofar as legally possible. No failure to enforce a provision alone constitutes a waiver. A separate written permission controls its specific subject; third-party licenses control their own components.
+
+14  CONTACT AND OFFICIAL SOURCES
+
+Questions about permissions or these terms may be directed to Alan Kaspersky through the extension project repository. A bug report, donation or public source listing does not itself grant additional rights. This edition is written in English; an unofficial translation does not amend it.
+
+OFFICIAL PROJECT SOURCES
+
+Extension: https://github.com/AlanKaspersky/Kaspersky-Inventions-for-Tanki-Online
+Companion client: https://github.com/AlanKaspersky/Tanki-Online-with-KI
+Published License and Terms: https://drive.google.com/file/d/1j6pNdN7SJZAcRsM2WwLQfzQuWYTcG8ZO/view
+Published FAQ: https://drive.google.com/file/d/15xzcltFZiiC9bbiKaZd3-Le6AGvqoTlz/view
+
+Revision date identifies this document edition. It does not state that this edition has already replaced the license in an existing release.

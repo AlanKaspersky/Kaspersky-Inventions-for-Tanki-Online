@@ -7,7 +7,7 @@ const {
 const ROOT = path.resolve(__dirname, '..');
 const OUT_DIR = path.resolve(ROOT, 'release');
 
-const DIRS = ['dist', 'styles', 'assets', 'database', '_locales', 'templates'];
+const DIRS = ['dist', 'styles', 'assets', 'database', '_locales', 'templates', 'docs'];
 const FILES = ['manifest.json', 'LICENSE.txt', 'README.md', 'DOCUMENTATION.md', 'MAINTENANCE.md'];
 
 function log(msg) {
@@ -82,6 +82,27 @@ function zipFolder(sourceDir, zipPath) {
     }
 }
 
+function zipFolderContents(sourceDir, zipPath) {
+    const zipAbs = path.resolve(zipPath);
+    const entries = fs.readdirSync(sourceDir);
+    if (entries.length === 0) {
+        throw new Error(`Папка пуста, нечего упаковывать: ${sourceDir}`);
+    }
+    // Явно перечисляем верхнеуровневые элементы, чтобы не получить записи "./..."
+    const args = entries.map((name) => `"${name}"`).join(' ');
+
+    if (process.platform === 'win32') {
+        execSync(`tar -a -c -f "${zipAbs}" -C "${sourceDir}" ${args}`, {
+            stdio: 'inherit'
+        });
+    } else {
+        execSync(`zip -r "${zipAbs}" ${args}`, {
+            cwd: sourceDir,
+            stdio: 'inherit'
+        });
+    }
+}
+
 function main() {
     const version = readVersion();
     const folderName = sanitize(`Kaspersky's Inventions ${version}`);
@@ -118,6 +139,13 @@ function main() {
     zipFolder(buildDir, zipPath);
     const sizeMb = (fs.statSync(zipPath).size / 1024 / 1024).toFixed(2);
     log(`готово: ${path.relative(ROOT, zipPath)} (${sizeMb} MB)`);
+
+    const firefoxZipPath = path.join(OUT_DIR, `${folderName}-firefox.zip`);
+    rmIfExists(firefoxZipPath);
+    log(`упаковка в zip для Firefox (manifest.json в корне)…`);
+    zipFolderContents(buildDir, firefoxZipPath);
+    const ffSizeMb = (fs.statSync(firefoxZipPath).size / 1024 / 1024).toFixed(2);
+    log(`готово: ${path.relative(ROOT, firefoxZipPath)} (${ffSizeMb} MB)`);
 }
 
 try {

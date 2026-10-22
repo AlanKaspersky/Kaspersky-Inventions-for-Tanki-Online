@@ -120,15 +120,16 @@
     min-height: 3.25em !important;
     flex-direction: row !important;
     gap: .65em;
+    padding: .55em .5em !important;
 }
 .kasp-lobby-left .PrimaryMenuItemComponentStyle-menuItemContainer > div {
-    width: 2em !important;
-    height: 2em !important;
-    flex: 0 0 2em !important;
+    width: 2.3em !important;
+    height: 2.3em !important;
+    flex: 0 0 2.3em !important;
     margin: 0 !important;
     background-color: #000 !important;
 }
-.kasp-lobby-left .PrimaryMenuItemComponentStyle-menuItemContainer:last-child > div { width: 1.6em !important; height: 1.6em !important; flex-basis: 1.6em !important; }
+.kasp-lobby-left .PrimaryMenuItemComponentStyle-menuItemContainer:last-child > div { width: 1.85em !important; height: 1.85em !important; flex-basis: 1.85em !important; }
 .kasp-lobby-left span.PrimaryMenuItemComponentStyle-itemName {
     display: block !important;
     color: #000 !important;
@@ -139,6 +140,9 @@
     white-space: normal !important;
     overflow-wrap: anywhere;
     margin: 0 !important;
+}
+.kasp-lobby-left .PrimaryMenuItemComponentStyle-menuItemContainer:last-child .PrimaryMenuItemComponentStyle-itemName {
+    text-transform: uppercase !important;
 }
 .kasp-lobby-left .FooterComponentStyle-footer {
     width: 100% !important;

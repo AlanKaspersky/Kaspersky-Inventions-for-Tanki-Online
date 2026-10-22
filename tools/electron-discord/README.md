@@ -1,6 +1,6 @@
 # Discord Rich Presence for the Electron client
 
-Extension integration reference: **2.9.9**, updated **October 13, 2026**. Client executable versioning and automatic updates belong to the separate Electron project.
+Extension integration reference: **3.0.0**, updated **October 22, 2026**. Client executable versioning and automatic updates belong to the separate Electron project.
 
 The extension reads the nickname and current screen and sends a heartbeat every three seconds. In a regular browser the module remains inactive. Discord labels are always in English, regardless of the game's interface language.
 
@@ -59,7 +59,7 @@ For a new Windows installer, use the client's existing `npm run make` command. T
 
 The client downloads its extension through its existing update mechanism. Ensure it loads the extension version containing `setupDiscordPresence`; rebuilding local extension files alone does not publish that version to the client's update source.
 
-The updated client recognizes KI by its store key or its manifest name. If a manually installed KI copy without a store key exists, it takes precedence over the store copy, and duplicate KI directories are skipped. Other extensions still load normally. Fully close the client before replacing extension files and start it again afterwards: a running page can retain scripts from a removed directory.
+The current client selects the keyed Chrome Web Store copy of KI. Same-name local/keyless copies no longer take precedence and are skipped. If no store copy exists, it downloads one into a free managed directory without overwriting local files, and retains the store key in the extracted manifest for later startups. Other extensions still load normally. Update checks and loading have separate error handling, so an offline update endpoint does not block an installed copy. The Discord-only main.patch does not modify extension selection; use the current client implementation for this policy. Fully close the client before replacing files: a running page can retain old scripts.
 
 Start the Discord desktop application, enable activity sharing in Discord and open the rebuilt client. The status should contain the application name, current section and nickname. If Discord starts later, the bridge retries automatically. Changed activity is coalesced for up to fifteen seconds to limit RPC traffic; clearing is immediate.
 
@@ -75,3 +75,33 @@ node --test tools/electron-discord/discord-presence.test.cjs
 The local `tsconfig.json` and `preload-electron.d.ts` let the editor check the preload template without installing Electron in the extension repository. The declaration covers only the IPC method this template uses; it supplies no runtime implementation. Keep these two files here when copying `preload.ts` into the client, where Electron's own type declarations validate it.
 
 Tests use a simulated Discord socket to verify validation, handshake, partial messages, ping/pong, activity changes, reconnect and cleanup. They do not confirm acceptance by a real Discord account or the configured application; that requires running the rebuilt client with Discord open.
+
+## Relationship to the Extension's Other Native Features
+
+The extension now embeds fourteen native plan sets. Account discovery is available in browsers as well as the client; full Discord battle-presence enrichment remains client-specific. A missing store mapping can affect both verified ownership and presence, while a missing direction/supply/box/kill-feed plan need not disable the Discord bridge. Inspect the failing contract before refreshing unrelated plans.
+
+The visible UID line can be completely hidden in streamer mode without deleting the underlying identity text. This does not remove the real account from the native cache. Discord uses its own masked state field: `Hidden`, not the SDF-font fallback used by the WebGL kill-feed. Map/mode, countdown and capacity remain activity fields; nickname hiding does not clear the entire activity.
+
+There is no per-feature Discord switch in the thirteen-option settings panel. Presence activates only when the client bridge/environment is available. In an ordinary browser, absence of Discord activity is expected. The bridge is not installed merely by importing a history backup or opening a client-source link.
+
+## Deployment and Recovery Checklist
+
+1. Keep the client and extension repositories distinct. Compile the client's preload/main modules in the client, and the extension's IIFEs in the extension.
+2. Verify that the configured Application ID is present in the packaged client, without adding a token or Client Secret.
+3. Check the logged store-managed KI path/version and skipped duplicates. A local/keyless KI copy must not override the managed copy; older clients need the updated loader.
+4. Close the running client before replacing extension files. Relaunch it and fully reload the game so old MAIN hooks do not remain active.
+5. Verify lobby/session time, a timed battle, map/mode, party capacity, nickname privacy, minimize/restore, Discord reconnect and clear-on-close.
+6. Inspect extension-side capture errors separately from preload validation, main-process IPC acceptance and Discord socket failures.
+7. Back up local battle history before moving profiles or reinstalling a host. The preload bridge does not synchronize extension web storage between clients.
+
+The reference socket tests and local type declarations validate the bundled bridge's contracts. They cannot prove the target host's packaging paths, installed extension selection, operating-system IPC availability or Discord activity settings. Record these separately in a support report.
+
+## Related Documentation
+
+- [Extension overview and installation](../../README.md)
+- [Full technical reference](../../DOCUMENTATION.md)
+- [Manual maintenance and failure isolation](../../MAINTENANCE.md)
+- [User FAQ](../../docs/FAQ.md)
+- [License and Terms of Use](../../LICENSE.txt)
+
+Reference reviewed with extension **3.0.0** on **October 22, 2026**. This guide is shipped in the source repository under `tools/`, not as an automatically installed companion executable.

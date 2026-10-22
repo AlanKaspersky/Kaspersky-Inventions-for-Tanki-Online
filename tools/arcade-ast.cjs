@@ -106,7 +106,7 @@ function analyzeArcade(input, { exposeContract = false } = {}) {
         const color = material.arguments[2];
         if (color.type !== 'CallExpression' || color.callee.type !== 'Identifier' || color.arguments.length !== 1 || !Number.isFinite(num(color.arguments[0]))) fail('arcade-material-color-missing');
         const materialArgs = [...material.arguments];
-        materialArgs[1] = { type: 'CallExpression', callee: color.callee, arguments: [{ type: 'Literal', value: 0xffbb1c }], optional: false };
+        materialArgs[1] = { type: 'CallExpression', callee: color.callee, arguments: [{ type: 'Literal', value: 0xffffff }], optional: false };
         const factoryArgs = [...factory.arguments]; factoryArgs[2] = { ...material, arguments: materialArgs };
         c.factory = generate({ ...factory, arguments: factoryArgs });
         const barBindings = root => nodes(root, 'VariableDeclarator').filter(n => prop(n.init) === c.barField).map(n => ({ node: n, id: n.id, owner: n.init.object }));

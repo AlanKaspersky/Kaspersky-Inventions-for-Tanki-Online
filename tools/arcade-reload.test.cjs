@@ -168,7 +168,7 @@ test('local HUD clones its native mesh and reads primary cooldown independently 
     assert.equal(f.extra.constructor, f.weapon.constructor);
     assert.notEqual(f.extra.material, f.weapon.material, 'the added row has an independent native material');
     assert.equal(f.extra.material.constructor, f.weapon.material.constructor);
-    assert.equal(f.extra.material.foreground.rgb, 0xffbb1c);
+    assert.equal(f.extra.material.foreground.rgb, 0xffffff);
     assert.equal(f.weapon.material.foreground.rgb, 0xffff00, 'native yellow indicator stays unchanged');
     assert.equal(f.extra.material.background.rgb, f.weapon.material.background.rgb);
     assert.equal(f.extra.material.border, f.weapon.material.border);
@@ -203,7 +203,7 @@ test('renaming and minification retain local HUD discovery and primary cooldown'
     for (const config of [{ renamed: true }, { minified: true }, { renamed: true, minified: true }]) {
         const f = fixture(config); f.equip('Scorpio'); f.tick();
         assert.equal(f.extra.progressValue, .25); assert.equal(f.weapon.progressValue, .65);
-        assert.equal(f.value(f.extra, 'material').foreground.rgb, 0xffbb1c);
+        assert.equal(f.value(f.extra, 'material').foreground.rgb, 0xffffff);
         assert.equal(f.value(f.weapon, 'material').foreground.rgb, 0xffff00);
         f.resize(310, 10, 70, 130);
         assert.equal(f.value(f.extra, 'widthValue'), 310);

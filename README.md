@@ -2,9 +2,9 @@
 
 ## Complete Documentation
 
-**Extension version:** 2.9.9 (`manifest.json`)
+**Extension version:** 3.0.0 (`manifest.json`)
 
-**Documentation updated:** October 17, 2026
+**Documentation updated:** October 22, 2026
 
 **Interface languages:** English and Russian
 
@@ -27,6 +27,10 @@ For implementation details, module logic, and workflows, see
 4. [Installation](#installation)
 5. [Configuration](#configuration)
 6. [Module Documentation](#module-documentation)
+   - [Lobby Navigation Tiles](#lobby-navigation-tiles)
+   - [Account ID Discovery and Lobby Status](#account-id-discovery-and-lobby-status)
+   - [Tankoin Balance](#tankoin-balance)
+   - [Lobby Pass Cards](#lobby-pass-cards)
    - [Core Settings Module](#core-settings-module)
    - [Custom Play Button Module](#custom-play-button-module)
    - [Cybersport Format Prototype](#cybersport-format-prototype)
@@ -37,6 +41,8 @@ For implementation details, module logic, and workflows, see
    - [Auto-Upgrade Module](#auto-upgrade-module)
    - [Hide Nickname & XP Module](#hide-nickname--xp-module)
    - [Hide Currency Module](#hide-currency-module)
+   - [Hide Supplies Module](#hide-supplies-module)
+   - [Box Pickup Visuals](#box-pickup-visuals)
    - [Custom Garage Skins Module](#custom-garage-skins-module)
    - [Weapon Augment Tracker Module](#weapon-augment-tracker-module)
    - [Critical Shot Indicator](#critical-shot-indicator)
@@ -62,6 +68,24 @@ For implementation details, module logic, and workflows, see
 18. [License and Project Status](#license-and-project-status)
 19. [Acknowledgements](#acknowledgements)
 
+## Start Here
+
+This repository documents extension **3.0.0**, reviewed against source on **October 22, 2026**. A feature described as implemented below has a corresponding runtime module; experimental console reports are not treated as shipped features.
+
+| Document | Audience and contents |
+| --- | --- |
+| [README](README.md) | Installation, feature behavior, settings, backups, troubleshooting and credits |
+| [Technical reference](DOCUMENTATION.md) | Execution worlds, native mappings, module contracts, storage, lifecycle and development |
+| [Maintenance guide](MAINTENANCE.md) | Failure isolation, diagnostics, native updates, regression checks and release review |
+| [FAQ](docs/FAQ.md) | Practical questions about settings, privacy, history, account discovery and compatibility |
+| [Russian user guide](docs/USER_GUIDE.ru.md) | Installation, feature groups, everyday workflows, data and recovery in Russian |
+| [English store description](docs/DESCRIPTION.en.md) / [Russian store description](docs/DESCRIPTION.ru.md) | Full public descriptions, ending with the current welcome-window credits |
+| [Kill-feed investigation](docs/kill-feed-rendering.md) | Verified renderer chain and the missing-glyph crash regression |
+| [Electron integration](tools/electron-discord/README.md) | Optional client-side Discord preload/IPC integration |
+| [License and Terms of Use](LICENSE.txt) | English international edition; proprietary terms and retained Tanki Tweaks permission |
+
+For players, begin with Installation and Configuration. For a developer changing native hooks, begin with the technical reference and maintenance guide. A prepared extension needs no Node.js installation; source development does.
+
 ## Overview
 
 Kaspersky's Inventions is a browser extension for Chromium and Firefox that extends the Tanki Online interface with equipment information, navigation shortcuts, local battle history, privacy controls, and visual improvements. It integrates with the existing game client rather than providing a separate game interface.
@@ -70,7 +94,7 @@ The implementation consists of TypeScript modules, CSS files, HTML templates, an
 
 There are two categories of functionality:
 
-- **Configurable features:** eleven options exposed through the in-game KASPERSKY settings tab. Nine default to disabled; arcade reload and critical indicators default to enabled.
+- **Configurable features:** thirteen options exposed through the in-game KASPERSKY settings tab. Eleven default to disabled; arcade reload and critical indicators default to enabled.
 - **Automatically integrated features:** garage button styling, trophy favorites, garage skin image handling, equipment tracking, resistance presentation, equipment-change indicators, the version welcome window, and Discord presence in a compatible Electron client. Arcade reload and critical indicators have their own live switches. The remaining automatic integrations have no individual switches in the current settings panel.
 
 Most features affect presentation or maintain local records. The enhanced Play interface and Auto-Upgrade module also initiate ordinary game-interface actions. Auto-Upgrade can perform actual equipment purchases through the game's confirmation controls; its initial confirmation is therefore part of the workflow.
@@ -89,6 +113,7 @@ The project is an independent interface modification. Its relationship to Tanki 
 | Trophy progress | Favorites for up to two turrets and two hulls |
 | Upgrades | X5, X10, X15, and MAX sequences with an initial confirmation |
 | Privacy | Visual masking of nickname, XP, client UID, and supported currency displays |
+| Supply privacy | Garage inventory quantities omitted; supported strip and WebGL battle quantities replaced with zero |
 | Garage presentation | Equipped skin artwork learned from the native skins interface |
 | Battle statistics | Equipment-change indicators, resistance summaries, and captured equipment icons |
 | Battle history | Result capture, cards, detailed player statistics, pagination, ID-scoped JSON import/export and clearing |
@@ -97,6 +122,9 @@ The project is an independent interface modification. Its relationship to Tanki 
 | Overdrive boxes | Automatic pickup-based 85-second countdowns for up to two learned positions |
 | Discord presence | English map/mode, nickname or Hidden, battle countdown, and player capacity in a compatible Electron client |
 | Interface styling | Garage icons, headers, navigation, dialogs, loading visuals, and layout adjustments |
+| Lobby and settings | Original icon tiles, native pass notifications, continuous artwork, grouped RU/EN settings and hidden-scrollbar scrolling |
+| Account ownership | Early cooperative native ID discovery, page-local path/schema cache and a lobby-only search notice |
+| Box pickup visuals | Optional flash and bounded fading fragments; native pickup rewards and completion remain |
 
 Availability depends on the corresponding game elements being present and recognizable. The extension does not retrieve missing historical battles from the game server.
 
@@ -164,7 +192,7 @@ For local testing with Firefox 128 or newer:
 
 A temporary add-on remains installed until Firefox restarts or it is removed. See Mozilla's [temporary installation instructions](https://www.extensionworkshop.com/documentation/develop/temporary-installation-in-firefox/).
 
-For persistent installation in standard Firefox, use an author-provided Mozilla-signed add-on, through its published listing or **Install Add-on From File** in `about:addons`. See Mozilla's [signed self-distribution instructions](https://extensionworkshop.com/documentation/publish/install-self-distributed/). This repository's `build:zip` creates a distribution archive with an outer folder; it does not create or sign a Firefox XPI. Adding the Gecko ID does not sign the extension.
+For persistent installation in standard Firefox, use an author-provided Mozilla-signed add-on, through its published listing or **Install Add-on From File** in `about:addons`. See Mozilla's [signed self-distribution instructions](https://extensionworkshop.com/documentation/publish/install-self-distributed/). This repository's `build:zip` creates both an outer-folder distribution ZIP and a Firefox-layout ZIP with a root manifest; it does not sign a Firefox XPI. Adding the Gecko ID does not sign the extension.
 
 ### Installing from Source
 
@@ -197,7 +225,7 @@ Reloading the extension or rebuilding JavaScript does not intentionally clear st
 3. Enable the required features.
 4. Close settings to apply the configuration workflow.
 
-The module compares the final switch values with the values present when the panel was created. If the final configuration differs for a setting that requires reload, closing settings reloads the page. The arcade reload and critical indicator switches apply immediately and do not by themselves request that reload. Returning every switch to its original value avoids that reload.
+The module compares the final switch values with the values present when the panel was created. If the final configuration differs for a setting that requires reload, closing settings reloads the page. Arcade reload, critical indicator, supply privacy and box pickup animation switches apply live and do not by themselves request that reload. Returning every switch to its original value avoids that reload.
 
 Nickname privacy also updates its root CSS state immediately when switched on or off. Other modules may respond during their update cycle, but the settings-close reload remains the normal way to establish a consistent configuration.
 
@@ -211,16 +239,36 @@ Nickname privacy also updates its root CSS state immediately when switched on or
 | `k_friends` | Friend tags and categories | Disabled | Friends and supported invitation lists |
 | `k_paints` | Smart paint search | Disabled | Garage paint collection |
 | `k_hideCurrency` | Hide currency | Disabled | Supported currency displays outside battle |
-| `k_hideNicknameXP` | Hide nickname and score | Disabled | Nickname, XP, self-player fields, and client UID |
+| `k_hideNicknameXP` | Hide nickname and score | Disabled | Nickname, XP, self-player fields, client UID and the local player's WebGL action-log names |
 | `k_hideSupplies` | Hide supplies | Disabled | Supply quantities in the garage and battle HUD; applies live |
 | `k_history` | Keep a history of battles | Disabled | Result capture and Battle History |
 | `k_overdrive_timer` | Overdrive box timer | Disabled | Automatic 85-second box countdown during battles |
 | `k_arcade_reload` | Arcade reload indicator | Enabled | Additional Shaft/Scorpio bar; live switch |
 | `k_critical_indicator` | Critical shot indicator | Enabled | Native reload-bar coloring; live switch |
+| `k_box_pickup` | Modified box pickup animation in battle | Disabled | Visual changes category; flash and fading fragments for observed pickups by any player; live switch |
 
-The Russian label for `k_augments` is **«Отображение недоступных предметов и характеристики устройств»**. The English interface currently uses **Augment specifications**. Both labels control the same setting and storage key.
+The Russian label for `k_augments` is **«Характеристики устройств»**, with the description **«Включая недоступные предметы»**. The English interface currently uses **Augment specifications**. Both labels control the same setting and storage key.
 
 Keys are case-sensitive and stored as the strings `true` or `false`. The general `k_` naming convention does not mean keys can be freely renamed; the exact keys above are used by the implementation.
+
+### Settings Groups and Layout
+
+The tab has four feature categories and an Information panel. History belongs to Standard features.
+
+| Category | Options |
+| --- | --- |
+| Standard features / Функции обычной серьёзности | Friend tags; Augment specifications; Quick upgrades; Enhanced Play button; Smart paint search; Battle history |
+| Streamer mode / Режим стримера | Hide nickname and XP; Hide currency; Hide supplies |
+| Advanced features / Функции повышенной серьёзности | Overdrive box timer; Arcade reload indicator; Critical shot indicator |
+| Visual changes / Графические изменения | Modified box pickup animation in battle |
+
+There are **13 switches**: only arcade reload and critical indication default to enabled. These labels organize the interface; they do not describe official approval or promise a particular performance cost.
+
+The standard panel occupies the left column; streamer and advanced panels share the right column. Visual changes and Information span the content width. Narrow content uses one column. Each column's artwork uses a shared image origin rather than restarting the same picture on every card. The left navigation likewise shows successive slices of one image across all nine buttons, including KASPERSKY.
+
+Panels enter smoothly when the section opens. Only image layers receive the 2px blur; text and switches remain sharp. Geometry is expressed in scalable units, with intentionally fixed pixel borders/blur. Hidden scrollbars do not remove scrolling: wheel, touchpad and supported keyboard focus navigation remain usable. The menu and content can scroll independently. Native settings content retains its own implementation; the extension styles the left navigation and its own tab.
+
+The Information panel links to the Chrome Web Store, extension source, companion-client source, License and Terms of Use, and FAQ. Opening one follows an external link; it does not submit diagnostics or modify an account.
 
 ### Language Selection
 
@@ -262,6 +310,30 @@ Challenges and the Elite Pass use white cards with black text, matching the exte
 The pass and favorite-trophy cards share a continuous `assets/art1.png` background with a light overlay and 2px image blur. Only the backdrop is blurred; card content and dimensions stay unchanged.
 
 The redesign is CSS over the existing game elements. A small DOM adapter supplies progress percentages, alignment coordinates, and RU/EN pseudo-labels. It reads stars from the native counter and Elite Pass progress from the native circle's two rendered half-ring angles. It never infers progress from the level number; unsupported ring layouts hide the line. No game bundle hook or additional server request is used.
+
+### Lobby Navigation Tiles
+
+The main menu uses the game's existing entries and icons in a two-column tile layout. Containers, Missions, Garage and Shop retain native navigation. Settings spans the last row, uses an uppercase localized caption and a slightly enlarged native icon. Section icons use 2.3em boxes; the Settings icon uses 1.85em. Sizes scale with the game's interface font.
+
+Quick Battle remains centered in the main tile. The main button and mode buttons use the shared metal-shine hover effect. During matchmaking the main image darkens and mode controls dim; the game's search lock remains authoritative. The five footer controls stay near the bottom of the lobby. Native notification badges on styled sections are presented as small monochrome dots.
+
+One continuous art3 image is sliced across the lobby controls. Only this image is blurred by 2px. Decorative layers do not capture clicks. The adapter does not replace the game's event handlers or manufacture mode selection events of its own.
+
+### Account ID Discovery and Lobby Status
+
+Verified ownership comes from the native game account ID, not a nickname or the visible UID label. Store capture starts during game initialization. A fast path checks the store's local state, then cooperative bounded discovery handles other supported layouts. Work is divided into small tasks; finding the local account takes priority over collecting remote players.
+
+The current page caches the resolved path, schema and verified account. Once the native User is loaded, repeated reads follow that path instead of searching the whole object graph again. Login without a full reload is handled; a new page after logout must verify ownership again. The extension does not persist an old ID as proof of a new login.
+
+If no ID is available after a 600ms lobby delay, a bottom-center art-backed notice says **Searching for account ID** / **Поиск ID аккаунта**. It appears only while a real lobby menu is present. Finding the ID or leaving the lobby fades the notice out. A slow computer or changed native layout can still delay discovery; the notice is a status display, not another search process.
+
+Favorites and the custom Tankoin counter wait for verified ownership in the lobby. Their first appearance for an owner can fade in over 250ms; opening and closing sections does not replay that entrance for the same owner during the page session. Reduced-motion settings suppress the animation. Existing saved records remain untouched if ownership is unavailable.
+
+### Tankoin Balance
+
+The automatic counter complements headers that lack a native Tankoin display. Native shop/exchange values are observed, and validated numeric text is cached under the verified account ID. A native counter takes precedence. Without a live observation or a saved balance, the display can show a dash rather than inventing a zero.
+
+Returning to a known account restores that account's last observed balance. Renaming the same ID does not create a different owner; another ID with the same nickname does. This counter does not query a separate balance endpoint, initiate an exchange or buy currency. Hide currency also masks this counter.
 
 ### Core Settings Module
 
@@ -425,7 +497,9 @@ Covered locations include:
 - Header nickname and XP.
 - The current player's nickname in native battle statistics and results.
 - The current-player name in Battle History details.
-- The client information parameter `UID: <nickname>`.
+- The client information parameter `UID: <nickname>` is hidden entirely along with its following separator; TYPE, VER, UPD and SRV remain visible.
+
+The local player's WebGL kill-feed name is also masked in kills, deaths, self-destruction, equipment changes and join/leave entries. Its bitmap font must support every replacement character: the label uses `Скрыто` or `Hidden` when available, falls back to `Hidden`, and becomes empty if neither label is supported. Native identity data, other players, ranks and event icons are preserved.
 
 TYPE, VER, UPD, and SRV are not intentionally masked. Other players' names are not generally hidden.
 
@@ -450,6 +524,16 @@ Tankoins also have an automatic persistent header counter outside the shop. It r
 The **Hide supplies** switch (`k_hideSupplies`, disabled by default) omits supply item quantities on garage cards and displays `0` for the supply strip and native supply count labels in the WebGL battle HUD. RU/EN settings labels are available. Switching it off restores the latest native display, including changes received while hidden. Prices, cooldowns, availability and actual stock are unchanged.
 
 Garage values remain in the DOM and are masked with CSS. Battle privacy intercepts only the formatted text sent to the four recognized native count label renderers. An offline AST plan and rename-compatible templates identify these methods; unsupported client structures are left unchanged. Prepare an updated mapping with `npm run prepare:supply-privacy -- ./main.js`. The page-side switch also polls the saved setting every 250 ms for cross-world changes. Label references are weak and diagnostic cleanup restores their last native text.
+
+### Box Pickup Visuals
+
+**Setting:** `k_box_pickup`, disabled by default; **Visual changes** category.
+
+Recognized pickups use a short flash and scattering fragments. The native pickup/reward logic remains in place, and pickups observed for other players can also produce the visual. This feature changes the pickup animation; it does not change box spawn locations, delivery timing, collected stock or server rewards.
+
+Each pickup emits up to 14 pieces. A scene-wide cap of 140 pieces bounds the effect. The flash lasts 0.22 seconds; fragments begin fading after 2.2 seconds and finish over another 0.8 seconds. Terrain probes are limited to six per frame. The animation schedules frames only while pieces exist and clears owned resources on disable, battle/world replacement and page exit. Limits reduce cost but do not promise identical FPS on every GPU.
+
+The switch applies live. If its native contract is unavailable or conflicts with another plan, normal pickup presentation remains. This feature is independent of the overdrive countdown: one is visual, the other observes the overdrive pickup to maintain a local timer.
 
 ### Custom Garage Skins Module
 
@@ -637,6 +721,8 @@ An origin includes scheme, hostname, and port. Different game origins, browser p
 | `k_paints` | Smart Paint Search setting | Shared across accounts |
 | `k_hideCurrency` | Hide Currency setting | Shared across accounts |
 | `k_hideNicknameXP` | Hide Nickname/XP setting | Shared across accounts |
+| `k_hideSupplies` | Hide supply counts | Shared across accounts |
+| `k_box_pickup` | Modified box pickup presentation | Shared across accounts |
 | `k_history` | Battle History setting | Shared across accounts |
 | `k_overdrive_timer` | Overdrive box timer setting | Shared across accounts |
 | `k_arcade_reload` | Live arcade indicator switch; defaults to enabled | Shared across accounts |
@@ -671,6 +757,8 @@ copy(window.__kaspAugmentsDebug.export());
 ```
 
 `hooked: true` reports that the expected model-cache pattern was instrumented. `devices` counts captured numeric property lists, including empty lists; `equipment` counts captured equipment baselines. These checks do not guarantee that every visible card has been matched. If `hooked` is false, the current game bundle was not recognized; previous-session data is not substituted.
+
+Unassigned complete results can be retained separately in `sessionStorage.kasp_history_unassigned_v1` while history recording is enabled and a verified owner is unavailable. This buffer is limited to 20 records, 2,000,000 serialized characters and a 24-hour read-time age filter. It is not a history backup and is never automatically assigned to a later account by nickname. See the maintenance guide before attempting recovery.
 
 ### Battle database
 
@@ -842,7 +930,7 @@ Recovery can allow the game to load without the instrumentation. Features relyin
 
 ### AST plans and compatibility
 
-Ten JSON plan sets under `src/generated/` are imported into the injector bundle. Known builds are selected by source length and SHA-256. An unknown hash triggers a compatibility attempt using templates generated from native AST evidence, with shared symbol checks, lexical filtering, expected match counts, and edit guards. A renamed `main.<hash>.js` URL does not by itself invalidate a plan.
+Fourteen JSON plan sets under `src/generated/` are imported into the injector bundle. Known builds are selected by source length and SHA-256. An unknown hash triggers a compatibility attempt using templates generated from native AST evidence, with shared symbol checks, lexical filtering, expected match counts, and edit guards. A renamed `main.<hash>.js` URL does not by itself invalidate a plan.
 
 All accepted plans refer to the original source and are merged once. Stale or conflicting plans are rejected individually. This is compatibility checking before execution, not a guarantee that a later rendering, network, or native runtime error can be recovered automatically.
 
@@ -870,6 +958,8 @@ npm ci
 
 The package manifest and lockfile root agree on `@types/chrome` `^0.3.0`, esbuild `^0.28.2`, TypeScript `^7.0.2`, Acorn `^8.19.0`, acorn-walk `^8.3.5`, and Astring `^1.9.0`. Use `npm ci` for the locked graph. Use `npm install` when intentionally changing dependencies and review the resulting lockfile changes.
 
+The localized browser description is a separate plain-text metadata field limited to 132 characters; full descriptions and credits live under `docs/`, not in that short field. See [Chrome's manifest description reference](https://developer.chrome.com/docs/extensions/reference/manifest/description).
+
 ### Available commands
 
 | Command | Operation |
@@ -878,7 +968,7 @@ The package manifest and lockfile root agree on `@types/chrome` `^0.3.0`, esbuil
 | `npm test` | Runs every `tools/**/*.test.cjs` file, including Discord companion tests. |
 | `npm run check` | Runs strict type checking and the full test suite locally. |
 | `npm run parse:client -- <main.js>` | Parses a local game bundle with Acorn; optionally exports its AST with `--ast <output.json>`. |
-| `npm run prepare:<feature> -- <main.js>` | Generates or refreshes that feature's AST plan and templates; see the ten feature names below. |
+| `npm run prepare:<feature> -- <main.js>` | Generates or refreshes that feature's AST plan and templates; see the complete command matrix below. |
 | `npm run build:js` | Bundles both TypeScript entry points into `dist/`. |
 | `npm run build:zip` | Runs local checks, then packages the files currently present into a release archive. |
 | `npm run build` | Runs local checks, JavaScript bundling, and packaging in sequence. |
@@ -903,17 +993,20 @@ From the project root in PowerShell:
 ```powershell
 $features = @(
     'overdrive', 'arcade', 'augments', 'garage-details', 'garage-items',
-    'garage-inventory', 'battle-presence', 'battle-statistics', 'user-action', 'critical'
+    'garage-inventory', 'battle-presence', 'battle-statistics', 'user-action', 'critical',
+    'supply-privacy', 'box-pickup', 'kill-feed-privacy'
 )
 foreach ($feature in $features) {
     npm run "prepare:$feature" -- ./main.js
     if ($LASTEXITCODE -ne 0) { throw "Mapping preparation failed: $feature" }
 }
+node tools/prepare-overdrive-direction.cjs ./main.js
+if ($LASTEXITCODE -ne 0) { throw "Direction mapping preparation failed" }
 npm run typecheck
 npm run build:js
 ```
 
-Each command writes its matching `src/generated/<feature>.json` by default. It replaces the plan for the same SHA-256 and preserves plans for other builds. `--out <plans.json>` selects an alternative output. Incomplete/ambiguous analysis or invalid generated syntax causes that command to fail before writing its output. The ten-command sequence is not an atomic transaction: an earlier successful file can already have changed when a later command fails. Review changes and run the tests before publishing.
+Each command writes its matching `src/generated/<feature>.json` by default. It replaces the plan for the same SHA-256 and preserves plans for other builds. The original ten npm preparation commands accept `--out <plans.json>` and `--help`. The supply-privacy, box-pickup and kill-feed-privacy tools, and the direction tool, accept one local input and use their fixed generated output paths; do not pass the older tools' options to them. Incomplete/ambiguous analysis or invalid generated syntax causes that command to fail before writing its output. The sequence produces **14 plan sets** through **13 npm commands and one direct direction CLI** and is not an atomic transaction: an earlier successful file can already have changed when a later command fails. Review changes and run the tests before publishing.
 
 Neither `build:js` nor `build:zip` regenerates mappings. Changes to `src/generated/` require a JavaScript rebuild because plans are embedded in `dist/kasp_injector.js`. **Do not add `src/generated/` as a separate runtime directory to `build:zip`.** The packager already includes the injector bundle containing those plans. Local `main.js`, AST exports, tools, dependencies, and `archived/` are not copied into the release.
 
@@ -936,26 +1029,27 @@ After rebuilding, reload the unpacked extension and then reload the game page. A
 
 ### Version metadata
 
-The current manifest, package, and lockfile package versions are **2.9.9**. The browser, welcome window, and release-folder naming use the manifest version. Keep these metadata values aligned when preparing another version.
+The current manifest, package, and lockfile package versions are **3.0.0**. The browser, welcome window, and release-folder naming use the manifest version. Keep these metadata values aligned when preparing another version.
 
 ### Release output
 
-The packager copies `dist/`, `styles/`, `assets/`, `database/`, `_locales/`, and `templates/`, together with `manifest.json`, `LICENSE.txt`, `README.md`, and `DOCUMENTATION.md`.
+The packager copies `dist/`, `styles/`, `assets/`, `database/`, `_locales/`, `templates/` and `docs/`, together with `manifest.json`, `LICENSE.txt`, `README.md`, `DOCUMENTATION.md` and `MAINTENANCE.md`.
 
 For the current manifest version, output is:
 
 ```text
 release/
-├── Kaspersky's Inventions 2.9.9/
+├── Kaspersky's Inventions 3.0.0/
 │   ├── manifest.json
 │   ├── LICENSE.txt
 │   ├── README.md
 │   ├── DOCUMENTATION.md
 │   └── ... runtime directories
-└── Kaspersky's Inventions 2.9.9.zip
+├── Kaspersky's Inventions 3.0.0.zip
+└── Kaspersky's Inventions 3.0.0-firefox.zip
 ```
 
-The archive contains the versioned outer folder. Extract it and select the folder containing `manifest.json` when loading the extension. Source files, tests, `node_modules`, the local game bundle, and raw generated-plan JSON are not separately included. The two root documentation files are included.
+The ordinary archive contains the versioned outer folder. The `-firefox.zip` archive instead contains `manifest.json` at its root; it is a packaging layout for submission/testing, not a Mozilla signature or an automatically signed XPI. Extract it and select the folder containing `manifest.json` when loading the extension. Source files, tests, `node_modules`, the local game bundle, and raw generated-plan JSON are not separately included. All three root Markdown guides and the `docs/` directory are included. The separate Electron reference under `tools/` remains source-only.
 
 Packaging replaces the existing output folder and ZIP for the same version. Preserve any release artifact that must be retained before rebuilding it.
 
@@ -983,6 +1077,10 @@ The repository includes focused Node regression tests under `tools/`:
 | `client-patches.test.cjs` | Lexical filtering, shared hashing, strict directives, and compatible header merging |
 | `client-parser.test.cjs` | Non-executing parser CLI, syntax errors, output protection, and AST serialization |
 | `*-ast.test.cjs`, `garage-*.test.cjs` | Exact/adaptive mappings, renamed contracts, ambiguities, native behavior preservation, and preparation CLI failures |
+| `supply-privacy.test.cjs` | Garage and battle quantity privacy, live toggles and latest native value restoration |
+| `box-pickup.test.cjs` | Pickup completion, fragments/caps, resource ownership and battle cleanup |
+| `kill-feed-privacy.test.cjs` | Font-safe own-name replacement, suicide/equipment changes, both kill positions and native loop regression |
+| `overdrive-direction.test.cjs` | Camera-relative bearing and independent telemetry mapping/lifecycle |
 | `custom-trophies.test.cjs` | Dictionary readiness, initial localized display, favorite/progress changes, and panel refresh |
 | `electron-discord/discord-presence.test.cjs` | Extension payloads, privacy, battle reader, IPC framing, reconnect, and session timestamps |
 
@@ -1030,7 +1128,7 @@ Repeat the affected checks in Chromium and Firefox. Manifest support does not su
 - Ordinary critical-cycle indication supports the three specified weapon/augment pairs. Post-Supercharge phase assumptions require verification if the game changes its mechanics.
 - Device tooltips use mouse hover. Equivalent keyboard, gamepad, and mobile tooltip interaction is not implemented.
 - AST compatibility templates reduce dependence on symbol names but still depend on native structure. A runtime exception is not automatically rolled back by the injector's preparation guards.
-- An intermittent missing local tank after entering a loaded map has been reported. Its cause and relationship to the extension remain unconfirmed; it is not listed as fixed in 2.9.9.
+- An intermittent missing local tank after entering a loaded map has been reported. Its cause and relationship to the extension remain unconfirmed; it is not listed as fixed in 3.0.0.
 - Auto Upgrade depends on recognized native dialogs and stops on an unknown confirmation. Its local confirmation count is not an independently verified purchase ledger.
 - Third-party UI modifications can alter the same elements and introduce selector, style, or event conflicts.
 
@@ -1092,20 +1190,26 @@ Review changes in the final generated and packaged output as well as in the sour
 
 ## License and Project Status
 
-The governing project terms are supplied in [LICENSE.txt](LICENSE.txt). That file identifies the software as proprietary and confidential, reserves rights to the author, and describes express integration rights for the official developers and maintainers of **Tanki Tweaks**. It also contains the warranty disclaimer and user agreement.
+The governing project terms are supplied in [LICENSE.txt](LICENSE.txt). The English international edition grants ordinary use of official unmodified copies, reserves source/distribution rights and retains express integration permission for the official developers and maintainers of **Tanki Tweaks**. It also contains the warranty disclaimer and user agreement.
 
 `package.json` and the lockfile root declare `UNLICENSED`. This metadata does not grant an open-source license or replace the proprietary terms in `LICENSE.txt`. The package is also marked `private: true`.
 
 Kaspersky's Inventions is an independent extension for the Tanki Online interface. Its presence in a project or client should not be presented as official endorsement by the game's developers.
 
+## Documentation Revision
+
+Reviewed against the **3.0.0** source and manifest on **October 22, 2026**. Build/fixture checks are distinct from live-game verification. Public full descriptions are maintained in English and Russian under `docs/`; browser manifest descriptions remain short because they are separate metadata fields.
+
 ## Acknowledgements
 
-The current welcome-window credits identify **Kaspersky** as the originator of the project and list **safwan**, **Lukas**, **Niced**, and **Tenobyte** among contributors.
+The roles and spelling below reproduce `templates/welcome-modal.html`, interpreted using the role dictionaries in `src/modules/welcomeModal.ts`. AI names are project acknowledgements, not build dependencies, required services or product-availability claims.
 
-The same template lists ChatGPT 6 Luna, ChatGPT 6.1 Sol, DeepSeek V4, Claude Sonnet 5.5, Claude Haiku 4.5, Gemini 3.5 Flash-Lite, Gemini 3.8 Flash, Gemini 3.1 Pro, and Grok 4.6 in its co-creation credits. Quality-review credits list Claude Fable 5.1, Claude Opus 5.5, and ChatGPT 6 Astra. These names reproduce project credits rather than specifying build dependencies.
-
-For the in-game presentation of release information and credits, see [the welcome-window template](templates/welcome-modal.html).
-
----
-
-Documentation aligned with extension manifest version **2.9.9**, updated **October 17, 2026**.
+| Role | Contributors |
+| --- | --- |
+| Project idea | Kaspersky |
+| Co-creation credits | ChatGPT 6 Luna, ChatGPT 6.1 Sol, DeepSeek V4, Claude Sonnet 5.5, Claude Haiku 4.5, Gemini 3.5 Flash-Lite, Gemini 3.8 Flash, Gemini 3.1 Pro, Grok 4.6 |
+| Quality review credits | Claude Fable 5.1, Claude Opus 5.5, Gemini 4 Argon, ChatGPT 6 Astra |
+| Design | Lukas |
+| Testing | safwan, Tenobyte, KOCMOHABTUK |
+| Coding | safwan, Tenobyte, Shiya |
+| Assistants | Niced, Master |

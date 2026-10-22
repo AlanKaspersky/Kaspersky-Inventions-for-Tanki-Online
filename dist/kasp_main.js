@@ -119,7 +119,8 @@
         "k_history",
         "k_overdrive_timer",
         "k_arcade_reload",
-        "k_critical_indicator"
+        "k_critical_indicator",
+        "k_box_pickup"
       ];
       settingsCache = /* @__PURE__ */ new Map();
       for (const key of SETTINGS_KEYS) {
@@ -972,157 +973,296 @@
       init_utils();
       init_hideNickname();
       init_accountIdentity();
-      coreSettings = /* @__PURE__ */ (() => {
+      coreSettings = (() => {
         let needsReload = false;
-        const liveSettings = /* @__PURE__ */ new Set(["k_arcade_reload", "k_critical_indicator", "k_hideSupplies"]);
+        let active = false;
+        let stopArt = null;
+        const liveSettings = /* @__PURE__ */ new Set(["k_arcade_reload", "k_critical_indicator", "k_hideSupplies", "k_box_pickup"]);
         let initialSettingsState = {};
-        let stylesInjected = false;
         const t = {
           RU: {
-            title: "\u041D\u0410\u0421\u0422\u0420\u041E\u0419\u041A\u0418 KASPERSKY'S INVENTIONS",
-            tooltip: "\u0422\u0420\u0415\u0411\u0423\u0415\u0422\u0421\u042F \u041F\u0415\u0420\u0415\u0417\u0410\u0413\u0420\u0423\u0417\u041A\u0410"
+            tooltip: "\u0422\u0440\u0435\u0431\u0443\u0435\u0442\u0441\u044F \u043F\u0435\u0440\u0435\u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0430",
+            information: "\u0418\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044F",
+            accountNotice: "ID \u0430\u043A\u043A\u0430\u0443\u043D\u0442\u0430 \u043F\u043E\u043A\u0430 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D. \u0418\u0441\u0442\u043E\u0440\u0438\u044F \u0438 \u043B\u0438\u0447\u043D\u043E\u0435 \u0438\u0437\u0431\u0440\u0430\u043D\u043D\u043E\u0435 \u0432\u0440\u0435\u043C\u0435\u043D\u043D\u043E \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u044B; \u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u0435 \u0434\u0430\u043D\u043D\u044B\u0435 \u043E\u0441\u0442\u0430\u044E\u0442\u0441\u044F \u043D\u0430 \u043C\u0435\u0441\u0442\u0435."
           },
           EN: {
-            title: "KASPERSKY'S INVENTIONS SETTINGS",
-            tooltip: "REQUIRES RELOAD"
+            tooltip: "Requires reload",
+            information: "Information",
+            accountNotice: "Account ID is unavailable. History and personal favorites are temporarily unavailable; saved data is preserved."
           }
         };
-        const MY_SETTINGS = [
-          { id: "k_ext_btn", label: { RU: "\u0420\u0430\u0441\u0448\u0438\u0440\u0435\u043D\u043D\u0430\u044F \u043A\u043D\u043E\u043F\u043A\u0430 \xAB\u0418\u0433\u0440\u0430\u0442\u044C\xBB", EN: "Enhanced \xABPlay\xBB button" }, default: false },
-          { id: "k_augments", label: { RU: "\u041E\u0442\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u044B\u0445 \u043F\u0440\u0435\u0434\u043C\u0435\u0442\u043E\u0432 \u0438 \u0445\u0430\u0440\u0430\u043A\u0442\u0435\u0440\u0438\u0441\u0442\u0438\u043A\u0438 \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432", EN: "Augment specifications" }, default: false },
-          { id: "k_auto_upgrade", label: { RU: "\u0411\u044B\u0441\u0442\u0440\u043E\u0435 \u0443\u043B\u0443\u0447\u0448\u0435\u043D\u0438\u0435 \u0432\u043E\u043E\u0440\u0443\u0436\u0435\u043D\u0438\u044F", EN: "Quick weapon upgrades" }, default: false },
-          { id: "k_friends", label: { RU: "\u041C\u0435\u0442\u043A\u0438 \u0438 \u043A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u0438 \u0434\u0440\u0443\u0437\u0435\u0439", EN: "Friend tags & categories" }, default: false },
-          { id: "k_paints", label: { RU: "\u0423\u043C\u043D\u044B\u0439 \u043F\u043E\u0438\u0441\u043A \u043A\u0440\u0430\u0441\u043E\u043A", EN: "Smart paint search" }, default: false },
-          { id: "k_hideCurrency", label: { RU: "\u0421\u043A\u0440\u044B\u0442\u044C \u0432\u0430\u043B\u044E\u0442\u0443", EN: "Hide currency" }, default: false },
-          { id: "k_hideNicknameXP", label: { RU: "\u0421\u043A\u0440\u044B\u0442\u044C \u043D\u0438\u043A\u043D\u0435\u0439\u043C \u0438 \u043E\u043F\u044B\u0442", EN: "Hide nickname and score" }, default: false },
-          { id: "k_hideSupplies", label: { RU: "\u0421\u043A\u0440\u044B\u0442\u044C \u043F\u0440\u0438\u043F\u0430\u0441\u044B", EN: "Hide supplies" }, default: false },
-          { id: "k_history", label: { RU: "\u0412\u0435\u0441\u0442\u0438 \u0438\u0441\u0442\u043E\u0440\u0438\u044E \u0431\u0438\u0442\u0432", EN: "Keep a history of battles" }, default: false },
-          { id: "k_overdrive_timer", label: { RU: "\u0422\u0430\u0439\u043C\u0435\u0440 \u043A\u043E\u0440\u043E\u0431\u043A\u0438 \u043E\u0432\u0435\u0440\u0434\u0440\u0430\u0439\u0432\u0430", EN: "Overdrive box timer" }, default: false },
-          { id: "k_arcade_reload", label: { RU: "\u041F\u043E\u043B\u043E\u0441\u0430 \u0430\u0440\u043A\u0430\u0434\u043D\u043E\u0439 \u043F\u0435\u0440\u0435\u0437\u0430\u0440\u044F\u0434\u043A\u0438", EN: "Arcade reload indicator" }, default: true },
-          { id: "k_critical_indicator", label: { RU: "\u0418\u043D\u0434\u0438\u043A\u0430\u0442\u043E\u0440 \u043A\u0440\u0438\u0442\u0438\u0447\u0435\u0441\u043A\u043E\u0433\u043E \u0432\u044B\u0441\u0442\u0440\u0435\u043B\u0430", EN: "Critical shot indicator" }, default: true }
+        const groups = [
+          {
+            id: "normal",
+            title: { RU: "\u0424\u0443\u043D\u043A\u0446\u0438\u0438 \u043E\u0431\u044B\u0447\u043D\u043E\u0439 \u0441\u0435\u0440\u044C\u0451\u0437\u043D\u043E\u0441\u0442\u0438", EN: "Standard features" },
+            description: { RU: "\u0418\u043D\u0442\u0435\u0440\u0444\u0435\u0439\u0441, \u0434\u0440\u0443\u0437\u044C\u044F, \u0433\u0430\u0440\u0430\u0436 \u0438 \u0438\u0441\u0442\u043E\u0440\u0438\u044F", EN: "Interface, friends, garage and history" },
+            settings: [
+              {
+                id: "k_friends",
+                label: { RU: "\u041C\u0435\u0442\u043A\u0438 \u0434\u0440\u0443\u0437\u0435\u0439", EN: "Friend tags" },
+                description: { RU: "\u041C\u0435\u0442\u043A\u0438 \u0438 \u043A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u0438 \u0432 \u0441\u043F\u0438\u0441\u043A\u0435 \u0434\u0440\u0443\u0437\u0435\u0439", EN: "Tags and categories in your friends list" },
+                default: false
+              },
+              {
+                id: "k_augments",
+                label: { RU: "\u0425\u0430\u0440\u0430\u043A\u0442\u0435\u0440\u0438\u0441\u0442\u0438\u043A\u0438 \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432", EN: "Augment specifications" },
+                description: { RU: "\u0412\u043A\u043B\u044E\u0447\u0430\u044F \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u044B\u0435 \u043F\u0440\u0435\u0434\u043C\u0435\u0442\u044B", EN: "Including unavailable items" },
+                default: false
+              },
+              {
+                id: "k_auto_upgrade",
+                label: { RU: "\u0411\u044B\u0441\u0442\u0440\u0430\u044F \u043F\u0440\u043E\u043A\u0430\u0447\u043A\u0430", EN: "Quick upgrades" },
+                description: { RU: "\u041F\u043E\u0441\u043B\u0435\u0434\u043E\u0432\u0430\u0442\u0435\u043B\u044C\u043D\u043E\u0435 \u0443\u043B\u0443\u0447\u0448\u0435\u043D\u0438\u0435 \u0432\u043E\u043E\u0440\u0443\u0436\u0435\u043D\u0438\u044F", EN: "Upgrade equipment in sequence" },
+                default: false
+              },
+              {
+                id: "k_ext_btn",
+                label: { RU: "\u0420\u0430\u0441\u0448\u0438\u0440\u0435\u043D\u043D\u0430\u044F \u043A\u043D\u043E\u043F\u043A\u0430 \xAB\u0418\u0433\u0440\u0430\u0442\u044C\xBB", EN: "Enhanced Play button" },
+                description: { RU: "\u0412\u044B\u0431\u043E\u0440 \u0440\u0435\u0436\u0438\u043C\u043E\u0432 \u043F\u0440\u044F\u043C\u043E \u0432 \u043B\u043E\u0431\u0431\u0438", EN: "Choose battle modes directly in the lobby" },
+                default: false
+              },
+              {
+                id: "k_paints",
+                label: { RU: "\u0423\u043C\u043D\u044B\u0439 \u043F\u043E\u0438\u0441\u043A \u043A\u0440\u0430\u0441\u043E\u043A", EN: "Smart paint search" },
+                description: { RU: "\u041F\u043E\u0438\u0441\u043A \u043A\u0440\u0430\u0441\u043E\u043A \u0432 \u0433\u0430\u0440\u0430\u0436\u0435", EN: "Find paints in the garage" },
+                default: false
+              },
+              { id: "k_history", label: { RU: "\u0418\u0441\u0442\u043E\u0440\u0438\u044F \u0431\u0438\u0442\u0432", EN: "Battle history" }, default: false }
+            ]
+          },
+          {
+            id: "streamer",
+            title: { RU: "\u0420\u0435\u0436\u0438\u043C \u0441\u0442\u0440\u0438\u043C\u0435\u0440\u0430", EN: "Streamer mode" },
+            description: { RU: "\u041B\u0438\u0447\u043D\u044B\u0435 \u0434\u0430\u043D\u043D\u044B\u0435 \u043D\u0430 \u044D\u043A\u0440\u0430\u043D\u0435", EN: "Personal information on screen" },
+            settings: [
+              { id: "k_hideNicknameXP", label: { RU: "\u0421\u043A\u0440\u044B\u0442\u044C \u043D\u0438\u043A \u0438 \u043E\u043F\u044B\u0442", EN: "Hide nickname and XP" }, default: false },
+              { id: "k_hideCurrency", label: { RU: "\u0421\u043A\u0440\u044B\u0442\u044C \u0432\u0430\u043B\u044E\u0442\u0443", EN: "Hide currency" }, default: false },
+              { id: "k_hideSupplies", label: { RU: "\u0421\u043A\u0440\u044B\u0442\u044C \u043F\u0440\u0438\u043F\u0430\u0441\u044B", EN: "Hide supplies" }, default: false }
+            ]
+          },
+          {
+            id: "advanced",
+            title: { RU: "\u0424\u0443\u043D\u043A\u0446\u0438\u0438 \u043F\u043E\u0432\u044B\u0448\u0435\u043D\u043D\u043E\u0439 \u0441\u0435\u0440\u044C\u0451\u0437\u043D\u043E\u0441\u0442\u0438", EN: "Advanced features" },
+            description: { RU: "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u0435\u043B\u0438 \u0432 \u0431\u0438\u0442\u0432\u0435", EN: "In-battle indicators" },
+            settings: [
+              { id: "k_overdrive_timer", label: { RU: "\u0422\u0430\u0439\u043C\u0435\u0440 \u043A\u043E\u0440\u043E\u0431\u043A\u0438 \u043E\u0432\u0435\u0440\u0434\u0440\u0430\u0439\u0432\u0430", EN: "Overdrive box timer" }, default: false },
+              { id: "k_arcade_reload", label: { RU: "\u041F\u043E\u043B\u043E\u0441\u0430 \u0430\u0440\u043A\u0430\u0434\u043D\u043E\u0439 \u043F\u0435\u0440\u0435\u0437\u0430\u0440\u044F\u0434\u043A\u0438", EN: "Arcade reload indicator" }, default: true },
+              { id: "k_critical_indicator", label: { RU: "\u0418\u043D\u0434\u0438\u043A\u0430\u0442\u043E\u0440 \u043A\u0440\u0438\u0442\u0438\u0447\u0435\u0441\u043A\u043E\u0433\u043E \u0432\u044B\u0441\u0442\u0440\u0435\u043B\u0430", EN: "Critical shot indicator" }, default: true }
+            ]
+          },
+          {
+            id: "graphics",
+            title: { RU: "\u0413\u0440\u0430\u0444\u0438\u0447\u0435\u0441\u043A\u0438\u0435 \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u044F", EN: "Visual changes" },
+            description: { RU: "\u0412\u0438\u0437\u0443\u0430\u043B\u044C\u043D\u044B\u0435 \u044D\u0444\u0444\u0435\u043A\u0442\u044B \u0432 \u0438\u0433\u0440\u0435", EN: "In-game visual effects" },
+            settings: [
+              {
+                id: "k_box_pickup",
+                label: { RU: "\u0418\u0437\u043C\u0435\u043D\u0451\u043D\u043D\u043E\u0435 \u043F\u043E\u0432\u0435\u0434\u0435\u043D\u0438\u0435 \u043A\u043E\u0440\u043E\u0431\u043E\u043A \u0432 \u0431\u0438\u0442\u0432\u0435 \u043F\u0440\u0438 \u043F\u043E\u0434\u0431\u043E\u0440\u0435", EN: "Modified box pickup animation in battle" },
+                description: { RU: "\u0412\u0441\u043F\u044B\u0448\u043A\u0430 \u0438 \u0440\u0430\u0437\u043B\u0435\u0442\u0430\u044E\u0449\u0438\u0435\u0441\u044F \u043E\u0441\u043A\u043E\u043B\u043A\u0438", EN: "A flash and scattering fragments" },
+                default: false
+              }
+            ]
+          }
+        ];
+        const settings = groups.flatMap((group) => group.settings);
+        const informationLinks = [
+          {
+            label: { RU: "\u0421\u0442\u0440\u0430\u043D\u0438\u0446\u0430 \u0432 Chrome Web Store", EN: "Chrome Web Store" },
+            href: "https://chromewebstore.google.com/detail/tanki-online-kasperskys-i/eemohhfjcdlhmdpflloipmdeeggmofio?authuser=0&hl=ru"
+          },
+          {
+            label: { RU: "\u0418\u0441\u0445\u043E\u0434\u043D\u044B\u0439 \u043A\u043E\u0434 \u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043D\u0438\u044F", EN: "Extension source code" },
+            href: "https://github.com/AlanKaspersky/Kaspersky-Inventions-for-Tanki-Online"
+          },
+          {
+            label: { RU: "\u0418\u0441\u0445\u043E\u0434\u043D\u044B\u0439 \u043A\u043E\u0434 \u043A\u043B\u0438\u0435\u043D\u0442\u0430", EN: "Client source code" },
+            href: "https://github.com/AlanKaspersky/Tanki-Online-with-KI"
+          },
+          {
+            label: { RU: "\u041B\u0438\u0446\u0435\u043D\u0437\u0438\u044F \u0438 \u043F\u0440\u0430\u0432\u0438\u043B\u0430 \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u043D\u0438\u044F", EN: "License and Terms of Use" },
+            href: "https://drive.google.com/file/d/1j6pNdN7SJZAcRsM2WwLQfzQuWYTcG8ZO/view"
+          },
+          {
+            label: { RU: "FAQ \u2014 \u0447\u0430\u0441\u0442\u044B\u0435 \u0432\u043E\u043F\u0440\u043E\u0441\u044B", EN: "FAQ" },
+            href: "https://drive.google.com/file/d/15xzcltFZiiC9bbiKaZd3-Le6AGvqoTlz/view"
+          }
         ];
         return {
           inject: () => {
-            if (!stylesInjected) {
-              stylesInjected = true;
-            }
             const mainBlock = document.querySelector(gameDOM.settings.root);
             if (!mainBlock) return;
             const ulMenu = mainBlock.querySelector("ul");
             if (!ulMenu || document.getElementById("kaspersky-tab")) return;
+            ulMenu.style.setProperty("--kasp-settings-art", `url(${JSON.stringify(chrome.runtime.getURL("assets/art3.jpg"))})`);
+            stopArt?.();
+            stopArt = null;
             const lang = state.lang;
-            const dict = t[lang] || t["EN"];
+            const dict = t[lang] || t.EN;
             let tooltip = document.getElementById("kaspersky-reload-tooltip");
             if (!tooltip) {
               tooltip = document.createElement("div");
               tooltip.id = "kaspersky-reload-tooltip";
               tooltip.className = "kasp-tooltip kasp-hidden";
-              tooltip.textContent = dict.tooltip;
               document.body.appendChild(tooltip);
             }
+            tooltip.textContent = dict.tooltip;
             const kTab = document.createElement("li");
             kTab.id = "kaspersky-tab";
             kTab.className = gameDOM.classes.settingsTab;
-            kTab.innerHTML = `<div class="kasp-fake-highlight"><div class="kasp-fake-line"></div></div><span>KASPERSKY</span>`;
+            kTab.innerHTML = '<div class="kasp-fake-highlight"><div class="kasp-fake-line"></div></div><span>KASPERSKY</span>';
             ulMenu.appendChild(kTab);
             const kContent = document.createElement("div");
             kContent.id = "kaspersky-settings-content";
             kContent.className = "kasp-hidden";
-            let togglesHTML = `
-                    <div style="font-family: BaseFontBold, FallbackFontBold; font-size: 1.2em; color: rgb(118, 255, 51); margin-bottom: 1.5em; text-transform: uppercase;">
-                        ${dict.title}
-                    </div>
-                    <div style="width: 100%; height: 1px; background-color: rgba(255, 255, 255, 0.15); margin-bottom: 1.5em;"></div>
-                `;
-            MY_SETTINGS.forEach((setting) => {
-              const isChecked = utils.getSetting(setting.id, setting.default);
-              initialSettingsState[setting.id] = isChecked;
-              const localizedLabel = setting.label[lang] || setting.label["EN"];
-              togglesHTML += `
-                        <div class="kasp-toggle-row ${isChecked ? "kasp-active" : ""}" data-id="${setting.id}">
-                            <div class="kasp-toggle-switch"></div>
-                            <div class="kasp-toggle-label">${localizedLabel}</div>
-                        </div>
-                    `;
-            });
-            kContent.innerHTML = togglesHTML;
+            kContent.style.setProperty("--kasp-settings-art", `url(${JSON.stringify(chrome.runtime.getURL("assets/art3.jpg"))})`);
+            kContent.innerHTML = `
+                <div class="kasp-settings-grid">${groups.map((group) => `
+                    <section class="kasp-settings-panel kasp-settings-${group.id}" aria-labelledby="kasp-settings-${group.id}-title">
+                        <span class="kasp-settings-art" aria-hidden="true"></span>
+                        <header class="kasp-settings-panel-heading">
+                            <h3 id="kasp-settings-${group.id}-title">${group.title[lang]}</h3>
+                            <p>${group.description[lang]}</p>
+                        </header>
+                        <div class="kasp-settings-rows">${group.settings.map((setting) => {
+              const checked = utils.getSetting(setting.id, setting.default);
+              if (!(setting.id in initialSettingsState)) initialSettingsState[setting.id] = checked;
+              const description = "description" in setting ? setting.description : void 0;
+              return `<label class="kasp-toggle-row ${checked ? "kasp-active" : ""}" data-id="${setting.id}">
+                                <span class="kasp-toggle-text"><span class="kasp-toggle-label">${setting.label[lang]}</span>
+                                    ${description ? `<span class="kasp-toggle-description">${description[lang]}</span>` : ""}
+                                </span>
+                                <input type="checkbox" role="switch" class="kasp-toggle-switch" ${checked ? "checked" : ""} aria-label="${setting.label[lang]}">
+                            </label>`;
+            }).join("")}</div>
+                    </section>`).join("")}
+                    <section class="kasp-settings-panel kasp-settings-information" aria-labelledby="kasp-settings-information-title">
+                        <span class="kasp-settings-art" aria-hidden="true"></span>
+                        <header class="kasp-settings-panel-heading"><h3 id="kasp-settings-information-title">${dict.information}</h3></header>
+                        <nav class="kasp-settings-links" aria-label="${dict.information}">${informationLinks.map((link) => `
+                            <a href="${link.href.replace(/&/g, "&amp;")}" target="_blank" rel="noopener noreferrer">
+                                <span>${link.label[lang]}</span><span class="kasp-settings-link-arrow" aria-hidden="true">\u2197</span>
+                            </a>`).join("")}
+                        </nav>
+                    </section>
+                </div>`;
             if (!getVerifiedAccount()) {
               const notice = document.createElement("p");
-              notice.textContent = lang === "RU" ? "ID \u0430\u043A\u043A\u0430\u0443\u043D\u0442\u0430 \u043F\u043E\u043A\u0430 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D. \u0418\u0441\u0442\u043E\u0440\u0438\u044F \u0438 \u043B\u0438\u0447\u043D\u043E\u0435 \u0438\u0437\u0431\u0440\u0430\u043D\u043D\u043E\u0435 \u0432\u0440\u0435\u043C\u0435\u043D\u043D\u043E \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u044B; \u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u0435 \u0434\u0430\u043D\u043D\u044B\u0435 \u043E\u0441\u0442\u0430\u044E\u0442\u0441\u044F \u043D\u0430 \u043C\u0435\u0441\u0442\u0435." : "Account ID is unavailable. History and personal favorites are temporarily unavailable; saved data is preserved.";
+              notice.className = "kasp-settings-notice";
+              notice.textContent = dict.accountNotice;
               kContent.appendChild(notice);
             }
             mainBlock.appendChild(kContent);
-            kContent.querySelectorAll(".kasp-toggle-row").forEach((node) => {
-              const row = node;
-              const label = row.querySelector(".kasp-toggle-label");
-              const switchBtn = row.querySelector(".kasp-toggle-switch");
-              label.addEventListener("mousemove", (e) => {
-                if (liveSettings.has(row.getAttribute("data-id") || "")) {
+            const grid = kContent.querySelector(".kasp-settings-grid");
+            const panels = Array.from(grid.querySelectorAll(".kasp-settings-panel"));
+            const menuTabs = Array.from(ulMenu.querySelectorAll(gameDOM.settings.tab));
+            const setArtSize = (target, values, em) => {
+              for (const [key, value] of Object.entries(values)) {
+                const next = `${(value / em).toFixed(5)}em`;
+                if (target.style.getPropertyValue(key) !== next) target.style.setProperty(key, next);
+              }
+            };
+            const syncArt = () => {
+              const menuRects = menuTabs.map((tab) => tab.getBoundingClientRect());
+              if (menuRects.length && ulMenu.clientWidth) {
+                const left = Math.min(...menuRects.map((rect) => rect.left));
+                const top = Math.min(...menuRects.map((rect) => rect.top));
+                const width = Math.max(...menuRects.map((rect) => rect.right)) - left;
+                const height = Math.max(...menuRects.map((rect) => rect.bottom)) - top;
+                menuTabs.forEach((tab, index) => {
+                  const rect = menuRects[index];
+                  setArtSize(tab, {
+                    "--kasp-settings-art-x": -(rect.left - left + tab.clientLeft + 3),
+                    "--kasp-settings-art-y": -(rect.top - top + tab.clientTop + 3),
+                    "--kasp-settings-art-width": width + 6,
+                    "--kasp-settings-art-height": height + 6
+                  }, parseFloat(getComputedStyle(tab).fontSize) || 16);
+                });
+              }
+              if (!grid.clientWidth || !grid.clientHeight) return;
+              const gridRect = grid.getBoundingClientRect();
+              for (const panel of panels) {
+                const layer = panel.querySelector(".kasp-settings-art");
+                const style = getComputedStyle(panel);
+                const em = parseFloat(style.fontSize) || 16;
+                const rect = panel.getBoundingClientRect();
+                const transform = new DOMMatrixReadOnly(style.transform === "none" ? void 0 : style.transform);
+                const values = {
+                  "--kasp-settings-art-x": -(rect.left - gridRect.left - transform.m41 + panel.clientLeft + 3),
+                  "--kasp-settings-art-y": -(rect.top - gridRect.top - transform.m42 + panel.clientTop + 3),
+                  "--kasp-settings-art-width": gridRect.width + 6,
+                  "--kasp-settings-art-height": gridRect.height + 6
+                };
+                setArtSize(layer, values, em);
+              }
+            };
+            const artObserver = new ResizeObserver(syncArt);
+            artObserver.observe(ulMenu);
+            menuTabs.forEach((tab) => artObserver.observe(tab));
+            stopArt = () => artObserver.disconnect();
+            syncArt();
+            kContent.querySelectorAll(".kasp-toggle-row").forEach((row) => {
+              const id = row.dataset.id;
+              const switchBtn = row.querySelector("input");
+              row.addEventListener("mousemove", (event) => {
+                if (liveSettings.has(id)) {
                   tooltip?.classList.add("kasp-hidden");
                   return;
                 }
                 if (tooltip) {
-                  tooltip.style.left = e.clientX + "px";
-                  tooltip.style.top = e.clientY + "px";
+                  tooltip.style.left = event.clientX + "px";
+                  tooltip.style.top = event.clientY + "px";
                   tooltip.classList.remove("kasp-hidden");
                 }
               });
-              label.addEventListener("mouseleave", () => {
-                if (tooltip) tooltip.classList.add("kasp-hidden");
-              });
-              row.addEventListener("click", function(e) {
-                const target = e.target;
-                if (target !== label && target !== switchBtn && !switchBtn.contains(target)) return;
-                const rowEl = this;
-                const id = rowEl.getAttribute("data-id");
-                if (!id) return;
-                const isCurrentlyChecked = rowEl.classList.contains("kasp-active");
-                const performToggle = () => {
-                  if (isCurrentlyChecked) {
-                    rowEl.classList.remove("kasp-active");
-                    utils.setSetting(id, false);
-                  } else {
-                    rowEl.classList.add("kasp-active");
-                    utils.setSetting(id, true);
-                  }
-                  needsReload = MY_SETTINGS.some((s) => {
-                    if (liveSettings.has(s.id)) return false;
-                    const currentVal = utils.getSetting(s.id, s.default);
-                    return currentVal !== initialSettingsState[s.id];
-                  });
-                };
-                performToggle();
+              row.addEventListener("mouseleave", () => tooltip?.classList.add("kasp-hidden"));
+              switchBtn.addEventListener("change", () => {
+                const checked = switchBtn.checked;
+                row.classList.toggle("kasp-active", checked);
+                utils.setSetting(id, checked);
+                needsReload = settings.some((setting) => !liveSettings.has(setting.id) && utils.getSetting(setting.id, setting.default) !== initialSettingsState[setting.id]);
                 if (id === "k_hideNicknameXP") {
-                  if (!isCurrentlyChecked) setupNicknamePrivacy();
+                  if (checked) setupNicknamePrivacy();
                   else document.documentElement.classList.remove("kasp-hide-nickname");
                 }
               });
             });
-            kTab.addEventListener("click", (e) => {
-              e.stopPropagation();
-              const allTabs = ulMenu.querySelectorAll(gameDOM.settings.nativeTabs);
-              allTabs.forEach((t2) => t2.classList.remove(gameDOM.classes.settingsActive));
+            const show = () => {
+              active = true;
+              ulMenu.querySelectorAll(gameDOM.settings.nativeTabs).forEach((tab) => tab.classList.remove(gameDOM.classes.settingsActive));
               kTab.classList.add(gameDOM.classes.settingsActive);
               ulMenu.classList.add("kasp-hide-native-slider");
               const nativeContent = mainBlock.querySelector(gameDOM.settings.content);
               if (nativeContent) nativeContent.style.display = "none";
               kContent.classList.remove("kasp-hidden");
+              artObserver.observe(grid);
+              panels.forEach((panel) => artObserver.observe(panel));
+              syncArt();
+            };
+            kTab.addEventListener("click", (event) => {
+              event.stopPropagation();
+              show();
             });
-            ulMenu.addEventListener("click", (e) => {
-              const target = e.target;
+            ulMenu.addEventListener("click", (event) => {
+              const target = event.target;
               const clickedTab = target.closest(gameDOM.settings.tab);
               if (clickedTab && clickedTab.id !== "kaspersky-tab" && !clickedTab.classList.contains(gameDOM.classes.settingsSlider)) {
+                active = false;
                 kTab.classList.remove(gameDOM.classes.settingsActive);
                 ulMenu.classList.remove("kasp-hide-native-slider");
                 kContent.classList.add("kasp-hidden");
+                tooltip?.classList.add("kasp-hidden");
                 const nativeContent = mainBlock.querySelector(gameDOM.settings.content);
                 if (nativeContent) nativeContent.style.display = "";
               }
             });
+            if (active) show();
           },
           onClose: () => {
-            const tooltip = document.getElementById("kaspersky-reload-tooltip");
-            if (tooltip) tooltip.classList.add("kasp-hidden");
+            stopArt?.();
+            stopArt = null;
+            document.getElementById("kaspersky-reload-tooltip")?.classList.add("kasp-hidden");
+            active = false;
+            initialSettingsState = {};
             if (needsReload) window.location.reload();
           }
         };
