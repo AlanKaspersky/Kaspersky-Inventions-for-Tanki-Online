@@ -80,7 +80,6 @@ This repository documents extension **3.0.0**, reviewed against source on **Octo
 | [FAQ](docs/FAQ.md) | Practical questions about settings, privacy, history, account discovery and compatibility |
 | [Russian user guide](docs/USER_GUIDE.ru.md) | Installation, feature groups, everyday workflows, data and recovery in Russian |
 | [English store description](docs/DESCRIPTION.en.md) / [Russian store description](docs/DESCRIPTION.ru.md) | Full public descriptions, ending with the current welcome-window credits |
-| [Kill-feed investigation](docs/kill-feed-rendering.md) | Verified renderer chain and the missing-glyph crash regression |
 | [Electron integration](tools/electron-discord/README.md) | Optional client-side Discord preload/IPC integration |
 | [License and Terms of Use](LICENSE.txt) | English international edition; proprietary terms and retained Tanki Tweaks permission |
 
