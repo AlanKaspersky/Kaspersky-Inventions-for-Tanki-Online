@@ -3,20 +3,23 @@ import { gameDOM } from './gameDOM';
 import { utils } from './utils';
 import { setupNicknamePrivacy } from '../modules/hideNickname';
 import { getVerifiedAccount } from './accountIdentity';
+import { readWeatherVolumes, WEATHER_VOLUME_KEYS } from './rainWeather/preferences';
 
 export const coreSettings = (() => {
     let needsReload = false;
     let active = false;
     let stopArt: (() => void) | null = null;
-    const liveSettings = new Set(['k_arcade_reload', 'k_critical_indicator', 'k_hideSupplies', 'k_box_pickup']);
+    const liveSettings = new Set(['k_arcade_reload', 'k_critical_indicator', 'k_hideSupplies', 'k_box_pickup', 'k_rain_weather']);
     let initialSettingsState: Record<string, boolean> = {};
     const t = {
         RU: {
             tooltip: 'Требуется перезагрузка', information: 'Информация',
+            rainVolume: 'Громкость дождя', thunderVolume: 'Громкость грома',
             accountNotice: 'ID аккаунта пока недоступен. История и личное избранное временно недоступны; сохранённые данные остаются на месте.'
         },
         EN: {
             tooltip: 'Requires reload', information: 'Information',
+            rainVolume: 'Rain volume', thunderVolume: 'Thunder volume',
             accountNotice: 'Account ID is unavailable. History and personal favorites are temporarily unavailable; saved data is preserved.'
         }
     };
@@ -61,7 +64,9 @@ export const coreSettings = (() => {
             description: { RU: 'Визуальные эффекты в игре', EN: 'In-game visual effects' },
             settings: [
                 { id: 'k_box_pickup', label: { RU: 'Изменённое поведение коробок в битве при подборе', EN: 'Modified box pickup animation in battle' },
-                    description: { RU: 'Вспышка и разлетающиеся осколки', EN: 'A flash and scattering fragments' }, default: false }
+                    description: { RU: 'Вспышка и разлетающиеся осколки', EN: 'A flash and scattering fragments' }, default: false },
+                { id: 'k_rain_weather', label: { RU: 'Случайная погода в битве', EN: 'Random battle weather' },
+                    description: { RU: 'Редкий дождь и гроза с плавной сменой облаков', EN: 'Occasional rain and storms with gradual cloud transitions' }, default: false }
             ]
         }
     ];
@@ -90,6 +95,15 @@ export const coreSettings = (() => {
             stopArt = null;
             const lang = state.lang;
             const dict = t[lang] || t.EN;
+            const volumes = readWeatherVolumes(localStorage);
+            const weatherControls = (enabled: boolean) => `<div class="kasp-weather-options ${enabled ? 'kasp-expanded' : ''}" id="kasp-weather-options" ${enabled ? '' : 'inert'}>
+                <div class="kasp-weather-options-inner">${(['thunder', 'rain'] as const).map(kind => {
+                    const label = kind === 'rain' ? dict.rainVolume : dict.thunderVolume;
+                    const value = Math.round(volumes[kind] * 100);
+                    return `<label class="kasp-weather-volume"><span class="kasp-weather-volume-heading"><span>${label}</span><output>${value}%</output></span>
+                        <input type="range" min="0" max="100" step="1" value="${value}" data-weather-volume="${kind}" aria-label="${label}" ${enabled ? '' : 'disabled'}>
+                    </label>`;
+                }).join('')}</div></div>`;
             let tooltip = document.getElementById('kaspersky-reload-tooltip');
             if (!tooltip) {
                 tooltip = document.createElement('div');
@@ -127,7 +141,7 @@ export const coreSettings = (() => {
                                     ${description ? `<span class="kasp-toggle-description">${description[lang]}</span>` : ''}
                                 </span>
                                 <input type="checkbox" role="switch" class="kasp-toggle-switch" ${checked ? 'checked' : ''} aria-label="${setting.label[lang]}">
-                            </label>`;
+                            </label>${setting.id === 'k_rain_weather' ? weatherControls(checked) : ''}`;
                         }).join('')}</div>
                     </section>`).join('')}
                     <section class="kasp-settings-panel kasp-settings-information" aria-labelledby="kasp-settings-information-title">
@@ -217,6 +231,12 @@ export const coreSettings = (() => {
                 row.addEventListener('mouseleave', () => tooltip?.classList.add('kasp-hidden'));
                 switchBtn.addEventListener('change', () => {
                     const checked = switchBtn.checked;
+                    if (id === 'k_rain_weather') {
+                        const options = kContent.querySelector<HTMLElement>('#kasp-weather-options')!;
+                        options.classList.toggle('kasp-expanded', checked);
+                        options.inert = !checked;
+                        options.querySelectorAll<HTMLInputElement>('input').forEach(input => { input.disabled = !checked; });
+                    }
                     row.classList.toggle('kasp-active', checked);
                     utils.setSetting(id, checked);
                     needsReload = settings.some(setting => !liveSettings.has(setting.id)
@@ -225,6 +245,15 @@ export const coreSettings = (() => {
                         if (checked) setupNicknamePrivacy();
                         else document.documentElement.classList.remove('kasp-hide-nickname');
                     }
+                });
+            });
+            kContent.querySelectorAll<HTMLInputElement>('[data-weather-volume]').forEach(input => {
+                input.addEventListener('input', () => {
+                    const kind = input.dataset.weatherVolume as keyof typeof WEATHER_VOLUME_KEYS;
+                    const percent = Math.max(0, Math.min(100, Number(input.value)));
+                    input.closest('label')!.querySelector('output')!.textContent = `${percent}%`;
+                    try { localStorage.setItem(WEATHER_VOLUME_KEYS[kind], String(percent / 100)); } catch {}
+                    window.dispatchEvent(new Event('kasp:settings-changed'));
                 });
             });
 

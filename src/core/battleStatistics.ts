@@ -90,6 +90,7 @@ export function installBattleStatistics(target: Window): void {
     const bridge = target as Window & { __kaspBattleStats?: (value: unknown, schema: BattleStatisticsSchema) => void };
     bridge.__kaspBattleStats = (value, schema) => {
         try {
+            try { target.__kaspRain?.battle(value,schema); } catch { /* Weather cannot suppress statistics. */ }
             const detail = readBattleStatistics(value, schema);
             if (detail?.mode) postPageMessage(target, { type: 'kasp:battle-mode', detail: detail.mode });
             if (detail?.kind) postPageMessage(target, { type: 'kasp:battle-kind', detail: detail.kind });

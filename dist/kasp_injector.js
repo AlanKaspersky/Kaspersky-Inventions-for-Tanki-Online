@@ -5714,6 +5714,8 @@
           eliteCircle: ".EventBattlePassLobbyComponentStyle-progressBar"
         },
         trophies: {
+          progressText: "h4",
+          rewards: ".MainQuestComponentStyle-rewardsContainer",
           rewardImage: '[class*="rewardsContainer"] [class*="-backgroundImageContain"]',
           cards: ".MainQuestComponentStyle-cardPlayCommon, .TableMainQuestComponentStyle-commonTableMainQuest, .MainQuestComponentStyle-cardPlay",
           favorite: ".PaintsCollectionComponentStyle-favoriteIconContainer",
@@ -10388,6 +10390,10 @@
     const bridge = target;
     bridge.__kaspBattleStats = (value, schema) => {
       try {
+        try {
+          target.__kaspRain?.battle(value, schema);
+        } catch {
+        }
         const detail = readBattleStatistics(value, schema);
         if (detail?.mode) postPageMessage(target, { type: "kasp:battle-mode", detail: detail.mode });
         if (detail?.kind) postPageMessage(target, { type: "kasp:battle-kind", detail: detail.kind });
@@ -16887,6 +16893,1543 @@
     }
   });
 
+  // src/core/rainWeather/schedule.ts
+  function planRain(now, remaining, random3) {
+    const seconds = Number.isFinite(remaining) ? Math.max(0, remaining) : WEATHER.unknownBattleSeconds;
+    const empty = { version: 1, preset: null, start: now, hold: 0, seed: Math.floor(random3() * 16777215), fadeIn: WEATHER.fadeIn, fadeOut: WEATHER.fadeOut };
+    if (random3() >= WEATHER.chance || seconds < 75) return empty;
+    const names = Object.keys(RAIN_PRESETS);
+    const preset = names[Math.min(names.length - 1, Math.floor(random3() * names.length))];
+    const hold = Math.min(WEATHER.minHold + random3() * (WEATHER.maxHold - WEATHER.minHold), seconds - WEATHER.fadeIn - WEATHER.fadeOut - 10);
+    if (hold < 15) return empty;
+    const available = Math.max(0, seconds - hold - WEATHER.fadeIn - WEATHER.fadeOut - 10);
+    const delay = random3() < 0.15 ? 0 : random3() * available;
+    return { ...empty, preset, hold, start: now + delay * 1e3 };
+  }
+  function sampleRain(plan, now) {
+    const elapsed = (now - plan.start) / 1e3, total = plan.fadeIn + plan.hold + plan.fadeOut;
+    const profile = plan.preset ? RAIN_PRESETS[plan.preset] : RAIN_PRESETS.sunny;
+    const clouds = plan.preset ? smooth(elapsed / plan.fadeIn) * (1 - smooth((elapsed - plan.fadeIn - plan.hold) / plan.fadeOut)) : 0;
+    const rain = plan.preset ? smooth((elapsed - WEATHER.cloudLead) / Math.max(1, plan.fadeIn - WEATHER.cloudLead)) * (1 - smooth((elapsed - plan.fadeIn - plan.hold + 5) / Math.max(1, plan.fadeOut - 5))) : 0;
+    return {
+      clouds: clouds * profile.clouds,
+      rain: rain * profile.rain,
+      wind: profile.wind,
+      sound: rain * profile.sound,
+      storm: clouds * profile.storm,
+      flash: 0,
+      finished: elapsed >= total,
+      active: elapsed >= 0 && elapsed < total
+    };
+  }
+  function validEpisode(value) {
+    if (!value || typeof value !== "object") return false;
+    const p = value;
+    return p.version === 1 && (p.preset === null || Object.prototype.hasOwnProperty.call(RAIN_PRESETS, p.preset)) && [p.start, p.hold, p.seed, p.fadeIn, p.fadeOut].every(Number.isFinite) && p.hold >= 0 && p.hold <= 180 && p.fadeIn >= 10 && p.fadeIn <= 60 && p.fadeOut >= 10 && p.fadeOut <= 60;
+  }
+  var WEATHER, RAIN_PRESETS, smooth;
+  var init_schedule = __esm({
+    "src/core/rainWeather/schedule.ts"() {
+      "use strict";
+      WEATHER = Object.freeze({
+        chance: 0.4,
+        // Five equally likely presets; three contain rain: ~24% of battles get rain.
+        fadeIn: 24,
+        fadeOut: 30,
+        cloudLead: 12,
+        minHold: 45,
+        maxHold: 135,
+        unknownBattleSeconds: 600,
+        maxDrops: 14e3,
+        cloudWidth: 1024,
+        cloudHeight: 256,
+        cloudHz: 10,
+        cloudBase: 11e3,
+        cloudThickness: 4200,
+        fogDistanceScale: 0.18
+        // Bring cloud lightening much closer than native map fog.
+      });
+      RAIN_PRESETS = Object.freeze({
+        sunshower: { rain: 0.45, clouds: 0.45, wind: 0.25, storm: 0, sound: 0.25 },
+        drizzle: { rain: 0.22, clouds: 0.65, wind: 0.15, storm: 0, sound: 0.2 },
+        storm: { rain: 1, clouds: 1, wind: 1, storm: 1, sound: 0.45 },
+        overcast: { rain: 0, clouds: 0.85, wind: 0.3, storm: 0, sound: 0 },
+        sunny: { rain: 0, clouds: 0.2, wind: 0.2, storm: 0, sound: 0 }
+      });
+      smooth = (x) => {
+        const t = Math.max(0, Math.min(1, x));
+        return t * t * (3 - 2 * t);
+      };
+    }
+  });
+
+  // src/core/rainWeather/shaders.ts
+  var FULL_VERTEX, COMMON, CLOUD_FRAGMENT, COMPOSITE_FRAGMENT, RAIN_VERTEX, ATMOSPHERE_FRAGMENT, LIGHTNING_VERTEX, LIGHTNING_FRAGMENT, RAIN_FRAGMENT, IMPACT_FRAGMENT;
+  var init_shaders = __esm({
+    "src/core/rainWeather/shaders.ts"() {
+      "use strict";
+      FULL_VERTEX = `#version 300 es
+precision highp float;
+uniform float uSky;
+out vec2 uv;
+void main(){vec2 p=vec2(gl_VertexID==1?3.:-1.,gl_VertexID==2?3.:-1.);uv=p*.5+.5;gl_Position=vec4(p,uSky,1.);}`;
+      COMMON = `
+precision highp float;precision highp int;
+uniform mat4 uInvVP;
+uniform vec3 uCam;
+uniform float uTime,uRain,uCloud,uSeed,uFade;
+uniform vec4 uFogColor;
+uniform vec3 uFog; // enabled, near, far
+out vec4 o;
+uint pcg(uint v){uint s=v*747796405u+2891336453u;uint w=((s>>((s>>28u)+4u))^s)*277803737u;return(w>>22u)^w;}
+float hash(uint v){return float(pcg(v))*(1./4294967296.);}
+float h3(ivec3 p){return hash(uint(p.x)+pcg(uint(p.y)+pcg(uint(p.z))));}
+float noise3(vec3 p){ivec3 i=ivec3(floor(p));vec3 f=fract(p);f=f*f*f*(f*(f*6.-15.)+10.);
+return mix(mix(mix(h3(i),h3(i+ivec3(1,0,0)),f.x),mix(h3(i+ivec3(0,1,0)),h3(i+ivec3(1,1,0)),f.x),f.y),
+mix(mix(h3(i+ivec3(0,0,1)),h3(i+ivec3(1,0,1)),f.x),mix(h3(i+ivec3(0,1,1)),h3(i+ivec3(1,1,1)),f.x),f.y),f.z);}
+vec3 worldAt(vec2 uv,float depth){vec4 p=uInvVP*vec4(uv*2.-1.,depth*2.-1.,1.);return p.xyz/p.w;}
+float fogAt(float distance_){return uFog.x*smoothstep(uFog.y,uFog.z,distance_)*uFogColor.a;}
+`;
+      CLOUD_FRAGMENT = `#version 300 es
+${COMMON}
+in vec2 uv;
+uniform float uCloudBase,uThickness;
+float fbm(vec3 p){float v=0.,a=.52;for(int i=0;i<4;i++){v+=a*noise3(p);p=p*2.03+vec3(11.1,3.7,9.2);a*=.48;}return v;}
+float density(vec3 p){
+ float height=(p.z-uCloudBase)/uThickness;
+ float profile=smoothstep(0.,.16,height)*(1.-smoothstep(.58,1.,height));
+ vec3 q=vec3(p.xy*.00023+vec2(uTime*.004,-uTime*.0018),height*1.8);
+ float broad=fbm(q+uSeed*.0001);
+ float detail=noise3(q*5.1+vec3(3.,11.,7.));
+ float base=smoothstep(mix(.63,.30,uCloud),mix(.89,.62,uCloud),broad)*smoothstep(0.,.25,uCloud);
+ return base*mix(.75,1.,detail)*profile;
+}
+void main(){
+ // World-aligned hemispherical atlas. Neither camera pose nor scene-depth
+ // silhouettes are baked into the cached cloud image.
+ float azimuth=(uv.x*2.-1.)*3.141592654,elevation=uv.y*1.570796327;
+ vec3 direction=vec3(cos(azimuth)*cos(elevation),sin(azimuth)*cos(elevation),sin(elevation));
+ if(direction.z<.012){o=vec4(0.);return;}
+ float first=uCloudBase/direction.z;
+ float last=(uCloudBase+uThickness)/direction.z;
+ if(last<=first){o=vec4(0.);return;}
+ float step_=(last-first)/12.,transmission=1.;vec3 color=vec3(0.);
+ // Identical stratified sample positions on neighbouring rays: no texel-sized
+ // random density jumps while a thin cloud is just becoming visible.
+ for(int i=0;i<12;i++){
+   float jitter=.5+.18*sin(float(i)*2.399963);
+   float distance_=first+(float(i)+jitter)*step_;
+   vec3 p=direction*distance_;float d=density(p);
+   if(d>.004){
+     float shadow=density(p+vec3(-900.,500.,1100.));
+     float height=clamp((p.z-uCloudBase)/uThickness,0.,1.);
+     vec3 ambient=mix(vec3(.24,.28,.34),vec3(.72,.76,.81),height*.65+.2)*mix(1.,.30,uRain);
+     vec3 light=vec3(.78,.79,.78)*exp(-shadow*3.5)*mix(.7,.04,uRain);
+     vec3 shade=ambient+light;
+     // Native fog option and map colour; much nearer horizontal whitening keeps
+     // overhead structure while distant cloud masses merge with the horizon.
+     float haze=min(.88,fogAt(length(p.xy)));
+     float fogLight=clamp(dot(uFogColor.rgb,vec3(.2126,.7152,.0722)),.65,.8);
+     vec3 hazeColor=vec3(fogLight-.02,fogLight,fogLight+.025);
+     shade=mix(shade,hazeColor,haze);
+     float alpha=1.-exp(-d*min(step_/uThickness,1.5)*4.);
+     color+=transmission*alpha*shade;transmission*=1.-alpha;
+     if(transmission<.025)break;
+   }
+ }
+ float horizon=smoothstep(.012,.09,direction.z);
+ o=vec4(color,1.-transmission)*horizon;
+}`;
+      COMPOSITE_FRAGMENT = `#version 300 es
+precision highp float;in vec2 uv;uniform sampler2D uCloudTexture;uniform float uFade,uBoltFlash;uniform vec3 uBoltDirection;uniform mat4 uInvVP;out vec4 o;
+vec4 cloudSample(vec2 p){
+ vec2 size=vec2(textureSize(uCloudTexture,0)),pixel=p*size-.5,index=floor(pixel),f=fract(pixel),g=1.-f;
+ vec2 w0=g*g*g/6.,w1=(3.*f*f*f-6.*f*f+4.)/6.,w2=(-3.*f*f*f+3.*f*f+3.*f+1.)/6.,w3=f*f*f/6.;
+ vec2 a=w0+w1,b=w2+w3,lo=(index-1.+w1/a+.5)/size,hi=(index+1.+w3/b+.5)/size;
+ return mix(mix(texture(uCloudTexture,lo),texture(uCloudTexture,vec2(hi.x,lo.y)),b.x),
+            mix(texture(uCloudTexture,vec2(lo.x,hi.y)),texture(uCloudTexture,hi),b.x),b.y);
+}
+void main(){
+ vec4 near_=uInvVP*vec4(uv*2.-1.,-1.,1.),far_=uInvVP*vec4(uv*2.-1.,1.,1.);
+ vec3 direction=normalize(far_.xyz/far_.w-near_.xyz/near_.w);
+ if(direction.z<=0.){o=vec4(0.);return;}
+ vec2 skyUV=vec2(atan(direction.y,direction.x)/6.283185307+.5,asin(clamp(direction.z,0.,1.))/1.570796327);
+ vec4 cloud=cloudSample(skyUV);
+ float glow=exp(-max(0.,1.-dot(direction,uBoltDirection))*450.)*uBoltFlash;
+ cloud.rgb+=vec3(.6,.72,1.)*glow*cloud.a*.25;
+ o=cloud*uFade;
+}`;
+      RAIN_VERTEX = `#version 300 es
+precision highp float;precision highp int;
+uniform mat4 uVP;uniform vec3 uCam;uniform vec2 uViewport;
+uniform float uTime,uRain,uSeed,uWind,uCount;
+out vec2 q;out float opacity;out float distance_;
+uint pcg(uint v){uint s=v*747796405u+2891336453u;uint w=((s>>((s>>28u)+4u))^s)*277803737u;return(w>>22u)^w;}
+float h(uint id,uint salt){return float(pcg(id+pcg(salt+uint(uSeed))))*(1./4294967296.);}
+void main(){
+ uint id=uint(gl_InstanceID);float size=h(id,3u),speed=mix(6200.,10800.,size);
+ vec3 velocity=vec3(-uWind*speed*.4,-uWind*speed*.12,-speed);
+ vec2 box=vec2(10000.);float height=7000.;
+ vec2 xy=(fract(vec2(h(id,1u),h(id,2u))+(velocity.xy*uTime-uCam.xy)/box+.5)-.5)*box+uCam.xy;
+ float phase=fract(h(id,4u)+(velocity.z*uTime-uCam.z)/height+.5);
+ vec3 head=vec3(xy,(phase-.5)*height+uCam.z);
+ vec3 view=uCam-head;distance_=length(view);
+ vec3 axis=normalize(velocity);vec3 side=cross(axis,view);if(length(side)<.001)side=vec3(1.,0.,0.);side=normalize(side);
+ vec4 clip=uVP*vec4(head,1.),delta=uVP*vec4(side,0.);
+ float pixels=length((delta.xy*clip.w-clip.xy*delta.w)/max(clip.w*clip.w,.001)*uViewport*.5);
+ float width=max(.9+size*.7,.6/max(pixels,.0001));
+ float sign_=float(gl_VertexID&1)*2.-1.,along=float(gl_VertexID>>1);
+ vec3 p=head-axis*speed*mix(.012,.026,uRain)*along+side*sign_*width;
+ gl_Position=uVP*vec4(p,1.);q=vec2(sign_,along);
+ float rim=1.-smoothstep(.62,1.,length((xy-uCam.xy)/5000.));
+ opacity=(.24+.30*size)*rim*smoothstep(.0,.08,phase)*(1.-smoothstep(.92,1.,phase))
+   *smoothstep(150.,550.,distance_)*smoothstep(0.,64.,uCount-float(gl_InstanceID));
+}`;
+      ATMOSPHERE_FRAGMENT = `#version 300 es
+precision highp float;uniform float uStorm,uRain,uFade,uBoltFlash;out vec4 o;
+void main(){
+ float dark=clamp(uStorm*.57+uRain*.075,0.,.62);
+ // A continuous uniform colour grade, independent of depth-cache cadence and
+ // transparent billboards. It must be applied to every presentation frame.
+ dark*=1.-uBoltFlash*.85;
+ o=vec4(vec3(.025,.035,.055)*dark,dark)*uFade;
+}`;
+      LIGHTNING_VERTEX = `#version 300 es
+precision highp float;
+layout(location=0)in vec3 aStart;layout(location=1)in vec3 aEnd;layout(location=2)in vec2 aStyle;
+uniform mat4 uVP;uniform vec2 uViewport;out vec2 q;out float energy;
+void main(){
+ float side=float(gl_VertexID&1)*2.-1.,along=float(gl_VertexID>>1);q=vec2(side,along);energy=aStyle.x;
+ vec4 a=uVP*vec4(aStart,1.),b=uVP*vec4(aEnd,1.);
+ if(a.w<=0.||b.w<=0.){gl_Position=vec4(2.,2.,2.,1.);return;}
+ vec2 delta=(b.xy/b.w-a.xy/a.w)*uViewport;
+ vec2 normal=vec2(-delta.y,delta.x)/max(length(delta),.001);
+ vec4 clip=mix(a,b,along);clip.xy+=normal*side*(7.*aStyle.y)*2./uViewport*clip.w;
+ // The bolt is beyond the playable map: native terrain depth hides it, without
+ // clipping its distant world-space path at the game's camera far plane.
+ gl_Position=vec4(clip.xy,clip.w*.9999998,clip.w);
+}`;
+      LIGHTNING_FRAGMENT = `#version 300 es
+precision highp float;in vec2 q;in float energy;uniform float uPower,uFade;out vec4 o;
+void main(){float halo=exp(-q.x*q.x*4.)*.32,core=exp(-q.x*q.x*90.)*2.4;
+ vec3 colour=vec3(.38,.58,1.)*halo+vec3(1.,.99,.96)*core;
+ o=vec4(colour*energy*uPower*uFade,0.);
+}`;
+      RAIN_FRAGMENT = `#version 300 es
+precision highp float;in vec2 q;in float opacity;in float distance_;uniform float uFade;
+uniform vec3 uFog;uniform vec4 uFogColor;out vec4 o;
+void main(){float aa=max(fwidth(q.x),.04);float edge=1.-smoothstep(1.-aa,1.,abs(q.x));
+float core=exp(-q.x*q.x*5.);float a=opacity*edge*pow(1.-q.y,1.5)*(.25+.75*core)*uFade;
+vec3 color=mix(vec3(.57,.70,.79),vec3(.94,.97,1.),core);
+float fog=uFog.x*smoothstep(uFog.y,uFog.z,distance_)*uFogColor.a;
+o=vec4(mix(color,uFogColor.rgb,fog)*a,a);}`;
+      IMPACT_FRAGMENT = `#version 300 es
+${COMMON}
+in vec2 uv;uniform sampler2D uDepth;
+void main(){
+float depth=texture(uDepth,uv).r;if(depth>.999999)discard;
+vec3 p=worldAt(uv,depth);vec3 normal=cross(dFdx(p),dFdy(p));
+float flatness=abs(normal.z)/max(length(normal),.00001);if(flatness<.65)discard;
+vec2 cell=floor(p.xy/110.);uint key=uint(int(cell.x))+pcg(uint(int(cell.y))+uint(uSeed));
+float period=.45+hash(key)*.5,age=fract(uTime/period+hash(key+1u))*period;
+if(age>.16||hash(key+2u)>uRain*.65)discard;
+vec2 center=(cell+.4+.2*vec2(hash(key+3u),hash(key+4u)))*110.;
+vec2 delta=(p.xy-center)/(4.+age*130.);float r=length(delta);if(r>1.)discard;
+float spokes=pow(max(0.,cos(atan(delta.y,delta.x)*7.+hash(key+5u)*6.28)),8.);
+float crown=spokes*smoothstep(.1,.3,r)*(1.-smoothstep(.55,1.,r));
+float contact=exp(-r*r*30.)*(1.-smoothstep(.01,.06,age));
+float a=(crown*.5+contact*.35)*smoothstep(0.,.012,age)*(1.-smoothstep(.05,.16,age))*flatness*uFade;
+a*=1.-smoothstep(3500.,8500.,distance(p,uCam));
+o=vec4(vec3(.72,.81,.87)*a,a);
+}`;
+    }
+  });
+
+  // src/core/rainWeather/lightning.ts
+  function seeded(seed) {
+    let state = seed >>> 0 || 1;
+    return () => {
+      state ^= state << 13;
+      state ^= state >>> 17;
+      state ^= state << 5;
+      return (state >>> 0) / 4294967296;
+    };
+  }
+  function stormStrikes(plan) {
+    if (plan.preset !== "storm") return [];
+    const random3 = seeded(plan.seed ^ 1910917849), out = [];
+    let seconds = plan.fadeIn + LIGHTNING.firstMin + random3() * (LIGHTNING.firstMax - LIGHTNING.firstMin);
+    while (seconds < plan.fadeIn + plan.hold - 8 && out.length < 3) {
+      const radius = LIGHTNING.radiusMin + random3() * (LIGHTNING.radiusMax - LIGHTNING.radiusMin);
+      out.push({
+        id: out.length,
+        at: plan.start + seconds * 1e3,
+        seed: Math.floor(random3() * 16777215),
+        azimuth: random3() * Math.PI * 2,
+        radius,
+        delay: radius / LIGHTNING.unitsPerMetre / LIGHTNING.soundSpeed
+      });
+      seconds += LIGHTNING.gapMin + random3() * (LIGHTNING.gapMax - LIGHTNING.gapMin);
+    }
+    return out;
+  }
+  function strikeLight(age) {
+    if (age < 0 || age > LIGHTNING.duration) return { power: 0, flash: 0 };
+    const pulse = (start, width) => {
+      const t = (age - start) / width;
+      return t < 0 ? 0 : (1 - Math.exp(-t * 25)) * Math.exp(-t * 5);
+    };
+    const power = Math.min(1, pulse(0, 0.32) * 1.9 + pulse(0.14, 0.25) * 1.25 + pulse(0.31, 0.25) * 0.55);
+    const flash = Math.min(1, power * 0.65 + Math.exp(-age * 6) * (1 - Math.exp(-age * 80)) * 0.4);
+    return { power, flash };
+  }
+  function buildBolt(strike, origin) {
+    const random3 = seeded(strike.seed), segments = [], base = [origin[0] + Math.cos(strike.azimuth) * strike.radius, origin[1] + Math.sin(strike.azimuth) * strike.radius, 0];
+    const top = [base[0] + (random3() - 0.5) * 2200, base[1] + (random3() - 0.5) * 2200, WEATHER.cloudBase + WEATHER.cloudThickness * 0.9];
+    const bottom = [base[0], base[1], 250];
+    const path = (a, b, levels, displacement) => {
+      if (!levels) return [a, b];
+      const middle = [(a[0] + b[0]) * 0.5 + (random3() - 0.5) * displacement, (a[1] + b[1]) * 0.5 + (random3() - 0.5) * displacement, (a[2] + b[2]) * 0.5];
+      return [...path(a, middle, levels - 1, displacement * 0.55).slice(0, -1), ...path(middle, b, levels - 1, displacement * 0.55)];
+    };
+    const add = (points, energy, width, taper) => {
+      for (let i = 1; i < points.length && segments.length / 8 < LIGHTNING.maxSegments; i++) {
+        const strength = energy * (taper ? 1 - i / points.length * 0.85 : 1);
+        segments.push(...points[i - 1], ...points[i], strength, width);
+      }
+    };
+    const trunk = path(top, bottom, 6, 3200);
+    add(trunk, 1, 1, false);
+    for (let branch = 0; branch < 11; branch++) {
+      const start = trunk[6 + Math.floor(random3() * 44)], angle = strike.azimuth + (random3() - 0.5) * 5, length = 1800 + random3() * 4800, end = [start[0] + Math.cos(angle) * length, start[1] + Math.sin(angle) * length, Math.max(300, start[2] - length * (0.35 + random3() * 0.65))];
+      add(path(start, end, 3, length * 0.32), 0.25 + random3() * 0.4, 0.4 + random3() * 0.25, true);
+    }
+    return new Float32Array(segments);
+  }
+  var LIGHTNING;
+  var init_lightning = __esm({
+    "src/core/rainWeather/lightning.ts"() {
+      "use strict";
+      init_schedule();
+      LIGHTNING = Object.freeze({
+        firstMin: 20,
+        firstMax: 42,
+        gapMin: 48,
+        gapMax: 78,
+        duration: 0.75,
+        radiusMin: 85e3,
+        radiusMax: 125e3,
+        unitsPerMetre: 100,
+        soundSpeed: 343,
+        maxSegments: 256
+      });
+    }
+  });
+
+  // src/core/rainWeather/renderer.ts
+  function createRainRenderer(gl) {
+    const DUNIT = 12, VUNIT = 13;
+    const info = {};
+    const curRes = { depthTex: null, depthFbo: null, depthWidth: 0, depthHeight: 0, depthFormat: 0, depthReady: false };
+    const invVP = new Float32Array(16);
+    const programs = [];
+    let ready = false, disposed = false, vao = null, cloudTex = null, cloudFbo = null;
+    let cw = 0, ch = 0, cloudAt = -Infinity;
+    const cloudFloat = !!gl.getExtension("EXT_color_buffer_float");
+    let cloud, composite, rain, impact, atmosphere, bolt;
+    let boltBuffer = null, boltVao = null, boltKey = "", boltCount = 0;
+    function copySceneDepth(S) {
+      if (!boundHasDepth(S)) return false;
+      const width = S.viewport[2], height = S.viewport[3];
+      if (!(width > 0 && height > 0)) return false;
+      const depthBits = gl.getParameter(gl.DEPTH_BITS), stencilBits = gl.getParameter(gl.STENCIL_BITS);
+      let packed = stencilBits > 0 || !S.fb;
+      let format = packed ? depthBits > 24 ? gl.DEPTH32F_STENCIL8 : gl.DEPTH24_STENCIL8 : depthBits > 24 ? gl.DEPTH_COMPONENT32F : depthBits > 16 ? gl.DEPTH_COMPONENT24 : gl.DEPTH_COMPONENT16;
+      if (S.fb) {
+        const kind = gl.getFramebufferAttachmentParameter(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE);
+        if (kind === gl.RENDERBUFFER) {
+          const previous = gl.getParameter(gl.RENDERBUFFER_BINDING);
+          gl.bindRenderbuffer(gl.RENDERBUFFER, gl.getFramebufferAttachmentParameter(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME));
+          try {
+            format = gl.getRenderbufferParameter(gl.RENDERBUFFER, gl.RENDERBUFFER_INTERNAL_FORMAT);
+          } finally {
+            gl.bindRenderbuffer(gl.RENDERBUFFER, previous);
+          }
+        } else if (kind === gl.TEXTURE) {
+          const stencilSize = gl.getFramebufferAttachmentParameter(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.FRAMEBUFFER_ATTACHMENT_STENCIL_SIZE);
+          if (stencilSize > 0) format = depthBits > 24 ? gl.DEPTH32F_STENCIL8 : gl.DEPTH24_STENCIL8;
+        }
+      }
+      if (format === gl.DEPTH_STENCIL) format = gl.DEPTH24_STENCIL8;
+      if (format === gl.DEPTH_COMPONENT) format = gl.DEPTH_COMPONENT16;
+      packed = format === gl.DEPTH24_STENCIL8 || format === gl.DEPTH32F_STENCIL8;
+      info.depthFormat = format;
+      const attachment = packed ? gl.DEPTH_STENCIL_ATTACHMENT : gl.DEPTH_ATTACHMENT;
+      const resource = curRes;
+      gl.activeTexture(gl.TEXTURE0 + DUNIT);
+      try {
+        if (!resource.depthTex || resource.depthWidth !== width || resource.depthHeight !== height || resource.depthFormat !== format) {
+          if (resource.depthTex) gl.deleteTexture(resource.depthTex);
+          if (resource.depthFbo) gl.deleteFramebuffer(resource.depthFbo);
+          resource.depthTex = gl.createTexture();
+          resource.depthFbo = gl.createFramebuffer();
+          resource.depthWidth = width;
+          resource.depthHeight = height;
+          resource.depthFormat = format;
+          gl.bindTexture(gl.TEXTURE_2D, resource.depthTex);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+          gl.texStorage2D(gl.TEXTURE_2D, 1, format, width, height);
+          gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, resource.depthFbo);
+          gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER, attachment, gl.TEXTURE_2D, resource.depthTex, 0);
+          gl.drawBuffers([gl.NONE]);
+          resource.depthReady = gl.checkFramebufferStatus(gl.DRAW_FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+        }
+        if (!resource.depthReady) return false;
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, S.fb);
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, resource.depthFbo);
+        const scissor = gl.isEnabled(gl.SCISSOR_TEST);
+        gl.disable(gl.SCISSOR_TEST);
+        try {
+          gl.blitFramebuffer(S.viewport[0], S.viewport[1], S.viewport[0] + width, S.viewport[1] + height, 0, 0, width, height, gl.DEPTH_BUFFER_BIT, gl.NEAREST);
+        } finally {
+          if (scissor) gl.enable(gl.SCISSOR_TEST);
+        }
+        gl.bindTexture(gl.TEXTURE_2D, resource.depthTex);
+        return true;
+      } finally {
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, S.fb);
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, S.readfb);
+        gl.activeTexture(S.unit);
+      }
+    }
+    function invert4(m, out) {
+      const a00 = m[0], a01 = m[1], a02 = m[2], a03 = m[3], a10 = m[4], a11 = m[5], a12 = m[6], a13 = m[7];
+      const a20 = m[8], a21 = m[9], a22 = m[10], a23 = m[11], a30 = m[12], a31 = m[13], a32 = m[14], a33 = m[15];
+      const b00 = a00 * a11 - a01 * a10, b01 = a00 * a12 - a02 * a10, b02 = a00 * a13 - a03 * a10;
+      const b03 = a01 * a12 - a02 * a11, b04 = a01 * a13 - a03 * a11, b05 = a02 * a13 - a03 * a12;
+      const b06 = a20 * a31 - a21 * a30, b07 = a20 * a32 - a22 * a30, b08 = a20 * a33 - a23 * a30;
+      const b09 = a21 * a32 - a22 * a31, b10 = a21 * a33 - a23 * a31, b11 = a22 * a33 - a23 * a32;
+      let det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
+      if (!det || !isFinite(det)) return false;
+      det = 1 / det;
+      out[0] = (a11 * b11 - a12 * b10 + a13 * b09) * det;
+      out[1] = (a02 * b10 - a01 * b11 - a03 * b09) * det;
+      out[2] = (a31 * b05 - a32 * b04 + a33 * b03) * det;
+      out[3] = (a22 * b04 - a21 * b05 - a23 * b03) * det;
+      out[4] = (a12 * b08 - a10 * b11 - a13 * b07) * det;
+      out[5] = (a00 * b11 - a02 * b08 + a03 * b07) * det;
+      out[6] = (a32 * b02 - a30 * b05 - a33 * b01) * det;
+      out[7] = (a20 * b05 - a22 * b02 + a23 * b01) * det;
+      out[8] = (a10 * b10 - a11 * b08 + a13 * b06) * det;
+      out[9] = (a01 * b08 - a00 * b10 - a03 * b06) * det;
+      out[10] = (a30 * b04 - a31 * b02 + a33 * b00) * det;
+      out[11] = (a21 * b02 - a20 * b04 - a23 * b00) * det;
+      out[12] = (a11 * b07 - a10 * b09 - a12 * b06) * det;
+      out[13] = (a00 * b09 - a01 * b07 + a02 * b06) * det;
+      out[14] = (a31 * b01 - a30 * b03 - a32 * b00) * det;
+      out[15] = (a20 * b03 - a21 * b01 + a22 * b00) * det;
+      return true;
+    }
+    function saveState() {
+      const S = {};
+      S.prog = gl.getParameter(gl.CURRENT_PROGRAM);
+      S.vao = gl.getParameter(gl.VERTEX_ARRAY_BINDING);
+      S.arrayBuffer = gl.getParameter(gl.ARRAY_BUFFER_BINDING);
+      S.unit = gl.getParameter(gl.ACTIVE_TEXTURE);
+      gl.activeTexture(gl.TEXTURE0 + DUNIT);
+      S.dtex = gl.getParameter(gl.TEXTURE_BINDING_2D);
+      S.dsampler = gl.getParameter(gl.SAMPLER_BINDING);
+      gl.activeTexture(gl.TEXTURE0 + VUNIT);
+      S.vtex = gl.getParameter(gl.TEXTURE_BINDING_2D);
+      S.vsampler = gl.getParameter(gl.SAMPLER_BINDING);
+      gl.activeTexture(S.unit);
+      S.blend = gl.isEnabled(gl.BLEND);
+      S.bsrc = gl.getParameter(gl.BLEND_SRC_RGB);
+      S.bdst = gl.getParameter(gl.BLEND_DST_RGB);
+      S.bsrcA = gl.getParameter(gl.BLEND_SRC_ALPHA);
+      S.bdstA = gl.getParameter(gl.BLEND_DST_ALPHA);
+      S.beq = gl.getParameter(gl.BLEND_EQUATION_RGB);
+      S.beqA = gl.getParameter(gl.BLEND_EQUATION_ALPHA);
+      S.depth = gl.isEnabled(gl.DEPTH_TEST);
+      S.dmask = gl.getParameter(gl.DEPTH_WRITEMASK);
+      S.dfunc = gl.getParameter(gl.DEPTH_FUNC);
+      S.cull = gl.isEnabled(gl.CULL_FACE);
+      S.stencil = gl.isEnabled(gl.STENCIL_TEST);
+      S.scissor = gl.isEnabled(gl.SCISSOR_TEST);
+      S.poly = gl.isEnabled(gl.POLYGON_OFFSET_FILL);
+      S.polyF = gl.getParameter(gl.POLYGON_OFFSET_FACTOR);
+      S.polyU = gl.getParameter(gl.POLYGON_OFFSET_UNITS);
+      S.cmask = gl.getParameter(gl.COLOR_WRITEMASK);
+      S.fb = gl.getParameter(gl.FRAMEBUFFER_BINDING);
+      S.readfb = gl.getParameter(gl.READ_FRAMEBUFFER_BINDING);
+      S.discard = gl.isEnabled(gl.RASTERIZER_DISCARD);
+      S.viewport = gl.getParameter(gl.VIEWPORT);
+      S.depthRange = gl.getParameter(gl.DEPTH_RANGE);
+      S.a2c = gl.isEnabled(gl.SAMPLE_ALPHA_TO_COVERAGE);
+      S.drawBuffers = null;
+      if (S.fb) {
+        const n = gl.getParameter(gl.MAX_DRAW_BUFFERS);
+        const db = [];
+        let active = 0;
+        for (let i = 0; i < n; i++) {
+          const v = gl.getParameter(gl.DRAW_BUFFER0 + i);
+          db.push(v);
+          if (v !== gl.NONE) active++;
+        }
+        if (active > 1) S.drawBuffers = db;
+      }
+      return S;
+    }
+    function restoreState(S) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, S.fb);
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, S.readfb);
+      gl.viewport(S.viewport[0], S.viewport[1], S.viewport[2], S.viewport[3]);
+      gl.depthRange(S.depthRange[0], S.depthRange[1]);
+      if (S.drawBuffers) gl.drawBuffers(S.drawBuffers);
+      gl.activeTexture(gl.TEXTURE0 + DUNIT);
+      gl.bindTexture(gl.TEXTURE_2D, S.dtex);
+      gl.bindSampler(DUNIT, S.dsampler);
+      gl.activeTexture(gl.TEXTURE0 + VUNIT);
+      gl.bindTexture(gl.TEXTURE_2D, S.vtex);
+      gl.bindSampler(VUNIT, S.vsampler);
+      gl.activeTexture(S.unit);
+      gl.bindVertexArray(S.vao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, S.arrayBuffer);
+      gl.useProgram(S.prog);
+      S.blend ? gl.enable(gl.BLEND) : gl.disable(gl.BLEND);
+      gl.blendFuncSeparate(S.bsrc, S.bdst, S.bsrcA, S.bdstA);
+      gl.blendEquationSeparate(S.beq, S.beqA);
+      S.depth ? gl.enable(gl.DEPTH_TEST) : gl.disable(gl.DEPTH_TEST);
+      gl.depthMask(S.dmask);
+      gl.depthFunc(S.dfunc);
+      S.cull ? gl.enable(gl.CULL_FACE) : gl.disable(gl.CULL_FACE);
+      S.stencil ? gl.enable(gl.STENCIL_TEST) : gl.disable(gl.STENCIL_TEST);
+      S.scissor ? gl.enable(gl.SCISSOR_TEST) : gl.disable(gl.SCISSOR_TEST);
+      S.poly ? gl.enable(gl.POLYGON_OFFSET_FILL) : gl.disable(gl.POLYGON_OFFSET_FILL);
+      gl.polygonOffset(S.polyF, S.polyU);
+      gl.colorMask(S.cmask[0], S.cmask[1], S.cmask[2], S.cmask[3]);
+      S.a2c ? gl.enable(gl.SAMPLE_ALPHA_TO_COVERAGE) : gl.disable(gl.SAMPLE_ALPHA_TO_COVERAGE);
+      S.discard ? gl.enable(gl.RASTERIZER_DISCARD) : gl.disable(gl.RASTERIZER_DISCARD);
+    }
+    function boundHasDepth(S) {
+      try {
+        if (!S.fb) {
+          const a = gl.getContextAttributes();
+          return !!(a && a.depth);
+        }
+        return gl.getFramebufferAttachmentParameter(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE) !== gl.NONE;
+      } catch (e) {
+        return false;
+      }
+    }
+    function compile(type2, src) {
+      const s = gl.createShader(type2);
+      if (!s) throw Error("Cannot allocate rain shader");
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+        const message = gl.getShaderInfoLog(s);
+        gl.deleteShader(s);
+        throw new Error(message + "\n" + src.split("\n").slice(0, 3).join(" "));
+      }
+      return s;
+    }
+    function program(vs, fs, names) {
+      const p = gl.createProgram();
+      if (!p) throw Error("Cannot allocate rain program");
+      let vertex = null, fragment = null;
+      try {
+        vertex = compile(gl.VERTEX_SHADER, vs);
+        fragment = compile(gl.FRAGMENT_SHADER, fs);
+        gl.attachShader(p, vertex);
+        gl.attachShader(p, fragment);
+        gl.linkProgram(p);
+        if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p) || "Rain program link failed");
+      } catch (error) {
+        gl.deleteProgram(p);
+        throw error;
+      } finally {
+        if (vertex) gl.deleteShader(vertex);
+        if (fragment) gl.deleteShader(fragment);
+      }
+      const u = {};
+      names.forEach(function(n) {
+        u[n] = gl.getUniformLocation(p, n);
+      });
+      return { p, u };
+    }
+    function uploadClean(fn) {
+      const fields = [
+        gl.UNPACK_FLIP_Y_WEBGL,
+        gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,
+        gl.UNPACK_ALIGNMENT,
+        gl.UNPACK_ROW_LENGTH,
+        gl.UNPACK_IMAGE_HEIGHT,
+        gl.UNPACK_SKIP_ROWS,
+        gl.UNPACK_SKIP_PIXELS,
+        gl.UNPACK_SKIP_IMAGES
+      ];
+      const values = fields.map(function(field2) {
+        return gl.getParameter(field2);
+      });
+      const pbo = gl.getParameter(gl.PIXEL_UNPACK_BUFFER_BINDING);
+      try {
+        gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, null);
+        fields.forEach(function(field2, i) {
+          gl.pixelStorei(field2, i === 2 ? 1 : 0);
+        });
+        fn();
+      } finally {
+        fields.forEach(function(field2, i) {
+          gl.pixelStorei(field2, values[i]);
+        });
+        gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, pbo);
+      }
+    }
+    const shared = ["uInvVP", "uCam", "uTime", "uRain", "uCloud", "uSeed", "uFade", "uFog", "uFogColor", "uDepth"];
+    function owned(vs, fs, names) {
+      const p = program(vs, fs, names);
+      programs.push(p);
+      return p;
+    }
+    function dispose() {
+      disposed = true;
+      for (const p of programs.splice(0)) gl.deleteProgram(p.p);
+      gl.deleteVertexArray(vao);
+      gl.deleteTexture(cloudTex);
+      gl.deleteFramebuffer(cloudFbo);
+      gl.deleteVertexArray(boltVao);
+      gl.deleteBuffer(boltBuffer);
+      gl.deleteTexture(curRes.depthTex);
+      gl.deleteFramebuffer(curRes.depthFbo);
+      ready = false;
+    }
+    function warm() {
+      if (ready || disposed) return;
+      const state = saveState();
+      try {
+        cloud = owned(FULL_VERTEX, CLOUD_FRAGMENT, [...shared, "uSky", "uCloudBase", "uThickness"]);
+        composite = owned(FULL_VERTEX, COMPOSITE_FRAGMENT, ["uSky", "uCloudTexture", "uFade", "uInvVP", "uBoltFlash", "uBoltDirection"]);
+        atmosphere = owned(FULL_VERTEX, ATMOSPHERE_FRAGMENT, [...shared, "uSky", "uStorm", "uBoltFlash"]);
+        rain = owned(RAIN_VERTEX, RAIN_FRAGMENT, [...shared, "uVP", "uViewport", "uWind", "uCount"]);
+        impact = owned(FULL_VERTEX, IMPACT_FRAGMENT, [...shared, "uSky"]);
+        bolt = owned(LIGHTNING_VERTEX, LIGHTNING_FRAGMENT, ["uVP", "uViewport", "uPower", "uFade"]);
+        vao = gl.createVertexArray();
+        cloudTex = gl.createTexture();
+        cloudFbo = gl.createFramebuffer();
+        ready = true;
+        boltVao = gl.createVertexArray();
+        boltBuffer = gl.createBuffer();
+        if (!boltVao || !boltBuffer) throw Error("Cannot allocate lightning mesh");
+        gl.bindVertexArray(boltVao);
+        gl.bindBuffer(gl.ARRAY_BUFFER, boltBuffer);
+        for (let i = 0; i < 3; i++) {
+          gl.enableVertexAttribArray(i);
+          gl.vertexAttribPointer(i, i === 2 ? 2 : 3, gl.FLOAT, false, 32, i * 12);
+          gl.vertexAttribDivisor(i, 1);
+        }
+      } catch (error) {
+        dispose();
+        throw error;
+      } finally {
+        restoreState(state);
+      }
+    }
+    function use(p, f) {
+      gl.useProgram(p.p);
+      const u = p.u;
+      gl.uniformMatrix4fv(u.uInvVP ?? null, false, invVP);
+      gl.uniform3fv(u.uCam ?? null, f.camera);
+      gl.uniform1f(u.uTime ?? null, f.time);
+      gl.uniform1f(u.uRain ?? null, f.rain);
+      gl.uniform1f(u.uCloud ?? null, f.clouds);
+      gl.uniform1f(u.uSeed ?? null, f.seed);
+      gl.uniform1f(u.uFade ?? null, f.fade);
+      gl.uniform3fv(u.uFog ?? null, f.fog);
+      gl.uniform4fv(u.uFogColor ?? null, f.fogColor);
+      gl.uniform1i(u.uDepth ?? null, DUNIT);
+      gl.uniform1f(u.uSky ?? null, 0);
+    }
+    let frames = 0, depthCopies = 0, cloudFrames = 0;
+    function draw(f, stage = "all") {
+      if (disposed || gl.isContextLost() || f.fade <= 0) return;
+      warm();
+      if (!ready || !invert4(f.vp, invVP)) return;
+      if (f.clouds < 1e-3 && f.rain < 1e-3 && f.storm < 1e-3) return;
+      const sky = stage !== "weather", weather = stage !== "sky";
+      const state = saveState();
+      try {
+        if (!boundHasDepth(state)) return;
+        const width = state.viewport[2], height = state.viewport[3];
+        if (width < 1 || height < 1) return;
+        const refreshCloud = sky && f.clouds > 1e-3 && f.time - cloudAt >= 1 / WEATHER.cloudHz;
+        const depthNeeded = weather && f.rain > 0.03;
+        const depth = depthNeeded && copySceneDepth(state);
+        if (depth) depthCopies++;
+        gl.disable(gl.STENCIL_TEST);
+        gl.disable(gl.SCISSOR_TEST);
+        gl.disable(gl.CULL_FACE);
+        gl.disable(gl.SAMPLE_ALPHA_TO_COVERAGE);
+        gl.disable(gl.RASTERIZER_DISCARD);
+        gl.disable(gl.POLYGON_OFFSET_FILL);
+        gl.depthMask(false);
+        gl.bindVertexArray(vao);
+        gl.depthRange(0, 1);
+        gl.bindSampler(DUNIT, null);
+        gl.bindSampler(VUNIT, null);
+        gl.activeTexture(gl.TEXTURE0 + DUNIT);
+        gl.bindTexture(gl.TEXTURE_2D, curRes.depthTex);
+        gl.activeTexture(gl.TEXTURE0 + VUNIT);
+        gl.bindTexture(gl.TEXTURE_2D, cloudTex);
+        if (refreshCloud) {
+          const w = WEATHER.cloudWidth, h = WEATHER.cloudHeight;
+          if (cw !== w || ch !== h) {
+            cw = w;
+            ch = h;
+            uploadClean(() => gl.texImage2D(gl.TEXTURE_2D, 0, cloudFloat ? gl.RGBA16F : gl.RGBA8, w, h, 0, gl.RGBA, cloudFloat ? gl.HALF_FLOAT : gl.UNSIGNED_BYTE, null));
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, cloudFbo);
+            gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, cloudTex, 0);
+            if (gl.checkFramebufferStatus(gl.DRAW_FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw Error("Cloud framebuffer incomplete");
+          } else gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, cloudFbo);
+          gl.viewport(0, 0, cw, ch);
+          gl.colorMask(true, true, true, true);
+          gl.disable(gl.DEPTH_TEST);
+          gl.disable(gl.BLEND);
+          gl.bindTexture(gl.TEXTURE_2D, null);
+          use(cloud, f);
+          gl.uniform1f(cloud.u.uCloudBase, WEATHER.cloudBase);
+          gl.uniform1f(cloud.u.uThickness, WEATHER.cloudThickness);
+          gl.drawArrays(gl.TRIANGLES, 0, 3);
+          cloudAt = f.time;
+          cloudFrames++;
+          gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, state.fb);
+          gl.viewport(state.viewport[0], state.viewport[1], state.viewport[2], state.viewport[3]);
+          gl.activeTexture(gl.TEXTURE0 + VUNIT);
+          gl.bindTexture(gl.TEXTURE_2D, cloudTex);
+        }
+        if (state.drawBuffers) gl.drawBuffers([state.drawBuffers[0], ...state.drawBuffers.slice(1).map(() => gl.NONE)]);
+        gl.colorMask(true, true, true, false);
+        gl.enable(gl.BLEND);
+        gl.blendEquation(gl.FUNC_ADD);
+        gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE);
+        if (sky && f.clouds > 1e-3 && cw) {
+          gl.enable(gl.DEPTH_TEST);
+          gl.depthFunc(gl.LEQUAL);
+          use(composite, f);
+          gl.uniform1f(composite.u.uSky, 1);
+          gl.uniform1i(composite.u.uCloudTexture, VUNIT);
+          gl.uniform1f(composite.u.uBoltFlash, f.lightning?.flash ?? 0);
+          const strike = f.lightning;
+          const direction = strike ? [strike.origin[0] + Math.cos(strike.strike.azimuth) * strike.strike.radius - f.camera[0], strike.origin[1] + Math.sin(strike.strike.azimuth) * strike.strike.radius - f.camera[1], WEATHER.cloudBase - f.camera[2]] : [0, 0, 1];
+          const length = Math.hypot(...direction);
+          gl.uniform3f(composite.u.uBoltDirection, direction[0] / length, direction[1] / length, direction[2] / length);
+          gl.drawArrays(gl.TRIANGLES, 0, 3);
+        }
+        if (sky && f.lightning && f.lightning.power > 1e-3) {
+          const { strike, origin, power } = f.lightning, key = `${strike.seed}:${origin[0]}:${origin[1]}`;
+          gl.bindVertexArray(boltVao);
+          gl.bindBuffer(gl.ARRAY_BUFFER, boltBuffer);
+          if (key !== boltKey) {
+            const data = buildBolt(strike, origin);
+            gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+            boltCount = data.length / 8;
+            boltKey = key;
+          }
+          use(bolt, f);
+          gl.uniformMatrix4fv(bolt.u.uVP, false, f.vp);
+          gl.uniform2f(bolt.u.uViewport, width, height);
+          gl.uniform1f(bolt.u.uPower, power);
+          gl.enable(gl.DEPTH_TEST);
+          gl.depthFunc(gl.LEQUAL);
+          gl.blendFuncSeparate(gl.ONE, gl.ONE, gl.ZERO, gl.ONE);
+          gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, boltCount);
+          gl.bindVertexArray(vao);
+          gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE);
+        }
+        if (weather && (f.storm > 1e-3 || f.rain > 1e-3)) {
+          gl.disable(gl.DEPTH_TEST);
+          use(atmosphere, f);
+          gl.uniform1f(atmosphere.u.uStorm, f.storm);
+          gl.uniform1f(atmosphere.u.uBoltFlash, f.lightning?.flash ?? 0);
+          gl.drawArrays(gl.TRIANGLES, 0, 3);
+        }
+        if (weather && f.rain > 1e-3) {
+          if (depth && f.rain > 0.03) {
+            gl.disable(gl.DEPTH_TEST);
+            use(impact, f);
+            gl.drawArrays(gl.TRIANGLES, 0, 3);
+          }
+          gl.enable(gl.DEPTH_TEST);
+          gl.depthFunc(gl.LEQUAL);
+          use(rain, f);
+          const count = Math.round(WEATHER.maxDrops * f.rain);
+          gl.uniformMatrix4fv(rain.u.uVP, false, f.vp);
+          gl.uniform2f(rain.u.uViewport, width, height);
+          gl.uniform1f(rain.u.uWind, f.wind);
+          gl.uniform1f(rain.u.uCount, count);
+          gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, count);
+        }
+        frames++;
+      } finally {
+        restoreState(state);
+      }
+    }
+    return { warm, draw, dispose, status: () => ({ ready, disposed, frames, depthCopies, cloudFrames, cloudSize: [cw, ch], cloudFloat, boltSegments: boltCount, depthFormat: info.depthFormat }) };
+  }
+  var init_renderer = __esm({
+    "src/core/rainWeather/renderer.ts"() {
+      "use strict";
+      init_schedule();
+      init_shaders();
+      init_lightning();
+    }
+  });
+
+  // src/core/rainWeather/audio.ts
+  function rainSamples(rate, seed) {
+    const length = Math.round(rate * WEATHER_AUDIO.bedSeconds), overlap = Math.round(rate * 0.08), raw = new Float32Array(length + overlap), random3 = seeded(seed);
+    let soft = 0, low = 0;
+    for (let i = 0; i < raw.length; i++) {
+      const white = random3() * 2 - 1;
+      soft = soft * 0.8 + white * 0.2;
+      low = low * 0.985 + white * 0.015;
+      raw[i] = white * 0.75 + soft * 0.7 + low * 0.6;
+    }
+    const output = raw.slice(0, length);
+    for (let i = 0; i < overlap; i++) {
+      const t = i / overlap;
+      output[i] = raw[length + i] * Math.cos(t * Math.PI * 0.5) + raw[i] * Math.sin(t * Math.PI * 0.5);
+    }
+    const block = Math.round(rate * 0.25), gains = [];
+    for (let start = 0; start < length; start += block) {
+      let sum = 0;
+      const end = Math.min(length, start + block);
+      for (let i = start; i < end; i++) sum += output[i] * output[i];
+      gains.push(WEATHER_AUDIO.bedRms / Math.sqrt(sum / (end - start) || 1));
+    }
+    for (let i = 0; i < length; i++) {
+      const position = i / block - 0.5, left = Math.floor(position), t = position - left, a = gains[(left + gains.length) % gains.length], b = gains[(left + 1 + gains.length) % gains.length];
+      output[i] *= a + (b - a) * t;
+    }
+    return output;
+  }
+  function thunderSamples(rate, seed) {
+    const out = new Float32Array(Math.round(rate * WEATHER_AUDIO.thunderSeconds)), random3 = seeded(seed ^ 1309944467);
+    const arrivals = [0, 0.19 + random3() * 0.2, 0.65 + random3() * 0.3, 1.3 + random3() * 0.5], weights = [1, 0.7, 0.45, 0.28];
+    let low = 0, body = 0, peak = 0;
+    for (let i = 0; i < out.length; i++) {
+      const t = i / rate, white = random3() * 2 - 1;
+      low = low * 0.994 + white * 6e-3;
+      body = body * 0.94 + white * 0.06;
+      let envelope = 0;
+      for (let j = 0; j < arrivals.length; j++) {
+        const age = t - arrivals[j];
+        if (age >= 0) envelope += weights[j] * (1 - Math.exp(-age * 28)) * Math.exp(-age / (1.2 + j * 0.35));
+      }
+      const rumble = Math.sin(t * 2 * Math.PI * 37 + low * 9) * 0.1 + Math.sin(t * 2 * Math.PI * 53) * 0.035;
+      const tail = Math.min(1, (WEATHER_AUDIO.thunderSeconds - t) / 0.8);
+      out[i] = (low * 3.3 + body * 0.7 + rumble) * envelope * Math.max(0, tail);
+      peak = Math.max(peak, Math.abs(out[i]));
+    }
+    const scale = WEATHER_AUDIO.thunderPeak / Math.max(peak, 1e-3);
+    for (let i = 0; i < out.length; i++) out[i] *= scale;
+    return out;
+  }
+  function createWeatherAudio(ctx, seed, initial = { rain: 1, thunder: 1 }) {
+    const bounded = (value) => Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 1;
+    const volumes = { rain: bounded(initial.rain), thunder: bounded(initial.thunder) };
+    const master = ctx.createGain(), bed = ctx.createGain(), rainGain = ctx.createGain(), thunderGain = ctx.createGain(), source = ctx.createBufferSource(), hp = ctx.createBiquadFilter(), lp = ctx.createBiquadFilter();
+    const buffer = ctx.createBuffer(2, Math.round(ctx.sampleRate * WEATHER_AUDIO.bedSeconds), ctx.sampleRate);
+    for (let channel = 0; channel < 2; channel++) buffer.getChannelData(channel).set(rainSamples(ctx.sampleRate, seed + channel * 17041));
+    source.buffer = buffer;
+    source.loop = true;
+    hp.type = "highpass";
+    hp.frequency.value = 180;
+    lp.type = "lowpass";
+    lp.frequency.value = 7500;
+    master.gain.value = 1;
+    bed.gain.value = 0;
+    rainGain.gain.value = volumes.rain;
+    thunderGain.gain.value = volumes.thunder;
+    source.connect(hp);
+    hp.connect(lp);
+    lp.connect(bed);
+    bed.connect(rainGain);
+    rainGain.connect(master);
+    thunderGain.connect(master);
+    master.connect(ctx.destination);
+    source.start();
+    let lastLevel = -1, lastAt = -Infinity, stopped = false, thunders = 0;
+    const played = /* @__PURE__ */ new Set(), thunderBuffers = /* @__PURE__ */ new Map();
+    const prepareThunder = (seed2) => {
+      if (stopped || thunderBuffers.has(seed2)) return;
+      const samples = thunderSamples(WEATHER_AUDIO.thunderRate, seed2), buffer2 = ctx.createBuffer(1, samples.length, WEATHER_AUDIO.thunderRate);
+      buffer2.getChannelData(0).set(samples);
+      thunderBuffers.set(seed2, buffer2);
+    };
+    return {
+      ctx,
+      prepareThunder,
+      volumes(next) {
+        if (stopped) return;
+        for (const kind of ["rain", "thunder"]) {
+          const value = bounded(next[kind]);
+          if (value === volumes[kind]) continue;
+          const gain = (kind === "rain" ? rainGain : thunderGain).gain;
+          gain.setTargetAtTime(value, ctx.currentTime, 0.05);
+          volumes[kind] = value;
+        }
+      },
+      level(value) {
+        if (stopped) return;
+        const target = Math.max(0, Math.min(0.5, value)) * WEATHER_AUDIO.rainVolume, now = ctx.currentTime;
+        if (Math.abs(target - lastLevel) < 15e-4 || now - lastAt < 1 / WEATHER_AUDIO.automationHz) return;
+        bed.gain.setTargetAtTime(target, now, 0.25);
+        lastLevel = target;
+        lastAt = now;
+      },
+      thunder(key, seed2, delay) {
+        if (stopped || played.has(key) || ctx.state !== "running") return false;
+        played.add(key);
+        prepareThunder(seed2);
+        const node = ctx.createBufferSource(), filter = ctx.createBiquadFilter();
+        node.buffer = thunderBuffers.get(seed2);
+        filter.type = "lowpass";
+        filter.frequency.value = 1250;
+        node.connect(filter);
+        filter.connect(thunderGain);
+        node.onended = () => {
+          node.disconnect();
+          filter.disconnect();
+        };
+        node.start(ctx.currentTime + Math.max(0, delay));
+        thunders++;
+        return true;
+      },
+      stop() {
+        if (stopped) return;
+        stopped = true;
+        const now = ctx.currentTime;
+        master.gain.cancelScheduledValues(now);
+        master.gain.setTargetAtTime(0, now, 0.025);
+      },
+      status: () => ({ level: lastLevel, thunders, stopped, volumes: { ...volumes } })
+    };
+  }
+  var WEATHER_AUDIO;
+  var init_audio = __esm({
+    "src/core/rainWeather/audio.ts"() {
+      "use strict";
+      init_lightning();
+      WEATHER_AUDIO = Object.freeze({
+        rainVolume: 0.85,
+        bedSeconds: 6,
+        bedRms: 0.14,
+        automationHz: 20,
+        thunderSeconds: 8,
+        thunderRate: 16e3,
+        thunderPeak: 0.68
+      });
+    }
+  });
+
+  // src/core/rainWeather/preferences.ts
+  function readWeatherVolumes(storage) {
+    const read = (key) => {
+      try {
+        const raw = storage.getItem(key);
+        if (raw === null || raw.trim() === "") return 1;
+        const value = Number(raw);
+        return Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 1;
+      } catch {
+        return 1;
+      }
+    };
+    return { rain: read(WEATHER_VOLUME_KEYS.rain), thunder: read(WEATHER_VOLUME_KEYS.thunder) };
+  }
+  var WEATHER_VOLUME_KEYS;
+  var init_preferences = __esm({
+    "src/core/rainWeather/preferences.ts"() {
+      "use strict";
+      WEATHER_VOLUME_KEYS = { rain: "k_rain_volume", thunder: "k_thunder_volume" };
+    }
+  });
+
+  // src/core/rainWeather/index.ts
+  function clock(text2) {
+    const p = text2.trim().split(":");
+    if (p.length < 2 || p.length > 3 || p.some((v) => !/^\d+$/.test(v))) return;
+    const n = p.map(Number);
+    if (n[n.length - 1] > 59 || n.length === 3 && n[1] > 59) return;
+    return n.reduce((a, b) => a * 60 + b, 0);
+  }
+  function rainFog(renderer, s) {
+    const settings = nativeObject(renderer[s.settings]);
+    const enabled = settings?.[s.fogEnabled] === true && settings?.[s.mapFog] === true;
+    const near = Math.max(450, Math.min(1600, (Number(renderer[s.fogStart]) || 7500) * WEATHER.fogDistanceScale));
+    const far = Math.max(near + 1200, Math.min(6e3, (Number(renderer[s.fogEnd]) || 46e3) * WEATHER.fogDistanceScale));
+    const c = nativeObject(renderer[s.fogColor]) || {};
+    const value = (key, fallback) => typeof c[key] === "number" && Number.isFinite(c[key]) ? Math.max(0, Math.min(1, c[key])) : fallback;
+    return { fog: [enabled ? 1 : 0, near, far], color: [value(s.red, 0.65), value(s.green, 0.72), value(s.blue, 0.82), value(s.alpha, 1)] };
+  }
+  function installRainWeather(page) {
+    const scope = featureScope("rainWeather", { budgetMs: 12 });
+    const episodes = /* @__PURE__ */ new Map(), scenes = /* @__PURE__ */ new WeakMap();
+    const contexts = /* @__PURE__ */ new Map();
+    let enabled = false, present = false, battleId, nativeLoaded;
+    let entryAt = 0, lastFrame = 0, current, hookReady = false, error = null;
+    let override;
+    let draws = 0;
+    let audio = null;
+    let strikePlan, strikes = [], strikeOrigin;
+    const heard = /* @__PURE__ */ new Set(), prepared = /* @__PURE__ */ new Set();
+    try {
+      const data = JSON.parse(sessionStorage.getItem(STORE) || "[]");
+      if (Array.isArray(data)) {
+        for (const [id, p] of data.slice(-24))
+          if (typeof id === "string" && id.length < 150 && validEpisode(p) && Date.now() - p.start < 864e5) episodes.set(id, p);
+      }
+    } catch {
+    }
+    const save = () => {
+      try {
+        sessionStorage.setItem(STORE, JSON.stringify([...episodes].slice(-24)));
+      } catch {
+      }
+    };
+    const stopSound = () => {
+      const old = audio;
+      audio = null;
+      if (!old) return;
+      try {
+        old.stop();
+        page.setTimeout(() => {
+          old.ctx.close().catch(() => {
+          });
+        }, 130);
+      } catch {
+        old.ctx.close().catch(() => {
+        });
+      }
+    };
+    const dropContexts = () => {
+      for (const r of contexts.values()) r.dispose();
+      contexts.clear();
+    };
+    const leave = () => {
+      present = false;
+      entryAt = 0;
+      lastFrame = 0;
+      current = void 0;
+      override = void 0;
+      battleId = void 0;
+      nativeLoaded = void 0;
+      strikePlan = void 0;
+      strikeOrigin = void 0;
+      strikes = [];
+      heard.clear();
+      stopSound();
+    };
+    const sync = () => {
+      let next = false;
+      try {
+        next = localStorage.getItem("k_rain_weather") === "true";
+      } catch {
+      }
+      if (enabled && !next) {
+        override = void 0;
+        stopSound();
+        dropContexts();
+      }
+      enabled = next;
+      audio?.volumes(readWeatherVolumes(localStorage));
+      const visible = !!document.querySelector(gameDOM.screens.battleHud);
+      if (!visible && present) leave();
+      if (visible && !present) {
+        present = true;
+        entryAt = Date.now();
+      }
+    };
+    scope.listen(page, "kasp:settings-changed", sync);
+    scope.listen(page, "storage", sync);
+    scope.interval(sync, 200);
+    scope.listen(page, "pagehide", () => {
+      leave();
+      dropContexts();
+    });
+    scope.onCleanup(() => {
+      leave();
+      dropContexts();
+    });
+    sync();
+    function sound(level, seed) {
+      if (level < 5e-4) {
+        if (audio) stopSound();
+        return;
+      }
+      if (!audio) {
+        try {
+          const AC = page.AudioContext;
+          if (!AC) return;
+          const ctx = new AC({ latencyHint: "playback" });
+          audio = createWeatherAudio(ctx, seed, readWeatherVolumes(localStorage));
+          ctx.resume().catch(() => {
+          });
+        } catch (cause) {
+          error = String(cause);
+          return;
+        }
+      }
+      audio.level(level);
+    }
+    scope.listen(page, "pointerdown", () => {
+      if (enabled && present && audio?.ctx.state === "suspended") audio.ctx.resume().catch(() => {
+      });
+    }, { passive: true });
+    scope.listen(page, "keydown", () => {
+      if (enabled && present && audio?.ctx.state === "suspended") audio.ctx.resume().catch(() => {
+      });
+    }, { passive: true });
+    const api = {
+      /** Temporary console preview. Never enables the setting or rewrites the battle's random plan. */
+      force(preset = "storm", hold = 120) {
+        sync();
+        if (!enabled) return { ok: false, reason: "Enable Random battle weather in settings first" };
+        if (scope.disabled) return { ok: false, reason: "Weather stopped after an error; reload the game" };
+        if (!present || nativeLoaded === false || !current) return { ok: false, reason: "Enter a battle and wait for its first rendered frame" };
+        if (!Object.prototype.hasOwnProperty.call(RAIN_PRESETS, preset) || !Number.isFinite(hold)) return { ok: false, reason: "Invalid preset or duration" };
+        override = { version: 1, preset, start: Date.now(), hold: Math.max(15, Math.min(180, hold)), seed: Math.floor(random2() * 16777215), fadeIn: WEATHER.fadeIn, fadeOut: WEATHER.fadeOut };
+        stopSound();
+        return { ok: true, preset, hold: override.hold, fadeIn: override.fadeIn, fadeOut: override.fadeOut };
+      },
+      clearOverride() {
+        override = void 0;
+        stopSound();
+      },
+      battle(value, schema) {
+        if (!value || typeof value !== "object") return;
+        const v = value;
+        const loaded = v[schema.battleLoaded];
+        if (typeof loaded === "boolean") nativeLoaded = loaded;
+        if (loaded === false) {
+          override = void 0;
+          stopSound();
+          return;
+        }
+        try {
+          const id = String(v[schema.battleId]);
+          if (/^[\w:-]{1,140}$/.test(id) && id !== "undefined" && id !== "null") {
+            if (battleId && battleId !== id) {
+              override = void 0;
+              stopSound();
+            }
+            battleId = id;
+          }
+        } catch {
+        }
+      },
+      frame(renderer, scene, camera, s, stage = "all") {
+        hookReady = true;
+        if (!enabled || scope.disabled) return;
+        scope.run(() => {
+          if (!present) sync();
+          if (!present || nativeLoaded === false || !scene || typeof scene !== "object") return;
+          const r = nativeObject(renderer), c = nativeObject(camera);
+          if (!r || !c) return;
+          const gl = nativeObject(r[s.gl])?.[s.context];
+          const vp = c[s.vp], p = nativeObject(c[s.camera]);
+          if (!gl || typeof gl.drawArraysInstanced !== "function" || gl.isContextLost() || !(vp instanceof Float32Array) || vp.length !== 16 || !p) return;
+          const now = Date.now();
+          let record = scenes.get(scene);
+          if (!record || battleId && record.id && record.id !== battleId) {
+            const remaining = clock(document.querySelector(gameDOM.presence.timer)?.textContent || "");
+            record = { id: battleId, plan: battleId && episodes.get(battleId) || planRain(now, remaining, random2) };
+            scenes.set(scene, record);
+          }
+          if (battleId && !record.id) {
+            record.id = battleId;
+            record.plan = episodes.get(battleId) || record.plan;
+          }
+          if (battleId && !episodes.has(battleId)) {
+            episodes.set(battleId, record.plan);
+            while (episodes.size > 24) episodes.delete(episodes.keys().next().value);
+            save();
+          }
+          current = record.plan;
+          if (override && sampleRain(override, now).finished) override = void 0;
+          const activePlan = override || current, sample = sampleRain(activePlan, now);
+          if (strikePlan !== activePlan) {
+            strikePlan = activePlan;
+            strikes = stormStrikes(activePlan);
+            strikeOrigin = void 0;
+            heard.clear();
+            prepared.clear();
+          }
+          lastFrame = performance.now();
+          if (!activePlan.preset || sample.finished) {
+            stopSound();
+            return;
+          }
+          let gpu = contexts.get(gl);
+          if (!gpu) {
+            if (contexts.size >= 2) {
+              const oldest = contexts.keys().next().value;
+              contexts.get(oldest)?.dispose();
+              contexts.delete(oldest);
+            }
+            gpu = createRainRenderer(gl);
+            contexts.set(gl, gpu);
+            scope.listen(gl.canvas, "webglcontextlost", () => {
+              contexts.get(gl)?.dispose();
+              contexts.delete(gl);
+            });
+            scope.listen(gl.canvas, "webglcontextrestored", () => {
+              entryAt = Date.now();
+            });
+          }
+          gpu.warm();
+          if (!sample.active) return;
+          const fog = rainFog(r, s), fade = smooth((now - entryAt) / 1800);
+          const cameraPosition = [p[s.x], p[s.y], p[s.z]];
+          if (!cameraPosition.every(Number.isFinite)) return;
+          if (!strikeOrigin) strikeOrigin = [cameraPosition[0], cameraPosition[1], 0];
+          const strike = strikes.find((s2) => now >= s2.at && now < s2.at + LIGHTNING.duration * 1e3);
+          let lightning;
+          if (strike) {
+            const age = (now - strike.at) / 1e3;
+            lightning = { strike, age, ...strikeLight(age), origin: strikeOrigin };
+          }
+          if (stage !== "sky") {
+            sound(sample.sound * fade, activePlan.seed);
+            for (const s2 of strikes) {
+              const key = String(s2.id), owner = audio;
+              if (!owner || now >= s2.at || s2.at - now > 1e4 || prepared.has(key)) continue;
+              prepared.add(key);
+              scope.timeout(() => {
+                if (audio === owner) owner.prepareThunder(s2.seed);
+              }, 0);
+            }
+            for (const s2 of strikes) {
+              const key = String(s2.id);
+              if (now < s2.at || now > s2.at + s2.delay * 1e3 || heard.has(key)) continue;
+              if (audio?.thunder(key, s2.seed, s2.delay - (now - s2.at) / 1e3)) heard.add(key);
+            }
+          }
+          gpu.draw({ vp, camera: cameraPosition, time: lastFrame / 1e3, seed: activePlan.seed, fade, ...sample, lightning, fog: fog.fog, fogColor: fog.color }, stage);
+          draws++;
+        });
+      },
+      status: () => ({
+        enabled,
+        present,
+        hookReady,
+        battleId: battleId ?? null,
+        episode: current ? { ...current } : null,
+        override: override ? { ...override } : null,
+        weather: override || current ? sampleRain(override || current, Date.now()) : null,
+        draws,
+        error,
+        audio: audio?.ctx.state ?? "off",
+        sound: audio?.status() ?? null,
+        strikes: strikes.map((s) => ({ ...s })),
+        renderers: [...contexts.values()].map((r) => r.status()),
+        runtime: scope.status()
+      })
+    };
+    scope.interval(() => {
+      if (audio && performance.now() - lastFrame > 2e3) stopSound();
+    }, 500);
+    return api;
+  }
+  var nativeObject, STORE, random2;
+  var init_rainWeather = __esm({
+    "src/core/rainWeather/index.ts"() {
+      "use strict";
+      init_featureRuntime();
+      init_gameDOM();
+      init_renderer();
+      init_schedule();
+      init_audio();
+      init_preferences();
+      init_lightning();
+      nativeObject = (value) => value !== null && typeof value === "object" ? value : void 0;
+      STORE = "ki.rain-episodes.v1";
+      random2 = () => {
+        const data = new Uint32Array(1);
+        crypto.getRandomValues(data);
+        return data[0] / 4294967296;
+      };
+    }
+  });
+
+  // src/core/rainWeather/patch.ts
+  async function selectRainPlan(code, plans) {
+    const supported = plans.filter((p) => p.format === "ki-rain-v2" && p.status.ready);
+    if (supported.some((p) => p.sourceLength === code.length)) {
+      const hash = await clientSourceHash(code);
+      const exact = supported.find((p) => p.sha256 === hash && validatePatchEdits(code, p));
+      if (exact) return exact;
+    }
+    for (const plan of [...supported].reverse()) {
+      const adapted = resolveTemplateEdits(code, plan);
+      if (!adapted) continue;
+      const schema = { ...plan.schema };
+      let valid2 = true;
+      for (const key of Object.keys(schema)) {
+        const value = adapted.roles.get(key);
+        if (!value) {
+          valid2 = false;
+          break;
+        }
+        schema[key] = value;
+      }
+      if (!valid2) continue;
+      const edits = adapted.edits.map((e) => ({ ...e, text: e.text.replace("__KI_RAIN_SCHEMA__", JSON.stringify(schema)) }));
+      const result = { ...plan, sourceLength: code.length, edits, schema };
+      if (validatePatchEdits(code, result)) return result;
+    }
+  }
+  var init_patch = __esm({
+    "src/core/rainWeather/patch.ts"() {
+      "use strict";
+      init_clientPatches();
+    }
+  });
+
+  // src/generated/rain-weather.json
+  var rain_weather_default;
+  var init_rain_weather = __esm({
+    "src/generated/rain-weather.json"() {
+      rain_weather_default = {
+        plans: [
+          {
+            format: "ki-rain-v2",
+            sourceLength: 22383020,
+            sha256: "4ef9f256178c771071ce9cc0baf2a00d939073746badf40c8656c6d5760c3db4",
+            status: {
+              ready: true,
+              issues: []
+            },
+            edits: [
+              {
+                start: 21571932,
+                end: 21571932,
+                expected: "",
+                before: "      } while (ut < st);",
+                after: "\r\n                      ",
+                text: ';try{window.__kaspRain?.frame(this,arguments[0],arguments[1],{"gl":"y39_1","context":"f75_1","vp":"g37_1","camera":"t35_1","x":"f20_1","y":"g20_1","z":"h20_1","settings":"y38_1","fogEnabled":"n3o_1","mapFog":"o3o_1","fogStart":"c3a_1","fogEnd":"b3a_1","fogColor":"d3a_1","red":"l2r_1","green":"m2r_1","blue":"n2r_1","alpha":"o2r_1"},"sky");}catch(_kiRainError){}'
+              },
+              {
+                start: 21573779,
+                end: 21573779,
+                expected: "",
+                before: "                        ",
+                after: "var lt = this.g39_1[Gl()",
+                text: ';try{window.__kaspRain?.frame(this,arguments[0],arguments[1],{"gl":"y39_1","context":"f75_1","vp":"g37_1","camera":"t35_1","x":"f20_1","y":"g20_1","z":"h20_1","settings":"y38_1","fogEnabled":"n3o_1","mapFog":"o3o_1","fogStart":"c3a_1","fogEnd":"b3a_1","fogColor":"d3a_1","red":"l2r_1","green":"m2r_1","blue":"n2r_1","alpha":"o2r_1"},"weather");}catch(_kiRainError){}'
+              }
+            ],
+            templates: [
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*new(?![$\\w])\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"SkyBox"|'SkyBox')\\s*,\\s*5\\s*\\)`,
+                roles: {
+                  skyEnum: "s0"
+                },
+                count: 1,
+                search: {
+                  literal: "SkyBox",
+                  margin: 440
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\(?\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])",
+                roles: {
+                  skyEnum: "s2",
+                  skyLayer: "s0"
+                },
+                count: 1,
+                search: {
+                  literal: "SkyBox",
+                  margin: 3672
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*var(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\[\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\]\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*0\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*<\\s*\\k<s5>(?![$\\w])\\s*\\)\\s*do(?![$\\w])\\s*\\{\\s*var(?![$\\w])\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*;\\s*\\(?\\s*\\k<s4>(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\+\\s*1\\s*\\|\\s*0\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)?\\s*;?\\s*\\}\\s*while(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*<\\s*\\k<s5>(?![$\\w])\\s*\\)\\s*;(?<e1start>)(?<e1end>)",
+                roles: {
+                  skyLayer: "s2"
+                },
+                count: 1,
+                search: {
+                  margin: 3056
+                },
+                edits: [
+                  {
+                    start: "e1start",
+                    end: "e1end",
+                    parts: [
+                      ';try{window.__kaspRain?.frame(this,arguments[0],arguments[1],__KI_RAIN_SCHEMA__,"sky");}catch(_kiRainError){}'
+                    ]
+                  }
+                ]
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*new(?![$\\w])\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"SpritesOnTop"|'SpritesOnTop')\\s*,\\s*18\\s*\\)`,
+                roles: {
+                  spriteEnum: "s0"
+                },
+                count: 1,
+                search: {
+                  literal: "SpritesOnTop",
+                  margin: 496
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\(?\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])",
+                roles: {
+                  spriteEnum: "s2",
+                  spriteLayer: "s0"
+                },
+                count: 1,
+                search: {
+                  literal: "SpritesOnTop",
+                  margin: 5476
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*0\\s*\\)\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*,\\s*16\\s*\\)\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*,\\s*32\\s*\\)\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*,\\s*48\\s*\\)\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*,\\s*64\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*68\\s*\\]\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*69\\s*\\]\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])",
+                roles: {
+                  gl: "s12",
+                  vp: "s5",
+                  settings: "s13"
+                },
+                count: 1,
+                search: {
+                  margin: 1672
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*this(?![$\\w])\\s*\\.\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*1\\s*/\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*-\\s*this(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)",
+                roles: {
+                  fogStart: "s2",
+                  fogEnd: "s1"
+                },
+                count: 1,
+                search: {
+                  margin: 592
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*\\)\\s*,\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*,\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s9>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s11>(?![$\\w])\\s*\\)\\s*,\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s9>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*\\k<s14>(?![$\\w])\\s*\\)\\s*,\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s15>(?![$\\w])\\s*,\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s9>(?![$\\w])\\s*\\.\\s*\\k<s13>(?![$\\w])\\s*\\(\\s*\\k<s17>(?![$\\w])\\s*\\)\\s*,\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s9>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*\\k<s19>(?![$\\w])\\s*\\)\\s*,\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s20>(?![$\\w])\\s*,\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s9>(?![$\\w])\\s*\\.\\s*\\k<s13>(?![$\\w])\\s*\\(\\s*\\k<s22>(?![$\\w])\\s*\\)\\s*,\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s18>(?![$\\w])\\s*\\*\\s*\\k<s21>(?![$\\w])\\s*,\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s18>(?![$\\w])\\s*\\*\\s*\\k<s23>(?![$\\w])\\s*,\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*\\(?\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*0\\s*\\]\\s*=\\s*\\k<s16>(?![$\\w])\\s*\\*\\s*\\k<s21>(?![$\\w])\\s*,\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*1\\s*\\]\\s*=\\s*\\k<s12>(?![$\\w])\\s*\\*\\s*\\k<s24>(?![$\\w])\\s*-\\s*\\k<s8>(?![$\\w])\\s*\\*\\s*\\k<s23>(?![$\\w])\\s*,\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*2\\s*\\]\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\*\\s*\\k<s24>(?![$\\w])\\s*\\+\\s*\\k<s12>(?![$\\w])\\s*\\*\\s*\\k<s23>(?![$\\w])\\s*,\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*3\\s*\\]\\s*=\\s*0\\s*,\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*4\\s*\\]\\s*=\\s*\\k<s16>(?![$\\w])\\s*\\*\\s*\\k<s23>(?![$\\w])\\s*,\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*5\\s*\\]\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\*\\s*\\k<s21>(?![$\\w])\\s*\\+\\s*\\k<s12>(?![$\\w])\\s*\\*\\s*\\k<s25>(?![$\\w])\\s*,\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*6\\s*\\]\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\*\\s*\\k<s25>(?![$\\w])\\s*-\\s*\\k<s12>(?![$\\w])\\s*\\*\\s*\\k<s21>(?![$\\w])\\s*,\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*7\\s*\\]\\s*=\\s*0\\s*,\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*8\\s*\\]\\s*=\\s*-\\s*\\k<s18>(?![$\\w])\\s*,\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*9\\s*\\]\\s*=\\s*\\k<s12>(?![$\\w])\\s*\\*\\s*\\k<s16>(?![$\\w])\\s*,\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*10\\s*\\]\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\*\\s*\\k<s16>(?![$\\w])\\s*,\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*11\\s*\\]\\s*=\\s*0\\s*,\\s*\\k<s4>(?![$\\w])\\s*=\\s*\\k<s26>(?![$\\w])\\s*,\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s28>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\[\\s*0\\s*\\]\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*\\k<s15>(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\[\\s*4\\s*\\]\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*\\k<s20>(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\[\\s*8\\s*\\]\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*(?<s29>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s30>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\[\\s*2\\s*\\]\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s30>(?![$\\w])\\s*\\.\\s*\\k<s15>(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\[\\s*6\\s*\\]\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s30>(?![$\\w])\\s*\\.\\s*\\k<s20>(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\[\\s*10\\s*\\]\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s30>(?![$\\w])\\s*\\.\\s*\\k<s29>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s31>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\[\\s*1\\s*\\]\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s31>(?![$\\w])\\s*\\.\\s*\\k<s15>(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\[\\s*5\\s*\\]\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s31>(?![$\\w])\\s*\\.\\s*\\k<s20>(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\[\\s*9\\s*\\]\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s31>(?![$\\w])\\s*\\.\\s*\\k<s29>(?![$\\w])\\s*\\(\\s*\\)\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s32>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s33>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*,\\s*(?<s34>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s33>(?![$\\w])\\s*\\.\\s*\\k<s15>(?![$\\w])\\s*,\\s*(?<s35>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s33>(?![$\\w])\\s*\\.\\s*\\k<s20>(?![$\\w])\\s*;\\s*\\(?\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*12\\s*\\]\\s*=\\s*-\\s*\\(\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*0\\s*\\]\\s*\\*\\s*\\k<s32>(?![$\\w])\\s*\\+\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*4\\s*\\]\\s*\\*\\s*\\k<s34>(?![$\\w])\\s*\\+\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*8\\s*\\]\\s*\\*\\s*\\k<s35>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*13\\s*\\]\\s*=\\s*-\\s*\\(\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*1\\s*\\]\\s*\\*\\s*\\k<s32>(?![$\\w])\\s*\\+\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*5\\s*\\]\\s*\\*\\s*\\k<s34>(?![$\\w])\\s*\\+\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*9\\s*\\]\\s*\\*\\s*\\k<s35>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*14\\s*\\]\\s*=\\s*-\\s*\\(\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*2\\s*\\]\\s*\\*\\s*\\k<s32>(?![$\\w])\\s*\\+\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*6\\s*\\]\\s*\\*\\s*\\k<s34>(?![$\\w])\\s*\\+\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*10\\s*\\]\\s*\\*\\s*\\k<s35>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*15\\s*\\]\\s*=\\s*1\\s*,\\s*(?<s36>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s26>(?![$\\w])\\s*,\\s*1\\s*,\\s*2\\s*\\)\\s*,\\s*\\k<s36>(?![$\\w])\\s*\\(\\s*\\k<s26>(?![$\\w])\\s*,\\s*5\\s*,\\s*6\\s*\\)\\s*,\\s*\\k<s36>(?![$\\w])\\s*\\(\\s*\\k<s26>(?![$\\w])\\s*,\\s*9\\s*,\\s*10\\s*\\)\\s*,\\s*\\k<s36>(?![$\\w])\\s*\\(\\s*\\k<s26>(?![$\\w])\\s*,\\s*13\\s*,\\s*14\\s*\\)\\s*,\\s*(?<s37>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*\\k<s27>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s38>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)?\\s*;?\\s*\\}",
+                roles: {
+                  camera: "s33",
+                  x: "s7",
+                  y: "s15",
+                  z: "s20"
+                },
+                count: 1,
+                search: {
+                  margin: 13336
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s6>depthRange)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*;?\\s*\\}",
+                roles: {
+                  context: "s5",
+                  depthRangeMethod: "s6"
+                },
+                count: 1,
+                search: {
+                  margin: 1160
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\(?\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*!\\s*1\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\*\\s*this(?![$\\w])\\s*\\.\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*34067\\s*\\)\\s*\\)?\\s*;?\\s*\\}",
+                roles: {
+                  gl: "s10",
+                  fogColor: "s16",
+                  red: "s17",
+                  green: "s18",
+                  blue: "s19",
+                  alpha: "s20"
+                },
+                count: 1,
+                search: {
+                  margin: 2736
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*return(?![$\\w])\\s*new(?![$\\w])\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*;?\\s*\\}",
+                roles: {
+                  settings: "s5",
+                  fogEnabled: "s8",
+                  mapFog: "s7"
+                },
+                count: 1,
+                search: {
+                  margin: 2632
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*(?<e0start>)(?<e0end>)var(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\[\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\]\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*0\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;",
+                roles: {
+                  spriteLayer: "s2"
+                },
+                count: 1,
+                search: {
+                  margin: 1144
+                },
+                edits: [
+                  {
+                    start: "e0start",
+                    end: "e0end",
+                    parts: [
+                      ';try{window.__kaspRain?.frame(this,arguments[0],arguments[1],__KI_RAIN_SCHEMA__,"weather");}catch(_kiRainError){}'
+                    ]
+                  }
+                ]
+              }
+            ],
+            schema: {
+              gl: "y39_1",
+              context: "f75_1",
+              vp: "g37_1",
+              camera: "t35_1",
+              x: "f20_1",
+              y: "g20_1",
+              z: "h20_1",
+              settings: "y38_1",
+              fogEnabled: "n3o_1",
+              mapFog: "o3o_1",
+              fogStart: "c3a_1",
+              fogEnd: "b3a_1",
+              fogColor: "d3a_1",
+              red: "l2r_1",
+              green: "m2r_1",
+              blue: "n2r_1",
+              alpha: "o2r_1"
+            }
+          }
+        ]
+      };
+    }
+  });
+
   // src/kasp_injector.ts
   var require_kasp_injector = __commonJS({
     "src/kasp_injector.ts"() {
@@ -16924,9 +18467,15 @@
       init_box_pickup();
       init_killFeedPrivacy();
       init_kill_feed_privacy();
+      init_rainWeather();
+      init_patch();
+      init_rain_weather();
       (function() {
         "use strict";
         installFeatureDiagnostics(window, "page");
+        featureScope("rainWeather").run(() => {
+          window.__kaspRain = installRainWeather(window);
+        });
         featureScope("supplyPrivacy").run(() => installSupplyPrivacy(window));
         featureScope("boxPickup").run(() => installBoxPickup(window));
         const accountIdentity = featureScope("accountIdentity").run(() => installAccountIdentityNative(window));
@@ -17195,8 +18744,16 @@
                   } catch {
                     console.warn("[KI Kill feed privacy] Text mapping failed");
                   }
+                  let rainPlan;
+                  try {
+                    rainPlan = await selectRainPlan(originalCode, rain_weather_default.plans);
+                    if (rainPlan) prepared.push(rainPlan);
+                  } catch {
+                    console.warn("[KI Weather] Render mapping unavailable; native weather is unchanged");
+                  }
                   const merged = mergeClientPatchPlans(originalCode, prepared);
                   code = merged.code;
+                  if (rainPlan && merged.rejected.includes(rainPlan)) console.warn("[KI Weather] Render patch conflict; weather disabled");
                   if (killFeedPrivacyPlan && merged.rejected.includes(killFeedPrivacyPlan)) console.warn("[KI Kill feed privacy] Text patch conflict");
                   if (boxPickupPlan && merged.rejected.includes(boxPickupPlan)) console.warn("[KI Box pickup] Animation patch conflict; using the original animation");
                   if (supplyPrivacyPlan && merged.rejected.includes(supplyPrivacyPlan)) console.warn("[KI Supply privacy] Count label patch conflict");

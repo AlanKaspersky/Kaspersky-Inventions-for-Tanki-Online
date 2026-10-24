@@ -2,9 +2,9 @@
 
 ## Complete Documentation
 
-**Extension version:** 3.0.0 (`manifest.json`)
+**Extension version:** 3.0.1 (`manifest.json`)
 
-**Documentation updated:** October 22, 2026
+**Documentation updated:** October 24, 2026
 
 **Interface languages:** English and Russian
 
@@ -66,23 +66,18 @@ For implementation details, module logic, and workflows, see
 16. [Troubleshooting](#troubleshooting)
 17. [Maintenance Guidelines](#maintenance-guidelines)
 18. [License and Project Status](#license-and-project-status)
-19. [Acknowledgements](#acknowledgements)
+19. [Consolidated Reader References](#consolidated-reader-references)
+20. [Acknowledgements](#acknowledgements)
 
 ## Start Here
 
-This repository documents extension **3.0.0**, reviewed against source on **October 22, 2026**. A feature described as implemented below has a corresponding runtime module; experimental console reports are not treated as shipped features.
+This repository documents extension **3.0.1**, reviewed against source on **October 24, 2026**. A feature described as implemented below has a corresponding runtime module; experimental console reports are not treated as shipped features.
 
 | Document | Audience and contents |
 | --- | --- |
-| [README](README.md) | Installation, feature behavior, settings, backups, troubleshooting and credits |
-| [Technical reference](DOCUMENTATION.md) | Execution worlds, native mappings, module contracts, storage, lifecycle and development |
-| [Maintenance guide](MAINTENANCE.md) | Failure isolation, diagnostics, native updates, regression checks and release review |
-| [FAQ](docs/FAQ.md) | Practical questions about settings, privacy, history, account discovery and compatibility |
-| [Russian user guide](docs/USER_GUIDE.ru.md) | Installation, feature groups, everyday workflows, data and recovery in Russian |
-| [English store description](docs/DESCRIPTION.en.md) / [Russian store description](docs/DESCRIPTION.ru.md) | Full public descriptions, ending with the current welcome-window credits |
-| [Kill-feed investigation](docs/kill-feed-rendering.md) | Verified renderer chain and the missing-glyph crash regression |
-| [Electron integration](tools/electron-discord/README.md) | Optional client-side Discord preload/IPC integration |
-| [License and Terms of Use](LICENSE.txt) | English international edition; proprietary terms and retained Tanki Tweaks permission |
+| [README](README.md) | Installation, feature behavior, RU user guide, FAQ, EN/RU publication descriptions, backups and credits |
+| [DOCUMENTATION](DOCUMENTATION.md) | Architecture, native mappings, weather/kill-feed rendering, module contracts and Electron bridge |
+| [MAINTENANCE](MAINTENANCE.md) | Diagnostics, recovery, native updates, weather/client verification, deployment and publication |
 
 For players, begin with Installation and Configuration. For a developer changing native hooks, begin with the technical reference and maintenance guide. A prepared extension needs no Node.js installation; source development does.
 
@@ -94,7 +89,7 @@ The implementation consists of TypeScript modules, CSS files, HTML templates, an
 
 There are two categories of functionality:
 
-- **Configurable features:** thirteen options exposed through the in-game KASPERSKY settings tab. Eleven default to disabled; arcade reload and critical indicators default to enabled.
+- **Configurable features:** fourteen options exposed through the in-game KASPERSKY settings tab. Twelve default to disabled; arcade reload and critical indicators default to enabled.
 - **Automatically integrated features:** garage button styling, trophy favorites, garage skin image handling, equipment tracking, resistance presentation, equipment-change indicators, the version welcome window, and Discord presence in a compatible Electron client. Arcade reload and critical indicators have their own live switches. The remaining automatic integrations have no individual switches in the current settings panel.
 
 Most features affect presentation or maintain local records. The enhanced Play interface and Auto-Upgrade module also initiate ordinary game-interface actions. Auto-Upgrade can perform actual equipment purchases through the game's confirmation controls; its initial confirmation is therefore part of the workflow.
@@ -141,7 +136,7 @@ The JavaScript build still targets `chrome100` syntax and produces the same two 
 
 An Electron-specific mouse-navigation adapter is included. Its presence does not provide a standalone desktop installer or guarantee that every Electron client can load this extension.
 
-Discord Rich Presence is available in a compatible Electron client with the KI preload bridge. The extension supplies the activity data; the client communicates with the locally running Discord desktop application. Ordinary browser sessions do not activate this module. See [Discord Rich Presence](#discord-rich-presence) and the [client integration guide](tools/electron-discord/README.md). Updating the extension alone cannot install a missing preload bridge into an existing client executable.
+Discord Rich Presence is available in a compatible Electron client with the KI preload bridge. The extension supplies the activity data; the client communicates with the locally running Discord desktop application. Ordinary browser sessions do not activate this module. See [Discord Rich Presence](#discord-rich-presence) and the [client integration guide](DOCUMENTATION.md#electron-client-integration). Updating the extension alone cannot install a missing preload bridge into an existing client executable.
 
 ### Runtime Resources and Access
 
@@ -246,6 +241,7 @@ Nickname privacy also updates its root CSS state immediately when switched on or
 | `k_arcade_reload` | Arcade reload indicator | Enabled | Additional Shaft/Scorpio bar; live switch |
 | `k_critical_indicator` | Critical shot indicator | Enabled | Native reload-bar coloring; live switch |
 | `k_box_pickup` | Modified box pickup animation in battle | Disabled | Visual changes category; flash and fading fragments for observed pickups by any player; live switch |
+| `k_rain_weather` | Random battle weather | Disabled | Rare finite rain/cloud episodes; live switch and independent rain/thunder volume sliders |
 
 The Russian label for `k_augments` is **«Характеристики устройств»**, with the description **«Включая недоступные предметы»**. The English interface currently uses **Augment specifications**. Both labels control the same setting and storage key.
 
@@ -260,9 +256,11 @@ The tab has four feature categories and an Information panel. History belongs to
 | Standard features / Функции обычной серьёзности | Friend tags; Augment specifications; Quick upgrades; Enhanced Play button; Smart paint search; Battle history |
 | Streamer mode / Режим стримера | Hide nickname and XP; Hide currency; Hide supplies |
 | Advanced features / Функции повышенной серьёзности | Overdrive box timer; Arcade reload indicator; Critical shot indicator |
-| Visual changes / Графические изменения | Modified box pickup animation in battle |
+| Visual changes / Графические изменения | Modified box pickup animation in battle; Random battle weather |
 
-There are **13 switches**: only arcade reload and critical indication default to enabled. These labels organize the interface; they do not describe official approval or promise a particular performance cost.
+There are **14 switches**: only arcade reload and critical indication default to enabled. These labels organize the interface; they do not describe official approval or promise a particular performance cost.
+
+Random weather enables immediately and reveals full-width rain and thunder volume sliders beneath its switch. Both apply live and retain their values. Eligible battles have about a 24% chance of rain, with at most one finite episode and one preset per known battle ID. Storms use up to 14,000 rain streaks, continuous darkening, clouds and low storm ambience; onset and clearing are gradual. The cloud sky is world-aligned, independent of camera height, and reprojected for the current view each frame. Rare world-space branched lightning and delayed rolling thunder occur only during full-strength storms; rain audio has a stable, slightly quieter background level. Puddles, waves, track spray, rainbow and birds are removed. Disable the old Tampermonkey weather script. See [weather behavior and limitations](DOCUMENTATION.md#weather-reference).
 
 The standard panel occupies the left column; streamer and advanced panels share the right column. Visual changes and Information span the content width. Narrow content uses one column. Each column's artwork uses a shared image origin rather than restarting the same picture on every card. The left navigation likewise shows successive slices of one image across all nine buttons, including KASPERSKY.
 
@@ -593,7 +591,7 @@ The extension sends English activity labels every three seconds. During a recogn
 
 The MAIN-world reader captures the native dependency-injection store through a prepared hook and polls it once per second. It still recognizes model fields through semantic diagnostic methods and some native collection interfaces; AST migration does not make that reader independent of all game changes.
 
-The companion client validates messages, uses Discord IPC, coalesces changed activities over up to fifteen seconds, and reconnects automatically. Its supplied main-process integration retains the last activity while minimized/hidden and grants a new heartbeat grace period on restore. See [client integration and verification](tools/electron-discord/README.md). Inspect `window.__kaspPresenceStoreDebug()` and `window.__kaspPresenceBattleDebug()` in an Electron game page when battle data is missing.
+The companion client validates messages, uses Discord IPC, coalesces changed activities over up to fifteen seconds, and reconnects automatically. Its supplied main-process integration retains the last activity while minimized/hidden and grants a new heartbeat grace period on restore. See [client integration and verification](DOCUMENTATION.md#electron-client-integration). Inspect `window.__kaspPresenceStoreDebug()` and `window.__kaspPresenceBattleDebug()` in an Electron game page when battle data is missing.
 
 
 ### Change Counter Module
@@ -676,7 +674,7 @@ Imports add only missing battle record IDs for the current user ID. Duplicate ID
 
 #### Internal organization
 
-[`src/modules/battleHistory.ts`](src/modules/battleHistory.ts) is the integration facade. Responsibilities are separated under [`src/modules/battleHistory/`](src/modules/battleHistory/): database access, validation, capture, presentation, views, navigation, actions, localization, and shared types.
+[`src/modules/battleHistory.ts`](src/modules/battleHistory.ts) is the integration facade. Responsibilities are separated under [`src/modules/battleHistory/`](src/modules/battleHistory): database access, validation, capture, presentation, views, navigation, actions, localization, and shared types.
 
 ### Welcome Window Module
 
@@ -723,6 +721,8 @@ An origin includes scheme, hostname, and port. Different game origins, browser p
 | `k_hideNicknameXP` | Hide Nickname/XP setting | Shared across accounts |
 | `k_hideSupplies` | Hide supply counts | Shared across accounts |
 | `k_box_pickup` | Modified box pickup presentation | Shared across accounts |
+| `k_rain_weather` | Random battle weather; defaults to disabled | Shared across accounts |
+| `k_rain_volume`, `k_thunder_volume` | Independent 0–1 sound levels; 0 mutes, default 1 | Shared across accounts; apply live |
 | `k_history` | Battle History setting | Shared across accounts |
 | `k_overdrive_timer` | Overdrive box timer setting | Shared across accounts |
 | `k_arcade_reload` | Live arcade indicator switch; defaults to enabled | Shared across accounts |
@@ -930,7 +930,7 @@ Recovery can allow the game to load without the instrumentation. Features relyin
 
 ### AST plans and compatibility
 
-Fourteen JSON plan sets under `src/generated/` are imported into the injector bundle. Known builds are selected by source length and SHA-256. An unknown hash triggers a compatibility attempt using templates generated from native AST evidence, with shared symbol checks, lexical filtering, expected match counts, and edit guards. A renamed `main.<hash>.js` URL does not by itself invalidate a plan.
+Fifteen JSON plan sets under `src/generated/` are imported into the injector bundle. Known builds are selected by source length and SHA-256. An unknown hash triggers a compatibility attempt using templates generated from native AST evidence, with shared symbol checks, lexical filtering, expected match counts, and edit guards. A renamed `main.<hash>.js` URL does not by itself invalidate a plan.
 
 All accepted plans refer to the original source and are merged once. Stale or conflicting plans are rejected individually. This is compatibility checking before execution, not a guarantee that a later rendering, network, or native runtime error can be recovered automatically.
 
@@ -958,14 +958,14 @@ npm ci
 
 The package manifest and lockfile root agree on `@types/chrome` `^0.3.0`, esbuild `^0.28.2`, TypeScript `^7.0.2`, Acorn `^8.19.0`, acorn-walk `^8.3.5`, and Astring `^1.9.0`. Use `npm ci` for the locked graph. Use `npm install` when intentionally changing dependencies and review the resulting lockfile changes.
 
-The localized browser description is a separate plain-text metadata field limited to 132 characters; full descriptions and credits live under `docs/`, not in that short field. See [Chrome's manifest description reference](https://developer.chrome.com/docs/extensions/reference/manifest/description).
+The localized browser description is a separate plain-text metadata field limited to 132 characters; full descriptions and credits live in README.md, not in that short field. See [Chrome's manifest description reference](https://developer.chrome.com/docs/extensions/reference/manifest/description).
 
 ### Available commands
 
 | Command | Operation |
 | --- | --- |
 | `npm run typecheck` | Runs `tsc --noEmit` with TypeScript strict checking enabled. |
-| `npm test` | Runs every `tools/**/*.test.cjs` file, including Discord companion tests. |
+| `npm test` | Runs every `tools/tests/**/*.test.cjs` file, including Discord companion tests. |
 | `npm run check` | Runs strict type checking and the full test suite locally. |
 | `npm run parse:client -- <main.js>` | Parses a local game bundle with Acorn; optionally exports its AST with `--ast <output.json>`. |
 | `npm run prepare:<feature> -- <main.js>` | Generates or refreshes that feature's AST plan and templates; see the complete command matrix below. |
@@ -975,7 +975,7 @@ The localized browser description is a separate plain-text metadata field limite
 | `npm run release` | Alias for the complete build command. |
 | `npm run watch` | Watches and rebuilds the JavaScript entry points. |
 
-The development-only JS parser is [tools/client-parser.cjs](tools/client-parser.cjs). For example:
+The development-only JS parser is [tools/parser/client-parser.cjs](tools/parser/client-parser.cjs). For example:
 
 ```powershell
 npm run parse:client -- "C:/path/to/main.js"
@@ -994,19 +994,19 @@ From the project root in PowerShell:
 $features = @(
     'overdrive', 'arcade', 'augments', 'garage-details', 'garage-items',
     'garage-inventory', 'battle-presence', 'battle-statistics', 'user-action', 'critical',
-    'supply-privacy', 'box-pickup', 'kill-feed-privacy'
+    'supply-privacy', 'box-pickup', 'kill-feed-privacy', 'rain-weather'
 )
 foreach ($feature in $features) {
     npm run "prepare:$feature" -- ./main.js
     if ($LASTEXITCODE -ne 0) { throw "Mapping preparation failed: $feature" }
 }
-node tools/prepare-overdrive-direction.cjs ./main.js
+node tools/prepare/prepare-overdrive-direction.cjs ./main.js
 if ($LASTEXITCODE -ne 0) { throw "Direction mapping preparation failed" }
 npm run typecheck
 npm run build:js
 ```
 
-Each command writes its matching `src/generated/<feature>.json` by default. It replaces the plan for the same SHA-256 and preserves plans for other builds. The original ten npm preparation commands accept `--out <plans.json>` and `--help`. The supply-privacy, box-pickup and kill-feed-privacy tools, and the direction tool, accept one local input and use their fixed generated output paths; do not pass the older tools' options to them. Incomplete/ambiguous analysis or invalid generated syntax causes that command to fail before writing its output. The sequence produces **14 plan sets** through **13 npm commands and one direct direction CLI** and is not an atomic transaction: an earlier successful file can already have changed when a later command fails. Review changes and run the tests before publishing.
+Each command writes its matching `src/generated/<feature>.json` by default. It replaces the plan for the same SHA-256 and preserves plans for other builds. The original ten npm preparation commands accept `--out <plans.json>` and `--help`. The supply-privacy, box-pickup, kill-feed-privacy, rain-weather and direction tools accept one local input and use their fixed generated output paths; do not pass the older tools' options to them. Incomplete/ambiguous analysis or invalid generated syntax causes that command to fail before writing its output. The sequence produces **15 plan sets** through **14 npm commands and one direct direction CLI** and is not an atomic transaction: an earlier successful file can already have changed when a later command fails. Review changes and run the tests before publishing.
 
 Neither `build:js` nor `build:zip` regenerates mappings. Changes to `src/generated/` require a JavaScript rebuild because plans are embedded in `dist/kasp_injector.js`. **Do not add `src/generated/` as a separate runtime directory to `build:zip`.** The packager already includes the injector bundle containing those plans. Local `main.js`, AST exports, tools, dependencies, and `archived/` are not copied into the release.
 
@@ -1029,27 +1029,27 @@ After rebuilding, reload the unpacked extension and then reload the game page. A
 
 ### Version metadata
 
-The current manifest, package, and lockfile package versions are **3.0.0**. The browser, welcome window, and release-folder naming use the manifest version. Keep these metadata values aligned when preparing another version.
+The current manifest, package, and lockfile package versions are **3.0.1**. The browser, welcome window, and release-folder naming use the manifest version. Keep these metadata values aligned when preparing another version.
 
 ### Release output
 
-The packager copies `dist/`, `styles/`, `assets/`, `database/`, `_locales/`, `templates/` and `docs/`, together with `manifest.json`, `LICENSE.txt`, `README.md`, `DOCUMENTATION.md` and `MAINTENANCE.md`.
+The packager copies `dist/`, `styles/`, `assets/`, `database/`, `_locales/` and `templates/`, together with `manifest.json`, `LICENSE.txt`, `README.md`, `DOCUMENTATION.md` and `MAINTENANCE.md`.
 
 For the current manifest version, output is:
 
 ```text
 release/
-├── Kaspersky's Inventions 3.0.0/
+├── Kaspersky's Inventions 3.0.1/
 │   ├── manifest.json
 │   ├── LICENSE.txt
 │   ├── README.md
 │   ├── DOCUMENTATION.md
 │   └── ... runtime directories
-├── Kaspersky's Inventions 3.0.0.zip
-└── Kaspersky's Inventions 3.0.0-firefox.zip
+├── Kaspersky's Inventions 3.0.1.zip
+└── Kaspersky's Inventions 3.0.1-firefox.zip
 ```
 
-The ordinary archive contains the versioned outer folder. The `-firefox.zip` archive instead contains `manifest.json` at its root; it is a packaging layout for submission/testing, not a Mozilla signature or an automatically signed XPI. Extract it and select the folder containing `manifest.json` when loading the extension. Source files, tests, `node_modules`, the local game bundle, and raw generated-plan JSON are not separately included. All three root Markdown guides and the `docs/` directory are included. The separate Electron reference under `tools/` remains source-only.
+The ordinary archive contains the versioned outer folder. The `-firefox.zip` archive instead contains `manifest.json` at its root; it is a packaging layout for submission/testing, not a Mozilla signature or an automatically signed XPI. Extract it and select the folder containing `manifest.json` when loading the extension. Source files, tests, `node_modules`, the local game bundle, and raw generated-plan JSON are not separately included. Only the three root Markdown guides are included; Electron integration instructions are sections of these guides, while the bridge source under `tools/` remains source-only.
 
 Packaging replaces the existing output folder and ZIP for the same version. Preserve any release artifact that must be retained before rebuilding it.
 
@@ -1082,7 +1082,7 @@ The repository includes focused Node regression tests under `tools/`:
 | `kill-feed-privacy.test.cjs` | Font-safe own-name replacement, suicide/equipment changes, both kill positions and native loop regression |
 | `overdrive-direction.test.cjs` | Camera-relative bearing and independent telemetry mapping/lifecycle |
 | `custom-trophies.test.cjs` | Dictionary readiness, initial localized display, favorite/progress changes, and panel refresh |
-| `electron-discord/discord-presence.test.cjs` | Extension payloads, privacy, battle reader, IPC framing, reconnect, and session timestamps |
+| `tools/tests/client/discord-presence.test.cjs` | Extension payloads, privacy, battle reader, IPC framing, reconnect, and session timestamps |
 
 Run the type check and the regression suite explicitly:
 
@@ -1128,7 +1128,7 @@ Repeat the affected checks in Chromium and Firefox. Manifest support does not su
 - Ordinary critical-cycle indication supports the three specified weapon/augment pairs. Post-Supercharge phase assumptions require verification if the game changes its mechanics.
 - Device tooltips use mouse hover. Equivalent keyboard, gamepad, and mobile tooltip interaction is not implemented.
 - AST compatibility templates reduce dependence on symbol names but still depend on native structure. A runtime exception is not automatically rolled back by the injector's preparation guards.
-- An intermittent missing local tank after entering a loaded map has been reported. Its cause and relationship to the extension remain unconfirmed; it is not listed as fixed in 3.0.0.
+- An intermittent missing local tank after entering a loaded map has been reported. Its cause and relationship to the extension remain unconfirmed; it is not listed as fixed in 3.0.1.
 - Auto Upgrade depends on recognized native dialogs and stops on an unknown confirmation. Its local confirmation count is not an independently verified purchase ledger.
 - Third-party UI modifications can alter the same elements and introduce selector, style, or event conflicts.
 
@@ -1198,7 +1198,1097 @@ Kaspersky's Inventions is an independent extension for the Tanki Online interfac
 
 ## Documentation Revision
 
-Reviewed against the **3.0.0** source and manifest on **October 22, 2026**. Build/fixture checks are distinct from live-game verification. Public full descriptions are maintained in English and Russian under `docs/`; browser manifest descriptions remain short because they are separate metadata fields.
+Reviewed against the **3.0.1** source and manifest on **October 24, 2026**. Build/fixture checks are distinct from live-game verification. Public full descriptions are maintained in the English/Russian publication sections of README.md; browser manifest descriptions remain short because they are separate metadata fields.
+
+## Consolidated Reader References
+
+- [Руководство пользователя на русском](#russian-user-guide)
+- [FAQ: 74 questions and answers](#faq)
+- [English publication description](#english-publication-description)
+- [Русское описание для публикации](#russian-publication-description)
+- [Legacy weather userscript](#legacy-weather-userscript)
+
+<a id="russian-user-guide"></a>
+
+## Руководство пользователя (RU)
+
+Версия расширения **3.0.1**. Сверено с исходниками **24 октября 2026 года**.
+
+Это руководство описывает локальную сборку проекта. Подробные технические контракты находятся в [DOCUMENTATION.md](DOCUMENTATION.md), ответы на 74 вопроса — в [FAQ](#faq). Условия использования изложены в английской [лицензии](LICENSE.txt).
+
+<a id="russian-user-guide-1-установка"></a>
+
+### 1. Установка
+
+<a id="russian-user-guide-готовая-сборка-в-chromium"></a>
+
+#### Готовая сборка в Chromium
+
+1. Распакуйте архив в постоянную папку.
+2. Найдите внутри папку с `manifest.json`, `dist`, `styles`, `assets` и остальными ресурсами.
+3. Откройте страницу расширений браузера, например `chrome://extensions/`.
+4. Включите режим разработчика и выберите загрузку распакованного расширения.
+5. Укажите папку с манифестом.
+6. Откройте или полностью перезагрузите страницу игры.
+
+Не перемещайте установленную папку без повторной загрузки расширения. Для готовой сборки Node.js не нужен.
+
+<a id="russian-user-guide-firefox"></a>
+
+#### Firefox
+
+В манифесте указан Firefox 128 или новее. Для временной проверки откройте `about:debugging#/runtime/this-firefox`, выберите загрузку временного дополнения и укажите `manifest.json`. После перезапуска Firefox временную установку нужно повторить. Это соответствует [инструкции Mozilla](https://extensionworkshop.com/documentation/develop/temporary-installation-in-firefox/).
+
+Для обычной постоянной установки нужен подходящий подписанный пакет. Архив `-firefox.zip` из сборки содержит манифест в корне, но наличие такого архива и Gecko ID само по себе не создаёт подпись. См. [инструкцию Mozilla по подписанным пакетам](https://extensionworkshop.com/documentation/publish/install-self-distributed/).
+
+<a id="russian-user-guide-обновление"></a>
+
+#### Обновление
+
+После замены файлов перезагрузите расширение на странице управления расширениями и затем саму игру. Уже открытая страница может продолжать выполнять старый код. Если менялся TypeScript или JSON с AST-привязками, разработчику нужно сначала пересобрать `dist`.
+
+Обновление файлов не должно намеренно удалять историю. Очистка данных сайта, другой игровой адрес, профиль или клиент — отдельные ситуации: перед такими действиями экспортируйте важные бои.
+
+<a id="russian-user-guide-2-настройка"></a>
+
+### 2. Настройка
+
+Откройте игровые настройки и вкладку **KASPERSKY**. Доступны 14 переключателей.
+
+| Группа | Настройки |
+| --- | --- |
+| Функции обычной серьёзности | Метки друзей; характеристики устройств; быстрая прокачка; расширенная кнопка «Играть»; умный поиск красок; история битв |
+| Режим стримера | Скрыть ник и опыт; скрыть валюту; скрыть припасы |
+| Функции повышенной серьёзности | Таймер коробки овердрайва; полоса аркадной перезарядки; индикатор критического выстрела |
+| Графические изменения | Изменённое поведение коробок в битве при подборе; случайная погода в битве |
+
+По умолчанию включены **полоса аркадной перезарядки** и **индикатор критического выстрела**. Остальные 12 переключателей выключены. Некоторые автоматические улучшения интерфейса отдельного переключателя не имеют.
+
+Скрытие припасов, анимация коробок, случайная погода и оба индикатора применяются без перезагрузки. Маскировка ника и валюты может измениться сразу, но эти настройки всё равно участвуют в проверке перезагрузки при закрытии окна. Если вернуть все такие настройки к исходному состоянию, перезагрузка из-за них не требуется.
+
+<a id="russian-user-guide-случайная-погода"></a>
+
+#### Случайная погода
+
+Включение сразу активирует функцию и плавно раскрывает под ней два ползунка на всю ширину: «Громкость грома» и «Громкость дождя». Громкость регулируется независимо от 0% (без звука) до 100% исходного уровня, сохраняется после перезапуска и применяется без перезагрузки. При выключении погоды ползунки сворачиваются, а их значения сохраняются. За один бой выбирается не более одного эпизода с одним пресетом. Дождь бывает примерно в 24% подходящих боёв и может начаться позднее; его начало и завершение плавные. Шторм значительно темнее обычного дождя, с ветром, до 14 000 капель, редкими далёкими молниями и запаздывающим громом. Фон дождя стал немного тише и ровнее. Настройка игры «Туман» влияет на осветление облаков вдали.
+
+Лужи, волны, брызги гусениц, радуга и птицы удалены. Звук прекращается при выходе из боя. Отключите прежний погодный скрипт Tampermonkey перед использованием функции в расширении. Если FPS снижается, выключите погоду — её ресурсы освобождаются без перезагрузки. [Подробности на английском](DOCUMENTATION.md#weather-reference).
+
+Названия групп помогают организовать меню. Они не являются оценкой разрешённости функций со стороны администрации игры или гарантией одинаковой нагрузки на компьютер.
+
+<a id="russian-user-guide-оформление-и-прокрутка"></a>
+
+#### Оформление и прокрутка
+
+Левые кнопки показывают разные участки одной общей картинки. Панели функций имеют общий фон в пределах своей группы. Размытие 2px применяется к изображению, а не надписям и переключателям. При открытии панели появляются плавно; настройки уменьшения движения учитываются.
+
+Полоса прокрутки скрыта, но прокрутка работает. Используйте колесо мыши или тачпад. На узкой области панели переходят в одну колонку. Игровые разделы настроек сохраняют собственное содержимое: расширение оформляет навигацию и свою вкладку.
+
+<a id="russian-user-guide-информация"></a>
+
+#### Информация
+
+Ниже переключателей находятся ссылки на Chrome Web Store, исходники расширения, исходники клиента, лицензию и FAQ. Открытие ссылки не отправляет автоматически историю или диагностический отчёт.
+
+<a id="russian-user-guide-3-лобби"></a>
+
+### 3. Лобби
+
+Основные разделы представлены плитками с оригинальными иконками игры. Контейнеры, миссии, гараж и магазин сохраняют игровые переходы. Кнопка **НАСТРОЙКИ** занимает нижний ряд. Пять нижних кнопок располагаются у нижнего края лобби.
+
+При включённой расширенной кнопке «Играть» доступны поддерживаемые режимы, PRO-битвы и праздничный режим. Перелив при наведении соответствует другим элементам оформления. Пока игра ищет битву, главная кнопка затемняется, а ограничения поиска остаются игровыми.
+
+Челлендж и элитный пропуск показывают игровые подписи, время и прогресс. Уведомления о доступных наградах оформляются монохромными индикаторами. Они не означают автоматическое получение наград.
+
+<a id="russian-user-guide-избранные-трофеи"></a>
+
+#### Избранные трофеи
+
+Можно выбрать до двух пушек и двух корпусов на поддерживаемых трофейных карточках. В лобби отображаются название, процент, полоса и текущие/целевые значения. Прогресс берётся из увиденных игровых данных и кэша, поэтому это не отдельная серверная подписка на все миссии.
+
+Проценты и очки репутации обрабатываются отдельно: `38/100` означает 38%, а не 38 очков. Если сохранён только процент, на месте точных очков будет прочерк. Откройте раздел трофеев с точным счётчиком — он обновится автоматически. Старые ошибочные записи `n/100` распознаются без удаления избранного. Звёзды выбора входят в пакет расширения и не требуют загрузки внешних изображений. В клиенте карточки обрабатываются независимо от определения текущего экрана; поздняя загрузка текста также отслеживается.
+
+<a id="russian-user-guide-id-аккаунта"></a>
+
+#### ID аккаунта
+
+Для личных записей нужен подтверждённый числовой ID из клиента игры. Видимый `UID: ник` — другое поле. Поиск начинается при инициализации игры и делится на небольшие задачи; данные других игроков собираются после собственного аккаунта.
+
+Путь к найденному аккаунту и проверенные поля кэшируются в текущей странице. Это позволяет читать их напрямую вместо повторного обхода всего графа. Если вход завершился без перезагрузки, данные могут определиться позже. После выхода игра перезагружает страницу, и новая страница подтверждает аккаунт заново.
+
+Если в настоящем лобби ID не найден после задержки 600мс, внизу по центру появляется **«Поиск ID аккаунта»**. При нахождении ID или переходе в другой раздел панель исчезает. В бою и гараже это уведомление не должно висеть поверх интерфейса.
+
+Избранное и дополнительный счётчик танкоинов могут ждать ID. Их первое появление для владельца плавное; возвращение из разделов не должно каждый раз повторять анимацию в той же странице. Отсутствие ID не удаляет старые записи и не назначает их другому аккаунту по совпавшему нику.
+
+<a id="russian-user-guide-танкоины"></a>
+
+#### Танкоины
+
+Дополнительный счётчик использует последнее увиденное значение из игровых элементов магазина или обмена и кэш подтверждённого аккаунта. Собственный игровой счётчик имеет приоритет. Если значения ещё нет, возможен прочерк — это не подтверждение нулевого баланса.
+
+Расширение не покупает валюту, не открывает обмен автоматически и не запрашивает баланс через отдельный серверный сервис. Настройка «Скрыть валюту» действует и на дополнительный счётчик.
+
+<a id="russian-user-guide-4-гараж-и-друзья"></a>
+
+### 4. Гараж и друзья
+
+<a id="russian-user-guide-устройства"></a>
+
+#### Устройства
+
+Включите «Характеристики устройств», чтобы видеть поддерживаемые преимущества, недостатки и числовые поправки. Работа с недоступными предметами включена в эту настройку. Данные должны быть распознаны в текущем клиенте; отсутствие значения не означает нулевой эффект.
+
+Функция не меняет владение предметом и не открывает его на сервере. Предпросмотр возможных наград — отдельный интерфейс, не равнозначный карточке гаража.
+
+<a id="russian-user-guide-поиск-красок"></a>
+
+#### Поиск красок
+
+Введите русское или английское название либо несколько слов в поиске коллекции. Совпадения зависят от распознанных изображений и словаря. Если нужная краска пропала из результатов, очистите запрос и проверьте обычную коллекцию.
+
+<a id="russian-user-guide-быстрая-прокачка"></a>
+
+#### Быстрая прокачка
+
+Выберите X5, X10, X15 или MAX в поддерживаемом интерфейсе улучшений. Сначала подтвердите параметры последовательности. Далее используются распознанные игровые подтверждения.
+
+Это настоящие покупки улучшений за ресурсы аккаунта. Остановка не отменяет уже принятые покупки. Неизвестный диалог, смена раздела, максимум улучшений или другие защитные условия могут остановить очередь.
+
+<a id="russian-user-guide-скины"></a>
+
+#### Скины
+
+Изображения изучаются по распознанным игровым карточкам надетых скинов. Это оформление поддерживаемых изображений гаража, а не разблокировка чужих скинов или замена серверной модели танка в бою. Простого совпадения названия недостаточно: учитываются ID и состояние карточки.
+
+<a id="russian-user-guide-метки-друзей"></a>
+
+#### Метки друзей
+
+Используйте три цветовые категории и доступные фильтры списков. Метки привязаны к подтверждённому владельцу и распознанным ID друзей. Они хранятся локально, а не в отдельном облаке проекта. При недоступном или неоднозначном ID расширение не должно придумывать принадлежность записи.
+
+<a id="russian-user-guide-5-режим-стримера"></a>
+
+### 5. Режим стримера
+
+<a id="russian-user-guide-ник-и-опыт"></a>
+
+#### Ник и опыт
+
+Маскируются поддерживаемые поля собственного имени и опыта, строки собственного игрока в статистике/результатах и истории. Нижняя строка `UID: ник` исчезает вместе со следующим `|`; TYPE, VER, UPD и SRV остаются.
+
+Сам UID и игровые узлы не вырезаются из DOM. Это сохраняет чтение аккаунта и работу React. После отключения скрытия строка возвращается.
+
+В WebGL-киллфиде собственное имя маскируется при убийстве с любой стороны, смерти, самоуничтожении, переодевании и поддерживаемых входе/выходе. Надпись проверяется по шрифту: «Скрыто», затем Hidden, затем пустое имя. Другие игроки, звания, цвета и иконки событий сохраняются.
+
+<a id="russian-user-guide-валюта"></a>
+
+#### Валюта
+
+Скрываются распознанные значения валюты вне боя и дополнительный счётчик танкоинов. Это не гарантия скрытия каждой цены и каждого числа в стороннем интерфейсе. При отключении поддерживаемые значения восстанавливаются с учётом последних игровых обновлений.
+
+<a id="russian-user-guide-припасы"></a>
+
+#### Припасы
+
+На карточках открытого раздела припасов количество отсутствует полностью, без чёрного нуля. В полосе припасов и поддерживаемых счётчиках боевого HUD отображается ноль. Реальный запас, применение, цены, длительность и перезарядка не изменяются.
+
+<a id="russian-user-guide-что-проверить-перед-трансляцией"></a>
+
+#### Что проверить перед трансляцией
+
+Маскировка не анонимизирует аккаунт. В DOM, игровых данных, JSON истории и диагностике могут оставаться настоящие имена и ID. Некоторые скрытые поля раскрываются при наведении. Проверьте экран, подсказки, экспортируемые файлы и настройки Discord отдельно.
+
+<a id="russian-user-guide-6-в-битве"></a>
+
+### 6. В битве
+
+<a id="russian-user-guide-аркадная-перезарядка"></a>
+
+#### Аркадная перезарядка
+
+Дополнительная белая полоса работает для собственной пушки Шафт или Скорпион по поддерживаемому игровому состоянию. Это не универсальный таймер для всех пушек и не замена каждой исходной полосы заряда.
+
+<a id="russian-user-guide-критический-выстрел"></a>
+
+#### Критический выстрел
+
+Поддерживаются реализованные сочетания Грома, Смоки и Молота с соответствующими устройствами. Используется игровая готовность, а для поддерживаемых состояний суперзаряда и смены техники есть отдельные проверки. Другая пушка или устройство не становятся поддерживаемыми автоматически.
+
+<a id="russian-user-guide-овердрайв"></a>
+
+#### Овердрайв
+
+После распознанного подбора запускается отсчёт 85 секунд. В текущем бою могут независимо запоминаться две позиции. Подбор другим игроком тоже может перезапустить соответствующий таймер.
+
+Направляющий сегмент — направление к запомненной точке относительно камеры, а не маршрут вокруг препятствий. Отсутствие телеметрии может скрыть сегмент, не останавливая отсчёт. Ноль на таймере не является серверным подтверждением появления коробки.
+
+<a id="russian-user-guide-анимация-коробок"></a>
+
+#### Анимация коробок
+
+Настройка из «Графических изменений» добавляет вспышку и осколки при распознанном подборе. На один подбор приходится до 14 частей, общий предел — 140. Исчезновение начинается после 2,2 секунды и занимает ещё 0,8 секунды. Выключение очищает принадлежащие эффекту объекты.
+
+Награды и игровая логика подбора не меняются. Ограничения уменьшают нагрузку, но не обещают одинаковый FPS на разных компьютерах.
+
+<a id="russian-user-guide-снаряжение-и-миссии"></a>
+
+#### Снаряжение и миссии
+
+Текущий трекер изображений собственного снаряжения читает их из игровой таблицы статистики. Консольные исследования TankInfoCC не превратились в готовый непрерывный сервис всех иконок. Для истории могут понадобиться данные, увиденные в TAB.
+
+Общего уведомления о выполнении всех ежедневных, еженедельных и специальных миссий прямо в бою в текущем наборе модулей нет. Избранные трофеи — отдельная функция. Обсуждавшийся userscript gtrail также не входит в набор функций расширения.
+
+<a id="russian-user-guide-7-история-и-резервные-копии"></a>
+
+### 7. История и резервные копии
+
+История сохраняет поддерживаемые полные экраны результатов, увиденные при включённой записи и подтверждённой принадлежности аккаунту. Она не восстанавливает все старые бои и не гарантирует запись результата, который клиент не показал.
+
+Просматривайте карточки, подробную статистику и страницы истории через её элементы управления. Экспорт сохраняет JSON. Для переноса откройте целевой профиль или клиент, войдите в тот же подтверждённый аккаунт и импортируйте копию. После импорта проверьте список до удаления исходных данных.
+
+Повторный импорт пропускает уже существующие ID записей. Это не объединяет ранее созданные дубликаты с разными ID. Данные другого аккаунта или старые копии без подходящей принадлежности не назначаются текущему владельцу по нику.
+
+Если ID временно отсутствует, полный результат может попасть в отдельный ограниченный буфер текущей сессии. Это не обычная резервная копия и не автоматическое распределение записей. Для восстановления сначала прочитайте [MAINTENANCE.md](MAINTENANCE.md).
+
+Очистка истории через её подтверждение не сбрасывает серверный аккаунт и не должна очищать историю другого владельца. Перед удалением экспортируйте нужные записи.
+
+<a id="russian-user-guide-8-где-хранятся-данные"></a>
+
+### 8. Где хранятся данные
+
+Данные относятся к текущему игровому origin: протоколу, адресу и порту. Профили браузера и отдельные клиенты имеют собственные хранилища.
+
+| Данные | Разделение |
+| --- | --- |
+| Переключатели функций и язык игры | В пределах хранилища текущего origin; не отдельный комплект на каждый аккаунт |
+| Метки друзей, избранные трофеи, надетые изображения скинов, танкоины | По подтверждённому ID владельца |
+| История битв | Локальная база с принадлежностью записей по ID |
+| Некоторые вспомогательные кэши | Общие в пределах origin |
+| Диагностические журналы и незавершённая работа | Память страницы или ограниченные сессионные хранилища в зависимости от модуля |
+
+Облачной синхронизации истории нет. Маскировка не шифрует базу. Очистка данных сайта, удаление профиля или переустановка клиента могут удалить доступ к локальным записям. Сначала сохраните экспорт.
+
+<a id="russian-user-guide-9-если-что-то-не-работает"></a>
+
+### 9. Если что-то не работает
+
+1. Полностью перезагрузите игру после обновления расширения.
+2. Проверьте включённые настройки и отсутствие второй копии KI или конфликтующего userscript.
+3. Запишите точное действие и первую ошибку консоли, а не только последующее «Потеряно соединение».
+4. Сравните такую же попытку с выключенным расширением.
+5. Сохраните версию игры, расширения, браузера или клиента и язык интерфейса.
+6. Перед очисткой хранилища экспортируйте доступную историю.
+
+Три ошибки за десять секунд могут отключить конкретный модуль до перезагрузки страницы. Медленное выполнение само по себе только фиксируется в диагностике. Отключение модуля не отменяет покупки и не может прервать бесконечный синхронный вызов.
+
+Для технического отчёта используйте шаблон в [руководстве по обслуживанию](MAINTENANCE.md#support-report-template). Диагностика может содержать ники и ID. Не отправляйте пароли, токены, cookies или целый профиль браузера.
+
+<a id="russian-user-guide-10-discord-и-отдельный-клиент"></a>
+
+### 10. Discord и отдельный клиент
+
+Rich Presence работает только в совместимом Electron-клиенте с установленным мостом и локальным приложением Discord. В обычном браузере отсутствие активности ожидаемо.
+
+Могут передаваться раздел, ник или Hidden и доступные данные битвы: английские названия карты/режима, время и вместимость. Скрытие ника не убирает все остальные поля активности. Самостоятельная сборка и установка моста описаны в [отдельном техническом руководстве исходного репозитория](DOCUMENTATION.md#electron-client-integration).
+
+<a id="russian-user-guide-11-документы-и-участники"></a>
+
+### 11. Документы и участники
+
+- [Полное описание на русском](#russian-publication-description)
+- [Full English description](#english-publication-description)
+- [FAQ: 74 вопроса](#faq)
+- [Техническая документация](DOCUMENTATION.md)
+- [Лицензия и условия использования на английском](LICENSE.txt)
+- [Участники из приветственного окна](README.md#acknowledgements)
+
+Полные описания заканчиваются всеми ролями и именами из текущего модального окна, включая ассистентов Niced и Master. Имена ИИ воспроизводятся как благодарности проекта, а не как обязательные сервисы.
+
+<a id="faq"></a>
+
+## FAQ
+
+Source-reviewed edition for **3.0.1**, **October 24, 2026**. This local FAQ describes implemented behavior. The published Drive FAQ is a separately maintained publication; editing this file does not update it automatically.
+
+For installation and a complete feature reference, see [README](README.md). For Russian instructions, see [Руководство пользователя](#russian-user-guide). The governing English terms are in [LICENSE.txt](LICENSE.txt).
+
+<a id="faq-installation-and-updates"></a>
+
+### Installation and Updates
+
+<a id="faq-1-what-is-this-extension"></a>
+
+#### 1. What is this extension?
+
+An independent interface extension for Tanki Online. It adds supported equipment information, lobby presentation, local records and privacy controls using the game's current interface and native data. It is not a replacement game server or an account-management service.
+
+<a id="faq-2-which-languages-are-supported"></a>
+
+#### 2. Which languages are supported?
+
+English and Russian. The game language preference is checked first, followed by page language and hostname indications. Browser-store metadata uses its own locale files; it is independent of the in-game dictionaries.
+
+<a id="faq-3-which-browser-can-i-use"></a>
+
+#### 3. Which browser can I use?
+
+The repository provides a Manifest V3 extension for desktop Chromium and declares Firefox 128 or newer. A declared minimum or build syntax target does not establish that every current game feature works in every browser. Follow the browser-specific installation instructions and test the current build.
+
+<a id="faq-4-do-i-need-nodejs-to-use-a-release"></a>
+
+#### 4. Do I need Node.js to use a release?
+
+No. A prepared release contains the bundles and runtime resources. Node.js and npm are for source development, testing and building.
+
+<a id="faq-5-which-folder-should-i-load-in-chromium"></a>
+
+#### 5. Which folder should I load in Chromium?
+
+The extracted directory containing `manifest.json`, `dist/`, `styles/` and the other runtime resources. The ordinary ZIP has an outer versioned folder. Keep that installed directory in place.
+
+<a id="faq-6-why-does-my-temporary-firefox-installation-disappear"></a>
+
+#### 6. Why does my temporary Firefox installation disappear?
+
+A temporary add-on loaded through `about:debugging` lasts until removal or browser restart. Persistent standard installation uses an appropriately signed package. The release's Firefox ZIP has a root manifest but is not automatically signed. See [Mozilla's installation guide](https://extensionworkshop.com/documentation/develop/temporary-installation-in-firefox/) and [signed distribution instructions](https://extensionworkshop.com/documentation/publish/install-self-distributed/).
+
+<a id="faq-7-why-did-editing-source-files-not-change-the-game"></a>
+
+#### 7. Why did editing source files not change the game?
+
+The browser executes `dist/`, not TypeScript in `src/`. Run `npm run build:js` after source or prepared-plan changes, reload the extension, then fully reload the game. An existing page can retain old scripts from both execution worlds.
+
+<a id="faq-8-do-css-or-template-changes-require-a-javascript-build"></a>
+
+#### 8. Do CSS or template changes require a JavaScript build?
+
+They are separate packaged resources, so a JavaScript rebuild is not needed just for those edits. Reload the extension and page to verify the installed resources. A release archive must be recreated to distribute changed resources.
+
+<a id="faq-9-is-the-separate-desktop-client-included"></a>
+
+#### 9. Is the separate desktop client included?
+
+No. The companion Electron project is separate. This repository contains reference Discord bridge files, not a universal client installer. Updating the browser extension cannot install a missing preload into an existing executable.
+
+<a id="faq-settings"></a>
+
+### Settings
+
+<a id="faq-10-where-are-ki-settings"></a>
+
+#### 10. Where are KI settings?
+
+Open game settings and select **KASPERSKY**. The Information panel contains the store, source, license and FAQ links.
+
+<a id="faq-11-how-are-the-features-divided"></a>
+
+#### 11. How are the features divided?
+
+Standard features: friends, augment specifications, quick upgrades, Enhanced Play, paint search and history. Streamer mode: nickname/XP, currency and supplies. Advanced features: overdrive timer and the two shot indicators. Visual changes: modified box pickup animation and random battle weather.
+
+<a id="faq-12-which-features-are-enabled-by-default"></a>
+
+#### 12. Which features are enabled by default?
+
+Only **Arcade reload indicator** and **Critical shot indicator**. There are 14 switches; the other 12 default to disabled. Automatic integrations such as the version window or lobby artwork do not each have an individual switch.
+
+<a id="faq-13-which-switches-apply-without-a-reload"></a>
+
+#### 13. Which switches apply without a reload?
+
+Supply privacy, modified box pickup visuals, random weather, weather sound volumes, arcade reload and critical indication. Nickname and currency presentation can also react immediately, but their settings still participate in the settings-close reload workflow.
+
+<a id="faq-14-why-does-closing-settings-reload-the-game"></a>
+
+#### 14. Why does closing settings reload the game?
+
+At least one non-live option differs from its value when the panel opened. Returning every non-live option to that initial value cancels the reload requirement. A reload establishes a consistent page configuration and native hooks.
+
+<a id="faq-15-why-is-no-scrollbar-visible"></a>
+
+#### 15. Why is no scrollbar visible?
+
+The custom panel hides scrollbar chrome while preserving scrolling. Use the wheel or touchpad and normal supported focus navigation. On a narrow content area the cards become one column. The left menu and content can scroll independently.
+
+<a id="faq-16-are-settings-saved-per-account"></a>
+
+#### 16. Are settings saved per account?
+
+The feature switches are shared within the current game origin and browser/client profile. Some feature records are separated by verified account ID, but the whole settings panel is not account-specific.
+
+<a id="faq-account-id-and-lobby"></a>
+
+### Account ID and Lobby
+
+<a id="faq-17-is-the-visible-uid-the-account-id-used-for-storage"></a>
+
+#### 17. Is the visible UID the account ID used for storage?
+
+No. `UID: nickname` is a display label. Persistent ownership-sensitive features use the numeric native user ID validated by the account reader, represented as an exact decimal string.
+
+<a id="faq-18-when-does-id-discovery-start"></a>
+
+#### 18. When does ID discovery start?
+
+During game initialization when the native store is captured. The local User has priority. A fast local-state path is attempted, and supported alternative layouts use bounded work split across small scheduled tasks.
+
+<a id="faq-19-is-the-id-permanently-cached"></a>
+
+#### 19. Is the ID permanently cached?
+
+Verified ownership, resolved paths and schemas are cached in the current page session. The extension does not trust an old ID from disk as proof of a new login. New pages verify again; native invalidation, store replacement or account changes update the current cache.
+
+<a id="faq-20-why-can-i-see-searching-for-account-id"></a>
+
+#### 20. Why can I see “Searching for account ID”?
+
+The actual lobby is visible and no verified account is available after a 600ms delay. The notice fades away when the account becomes available or the lobby is left. It is not shown in the battle, garage or another section just because discovery continues.
+
+<a id="faq-21-does-a-slow-computer-disable-account-discovery"></a>
+
+#### 21. Does a slow computer disable account discovery?
+
+Slow-call measurements alone do not disable a scope. Discovery yields between bounded pieces of work. Repeated exceptions can quarantine a feature, and individual browser reflection operations cannot be interrupted halfway through. Inspect the account and runtime statuses before changing budgets.
+
+<a id="faq-22-can-login-complete-without-reloading-the-page"></a>
+
+#### 22. Can login complete without reloading the page?
+
+Yes. The account reader observes the captured store's loaded User and can publish ownership after login finishes. Logout normally reloads the page, so the next page establishes a new verified cache.
+
+<a id="faq-23-why-do-trophies-and-tankoins-appear-later-than-the-rest-of-the-lobby"></a>
+
+#### 23. Why do trophies and Tankoins appear later than the rest of the lobby?
+
+They wait for verified ownership before using an account cache. Their first presentation for that owner can fade in. Returning from another section does not intentionally replay that entrance for the same owner/page session.
+
+<a id="faq-24-what-does-the-tankoin-counter-know"></a>
+
+#### 24. What does the Tankoin counter know?
+
+The latest observed native shop/exchange value or the last validated value cached for the verified account. It is not an independent live server balance request. A dash can mean no known value; it must not be interpreted as confirmed zero.
+
+<a id="faq-25-does-a-nickname-change-erase-favorites-or-history"></a>
+
+#### 25. Does a nickname change erase favorites or history?
+
+The same verified user ID keeps its ownership-sensitive records. Another ID is a different owner even when the nickname matches. Older nickname-keyed or legacy shared data remains separate rather than being silently reassigned.
+
+<a id="faq-26-what-are-the-lobby-trophy-favorites"></a>
+
+#### 26. What are the lobby trophy favorites?
+
+Up to two turrets and two hulls selected from supported trophy cards. The lobby shows localized names, percentages, progress bars and current/target values. Values are observed and cached; the extension does not obtain an independent authoritative mission feed.
+
+<a id="faq-streamer-mode"></a>
+
+### Streamer Mode
+
+<a id="faq-27-what-exactly-does-hide-nickname-and-xp-cover"></a>
+
+#### 27. What exactly does Hide nickname and XP cover?
+
+Supported header name/XP, self rows in statistics/results, current-player history presentation, the native client UID line, and the local player's name in the WebGL action log. New unsupported game elements may need additional selectors or native mappings.
+
+<a id="faq-28-what-happens-to-the-uid-footer"></a>
+
+#### 28. What happens to the UID footer?
+
+The UID element and its following separator are absent from the layout while privacy is enabled. TYPE, VER, UPD and SRV remain. The actual text and native node remain in the DOM so identity reading and native UI reconciliation continue; disabling restores the line.
+
+<a id="faq-29-what-does-the-kill-feed-show-instead-of-my-name"></a>
+
+#### 29. What does the kill-feed show instead of my name?
+
+`Скрыто` or `Hidden` if its native font supports all characters. It can fall back to `Hidden`, or an empty name when neither label is supported. This prevents missing-glyph exceptions. Rank/event icons and other players' names are preserved.
+
+<a id="faq-30-does-this-apply-to-both-sides-of-a-kill"></a>
+
+#### 30. Does this apply to both sides of a kill?
+
+Yes: the exact local player label is handled as attacker or victim, and in self-destruction, equipment-change and supported join/leave entries. A nickname merely containing the same substring is not the local player.
+
+<a id="faq-31-is-the-account-anonymous-when-privacy-is-enabled"></a>
+
+#### 31. Is the account anonymous when privacy is enabled?
+
+No. These are presentation controls. Original game data and local exports can still contain names and account IDs. Some supported DOM fields intentionally reveal original values on hover; the hidden UID line itself cannot be hovered. Check recordings, overlays and presence settings separately.
+
+<a id="faq-32-what-currency-values-are-hidden"></a>
+
+#### 32. What currency values are hidden?
+
+Recognized currency/header spans outside the battle and the custom Tankoin counter. This is not a promise to mask every numeric price or every third-party interface. The general currency module retains latest native values and restores them when masking ends.
+
+<a id="faq-33-does-hide-supplies-make-supplies-unavailable"></a>
+
+#### 33. Does Hide supplies make supplies unavailable?
+
+No. It changes supported count presentation only. Real stock, activation, cooldowns, duration, prices and availability remain controlled by the game.
+
+<a id="faq-34-why-is-there-no-zero-on-the-open-supplies-cards"></a>
+
+#### 34. Why is there no zero on the open Supplies cards?
+
+Those inventory-card quantity labels are omitted entirely. The garage supply strip and supported battle HUD counters instead display zero. This is intentional, including when the native card changes after selecting Nuclear Energy.
+
+<a id="faq-35-will-the-real-count-return-after-i-turn-masking-off"></a>
+
+#### 35. Will the real count return after I turn masking off?
+
+Yes for the supported paths: DOM masking is released, and the native battle label bridge restores the latest string observed while hidden. Unsupported client structures are left native; a stale or missing patch can require a mapping update and page reload.
+
+<a id="faq-garage-and-navigation"></a>
+
+### Garage and Navigation
+
+<a id="faq-36-does-augment-information-unlock-unavailable-items"></a>
+
+#### 36. Does augment information unlock unavailable items?
+
+No. It presents supported native item data, descriptions and statistic adjustments. Ownership and server purchase eligibility do not change.
+
+<a id="faq-37-are-possible-rewards-cards-handled-the-same-way"></a>
+
+#### 37. Are Possible Rewards cards handled the same way?
+
+No. The unavailable-item preview/description integration excludes Possible Rewards. Do not assume every card-like surface is a supported garage item.
+
+<a id="faq-38-why-might-an-augment-value-be-missing-or-unresolved"></a>
+
+#### 38. Why might an augment value be missing or unresolved?
+
+The relevant native description, property or equipment association may not have been observed, or the mapping may no longer match. Missing data is not a zero effect. Revisit the native device card and preserve diagnostics if it remains unresolved.
+
+<a id="faq-39-does-paint-search-understand-every-paint"></a>
+
+#### 39. Does paint search understand every paint?
+
+It searches recognized image/name entries in the bundled paint data using supported English/Russian names and multiword matching. Unknown or changed artwork can need a database update. Clearing the query restores the ordinary collection filtering path.
+
+<a id="faq-40-are-friend-categories-synchronized-to-a-server"></a>
+
+#### 40. Are friend categories synchronized to a server?
+
+No. Three local color categories are saved by the verified owner ID and recognized friend user IDs. Supported native lists supply current online/offline/clan information. Ambiguous or unavailable friend IDs are not safely replaced with guessed ownership.
+
+<a id="faq-41-can-quick-upgrades-spend-resources"></a>
+
+#### 41. Can quick upgrades spend resources?
+
+Yes. It drives recognized game purchase confirmations after its setup confirmation. X5/X10/X15/MAX are sequences of actual upgrade actions, not a visual preview. Stopping a queue does not reverse an already accepted purchase.
+
+<a id="faq-42-why-does-a-quick-upgrade-queue-stop"></a>
+
+#### 42. Why does a quick-upgrade queue stop?
+
+Navigation, an unrecognized confirmation, unsupported item/control, a detected Ruby-related condition, maximum upgrade state or other guard can stop it. Do not weaken dialog recognition just to force continuation.
+
+<a id="faq-43-can-i-choose-arbitrary-skins-with-this-extension"></a>
+
+#### 43. Can I choose arbitrary skins with this extension?
+
+There is no general arbitrary-skin unlocker. The module learns recognized owned/equipped native skin-card artwork and uses it for supported garage images. It does not replace the server loadout or the tank's rendered battle model.
+
+<a id="faq-44-is-the-esports-card-a-new-official-mode"></a>
+
+#### 44. Is the Esports card a new official mode?
+
+No. It is a prototype UI card based on the native Sport format with custom presentation. It does not establish a separate official server ruleset.
+
+<a id="faq-battle-indicators-and-visuals"></a>
+
+### Battle Indicators and Visuals
+
+<a id="faq-45-which-weapons-use-the-extra-arcade-bar"></a>
+
+#### 45. Which weapons use the extra arcade bar?
+
+The local Shaft and Scorpio. The extra foreground is white, and timing follows supported native cooldown state. It does not recolor unrelated original charge indicators or infer cooldown from mouse input.
+
+<a id="faq-46-which-critical-shot-combinations-are-supported"></a>
+
+#### 46. Which critical-shot combinations are supported?
+
+The implemented combinations cover Thunder with Strict Ammunition Load, Smoky with Sorted Ammunition and Hammer with Revolver, with supported native lifecycle/readiness handling. Supercharge and Terminator/Juggernaut transitions have special guards. Other combinations are not automatically supported just because they can fire critical shots.
+
+<a id="faq-47-does-the-overdrive-timer-start-on-battle-entry"></a>
+
+#### 47. Does the overdrive timer start on battle entry?
+
+No. A matching observed overdrive pickup starts or restarts the corresponding 85-second timer. Up to two positions are learned during that battle. It can observe a matching pickup by another player as well as your own.
+
+<a id="faq-48-is-its-direction-marker-a-route-to-the-box"></a>
+
+#### 48. Is its direction marker a route to the box?
+
+No. It is a camera-relative bearing to a learned pickup position. It does not route around walls or establish whether an uncollected box exists. Missing/stale telemetry can hide the marker while the countdown continues.
+
+<a id="faq-49-does-zero-on-the-timer-guarantee-a-box-has-appeared"></a>
+
+#### 49. Does zero on the timer guarantee a box has appeared?
+
+No. The deadline is a local estimate from the configured interval and observed pickup, not a server spawn acknowledgement. The timer can remain at zero. A new battle clears learned positions and deadlines.
+
+<a id="faq-50-what-changes-when-box-pickup-visuals-are-enabled"></a>
+
+#### 50. What changes when box pickup visuals are enabled?
+
+A brief flash and scattering/fading fragments replace recognized pickup presentation. Native reward processing remains. The effect can apply to any observed player's pickup, with bounded pieces and terrain probes. Turn the switch off to clear owned visuals immediately.
+
+<a id="faq-51-are-the-box-effect-and-overdrive-timer-the-same-feature"></a>
+
+#### 51. Are the box effect and overdrive timer the same feature?
+
+No. One changes a visual animation; the other observes a specific bonus to estimate respawn timing. Each has its own setting and native contract.
+
+<a id="faq-52-is-the-grenade-tracer-bundled"></a>
+
+#### 52. Is the grenade tracer bundled?
+
+The separately discussed gtrail userscript is not a module or setting in this extension's current registry. Do not install or describe that script as a required KI component.
+
+<a id="faq-53-are-live-mission-completion-notifications-included"></a>
+
+#### 53. Are live mission-completion notifications included?
+
+No general daily/weekly/special mission observer or battle notification feature is shipped in the current registry. Trophy favorites show a different observed/cached progress source. Prior console diagnostics do not establish a production mission feature.
+
+<a id="faq-history-and-backups"></a>
+
+### History and Backups
+
+<a id="faq-54-what-gets-recorded"></a>
+
+#### 54. What gets recorded?
+
+Supported complete result screens observed while history is enabled and ownership can be established. Cards/details contain captured battle and player data. The extension cannot reconstruct results never shown to this page or download the account's complete past history.
+
+<a id="faq-55-does-opening-tab-matter-for-equipment-images"></a>
+
+#### 55. Does opening TAB matter for equipment images?
+
+The shipped equipment tracker reads supported self-equipment icons from the native statistics DOM. If that interface has not supplied usable icons, history artwork can be missing or cached. Native TankInfoCC/inventory console experiments did not become a continuously updated equipment-icon service.
+
+<a id="faq-56-how-do-i-move-history-to-another-profile"></a>
+
+#### 56. How do I move history to another profile?
+
+Export JSON from the history controls, keep the file, open the target profile/client, sign into the same verified account and import through the history controls. The game origin/profile normally has separate storage. Check the resulting list before removing the original data.
+
+<a id="faq-57-can-i-import-another-accounts-history"></a>
+
+#### 57. Can I import another account's history?
+
+Normal import validates account IDs and does not assign records to the current account by nickname. Legacy backups without accepted ownership remain separate rather than being silently adopted. Review the documented format and validation rules before editing an export.
+
+<a id="faq-58-what-happens-if-i-import-the-same-backup-twice"></a>
+
+#### 58. What happens if I import the same backup twice?
+
+Existing record IDs are skipped. This does not retroactively merge separately recorded duplicates with different IDs or repair old malformed records. Import success depends on validation and the database transaction completing.
+
+<a id="faq-59-what-if-the-result-appears-before-my-account-id"></a>
+
+#### 59. What if the result appears before my account ID?
+
+A complete observed result can be held in a separate bounded session recovery buffer while history is enabled. It is not automatically assigned to a later owner by nickname. A currently open matching result can still be captured normally once ownership becomes available. See the maintenance guide before manual recovery.
+
+<a id="faq-60-are-history-files-private"></a>
+
+#### 60. Are history files private?
+
+They can contain account IDs, nicknames, participants, equipment and battle results. Streamer masking does not anonymize JSON exports. Review backups and diagnostics before sharing them.
+
+<a id="faq-61-does-clearing-history-reset-my-game-account"></a>
+
+#### 61. Does clearing history reset my game account?
+
+No. The history action clears supported locally stored records for the current verified owner through its confirmation flow. It does not reset server progress or other accounts' records. Export important data first.
+
+<a id="faq-performance-failures-and-support"></a>
+
+### Performance, Failures and Support
+
+<a id="faq-62-will-enabling-ki-keep-exactly-the-same-fps"></a>
+
+#### 62. Will enabling KI keep exactly the same FPS?
+
+No fixed FPS guarantee is made. Visuals, DOM work, browser throttling, other extensions and the game all affect performance. The implementation bounds several native tasks and caches, but a controlled comparison is needed to measure a particular machine.
+
+<a id="faq-63-what-is-feature-quarantine"></a>
+
+#### 63. What is feature quarantine?
+
+Three exceptions within ten seconds stop the affected scope for the page session and run its registered cleanup. Slow-call duration alone is diagnostic. A healthy feature can be toggled according to its setting; a quarantined scope needs a full reload.
+
+<a id="faq-64-does-quarantine-undo-everything"></a>
+
+#### 64. Does quarantine undo everything?
+
+No. It stops owned callbacks/resources and performs feature-specific cleanup. It cannot reverse a purchase, a committed transaction or arbitrary native code, and it cannot interrupt a synchronous function that never returns. Static manifest styles remain loaded.
+
+<a id="faq-65-why-can-the-game-say-connection-lost"></a>
+
+#### 65. Why can the game say connection lost?
+
+The message alone does not identify the cause. Preserve the first console error and the preceding action, fully reload after extension updates, check duplicate injectors and compare an equivalent attempt with KI disabled. A rendering exception can precede a disconnect; a transport/server failure may be independent of KI.
+
+<a id="faq-66-what-should-i-send-in-a-bug-report"></a>
+
+#### 66. What should I send in a bug report?
+
+Extension and game build, browser/client and language, enabled settings, reproduction steps, expected/actual result, first stack trace and the smallest relevant diagnostic status. State whether it repeats after a full reload and without KI. Remove login tokens, cookies and unrelated personal information.
+
+<a id="faq-67-is-there-automatic-cloud-synchronization-or-support-upload"></a>
+
+#### 67. Is there automatic cloud synchronization or support upload?
+
+No built-in history cloud synchronization or automatic diagnostic uploader is implemented. Local storage is not an encrypted vault. Game requests, update mechanisms, external links and optional client presence are separate traffic paths.
+
+<a id="faq-discord-and-project-terms"></a>
+
+### Discord and Project Terms
+
+<a id="faq-68-why-does-discord-presence-not-work-in-my-browser"></a>
+
+#### 68. Why does Discord presence not work in my browser?
+
+It requires the compatible companion Electron preload/main-process bridge and the local Discord application. Ordinary browser sessions do not activate this module. The extension alone cannot add that bridge to an installed client.
+
+<a id="faq-69-what-activity-can-discord-display"></a>
+
+#### 69. What activity can Discord display?
+
+The current section, masked or real nickname and available English battle map/mode, countdown and capacity. Nickname privacy uses Hidden for the presence name but does not remove the other activity fields. Client and Discord settings control publication.
+
+<a id="faq-70-does-public-source-mean-an-open-source-license"></a>
+
+#### 70. Does public source mean an open-source license?
+
+No. The repository is proprietary and the package says UNLICENSED. Read the [License and Terms of Use](LICENSE.txt) for ordinary-use permissions, restrictions, warranties/liability provisions and the retained special permission for Tanki Tweaks. Public visibility and project credits do not themselves grant redistribution rights.
+
+<a id="faq-weather"></a>
+
+### Weather
+
+<a id="faq-71-how-can-i-adjust-weather-sound"></a>
+
+#### 71. How can I adjust weather sound?
+
+Enable Random battle weather to reveal full-width Thunder volume and Rain volume sliders beneath the switch. They apply independently and immediately, retain their values after closing settings or restarting, and mute the corresponding sound at 0%. Turning weather off hides the controls without clearing their values. Disable the old Tampermonkey weather script to avoid duplicate effects.
+
+<a id="faq-72-why-has-it-not-rained-in-several-battles"></a>
+
+#### 72. Why has it not rained in several battles?
+
+Rain is deliberately rare: approximately 24% of eligible battles receive one finite rainy episode. Two of the five presets are dry; many battles get no episode. An episode can begin late. Short remaining times can skip it. These are independent probabilities, not a guaranteed rotation.
+
+<a id="faq-73-can-weather-restart-if-i-re-enter-a-battle"></a>
+
+#### 73. Can weather restart if I re-enter a battle?
+
+The plan is reused for the same observed battle ID within the tab's bounded session cache. Re-entering, toggling or reloading does not intentionally reroll it. Without a usable ID, reuse is limited to the observed scene. Other tabs/players have independent local weather.
+
+<a id="faq-74-are-puddles-and-birds-still-included"></a>
+
+#### 74. Are puddles and birds still included?
+
+No. The integrated version has rain, short surface impacts, clouds and storm atmosphere/audio. Puddles, waves, track spray, rainbow and birds were removed. Native Fog controls cloud distance lightening, with a much closer onset. The [weather reference](DOCUMENTATION.md#weather-reference) explains rendering limits and validation; real-game FPS still needs measurement on the player's hardware.
+
+<a id="faq-official-project-links-and-credits"></a>
+
+### Official Project Links and Credits
+
+- [Extension repository](https://github.com/AlanKaspersky/Kaspersky-Inventions-for-Tanki-Online)
+- [Companion-client repository](https://github.com/AlanKaspersky/Tanki-Online-with-KI)
+- [Published License and Terms of Use](https://drive.google.com/file/d/1j6pNdN7SJZAcRsM2WwLQfzQuWYTcG8ZO/view)
+- [Published FAQ](https://drive.google.com/file/d/15xzcltFZiiC9bbiKaZd3-Le6AGvqoTlz/view)
+- [Project credits](README.md#acknowledgements)
+
+The full English and Russian publication descriptions reproduce the complete current welcome-window acknowledgements at their end, including assistants **Niced** and **Master**.
+
+<a id="english-publication-description"></a>
+
+## Full English Publication Description
+
+Full English publication description for extension **3.0.1**. Updated **October 24, 2026**.
+
+Kaspersky's Inventions brings equipment information, a redesigned lobby, local battle history and streamer controls into Tanki Online. It builds on the game's familiar interface: original navigation, game icons, account data and native actions remain the basis of the experience.
+
+Choose the features you need in the **KASPERSKY** tab inside game settings. The interface is available in **English and Russian**.
+
+<a id="english-publication-description-a-lobby-with-more-information"></a>
+
+### A Lobby with More Information
+
+- A tiled left menu with the game's original section icons and localized labels.
+- A centered Quick Battle button, battle-mode shortcuts, PRO battles and festive mode controls.
+- Matching metal-shine hover effects and a dimmed main button while searching for a battle.
+- Challenges and Elite Pass cards with clear progress lines, native timers and reward notification indicators.
+- Favorite trophy progress in a compact grid: up to two turrets and two hulls.
+- A Tankoin counter that restores the latest observed balance for the verified account.
+- A consistent monochrome design with shared artwork and softly blurred image layers.
+
+Favorite trophies and the custom Tankoin counter appear after the account is identified. Their entrance does not repeat every time you return from another section. If discovery takes longer, a discreet **Searching for account ID** notice appears near the bottom of the lobby and disappears once the ID is found.
+
+<a id="english-publication-description-standard-features"></a>
+
+### Standard Features
+
+**Friend tags.** Give recognized friends one of three color categories and use the available online, offline, clan and category filters. Categories are stored locally for the verified account.
+
+**Augment specifications.** Read supported advantages, disadvantages and numerical effects on equipment statistics. The same feature handles recognized unavailable-item previews and descriptions. Coverage follows the native data and supported item structures; it does not unlock equipment.
+
+**Quick upgrades.** Choose X5, X10, X15 or MAX for supported upgrade controls. A setup confirmation precedes the sequence, and recognized game confirmations remain part of the purchase flow. Upgrades spend real in-game resources; stopping the sequence does not reverse purchases already accepted by the game.
+
+**Enhanced Play button.** Select supported battle modes directly from the lobby while keeping the original game search and navigation behavior.
+
+**Smart paint search.** Search recognized paints by English or Russian names, including multiword queries, in the garage collection.
+
+**Battle history.** Save observed result screens locally, browse battle cards and detailed player statistics, and manage account-specific JSON backups. History is recorded while the feature is enabled; it does not download an account's past battles from the server.
+
+<a id="english-publication-description-streamer-mode"></a>
+
+### Streamer Mode
+
+Three separate switches let you choose what to hide:
+
+- **Hide nickname and XP:** masks supported self-name and experience fields. The client UID line and its separator disappear entirely. Your own name is also masked in the WebGL kill-feed, including kills, deaths, self-destruction and equipment changes.
+- **Hide currency:** masks recognized currency displays, including the extension's Tankoin counter.
+- **Hide supplies:** hides quantity labels on garage inventory cards and replaces supported supply-strip and battle-HUD quantities with zero.
+
+The kill-feed uses a replacement supported by its actual font: the localized label, an English fallback or an empty name. Other players' names, team colors, ranks and event icons remain intact.
+
+These controls change selected on-screen displays. They do not change the account, stock, game servers or exported history. Some supported masked fields intentionally reveal their original value on hover, so check the screen before streaming.
+
+<a id="english-publication-description-advanced-indicators"></a>
+
+### Advanced Indicators
+
+**Overdrive box timer.** Matching observed pickups start an 85-second local countdown. Up to two pickup locations can be learned independently in the current battle. A camera-relative direction segment can point toward the learned location when native telemetry is available. The countdown is an estimate based on observed pickups, not a server-provided spawn guarantee.
+
+**Arcade reload indicator.** Adds a separate white native HUD bar for the local Shaft or Scorpio, using the game's cooldown state.
+
+**Critical shot indicator.** Colors the native reload bar for the supported Thunder, Smoky and Hammer device combinations, with handling for Supercharge and supported equipment/lifecycle changes. Unsupported equipment keeps its normal presentation.
+
+Arcade reload and critical indication are enabled by default. Other configurable features default to disabled.
+
+<a id="english-publication-description-visual-changes"></a>
+
+### Visual Changes
+
+Enable **Modified box pickup animation in battle** for a short flash and scattering fragments when recognized boxes are collected. Pieces fade smoothly and the effect has limits on active fragments and terrain checks. The visual can apply to pickups observed for any player; it does not alter rewards, inventory, spawn points or the game's pickup logic.
+
+The effect can be switched off immediately. Performance depends on the computer, graphics settings and current battle.
+
+**Random battle weather.** Rare, finite episodes use one randomly chosen preset per known battle: sunshower, drizzle, storm, overcast or sunny. Rain is expected in about 24% of eligible battles, with gradual cloud build-up and clearing. Storms bring dense rain, a dark cold-grey atmosphere, wind, rare distant branched lightning and delayed rolling thunder. Native Fog affects cloud lightening at a closer distance. Rain has detailed streaks and brief ground impacts; puddles, waves, track spray, rainbow and birds are removed. Enabling this default-off feature reveals full-width rain and thunder volume sliders; their values persist and apply live. Weather can be disabled live; sound stops on battle exit. Disable the old Tampermonkey weather script before using it.
+
+<a id="english-publication-description-other-integrated-improvements"></a>
+
+### Other Integrated Improvements
+
+- Equipment-change indicators and expanded resistance presentation in supported native statistics.
+- An enemy-weapons popup for supported statistics data.
+- Garage action-button styling and equipped-skin artwork learned from recognized native skin cards.
+- Equipment artwork captured from the native statistics interface for battle-history presentation.
+- A prototype Esports format card based on the native Sport interface; it is a UI prototype, not a separate server ruleset.
+- A welcome window with the installed version and project acknowledgements.
+- Optional Discord Rich Presence in a compatible companion Electron client, including the current screen and available battle details.
+
+The ordinary browser extension does not install a desktop client or a Discord preload bridge. Client support is a separate integration.
+
+<a id="english-publication-description-settings-built-into-the-game"></a>
+
+### Settings Built into the Game
+
+The KASPERSKY tab groups its 14 switches into **Standard features**, **Streamer mode**, **Advanced features** and **Visual changes**. History is in Standard features. The Information panel provides links to the store, source repositories, License and Terms of Use, and FAQ.
+
+Settings use matching panels, one continuous image across each artwork group, sharp text, smooth entrance transitions and scrolling without a visible scrollbar. Supply privacy, box pickup visuals, arcade reload and critical indication apply live. Other changed settings can reload the game when the settings window closes.
+
+<a id="english-publication-description-local-data-and-backups"></a>
+
+### Local Data and Backups
+
+Settings, categories, favorites, cached presentation and recorded history are stored in the current game origin and browser/client profile. Features requiring account ownership use a verified native user ID; nickname changes do not intentionally create a new history owner. Different origins, profiles and clients can have separate data.
+
+Export important history before clearing site data, changing profiles or reinstalling a client. Backups can contain names and other observed battle information; review files before sharing them. There is no built-in cloud history synchronization or automatic support upload.
+
+<a id="english-publication-description-availability-and-project-links"></a>
+
+### Availability and Project Links
+
+The repository provides Manifest V3 builds for desktop Chromium and declares Firefox 128 or newer. A Firefox-layout archive is not a signed add-on. Game updates can require new native mappings or selectors; supported browsers and declared compatibility still need live verification.
+
+Kaspersky's Inventions is an independent project. Use and distribution are governed by its proprietary License and Terms of Use, including retained permission for Tanki Tweaks. A category name is not an endorsement by the game's operator.
+
+- [Chrome Web Store](https://chromewebstore.google.com/detail/tanki-online-kasperskys-i/eemohhfjcdlhmdpflloipmdeeggmofio)
+- [Extension source](https://github.com/AlanKaspersky/Kaspersky-Inventions-for-Tanki-Online)
+- [Companion client source](https://github.com/AlanKaspersky/Tanki-Online-with-KI)
+- [License and Terms of Use](https://drive.google.com/file/d/1j6pNdN7SJZAcRsM2WwLQfzQuWYTcG8ZO/view)
+- [Published FAQ](https://drive.google.com/file/d/15xzcltFZiiC9bbiKaZd3-Le6AGvqoTlz/view)
+- [Project Discord](https://discord.gg/yNeB7Ah752)
+
+<a id="english-publication-description-credits-and-thanks"></a>
+
+### Credits and Thanks
+
+The following names and roles reproduce the current welcome window. AI names are acknowledgements, not required services or dependencies.
+
+| Role | Contributors |
+| --- | --- |
+| Project idea | Kaspersky |
+| Co-creation credits | ChatGPT 6 Luna, ChatGPT 6.1 Sol, DeepSeek V4, Claude Sonnet 5.5, Claude Haiku 4.5, Gemini 3.5 Flash-Lite, Gemini 3.8 Flash, Gemini 3.1 Pro, Grok 4.6 |
+| Quality review credits | Claude Fable 5.1, Claude Opus 5.5, Gemini 4 Argon, ChatGPT 6 Astra |
+| Design | Lukas |
+| Testing | safwan, Tenobyte, KOCMOHABTUK |
+| Coding | safwan, Tenobyte, Shiya |
+| Assistants | Niced, Master |
+
+<a id="russian-publication-description"></a>
+
+## Полное описание для публикации (RU)
+
+Полное русское описание для публикации. Версия расширения **3.0.1**, обновлено **24 октября 2026 года**.
+
+Kaspersky's Inventions дополняет «Танки Онлайн» информацией о вооружении, новым оформлением лобби, локальной историей битв и настройками для стримов. Расширение использует привычные разделы, оригинальные иконки и действия игры.
+
+Нужные функции можно выбрать во вкладке **KASPERSKY** в игровых настройках. Интерфейс поддерживает **русский и английский языки**.
+
+<a id="russian-publication-description-более-удобное-лобби"></a>
+
+### Более удобное лобби
+
+- Плитки разделов с оригинальными игровыми иконками и локализованными подписями.
+- Главная кнопка быстрого боя с надписью по центру, выбор режимов, PRO-битвы и праздничный режим.
+- Перелив metal-shine при наведении и затемнение главной кнопки во время поиска битвы.
+- Панели челленджа и элитного пропуска с понятным прогрессом, игровыми таймерами и индикаторами доступных наград.
+- Сетка избранных трофеев: до двух пушек и двух корпусов с процентами и точными значениями прогресса.
+- Счётчик танкоинов с восстановлением последнего известного значения для подтверждённого аккаунта.
+- Единое монохромное оформление с общей картинкой и мягким размытием фоновых слоёв.
+
+Избранные трофеи и дополнительный счётчик танкоинов появляются после определения аккаунта. Анимация не повторяется при каждом возвращении из разделов. Если поиск ID затянулся, внизу лобби появляется небольшая панель «Поиск ID аккаунта», которая исчезает после получения ID.
+
+<a id="russian-publication-description-функции-обычной-серьёзности"></a>
+
+### Функции обычной серьёзности
+
+**Метки друзей.** Три цветовые категории для распознанных друзей, фильтры по доступным спискам онлайн, офлайн, клана и категориям. Метки сохраняются локально для подтверждённого аккаунта.
+
+**Характеристики устройств.** Поддерживаемые преимущества, недостатки и числовые изменения параметров вооружения. Включает работу с распознанными недоступными предметами и их описаниями. Функция показывает доступные клиенту данные и не открывает предметы для аккаунта.
+
+**Быстрая прокачка.** Последовательности X5, X10, X15 и MAX для поддерживаемых кнопок улучшения. Перед запуском открывается подтверждение, затем используются игровые элементы покупки. Улучшения расходуют реальные игровые ресурсы; остановка не отменяет уже принятые игрой покупки.
+
+**Расширенная кнопка «Играть».** Выбор поддерживаемых режимов прямо в лобби с сохранением игровых механизмов поиска и переходов.
+
+**Умный поиск красок.** Поиск распознанных красок в гараже по русским и английским названиям, в том числе по нескольким словам.
+
+**История битв.** Локальное сохранение увиденных результатов, карточки боёв, подробная статистика игроков и управление JSON-копиями для текущего аккаунта. История собирается при включённой функции и не загружает старые бои с сервера.
+
+<a id="russian-publication-description-режим-стримера"></a>
+
+### Режим стримера
+
+Три независимых переключателя:
+
+- **Скрыть ник и опыт.** Маскирует поддерживаемые поля собственного ника и опыта. Строка UID вместе с разделителем полностью исчезает. Собственное имя также скрывается в WebGL-киллфиде: при убийстве, смерти, самоуничтожении и смене снаряжения.
+- **Скрыть валюту.** Маскирует поддерживаемые значения валюты, включая дополнительный счётчик танкоинов.
+- **Скрыть припасы.** Убирает количество на карточках открытого раздела припасов; в полосе припасов и поддерживаемых счётчиках боевого интерфейса показывает нули.
+
+Для киллфида выбирается надпись, буквы которой есть в его шрифте: «Скрыто», запасной вариант Hidden или пустое имя. Имена других игроков, цвета команд, звания и иконки событий сохраняются.
+
+Эти функции меняют отдельные видимые элементы. Они не меняют аккаунт, количество ресурсов, серверные данные или экспорт истории. Некоторые замаскированные поля намеренно раскрывают исходное значение при наведении — перед трансляцией проверьте экран.
+
+<a id="russian-publication-description-функции-повышенной-серьёзности"></a>
+
+### Функции повышенной серьёзности
+
+**Таймер коробки овердрайва.** После распознанного подбора запускает локальный отсчёт на 85 секунд. В текущей битве могут независимо запоминаться до двух мест подбора. При доступной игровой телеметрии сегмент по краю указывает направление относительно камеры. Таймер оценивает время по наблюдаемым подборам, а не получает гарантированный срок появления от сервера.
+
+**Полоса аркадной перезарядки.** Дополнительная белая полоса для собственного Шафта или Скорпиона, использующая состояние перезарядки игры.
+
+**Индикатор критического выстрела.** Изменение цвета игровой полосы перезарядки для поддерживаемых сочетаний Грома, Смоки и Молота с устройствами. Учитывает поддерживаемые события жизненного цикла, смену снаряжения и суперзаряд. Остальное вооружение сохраняет обычное отображение.
+
+По умолчанию включены только полоса аркадной перезарядки и индикатор критического выстрела. Остальные настраиваемые функции выключены.
+
+<a id="russian-publication-description-графические-изменения"></a>
+
+### Графические изменения
+
+Включите **«Изменённое поведение коробок в битве при подборе»**, чтобы увидеть короткую вспышку и разлетающиеся осколки. Они плавно исчезают; количество активных частей и проверок поверхности ограничено. Эффект может появляться при наблюдаемом подборе любым игроком.
+
+Меняется только анимация: награды, количество припасов, места появления и игровая логика подбора остаются прежними. Переключатель действует без перезагрузки. Влияние на производительность зависит от компьютера, настроек графики и происходящего в бою.
+
+**Случайная погода в битве.** Редкие конечные эпизоды с одним случайным пресетом за бой: солнечный дождь, морось, шторм, пасмурно или солнечно. Дождь ожидается примерно в 24% подходящих боёв; облака сгущаются и рассеиваются плавно. Шторм приносит густой ливень, мрачную холодную атмосферу, ветер, редкие далёкие разветвлённые молнии и запаздывающий раскатистый гром. Игровой «Туман» влияет на осветление облаков на более близком расстоянии. Детализированы капли и короткие удары о поверхность; лужи, волны, брызги гусениц, радуга и птицы удалены. При включении выключенной по умолчанию функции плавно раскрываются ползунки громкости дождя и грома на всю ширину панели. Значения сохраняются и применяются сразу. Выключение применяется сразу, звук прекращается при выходе из боя. Старый погодный скрипт Tampermonkey нужно отключить.
+
+<a id="russian-publication-description-дополнительные-улучшения"></a>
+
+### Дополнительные улучшения
+
+- Индикаторы смены снаряжения и расширенное отображение сопротивлений в поддерживаемой игровой статистике.
+- Окно вооружения противников по распознанным данным статистики.
+- Оформление кнопок гаража и изображения надетых скинов, изученные по игровым карточкам.
+- Сохранение увиденных в игровой статистике иконок собственного снаряжения для истории битв.
+- Прототип карточки киберспортивного формата на основе игрового Sport: это интерфейсный прототип, а не отдельный серверный набор правил.
+- Приветственное окно с установленной версией и благодарностями участникам проекта.
+- Discord Rich Presence в совместимом отдельном Electron-клиенте: текущий раздел и доступные сведения о битве.
+
+Браузерное расширение само не устанавливает настольный клиент или мост Discord. Это отдельная интеграция клиента.
+
+<a id="russian-publication-description-настройки-внутри-игры"></a>
+
+### Настройки внутри игры
+
+Во вкладке KASPERSKY находятся 14 переключателей, разделённых на обычные функции, режим стримера, функции повышенной серьёзности и графические изменения. История битв относится к обычным функциям. Панель «Информация» содержит ссылки на магазин, исходники расширения и клиента, лицензию и FAQ.
+
+Панели имеют общий рисунок в пределах каждой группы, чёткие надписи, плавное появление и прокрутку без видимой полосы. Скрытие припасов, анимация коробок и оба индикатора выстрела работают без перезагрузки. Изменение остальных настроек может вызвать перезагрузку игры при закрытии окна настроек.
+
+<a id="russian-publication-description-данные-и-резервные-копии"></a>
+
+### Данные и резервные копии
+
+Настройки, метки, избранное, последние наблюдаемые значения и история хранятся локально для текущего игрового адреса и профиля браузера или клиента. Для разделения личных данных используется подтверждённый игровой ID. Смена ника сама по себе не создаёт нового владельца истории.
+
+Разные игровые адреса, профили и клиенты могут иметь разные данные. Экспортируйте важную историю перед очисткой данных сайта, сменой профиля или переустановкой клиента. В копиях могут быть ники и другие увиденные сведения о боях; проверяйте файлы перед передачей. Облачной синхронизации истории и автоматической отправки отчётов в поддержку нет.
+
+<a id="russian-publication-description-совместимость-и-ссылки"></a>
+
+### Совместимость и ссылки
+
+Проект содержит Manifest V3 для настольных Chromium-браузеров и заявляет Firefox 128 или новее. Архив с раскладкой Firefox не является подписанным дополнением. Обновления игры могут требовать новых привязок; заявленная поддержка не заменяет проверку конкретной сборки в игре.
+
+Kaspersky's Inventions — независимый проект. Использование и распространение регулируются проприетарной лицензией и условиями пользования с сохранённым разрешением для Tanki Tweaks. Названия категорий функций не означают одобрения со стороны администрации игры.
+
+- [Chrome Web Store](https://chromewebstore.google.com/detail/tanki-online-kasperskys-i/eemohhfjcdlhmdpflloipmdeeggmofio)
+- [Исходный код расширения](https://github.com/AlanKaspersky/Kaspersky-Inventions-for-Tanki-Online)
+- [Исходный код клиента](https://github.com/AlanKaspersky/Tanki-Online-with-KI)
+- [Лицензия и условия пользования](https://drive.google.com/file/d/1j6pNdN7SJZAcRsM2WwLQfzQuWYTcG8ZO/view)
+- [Опубликованный FAQ](https://drive.google.com/file/d/15xzcltFZiiC9bbiKaZd3-Le6AGvqoTlz/view)
+- [Discord проекта](https://discord.gg/yNeB7Ah752)
+
+<a id="russian-publication-description-участники-проекта-и-благодарности"></a>
+
+### Участники проекта и благодарности
+
+Ниже воспроизведены имена и роли из текущего приветственного окна. Упоминания ИИ — благодарности за участие, а не обязательные сервисы или зависимости.
+
+| Роль | Участники |
+| --- | --- |
+| Автор идеи | Kaspersky |
+| Участвовали в создании | ChatGPT 6 Luna, ChatGPT 6.1 Sol, DeepSeek V4, Claude Sonnet 5.5, Claude Haiku 4.5, Gemini 3.5 Flash-Lite, Gemini 3.8 Flash, Gemini 3.1 Pro, Grok 4.6 |
+| Оценивали качество | Claude Fable 5.1, Claude Opus 5.5, Gemini 4 Argon, ChatGPT 6 Astra |
+| Дизайн | Lukas |
+| Тестирование | safwan, Tenobyte, KOCMOHABTUK |
+| Код | safwan, Tenobyte, Shiya |
+| Ассистенты | Niced, Master |
+
+<a id="legacy-weather-userscript"></a>
+
+## Legacy Weather Userscript
+
+The standalone prototype has been replaced by **Settings → KASPERSKY → Visual changes → Random battle weather** in the extension. Disable any previously installed Tampermonkey weather script before enabling it.
+
+The integrated version contains rain, clouds and storm effects. Puddles, waves, track spray, rainbow and birds have been removed. See [weather behavior and maintenance](DOCUMENTATION.md#weather-reference).
 
 ## Acknowledgements
 

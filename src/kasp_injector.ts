@@ -47,10 +47,15 @@ import boxPickupPlans from './generated/box-pickup.json';
 import { installKillFeedPrivacy, selectKillFeedPrivacyPlan, killFeedPrivacyPlanValid } from './core/killFeedPrivacy';
 import type { KillFeedPrivacyPlan } from './core/killFeedPrivacy';
 import killFeedPrivacyPlans from './generated/kill-feed-privacy.json';
+import { installRainWeather } from './core/rainWeather';
+import { selectRainPlan } from './core/rainWeather/patch';
+import type { RainPlan } from './core/rainWeather/patch';
+import rainPlans from './generated/rain-weather.json';
 
 (function (): void {
     'use strict';
     installFeatureDiagnostics(window, 'page');
+    featureScope('rainWeather').run(() => { window.__kaspRain=installRainWeather(window); });
     featureScope('supplyPrivacy').run(() => installSupplyPrivacy(window));
     featureScope('boxPickup').run(() => installBoxPickup(window));
 
@@ -299,8 +304,14 @@ import killFeedPrivacyPlans from './generated/kill-feed-privacy.json';
                                 if (killFeedPrivacyPlan && killFeedPrivacyPlanValid(originalCode, killFeedPrivacyPlan)) prepared.push(killFeedPrivacyPlan);
                                 else console.warn('[KI Kill feed privacy] Text mapping unavailable');
                             } catch { console.warn('[KI Kill feed privacy] Text mapping failed'); }
+                            let rainPlan: RainPlan | undefined;
+                            try {
+                                rainPlan=await selectRainPlan(originalCode,rainPlans.plans as RainPlan[]);
+                                if(rainPlan)prepared.push(rainPlan);
+                            } catch { console.warn('[KI Weather] Render mapping unavailable; native weather is unchanged'); }
                             const merged = mergeClientPatchPlans(originalCode, prepared);
                             code = merged.code;
+                            if(rainPlan&&merged.rejected.includes(rainPlan))console.warn('[KI Weather] Render patch conflict; weather disabled');
                             if (killFeedPrivacyPlan && merged.rejected.includes(killFeedPrivacyPlan)) console.warn('[KI Kill feed privacy] Text patch conflict');
                             if (boxPickupPlan && merged.rejected.includes(boxPickupPlan)) console.warn('[KI Box pickup] Animation patch conflict; using the original animation');
                             if (supplyPrivacyPlan && merged.rejected.includes(supplyPrivacyPlan)) console.warn('[KI Supply privacy] Count label patch conflict');

@@ -3,7 +3,7 @@ import { state } from './state';
 export const SETTINGS_KEYS = [
   'k_ext_btn', 'k_augments', 'k_auto_upgrade', 'k_friends',
   'k_paints', 'k_hideCurrency', 'k_hideNicknameXP', 'k_hideSupplies', 'k_history', 'k_overdrive_timer',
-  'k_arcade_reload', 'k_critical_indicator', 'k_box_pickup',
+  'k_arcade_reload', 'k_critical_indicator', 'k_box_pickup', 'k_rain_weather',
 ] as const;
 
 export type SettingKey = typeof SETTINGS_KEYS[number];

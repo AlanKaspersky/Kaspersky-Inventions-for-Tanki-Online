@@ -171,6 +171,8 @@ export const gameDOM = {
         eliteCircle: '.EventBattlePassLobbyComponentStyle-progressBar',
     },
     trophies: {
+        progressText: 'h4',
+        rewards: '.MainQuestComponentStyle-rewardsContainer',
         rewardImage: "[class*=\"rewardsContainer\"] [class*=\"-backgroundImageContain\"]",
         cards: ".MainQuestComponentStyle-cardPlayCommon, .TableMainQuestComponentStyle-commonTableMainQuest, .MainQuestComponentStyle-cardPlay",
         favorite: ".PaintsCollectionComponentStyle-favoriteIconContainer",

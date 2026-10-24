@@ -49,9 +49,9 @@ export function startBoot() {
         if (state.friendsMenuOpen) {
             modules.customFriends();
         }
-        if (state.currentScreen === 'lobby' || state.currentScreen === 'garage' || state.currentScreen === 'match_results') {
-            modules.customTrophies();
-        }
+        // Quest pages do not always carry a screen marker (notably in Electron).
+        // The adapter checks actual trophy nodes, rather than a stale loading/battle state.
+        modules.customTrophies();
         if (state.currentScreen === 'garage') {
             modules.autoUpgrade();
             modules.augmentSpecs();

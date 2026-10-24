@@ -1,6 +1,15 @@
 # Failure isolation and manual maintenance
 
-Source reference: 3.0.0, October 22, 2026. This guide can be followed without AI.
+Source reference: 3.0.1, October 24, 2026. This guide can be followed without AI.
+
+## Navigation
+
+- [Failure isolation](#what-stops-and-when)
+- [Diagnostics](#controls-and-diagnostics)
+- [Support report](#support-report-template)
+- [Weather diagnostics and validation](#weather-maintenance)
+- [Electron deployment and verification](#electron-client-maintenance)
+- [Documentation distribution and publication](#documentation-publication)
 
 ## What stops, and when
 
@@ -13,6 +22,29 @@ Disabling is idempotent. Cleanup runs in reverse registration order; one failed 
 JavaScript cannot interrupt a synchronous callback that never returns. Duration diagnostics are collected only after a callback returns and do not prevent a hang. A promise or an already submitted game action/database transaction is not undone by disabling its feature. Global manifest styles are not unloaded, and already inserted game call sites remain until a full page reload. These boundaries must not be described as complete rollback of the whole client.
 
 ## Controls and diagnostics
+
+### Tool and test categories
+
+| Location | Purpose |
+| --- | --- |
+| `tools/tests/` | Automated regression tests, grouped into accounts, core, lobby, garage, battle, graphics, privacy, history, injector, AST, client and documentation |
+| `tools/tests/helpers/` | Shared VM/feature fixtures; not standalone tests |
+| `tools/ast/` | Offline native-bundle analyzers and edit/template generators |
+| `tools/prepare/` | Preparation CLIs used by the existing `npm run prepare:*` commands |
+| `tools/parser/` | Read-only game-bundle parser CLI |
+| `tools/browser/` | Isolated browser/layout/WebGL/audio checks and their shared Playwright launcher |
+| `tools/validation/` | Optional checks against a supplied real game bundle |
+| `tools/build/` | Release packaging |
+| `tools/client/discord/` | Companion-client bridge reference sources and configuration |
+| `artifacts/qa/` | Ignored browser reports and screenshots; generated output |
+
+Run all automatic regressions with `npm test`, or select categories with `npm test -- privacy history` and `npm test -- core documentation`. `npm run check` still includes type checking and the complete automatic suite. The runner searches only `tools/tests/`, independently of browser output directories.
+
+Browser checks are separate: `npm run test:browser:settings`, `npm run test:browser:trophies`, and `npm run test:browser:weather`. They use temporary browser profiles, never the user's live game profile. Install Playwright or set `PLAYWRIGHT_MODULE_PATH` to its module directory; the bundled Codex runtime is detected when present. `PLAYWRIGHT_BROWSER_PATH` can select a browser executable; otherwise Windows uses installed Edge when available, with Playwright's bundled Chromium as the fallback.
+
+For an optional large-bundle check, run `node tools/validation/rain-bundle.cjs ./main.js`. It reads the supplied local bundle and verifies weather-template adaptation, patch merging and JavaScript syntax without executing game code.
+
+Client updater tests need the separate client's actual source. Set `KI_CLIENT_SOURCE` to its `src/main.ts`, then run `npm run test:client`. Without that variable, only the updater check is explicitly skipped; the Discord bridge tests still run. The updater tests extract the relevant functions and simulate file/network/extension APIs without starting Electron or writing to a user profile.
 
 Run `npm run check` for local strict type checking and all regression tests. Release/ZIP commands require these checks; no GitHub Actions workflow is installed. Source contracts keep native TypeScript selectors/classes in `src/core/gameDOM.ts` and reject explicit `any`. Check related static CSS separately. The shared `src/core/pageMessages.ts` bridge validates window/origin and message schemas, but cannot authenticate another script on the same page. Trophy panels create DOM nodes with literal text and validated game artwork. Garage skin observations still run every 250 ms; bounded parsed-storage and CSS caches avoid repeated work without skipping mounted-skin observations.
 
@@ -69,15 +101,19 @@ Cleanup failure is visible as `cleanupErrors`. It is not a successful restoratio
 
 The existing `k_hideNicknameXP` switch masks only the local nickname in the native action log, including both attacker and victim positions and join/leave entries. The offline mapping intercepts the string at text measurement and glyph generation; original message objects, account identity, ranks, team colors and icons are preserved. Mask changes mark the native renderer dirty so existing entries update without waiting for another event. English and Russian labels follow the game language. Runtime observers keep only bounded weak renderer references and restore native presentation on disable or quarantine.
 
-Refresh with `npm run prepare:kill-feed-privacy -- ./main.js` and run `node --test tools/kill-feed-privacy.test.cjs`. Unsupported mappings leave the original action log unchanged. No global font hook, game model mutation, prototype trap or DOM text replacement is used.
+Refresh with `npm run prepare:kill-feed-privacy -- ./main.js` and run `node --test tools/tests/privacy/kill-feed-privacy.test.cjs`. Unsupported mappings leave the original action log unchanged. No global font hook, game model mutation, prototype trap or DOM text replacement is used.
 
-Always validate replacement characters against the actual bitmap glyph table in both measurement and geometry paths. An unsupported Cyrillic character causes the native width loop to dereference an undefined glyph, interrupting rendering. Prefer the localized label, then `Hidden`, then an empty string; never fall back to the real local nickname while masking is enabled. The regression executes the native width/geometry loops for suicide, equipment changes, attacker and victim entries. See [the renderer investigation](docs/kill-feed-rendering.md) for the verified GuiMain queue and call chain.
+Always validate replacement characters against the actual bitmap glyph table in both measurement and geometry paths. An unsupported Cyrillic character causes the native width loop to dereference an undefined glyph, interrupting rendering. Prefer the localized label, then `Hidden`, then an empty string; never fall back to the real local nickname while masking is enabled. The regression executes the native width/geometry loops for suicide, equipment changes, attacker and victim entries. See [the renderer investigation](DOCUMENTATION.md#kill-feed-rendering-investigation) for the verified GuiMain queue and call chain.
 
 ## Box pickup visuals
 
 The **Visual changes** settings category contains `k_box_pickup`, disabled by default. It replaces only the native pickup presentation with a 0.22-second flash and fragments that fade between 2.2 and 3 seconds. Native pickup processing and rewards are unchanged. Native completion uses the original cleanup/callback order exactly once. Toggle off to clear owned fragments and restore normal presentation; page-world polling covers isolated-world settings events.
 
-Refresh the offline contract after a game update with `npm run prepare:box-pickup -- ./main.js`, then run `node --test tools/box-pickup.test.cjs` and `npm run check`. Acorn runs only in the build tool. Runtime uses validated edits or consistent templates; an unsupported or conflicting contract leaves the original animation intact. No `Object.prototype` traps or permanent native prototype replacements are installed.
+It also contains default-off `k_rain_weather`. Confirm enabling immediately expands the full-width localized rain/thunder volume sliders; verify independent live levels, mute, persistence and collapse on disable. Check native Fog on/off, storm depth against map geometry and HUD, one episode after re-entry/toggle/reload of the same known battle, immediate audio stop on exit, and owned GPU cleanup on disable/context loss. Remove the old Tampermonkey weather copy. Prepare its render/fog contract with `npm run prepare:rain-weather -- ./main.js`; unknown contracts must skip weather. See [weather maintenance and validation](DOCUMENTATION.md#weather-reference). Browser QA uses a synthetic scene and is not a live-game FPS benchmark.
+
+Weather v2 requires both native stages (after SkyBox and before SpritesOnTop). Never reintroduce a camera-screen/depth mask into the 10 Hz cloud cache or condition per-frame storm grading on depth-copy success. Test yaw/pitch, camera-height changes, pink fog maps, transparent foliage/parachutes, and cloud-only onset/clearing. Rare lightning must use its world-space branched mesh, not a periodic independent screen strobe. Confirm one delayed thunder per strike, no non-storm strikes, stable rain RMS and bounded gain automation. Lightning VAO/array-buffer state and optional half-float cloud targets must leave native rendering intact.
+
+Refresh the offline contract after a game update with `npm run prepare:box-pickup -- ./main.js`, then run `node --test tools/tests/battle/box-pickup.test.cjs` and `npm run check`. Acorn runs only in the build tool. Runtime uses validated edits or consistent templates; an unsupported or conflicting contract leaves the original animation intact. No `Object.prototype` traps or permanent native prototype replacements are installed.
 
 The runtime caps fragments at 140, bounds flashes at 64, limits ground probes to six per frame, and schedules animation frames only while fragments exist. It clears resources on world replacement, battle canvas removal, battle-presence exit, pagehide, disable and feature quarantine. Native pooled renderers are returned once. Optional BufferGeometry fragments restore the original geometry and dispose only their owned geometry before pooling; engines without that interface keep scaled native geometry. Do not dispose shared game geometry or materials.
 
@@ -107,18 +143,18 @@ This JSON is a separate recovery format, not an ordinary history import file. Re
 
 | Contract | Runtime / offline analyzer |
 | --- | --- |
-| Local Shaft/Scorpio state, HUD factory/projection/lifecycle | `src/core/arcadeReload.ts`, `tools/arcade-ast.cjs`, `tools/arcade-render.cjs` |
-| Local critical readiness, shots/lifecycle/damage, Supercharge, Terminator | `src/core/criticalIndicator.ts`, `tools/critical-ast.cjs`, `tools/critical-events-ast.cjs`, `tools/critical-supercharge.cjs`, `tools/critical-vehicle.cjs` |
-| Overdrive pickup model and position | `src/core/bonusPickup.ts`, `tools/overdrive-ast.cjs` |
-| Augment descriptions/properties and equipment baselines | `src/core/gameAugments.ts`, `tools/augments-ast.cjs` |
-| Native unavailable descriptions/cards and inventory | `src/core/garageDetails.ts`, `garageItems.ts`, `garageInventory.ts`; matching `tools/*-ast.cjs` |
-| Account store, native User ID and remote player identities | `src/core/accountIdentityNative.ts`, `accountIdentity.ts`, `tools/battle-presence-ast.cjs` |
+| Local Shaft/Scorpio state, HUD factory/projection/lifecycle | `src/core/arcadeReload.ts`, `tools/ast/arcade-ast.cjs`, `tools/ast/arcade-render.cjs` |
+| Local critical readiness, shots/lifecycle/damage, Supercharge, Terminator | `src/core/criticalIndicator.ts`, `tools/ast/critical-ast.cjs`, `tools/ast/critical-events-ast.cjs`, `tools/ast/critical-supercharge.cjs`, `tools/ast/critical-vehicle.cjs` |
+| Overdrive pickup model and position | `src/core/bonusPickup.ts`, `tools/ast/overdrive-ast.cjs` |
+| Augment descriptions/properties and equipment baselines | `src/core/gameAugments.ts`, `tools/ast/augments-ast.cjs` |
+| Native unavailable descriptions/cards and inventory | `src/core/garageDetails.ts`, `garageItems.ts`, `garageInventory.ts`; matching `tools/ast/*-ast.cjs` |
+| Account store, native User ID and remote player identities | `src/core/accountIdentityNative.ts`, `accountIdentity.ts`, `tools/ast/battle-presence-ast.cjs` |
 | Garage skin selection/ownership/mounted ID | `readGarageCosmeticCard()` / `installGarageSkinCardsBridge()` in `src/core/gameAugments.ts`; `src/modules/customGarageSkins.ts` |
-| Overdrive direction | `src/core/overdriveDirection.ts`, `tools/overdrive-direction-ast.cjs`; direct CLI `node tools/prepare-overdrive-direction.cjs ./main.js` |
-| Supply-count privacy | `src/core/supplyPrivacy.ts`, `src/modules/hideSupplies.ts`, `tools/supply-privacy-ast.cjs` |
-| Box pickup effects | `src/core/boxPickup.ts`, `tools/box-pickup-ast.cjs` |
-| WebGL action-log name privacy | `src/core/killFeedPrivacy.ts`, `tools/kill-feed-privacy-ast.cjs` |
-| User actions and loaded battle statistics | `src/core/userActions.ts`, `src/core/battleStatistics.ts`; matching `tools/*-ast.cjs` |
+| Overdrive direction | `src/core/overdriveDirection.ts`, `tools/ast/overdrive-direction-ast.cjs`; direct CLI `node tools/prepare/prepare-overdrive-direction.cjs ./main.js` |
+| Supply-count privacy | `src/core/supplyPrivacy.ts`, `src/modules/hideSupplies.ts`, `tools/ast/supply-privacy-ast.cjs` |
+| Box pickup effects | `src/core/boxPickup.ts`, `tools/ast/box-pickup-ast.cjs` |
+| WebGL action-log name privacy | `src/core/killFeedPrivacy.ts`, `tools/ast/kill-feed-privacy-ast.cjs` |
+| User actions and loaded battle statistics | `src/core/userActions.ts`, `src/core/battleStatistics.ts`; matching `tools/ast/*-ast.cjs` |
 | Shared native DOM selectors | `src/core/gameDOM.ts`; verify related CSS separately |
 
 The runtime has no full JavaScript AST parser. Generated mappings still depend on native structures; an accepted structural match can remain semantically wrong. Missing data is not proof of a zero value, absent effect, or critical readiness.
@@ -132,7 +168,7 @@ node --test $tests
 npm run build:js
 ```
 
-Focused failure tests: `tools/feature-runtime.test.cjs`, `tools/history-unassigned.test.cjs`, `tools/arcade-reload.test.cjs`, `tools/critical-indicator.test.cjs`, and `tools/battle-history-lifecycle.test.cjs`. Test fixtures execute the real scope implementation through `tools/test-feature-context.cjs`.
+Focused failure tests: `tools/tests/core/feature-runtime.test.cjs`, `tools/tests/history/history-unassigned.test.cjs`, `tools/tests/battle/arcade-reload.test.cjs`, `tools/tests/battle/critical-indicator.test.cjs`, and `tools/tests/history/battle-history-lifecycle.test.cjs`. Test fixtures execute the real scope implementation through `tools/tests/helpers/feature-context.cjs`.
 
 Do not add expensive graph walks, JSON serialization, DOM scans, file writes or network work to per-frame game callbacks. Work already performed by native game code is not a justification to repeat it inside the hook. Profile a live battle and record timings before expanding responsibilities.
 
@@ -209,7 +245,7 @@ There are fourteen generated plan sets. Thirteen have npm preparation scripts; t
 | Supply text | `npm run prepare:supply-privacy -- ./main.js` |
 | Box pickup visual | `npm run prepare:box-pickup -- ./main.js` |
 | Kill-feed text | `npm run prepare:kill-feed-privacy -- ./main.js` |
-| Overdrive bearing | `node tools/prepare-overdrive-direction.cjs ./main.js` |
+| Overdrive bearing | `node tools/prepare/prepare-overdrive-direction.cjs ./main.js` |
 
 The last four fixed-output tools do not implement the original ten tools' optional `--out`/`--help` interface. Work on a local unmodified game bundle, preserve previous generated plans and inspect each diff. Multiple command outputs are not a transaction; stop on failure. Full preparation is needed only when deliberately refreshing all mappings, not after every Markdown or CSS edit.
 
@@ -220,12 +256,12 @@ Before distributing a reviewed build:
 1. Compare manifest, package and lockfile version fields. A documentation date is not a version bump.
 2. Run `npm run check` and regenerate JavaScript if source/plans changed. Check both generated bundles' syntax.
 3. Verify only the relevant live flows plus any native collision/regression cases affected by the change. Fixture success does not establish live-server acceptance or performance.
-4. Inspect package inputs: runtime directories, `docs/` and the three root guides plus license. Source tools remain separate.
+4. Inspect package inputs: runtime directories and the three root guides plus license. Source tools remain separate.
 5. Inspect both ZIP layouts: ordinary archive has a versioned outer folder; Firefox archive has a root manifest. Neither workflow signs an add-on.
 6. Preserve previous same-version releases before running the packager; it replaces its output folder and both ZIPs.
 7. Check README/technical/FAQ/guide links, setting counts/defaults and exact case-sensitive keys. Keep the direction CLI's special invocation documented.
 8. Compare publication credits with the actual welcome template. In the full description they belong at the end. AI credits are acknowledgements, not npm dependencies.
-9. Keep short browser metadata within its length constraint. Full store copy belongs in the English/Russian description files.
+9. Keep short browser metadata within its length constraint. Full store copy belongs in the English/Russian publication sections of README.md.
 10. Confirm which artifacts were changed locally and which were actually published. Editing local guides does not update a store listing or a hosted Drive PDF.
 
 For the box effect, cover disabled, one pickup, simultaneous pickups, piece caps, world replacement and cleanup twice. For kill-feed masking, cover localized/fallback/empty labels and every own-name position. For history, cover no-ID capture, current-owner import, duplicate IDs, transaction completion and navigation during async work. For client presence, verify the rebuilt host/preload and real Discord separately from socket fixtures.
@@ -246,3 +282,126 @@ Whether the issue repeats:
 ```
 
 Review diagnostics and exports before sharing. Names, account IDs, battle participants and equipment can be present. Share the smallest relevant snapshot; never include passwords, login tokens, cookies or an entire browser profile. The project does not automatically upload these diagnostics.
+
+<a id="weather-maintenance"></a>
+
+## Weather Diagnostics and Validation
+
+<a id="weather-maintenance-maintenance-and-validation"></a>
+
+### Maintenance and validation
+
+For a manual in-battle preview, first enable the setting, then run `window.__kaspRain.force("storm")` in the game's page console. Clouds/rain ramp up over 24 seconds, hold for 120 seconds and clear over 30 seconds. An optional second argument changes the hold, clamped to 15–180 seconds. `window.__kaspRain.clearOverride()` returns to the original random plan. The preview is temporary, does not rewrite the saved plan, and clears on battle exit or disabling the feature. Other retained preset IDs can also be previewed. Reload the extension and game after rebuilding to expose a newly added command.
+
+`src/core/rainWeather/` owns scheduling, rendering, sound, numeric volume preferences and the prepared patch selector. `k_rain_weather` is a boolean origin setting, shared across accounts. `k_rain_volume` and `k_thunder_volume` store independent 0–1 multipliers in localStorage; they are separate from the boolean settings cache. Invalid/missing values fall back to 1; finite values are bounded to 0–1. Separate gain buses smoothly apply changes even to already scheduled thunder, without rerolling weather or restarting the rain loop. The runtime reads them on settings/storage events and its existing 200ms synchronization pass. `ki.rain-episodes.v1` stores at most 24 recent plans in sessionStorage; it contains battle IDs and timing, not account credentials.
+
+`node tools/prepare/prepare-rain-weather.cjs ./main.js` prepares `src/generated/rain-weather.json` from an unmodified local game bundle. The **ki-rain-v2** AST contract inserts two guarded callbacks: after the native SkyBox pass and before SpritesOnTop/HUD. It maps the camera, context and native fog fields. Both stages and exact hashes or validated structural templates are required; old single-stage v1 plans are rejected. Missing/ambiguous contracts skip weather instead of guessing a render target. Rebuild JavaScript after changing a plan.
+
+The renderer restores the game's WebGL state, including VAO/array-buffer bindings for the lightning mesh, and disposes only its own resources. It uses six shader programs, one instanced rain call and cached clouds. A bolt mesh is generated/uploaded only when a new visible strike is encountered and rendered in one bounded instanced call. It does not patch global WebGL/RAF methods or read pixels back to the CPU. Depth copies, full-screen passes, shader compilation and overdraw still have a cost, particularly at high resolutions.
+
+Validation includes schedule/lifecycle and independent volume-bus unit tests, native stage-order and prepared AST tests, and isolated Edge/WebGL2 checks of shader compilation, state restoration, fog, the 14,000-instance storm, full-width localized slider expansion/collapse/persistence, audio exit and live cleanup. Regression checks reproduce the former transition flicker, compare cached/fresh sky views after camera rotation, raise the camera by 5,000 units, supply pink fog and preserve transparent sprites. Eight depth-buffer variants include multisampling and depth textures. The browser scene is synthetic. Actual game appearance, compatibility with its framebuffer configuration and FPS on a player's GPU require a live-game check; no FPS improvement or zero-cost claim follows from these tests.
+
+<a id="electron-client-maintenance"></a>
+
+## Electron Client Deployment and Verification
+
+Reference file names in this section are relative to `tools/client/discord/` in the extension source checkout. The bridge contract and configuration are documented in [DOCUMENTATION.md](DOCUMENTATION.md#electron-client-integration).
+
+<a id="electron-client-maintenance-build-and-run"></a>
+
+### Build and run
+
+Build the extension in its repository:
+
+```powershell
+npm run build:js
+```
+
+Build the client from `C:/Project/tanki-online-with-ki`:
+
+```powershell
+npm run build
+npm run start
+```
+
+For a new Windows installer, use the client's existing `npm run make` command. The already installed executable needs to be replaced by the rebuilt client once; updating the extension alone cannot add a preload bridge to it.
+
+The client downloads its extension through its existing update mechanism. Ensure it loads the extension version containing `setupDiscordPresence`; rebuilding local extension files alone does not publish that version to the client's update source.
+
+The current client selects the keyed Chrome Web Store copy of KI. Same-name local/keyless copies no longer take precedence and are skipped. If no store copy exists, it downloads one into a free managed directory without overwriting local files, and retains the store key in the extracted manifest for later startups. Other extensions still load normally. Update checks and loading have separate error handling, so an offline update endpoint does not block an installed copy. The Discord-only main.patch does not modify extension selection; use the current client implementation for this policy. Fully close the client before replacing files: a running page can retain old scripts.
+
+Start the Discord desktop application, enable activity sharing in Discord and open the rebuilt client. The status should contain the application name, current section and nickname. If Discord starts later, the bridge retries automatically. Changed activity is coalesced for up to fifteen seconds to limit RPC traffic; clearing is immediate.
+
+<a id="electron-client-maintenance-verification"></a>
+
+### Verification
+
+From the extension repository:
+
+```powershell
+npx tsc --project tools/client/discord/tsconfig.json
+node --test tools/tests/client/discord-presence.test.cjs
+```
+
+The local `tsconfig.json` and `preload-electron.d.ts` let the editor check the preload template without installing Electron in the extension repository. The declaration covers only the IPC method this template uses; it supplies no runtime implementation. Keep these two files here when copying `preload.ts` into the client, where Electron's own type declarations validate it.
+
+Tests use a simulated Discord socket to verify validation, handshake, partial messages, ping/pong, activity changes, reconnect and cleanup. They do not confirm acceptance by a real Discord account or the configured application; that requires running the rebuilt client with Discord open.
+
+<a id="electron-client-maintenance-deployment-and-recovery-checklist"></a>
+
+### Deployment and Recovery Checklist
+
+1. Keep the client and extension repositories distinct. Compile the client's preload/main modules in the client, and the extension's IIFEs in the extension.
+2. Verify that the configured Application ID is present in the packaged client, without adding a token or Client Secret.
+3. Check the logged store-managed KI path/version and skipped duplicates. A local/keyless KI copy must not override the managed copy; older clients need the updated loader.
+4. Close the running client before replacing extension files. Relaunch it and fully reload the game so old MAIN hooks do not remain active.
+5. Verify lobby/session time, a timed battle, map/mode, party capacity, nickname privacy, minimize/restore, Discord reconnect and clear-on-close.
+6. Inspect extension-side capture errors separately from preload validation, main-process IPC acceptance and Discord socket failures.
+7. Back up local battle history before moving profiles or reinstalling a host. The preload bridge does not synchronize extension web storage between clients.
+
+The reference socket tests and local type declarations validate the bundled bridge's contracts. They cannot prove the target host's packaging paths, installed extension selection, operating-system IPC availability or Discord activity settings. Record these separately in a support report.
+
+<a id="electron-client-maintenance-related-documentation"></a>
+
+### Related Documentation
+
+- [Extension overview and installation](README.md)
+- [Full technical reference](DOCUMENTATION.md)
+- [Manual maintenance and failure isolation](MAINTENANCE.md)
+- [User FAQ](README.md#faq)
+- [License and Terms of Use](LICENSE.txt)
+
+Reference reviewed with extension **3.0.1** on **October 24, 2026**. These instructions are part of the root guides; the reference files in tools/client/discord/ are not an automatically installed companion executable.
+
+<a id="documentation-publication"></a>
+
+## Documentation Distribution and Publication
+
+Extension **3.0.1** · Source review **October 24, 2026**
+
+| Reference / section | Purpose | Language |
+| --- | --- | --- |
+| [Project README](README.md) | Installation, configuration, complete feature overview and final credits | English |
+| [Technical reference](DOCUMENTATION.md) | Architecture, source contracts, native mappings, state and build workflow | English |
+| [Maintenance guide](MAINTENANCE.md) | Failure isolation, diagnostics, regression and release checklists | English |
+| [FAQ](README.md#faq) | 74 questions covering actual shipped behavior and limitations | English |
+| [Random battle weather](DOCUMENTATION.md#weather-reference) | Scheduling, rain/thunder volume controls, rendering, fog and validation limits | English |
+| [User guide](README.md#russian-user-guide) | Player instructions, settings, privacy, battle/history workflows and recovery | Russian |
+| [Publication description](README.md#english-publication-description) | Full public feature copy with current credits at the end | English |
+| [Описание для публикации](README.md#russian-publication-description) | Полное описание функций с благодарностями в конце | Russian |
+| [Kill-feed investigation](DOCUMENTATION.md#kill-feed-rendering-investigation) | Specific verified render chain and font-safety regression | Russian |
+| [License and Terms of Use](LICENSE.txt) | Proprietary international edition with retained Tanki Tweaks permission | English |
+| [Discord client integration](DOCUMENTATION.md#electron-client-integration) | Companion preload/main-process contract; deployment and verification are in this maintenance guide | English |
+
+<a id="documentation-publication-which-copy-changes-when"></a>
+
+### Which Copy Changes When?
+
+- The three root guides describe the reviewed source tree.
+- Release packaging copies the three root guides and license; an old ZIP keeps its old contents until rebuilt.
+- The client integration reference is split between DOCUMENTATION.md and MAINTENANCE.md. The reference source files remain under tools/client/discord/ and are not runtime packaging inputs.
+- Google Drive License/FAQ links in settings point to separately published documents. Local Markdown edits do not replace their remote content.
+- The README publication sections are publication drafts. They do not automatically update a store listing.
+- `_locales/en/messages.json` and `_locales/ru/messages.json` supply short browser metadata. They are separate from the full descriptions and the in-game dictionaries.
+
+Source code is authoritative for behavior. Declared support, unit/fixture checks and real-game verification are separate kinds of evidence. Do not turn diagnostic experiments into advertised features without a corresponding implementation.

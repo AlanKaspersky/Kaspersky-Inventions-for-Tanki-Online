@@ -120,7 +120,8 @@
         "k_overdrive_timer",
         "k_arcade_reload",
         "k_critical_indicator",
-        "k_box_pickup"
+        "k_box_pickup",
+        "k_rain_weather"
       ];
       settingsCache = /* @__PURE__ */ new Map();
       for (const key of SETTINGS_KEYS) {
@@ -631,6 +632,8 @@
           eliteCircle: ".EventBattlePassLobbyComponentStyle-progressBar"
         },
         trophies: {
+          progressText: "h4",
+          rewards: ".MainQuestComponentStyle-rewardsContainer",
           rewardImage: '[class*="rewardsContainer"] [class*="-backgroundImageContain"]',
           cards: ".MainQuestComponentStyle-cardPlayCommon, .TableMainQuestComponentStyle-commonTableMainQuest, .MainQuestComponentStyle-cardPlay",
           favorite: ".PaintsCollectionComponentStyle-favoriteIconContainer",
@@ -963,6 +966,28 @@
     }
   });
 
+  // src/core/rainWeather/preferences.ts
+  function readWeatherVolumes(storage) {
+    const read = (key) => {
+      try {
+        const raw = storage.getItem(key);
+        if (raw === null || raw.trim() === "") return 1;
+        const value = Number(raw);
+        return Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 1;
+      } catch {
+        return 1;
+      }
+    };
+    return { rain: read(WEATHER_VOLUME_KEYS.rain), thunder: read(WEATHER_VOLUME_KEYS.thunder) };
+  }
+  var WEATHER_VOLUME_KEYS;
+  var init_preferences = __esm({
+    "src/core/rainWeather/preferences.ts"() {
+      "use strict";
+      WEATHER_VOLUME_KEYS = { rain: "k_rain_volume", thunder: "k_thunder_volume" };
+    }
+  });
+
   // src/core/coreSettings.ts
   var coreSettings;
   var init_coreSettings = __esm({
@@ -973,21 +998,26 @@
       init_utils();
       init_hideNickname();
       init_accountIdentity();
+      init_preferences();
       coreSettings = (() => {
         let needsReload = false;
         let active = false;
         let stopArt = null;
-        const liveSettings = /* @__PURE__ */ new Set(["k_arcade_reload", "k_critical_indicator", "k_hideSupplies", "k_box_pickup"]);
+        const liveSettings = /* @__PURE__ */ new Set(["k_arcade_reload", "k_critical_indicator", "k_hideSupplies", "k_box_pickup", "k_rain_weather"]);
         let initialSettingsState = {};
         const t = {
           RU: {
             tooltip: "\u0422\u0440\u0435\u0431\u0443\u0435\u0442\u0441\u044F \u043F\u0435\u0440\u0435\u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0430",
             information: "\u0418\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044F",
+            rainVolume: "\u0413\u0440\u043E\u043C\u043A\u043E\u0441\u0442\u044C \u0434\u043E\u0436\u0434\u044F",
+            thunderVolume: "\u0413\u0440\u043E\u043C\u043A\u043E\u0441\u0442\u044C \u0433\u0440\u043E\u043C\u0430",
             accountNotice: "ID \u0430\u043A\u043A\u0430\u0443\u043D\u0442\u0430 \u043F\u043E\u043A\u0430 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D. \u0418\u0441\u0442\u043E\u0440\u0438\u044F \u0438 \u043B\u0438\u0447\u043D\u043E\u0435 \u0438\u0437\u0431\u0440\u0430\u043D\u043D\u043E\u0435 \u0432\u0440\u0435\u043C\u0435\u043D\u043D\u043E \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u044B; \u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u0435 \u0434\u0430\u043D\u043D\u044B\u0435 \u043E\u0441\u0442\u0430\u044E\u0442\u0441\u044F \u043D\u0430 \u043C\u0435\u0441\u0442\u0435."
           },
           EN: {
             tooltip: "Requires reload",
             information: "Information",
+            rainVolume: "Rain volume",
+            thunderVolume: "Thunder volume",
             accountNotice: "Account ID is unavailable. History and personal favorites are temporarily unavailable; saved data is preserved."
           }
         };
@@ -1060,6 +1090,12 @@
                 label: { RU: "\u0418\u0437\u043C\u0435\u043D\u0451\u043D\u043D\u043E\u0435 \u043F\u043E\u0432\u0435\u0434\u0435\u043D\u0438\u0435 \u043A\u043E\u0440\u043E\u0431\u043E\u043A \u0432 \u0431\u0438\u0442\u0432\u0435 \u043F\u0440\u0438 \u043F\u043E\u0434\u0431\u043E\u0440\u0435", EN: "Modified box pickup animation in battle" },
                 description: { RU: "\u0412\u0441\u043F\u044B\u0448\u043A\u0430 \u0438 \u0440\u0430\u0437\u043B\u0435\u0442\u0430\u044E\u0449\u0438\u0435\u0441\u044F \u043E\u0441\u043A\u043E\u043B\u043A\u0438", EN: "A flash and scattering fragments" },
                 default: false
+              },
+              {
+                id: "k_rain_weather",
+                label: { RU: "\u0421\u043B\u0443\u0447\u0430\u0439\u043D\u0430\u044F \u043F\u043E\u0433\u043E\u0434\u0430 \u0432 \u0431\u0438\u0442\u0432\u0435", EN: "Random battle weather" },
+                description: { RU: "\u0420\u0435\u0434\u043A\u0438\u0439 \u0434\u043E\u0436\u0434\u044C \u0438 \u0433\u0440\u043E\u0437\u0430 \u0441 \u043F\u043B\u0430\u0432\u043D\u043E\u0439 \u0441\u043C\u0435\u043D\u043E\u0439 \u043E\u0431\u043B\u0430\u043A\u043E\u0432", EN: "Occasional rain and storms with gradual cloud transitions" },
+                default: false
               }
             ]
           }
@@ -1098,6 +1134,15 @@
             stopArt = null;
             const lang = state.lang;
             const dict = t[lang] || t.EN;
+            const volumes = readWeatherVolumes(localStorage);
+            const weatherControls = (enabled) => `<div class="kasp-weather-options ${enabled ? "kasp-expanded" : ""}" id="kasp-weather-options" ${enabled ? "" : "inert"}>
+                <div class="kasp-weather-options-inner">${["thunder", "rain"].map((kind) => {
+              const label = kind === "rain" ? dict.rainVolume : dict.thunderVolume;
+              const value = Math.round(volumes[kind] * 100);
+              return `<label class="kasp-weather-volume"><span class="kasp-weather-volume-heading"><span>${label}</span><output>${value}%</output></span>
+                        <input type="range" min="0" max="100" step="1" value="${value}" data-weather-volume="${kind}" aria-label="${label}" ${enabled ? "" : "disabled"}>
+                    </label>`;
+            }).join("")}</div></div>`;
             let tooltip = document.getElementById("kaspersky-reload-tooltip");
             if (!tooltip) {
               tooltip = document.createElement("div");
@@ -1132,7 +1177,7 @@
                                     ${description ? `<span class="kasp-toggle-description">${description[lang]}</span>` : ""}
                                 </span>
                                 <input type="checkbox" role="switch" class="kasp-toggle-switch" ${checked ? "checked" : ""} aria-label="${setting.label[lang]}">
-                            </label>`;
+                            </label>${setting.id === "k_rain_weather" ? weatherControls(checked) : ""}`;
             }).join("")}</div>
                     </section>`).join("")}
                     <section class="kasp-settings-panel kasp-settings-information" aria-labelledby="kasp-settings-information-title">
@@ -1217,6 +1262,14 @@
               row.addEventListener("mouseleave", () => tooltip?.classList.add("kasp-hidden"));
               switchBtn.addEventListener("change", () => {
                 const checked = switchBtn.checked;
+                if (id === "k_rain_weather") {
+                  const options = kContent.querySelector("#kasp-weather-options");
+                  options.classList.toggle("kasp-expanded", checked);
+                  options.inert = !checked;
+                  options.querySelectorAll("input").forEach((input) => {
+                    input.disabled = !checked;
+                  });
+                }
                 row.classList.toggle("kasp-active", checked);
                 utils.setSetting(id, checked);
                 needsReload = settings.some((setting) => !liveSettings.has(setting.id) && utils.getSetting(setting.id, setting.default) !== initialSettingsState[setting.id]);
@@ -1224,6 +1277,18 @@
                   if (checked) setupNicknamePrivacy();
                   else document.documentElement.classList.remove("kasp-hide-nickname");
                 }
+              });
+            });
+            kContent.querySelectorAll("[data-weather-volume]").forEach((input) => {
+              input.addEventListener("input", () => {
+                const kind = input.dataset.weatherVolume;
+                const percent = Math.max(0, Math.min(100, Number(input.value)));
+                input.closest("label").querySelector("output").textContent = `${percent}%`;
+                try {
+                  localStorage.setItem(WEATHER_VOLUME_KEYS[kind], String(percent / 100));
+                } catch {
+                }
+                window.dispatchEvent(new Event("kasp:settings-changed"));
               });
             });
             const show = () => {
@@ -4175,21 +4240,75 @@
     }
   });
 
-  // src/core/imageUrl.ts
-  function getTankiImageUrl(value) {
-    if (typeof value !== "string" || !value || value.length > 2048 || /[\s"'<>\\]/.test(value)) return "";
-    try {
-      const url = new URL(value);
-      if (url.protocol !== "https:" || url.username || url.password || url.port) return "";
-      if (url.hostname !== "tankionline.com" && !url.hostname.endsWith(".tankionline.com")) return "";
-      if (!/\.(svg|webp|png|jpe?g|gif|avif|ico)$/i.test(url.pathname)) return "";
-      return url.href;
-    } catch {
-      return "";
+  // src/core/trophyData.ts
+  function readTrophyProgress(text2) {
+    const clean = text2.trim().replace(/\s+/g, " ");
+    const integer = (value) => {
+      const trimmed = value.trim();
+      return /^(?:\d+|\d{1,3}([ ,.'’])\d{3}(?:\1\d{3})*)$/.test(trimmed) ? Number(trimmed.replace(/[ ,.'’]/g, "")) : NaN;
+    };
+    const fraction = /^(.+?)\/(.+)$/.exec(clean);
+    if (fraction) {
+      const current = integer(fraction[1]), max = integer(fraction[2]);
+      if (!Number.isSafeInteger(current) || !Number.isSafeInteger(max) || max <= 0 || current > max) return null;
+      if (max === 100) return { current: null, max: null, percent: current };
+      if (max <= 100) return null;
+      return { current, max, percent: current / max * 100 };
     }
+    if (/^(completed|выполнено)$/i.test(clean)) return { current: null, max: null, percent: 100, complete: true };
+    const percentage = /^(\d+(?:[.,]\d+)?)\s*%$/.exec(clean);
+    const percent = percentage ? Number(percentage[1].replace(",", ".")) : NaN;
+    return Number.isFinite(percent) && percent >= 0 && percent <= 100 ? { current: null, max: null, percent } : null;
   }
-  var init_imageUrl = __esm({
-    "src/core/imageUrl.ts"() {
+  function chooseTrophyProgress(values) {
+    const candidates = values.map(readTrophyProgress).filter((value) => value !== null);
+    const exact = candidates.filter((value) => value.current !== null);
+    if (exact.length) {
+      if (exact.some((value) => value.max !== exact[0].max)) return null;
+      return exact.reduce((best, value) => (value.current ?? 0) > (best.current ?? 0) ? value : best);
+    }
+    return candidates[0] ?? null;
+  }
+  function mergeTrophyProgress(previous, next) {
+    if (next.current !== null || previous.current === null) return next;
+    if (next.complete && previous.max !== null) return { current: previous.max, max: previous.max, percent: 100 };
+    return previous;
+  }
+  function normalizeTrophyFavorites(value) {
+    if (!Array.isArray(value)) return [];
+    const result = [];
+    for (const item of value) {
+      if (!item || typeof item !== "object" || typeof item.id !== "string" || !item.id.length || item.id.length > 128 || !["turret", "hull"].includes(item.type) || result.some((entry) => entry.id === item.id) || result.filter((entry) => entry.type === item.type).length >= 2) continue;
+      const exact = Number.isSafeInteger(item.current) && item.current >= 0 && Number.isSafeInteger(item.max) && item.max > 100 && item.current <= item.max;
+      const legacyPercent = item.max === 100 && Number.isFinite(item.current) ? item.current : null;
+      const percent = exact ? item.current / item.max * 100 : legacyPercent ?? item.percent;
+      result.push({
+        id: item.id,
+        type: item.type,
+        current: exact ? item.current : null,
+        max: exact ? item.max : null,
+        percent: typeof percent === "number" && Number.isFinite(percent) && percent >= 0 && percent <= 100 ? percent : null
+      });
+    }
+    return result;
+  }
+  function matchTrophy(text2, dictionary) {
+    const normalize = (value) => value.toLowerCase().replace(/ё/g, "\u0435");
+    const normalized = normalize(text2);
+    const matches = /* @__PURE__ */ new Map();
+    for (const [alias, entry] of Object.entries(dictionary)) {
+      const word = normalize(alias);
+      let start = normalized.indexOf(word);
+      while (start !== -1) {
+        const before = normalized[start - 1] || "", after = normalized[start + word.length] || "";
+        if (!/[\p{L}_]/u.test(before) && !/[\p{L}_]/u.test(after)) matches.set(entry.id, entry);
+        start = normalized.indexOf(word, start + word.length);
+      }
+    }
+    return matches.size === 1 ? [...matches.values()][0] : null;
+  }
+  var init_trophyData = __esm({
+    "src/core/trophyData.ts"() {
       "use strict";
     }
   });
@@ -4203,39 +4322,88 @@
       init_gameDOM();
       init_state();
       init_accountIdentity();
-      init_imageUrl();
+      init_trophyData();
       init_accountId();
       init_pageMessages();
       lifecycle14 = featureScope("customTrophies");
       customTrophies = lifecycle14.initialize(() => {
         let initialization = null;
         const STORAGE_PREFIX2 = "kasp_trophies_favorites_uid_";
-        const ICON_UNFAV = "https://s.eu.tankionline.com/static/images/unfavoriteStar.0e39d67a.svg";
-        const ICON_FAV = "https://s.eu.tankionline.com/static/images/favoriteStar.1ce58570.svg";
+        const ICON_UNFAV = chrome.runtime.getURL("assets/trophy-unfavorite.svg");
+        const ICON_FAV = chrome.runtime.getURL("assets/trophy-favorite.svg");
         let trophyDictionary = {};
         let trophyDictionaryLoaded = false;
+        let dictionaryRetryAt = 0;
         async function loadTrophyDictionary() {
           if (trophyDictionaryLoaded) return;
           try {
             const response = await fetch(chrome.runtime.getURL("database/trophies.json"));
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            trophyDictionary = await response.json();
+            const value = await response.json();
+            if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid trophy dictionary");
+            const valid2 = {};
+            for (const [alias, entry] of Object.entries(value)) {
+              if (alias.trim() && entry && typeof entry === "object" && typeof entry.id === "string" && entry.id && typeof entry.ru === "string" && typeof entry.en === "string" && ["turret", "hull"].includes(entry.type))
+                valid2[alias] = entry;
+            }
+            if (!Object.keys(valid2).length) throw new Error("Empty trophy dictionary");
+            trophyDictionary = valid2;
             trophyDictionaryLoaded = true;
           } catch (error) {
             console.error("[Kaspersky Inventions] Failed to load trophy dictionary:", error);
             trophyDictionary = {};
+            dictionaryRetryAt = Date.now() + 1e4;
+            lifecycle14.timeout(() => {
+              initialization = null;
+              void update();
+            }, 1e4);
           }
         }
         let cachedFavs = null;
         let favoritesOwner = null;
         const presentedOwners = /* @__PURE__ */ new Set();
+        const decoratedCards = /* @__PURE__ */ new Set();
+        let progressObserver = null, observedCards = [];
+        let progressUpdate = null;
+        function observeCards(cards) {
+          if (cards.length === observedCards.length && cards.every((card, index) => card === observedCards[index])) return;
+          progressObserver?.disconnect();
+          observedCards = cards;
+          if (!cards.length) return;
+          progressObserver ??= lifecycle14.observer((records) => {
+            if (progressUpdate !== null || records.every((record) => {
+              const target = record.target.nodeType === 1 ? record.target : record.target.parentElement;
+              return target?.closest("[data-kasp-trophy-star]") || record.type === "childList" && [...record.addedNodes, ...record.removedNodes].every((node) => node.nodeType === 1 && node.matches("[data-kasp-trophy-star]"));
+            })) return;
+            progressUpdate = lifecycle14.timeout(() => {
+              progressUpdate = null;
+              return update();
+            }, 50);
+          });
+          cards.forEach((card) => progressObserver?.observe(card, {
+            childList: true,
+            characterData: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ["title"]
+          }));
+        }
+        function releaseCard(card) {
+          card.querySelector("[data-kasp-trophy-star]")?.remove();
+          card.querySelectorAll("[data-kasp-trophy-rewards]").forEach((node) => node.removeAttribute("data-kasp-trophy-rewards"));
+          card.classList.remove("card-type-grid", "card-type-list");
+          decoratedCards.delete(card);
+        }
+        function attribute(element, name, value) {
+          if (element.getAttribute(name) !== value) element.setAttribute(name, value);
+        }
         function syncOwner() {
           const userId = getVerifiedAccount()?.userId || null;
           if (favoritesOwner !== userId) {
             cachedFavs = null;
             favoritesOwner = userId;
             document.getElementById("custom-trophy-panel")?.remove();
-            document.querySelectorAll(gameDOM.trophies.favorite).forEach((star) => star.remove());
+            decoratedCards.forEach(releaseCard);
           }
           return userId;
         }
@@ -4245,7 +4413,7 @@
           if (cachedFavs) return cachedFavs;
           try {
             const value = JSON.parse(localStorage.getItem(STORAGE_PREFIX2 + userId) || "[]");
-            cachedFavs = Array.isArray(value) ? value.filter((item) => item && typeof item === "object" && typeof item.id === "string" && item.id.length > 0 && item.id.length <= 128 && ["turret", "hull"].includes(item.type) && typeof item.icon === "string" && Number.isFinite(item.current) && item.current >= 0 && Number.isFinite(item.max) && item.max > 0).slice(0, 4).map((item) => ({ ...item, icon: getTankiImageUrl(item.icon) })) : [];
+            cachedFavs = normalizeTrophyFavorites(value);
           } catch {
             cachedFavs = [];
           }
@@ -4255,47 +4423,44 @@
           const owner = favoritesOwner;
           if (!owner || syncOwner() !== owner) return;
           cachedFavs = favs;
-          localStorage.setItem(STORAGE_PREFIX2 + owner, JSON.stringify(favs));
-        }
-        function parseItem(rawText) {
-          const lower = rawText.toLowerCase();
-          for (const key in trophyDictionary) {
-            if (lower.includes(key)) {
-              const item = trophyDictionary[key];
-              return {
-                id: item.id,
-                name: state.lang === "RU" ? item.ru : item.en,
-                type: item.type
-              };
-            }
+          try {
+            localStorage.setItem(STORAGE_PREFIX2 + owner, JSON.stringify(favs));
+          } catch (error) {
+            console.warn("[Kaspersky Inventions] Cannot save favorite trophies:", error);
           }
-          return null;
+        }
+        function parseItem(card) {
+          const walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT);
+          const parts = [];
+          while (walker.nextNode()) parts.push(walker.currentNode.textContent || "");
+          return matchTrophy(parts.join(" "), trophyDictionary);
         }
         function formatNumber2(num) {
           return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
         }
-        function extractIcon(card) {
-          const rewardDiv = card.querySelector(gameDOM.trophies.rewardImage);
-          if (rewardDiv) {
-            const bg = window.getComputedStyle(rewardDiv).backgroundImage;
-            const match = bg.match(/url\(['"]?(.*?)['"]?\)/);
-            if (match) return match[1];
-          }
-          return "https://s.eu.tankionline.com/static/images/score.b3ca71b2.svg";
+        function readCardProgress(card, results = false) {
+          const elements = card.querySelectorAll(results ? gameDOM.trophies.resultText : gameDOM.trophies.progressText);
+          const values = [];
+          elements.forEach((element) => {
+            values.push(element.textContent || "");
+            const title = element.getAttribute("title");
+            if (title) values.push(title);
+          });
+          return chooseTrophyProgress(values);
         }
-        function toggleFavorite(itemId, type, iconUrl2, current, max) {
-          let favs = getFavs();
+        function toggleFavorite(item, card) {
+          const favs = [...getFavs()];
+          const { id: itemId, type } = item;
           const idx = favs.findIndex((f) => f.id === itemId);
           if (idx > -1) {
             favs.splice(idx, 1);
           } else {
             const count = favs.filter((f) => f.type === type).length;
             if (count >= 2) return;
-            favs.push({ id: itemId, type, icon: iconUrl2, current, max });
+            favs.push({ id: itemId, type, ...readCardProgress(card) ?? { current: null, max: null, percent: null } });
           }
           saveFavs(favs);
-          const cards = document.querySelectorAll(gameDOM.trophies.cards);
-          if (cards.length > 0) processGarageMissions(Array.from(cards));
+          updateInterface();
         }
         function processGarageMissions(garageCards) {
           const owner = syncOwner();
@@ -4305,51 +4470,72 @@
           const favTurrets = favs.filter((f) => f.type === "turret").length;
           const favHulls = favs.filter((f) => f.type === "hull").length;
           garageCards.forEach((card) => {
-            const progressEl = card.querySelector("h4");
-            if (!progressEl) return;
-            const rawText = card.textContent || "";
-            const itemInfo = parseItem(rawText);
-            if (!itemInfo) return;
-            const isGrid = card.classList.contains(gameDOM.classes.gridTrophy);
-            card.style.position = "relative";
-            if (isGrid) {
-              card.classList.add("card-type-grid");
-              card.classList.remove("card-type-list");
-            } else {
-              card.classList.add("card-type-list");
-              card.classList.remove("card-type-grid");
+            const itemInfo = parseItem(card);
+            if (!itemInfo) {
+              if (decoratedCards.has(card)) releaseCard(card);
+              return;
             }
+            const isGrid = card.classList.contains(gameDOM.classes.gridTrophy);
+            const layout = isGrid ? "card-type-grid" : "card-type-list";
+            const oldLayout = isGrid ? "card-type-list" : "card-type-grid";
+            if (!card.classList.contains(layout)) card.classList.add(layout);
+            if (card.classList.contains(oldLayout)) card.classList.remove(oldLayout);
+            decoratedCards.add(card);
             const type = itemInfo.type;
-            const cleanProgress = progressEl.textContent?.replace(/\s|\u00A0/g, "") || "";
-            const parts = cleanProgress.split("/");
-            const currentPoints = parseInt(parts[0], 10) || 0;
-            const maxPoints = parseInt(parts[1], 10) || 5e6;
             const favItem = favs.find((f) => f.id === itemInfo.id);
-            if (favItem && favItem.current !== currentPoints) {
-              favItem.current = currentPoints;
-              favItem.max = maxPoints;
-              favsUpdated = true;
+            const progress = readCardProgress(card);
+            if (favItem && progress) {
+              const next = mergeTrophyProgress(favItem, progress);
+              if (favItem.current !== next.current || favItem.max !== next.max || favItem.percent !== next.percent) {
+                Object.assign(favItem, next);
+                favsUpdated = true;
+              }
             }
             const limitReached = !favItem && (type === "turret" && favTurrets >= 2 || type === "hull" && favHulls >= 2);
-            let starContainer = card.querySelector(gameDOM.trophies.favorite);
+            let starContainer = card.querySelector("[data-kasp-trophy-star]");
             if (!starContainer) {
               starContainer = document.createElement("div");
               starContainer.className = gameDOM.classes.favorite;
               starContainer.setAttribute("data-kasp-trophy-star", "");
-              starContainer.innerHTML = `<img src="${favItem ? ICON_FAV : ICON_UNFAV}">`;
+              const img = document.createElement("img");
+              img.src = favItem ? ICON_FAV : ICON_UNFAV;
+              img.alt = "";
+              starContainer.appendChild(img);
               card.appendChild(starContainer);
             } else {
               const img = starContainer.querySelector("img");
               const expectedIcon = favItem ? ICON_FAV : ICON_UNFAV;
               if (img && img.src !== expectedIcon) img.src = expectedIcon;
             }
+            const rewards = isGrid ? card.querySelector(gameDOM.trophies.rewards) : null;
+            card.querySelectorAll("[data-kasp-trophy-rewards]").forEach((node) => {
+              if (node !== rewards) node.removeAttribute("data-kasp-trophy-rewards");
+            });
+            if (rewards && !rewards.hasAttribute("data-kasp-trophy-rewards"))
+              attribute(rewards, "data-kasp-trophy-rewards", getComputedStyle(rewards).position === "static" ? "relative" : "");
+            const starParent = rewards ?? card;
+            if (starContainer.parentElement !== starParent) starParent.appendChild(starContainer);
             starContainer.onclick = lifecycle14.guard((e) => {
               e.stopPropagation();
-              if (syncOwner() !== owner || parseItem(card.textContent || "")?.id !== itemInfo.id) return;
-              toggleFavorite(itemInfo.id, type, extractIcon(card), currentPoints, maxPoints);
+              if (!card.isConnected || syncOwner() !== owner || parseItem(card)?.id !== itemInfo.id) return;
+              toggleFavorite(itemInfo, card);
             });
-            if (limitReached) starContainer.classList.add("star-limit-reached");
-            else starContainer.classList.remove("star-limit-reached");
+            const label = state.lang === "RU" ? favItem ? "\u0423\u0431\u0440\u0430\u0442\u044C \u0438\u0437 \u0438\u0437\u0431\u0440\u0430\u043D\u043D\u043E\u0433\u043E" : "\u0412 \u0438\u0437\u0431\u0440\u0430\u043D\u043D\u043E\u0435" : favItem ? "Remove favorite" : "Add favorite";
+            attribute(starContainer, "title", label);
+            attribute(starContainer, "role", "button");
+            attribute(starContainer, "aria-pressed", String(Boolean(favItem)));
+            attribute(starContainer, "aria-label", label);
+            attribute(starContainer, "aria-disabled", String(limitReached));
+            attribute(starContainer, "tabindex", limitReached ? "-1" : "0");
+            starContainer.onkeydown = lifecycle14.guard((e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                e.stopPropagation();
+                starContainer?.click();
+              }
+            });
+            if (limitReached !== starContainer.classList.contains("star-limit-reached"))
+              starContainer.classList.toggle("star-limit-reached", limitReached);
           });
           if (favsUpdated) saveFavs(favs);
         }
@@ -4357,31 +4543,16 @@
           let favs = getFavs();
           let favsUpdated = false;
           battleCards.forEach((card) => {
-            const textElements = card.querySelectorAll(gameDOM.trophies.resultText);
-            if (textElements.length < 2) return;
-            let rawText = "";
-            let rawProgress = "";
-            textElements.forEach((el) => {
-              const text2 = el.textContent || "";
-              const style = el.getAttribute("style") || "";
-              if (text2.includes(" / ")) {
-                if (!style.includes("opacity: 0")) rawProgress = text2;
-              } else if (text2.length > 15 && !text2.includes("\u0412\u042B\u041F\u041E\u041B\u041D\u0415\u041D\u041E") && !text2.includes("COMPLETED")) {
-                rawText = text2;
-              }
-            });
-            if (!rawText || !rawProgress) return;
-            const itemInfo = parseItem(rawText);
+            const itemInfo = parseItem(card);
             if (!itemInfo) return;
-            const cleanProgress = rawProgress.replace(/\s|\u00A0/g, "");
-            const parts = cleanProgress.split("/");
-            const currentPoints = parseInt(parts[0], 10) || 0;
-            const maxPoints = parseInt(parts[1], 10) || 5e6;
+            const progress = readCardProgress(card, true);
             const favItem = favs.find((f) => f.id === itemInfo.id);
-            if (favItem && favItem.current !== currentPoints) {
-              favItem.current = currentPoints;
-              favItem.max = maxPoints;
-              favsUpdated = true;
+            if (favItem && progress) {
+              const next = mergeTrophyProgress(favItem, progress);
+              if (favItem.current !== next.current || favItem.max !== next.max || favItem.percent !== next.percent) {
+                Object.assign(favItem, next);
+                favsUpdated = true;
+              }
             }
           });
           if (favsUpdated) saveFavs(favs);
@@ -4397,7 +4568,7 @@
             return 0;
           });
           trophies.forEach((trophy) => {
-            const percent = Math.min(100, Math.max(0, trophy.current / trophy.max * 100));
+            const percent = trophy.percent;
             const match = Object.values(trophyDictionary).find((d) => d.id === trophy.id);
             const displayName = match ? state.lang === "RU" ? match.ru : match.en : trophy.id;
             const item = document.createElement("div");
@@ -4409,19 +4580,20 @@
             title.textContent = displayName;
             const percentage = document.createElement("div");
             percentage.className = "custom-trophy-percent";
-            percentage.textContent = `${Math.floor(percent)}%`;
+            percentage.textContent = percent === null ? "\u2014" : `${Math.floor(percent)}%`;
             const bar = document.createElement("div");
             bar.className = "custom-trophy-bar-bg";
             const fill = document.createElement("div");
             fill.className = "custom-trophy-bar-fill";
-            fill.style.width = `${percent}%`;
+            fill.style.width = `${percent ?? 0}%`;
             bar.appendChild(fill);
             const progress = document.createElement("div");
             progress.className = "custom-trophy-text";
             const current = document.createElement("span");
-            current.textContent = formatNumber2(trophy.current);
+            current.textContent = trophy.current === null ? "\u2014" : formatNumber2(trophy.current);
             const target = document.createElement("span");
-            target.textContent = `/ ${formatNumber2(trophy.max)}`;
+            target.textContent = trophy.max === null ? "" : `/ ${formatNumber2(trophy.max)}`;
+            if (trophy.current === null) item.title = state.lang === "RU" ? "\u041E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u0440\u0430\u0437\u0434\u0435\u043B \u0442\u0440\u043E\u0444\u0435\u0435\u0432, \u0447\u0442\u043E\u0431\u044B \u043E\u0431\u043D\u043E\u0432\u0438\u0442\u044C \u043E\u0447\u043A\u0438 \u0440\u0435\u043F\u0443\u0442\u0430\u0446\u0438\u0438" : "Open trophies to update reputation points";
             progress.append(current, target);
             info.append(title, percentage, bar, progress);
             item.appendChild(info);
@@ -4430,45 +4602,55 @@
           return panel;
         }
         function updateInterface() {
+          for (const card of decoratedCards) if (!card.isConnected) releaseCard(card);
+          const cards = document.querySelectorAll(gameDOM.trophies.cards);
+          if (cards.length > 0) processGarageMissions(Array.from(cards));
           const challengesBlock = document.querySelector(gameDOM.trophies.lobbyAnchor);
           const panel = document.getElementById("custom-trophy-panel");
           if (challengesBlock) {
             const key = JSON.stringify([favoritesOwner, state.lang, getFavs()]);
             if (getFavs().length === 0) panel?.remove();
-            else if (challengesBlock.parentElement && (!panel || panel.dataset.trophiesKey !== key)) {
+            else if (challengesBlock.parentElement && (!panel || panel.parentElement !== challengesBlock.parentElement || panel.dataset.trophiesKey !== key)) {
               const replacement = createPanel();
               if (!panel && state.currentScreen === "lobby" && favoritesOwner && !presentedOwners.has(favoritesOwner))
                 replacement.className += " kasp-lobby-reveal";
               if (favoritesOwner) presentedOwners.add(favoritesOwner);
               replacement.dataset.trophiesKey = key;
-              if (panel) panel.replaceWith(replacement);
-              else challengesBlock.parentElement.appendChild(replacement);
+              if (panel?.parentElement === challengesBlock.parentElement) panel.replaceWith(replacement);
+              else {
+                panel?.remove();
+                challengesBlock.parentElement.appendChild(replacement);
+              }
             }
           } else {
             if (panel) panel.remove();
           }
-          const cards = document.querySelectorAll(gameDOM.trophies.cards);
-          if (cards.length > 0) processGarageMissions(Array.from(cards));
         }
         lifecycle14.onCleanup(() => {
           cachedFavs = null;
           favoritesOwner = null;
-          document.querySelectorAll(".custom-trophy-panel, [data-kasp-trophy-star]").forEach((node) => node.remove());
+          decoratedCards.forEach(releaseCard);
+          document.getElementById("custom-trophy-panel")?.remove();
         });
         const update = async () => {
           const owner = syncOwner();
-          if (!initialization) initialization = loadTrophyDictionary();
+          if (!initialization && Date.now() >= dictionaryRetryAt) initialization = loadTrophyDictionary();
+          if (!initialization) return;
           await initialization;
           if (lifecycle14.disabled) return;
           if (!trophyDictionaryLoaded || !owner || syncOwner() !== owner) return;
-          if (state.currentScreen === "lobby" || state.currentScreen === "garage") {
-            updateInterface();
-          } else if (state.currentScreen === "match_results") {
-            const battleCards = document.querySelectorAll(gameDOM.trophies.resultCards);
-            if (battleCards.length > 0) processBattleResults(Array.from(battleCards));
-          }
+          const battleCards = Array.from(document.querySelectorAll(gameDOM.trophies.resultCards));
+          observeCards([...document.querySelectorAll(gameDOM.trophies.cards), ...battleCards]);
+          updateInterface();
+          if (battleCards.length > 0) processBattleResults(battleCards);
         };
         initialization = loadTrophyDictionary();
+        lifecycle14.listen(window, "storage", (event) => {
+          if (event.key === null || event.key === STORAGE_PREFIX2 + favoritesOwner) {
+            cachedFavs = null;
+            void update();
+          }
+        });
         let identityUpdate = null;
         lifecycle14.listen(window, "message", (event) => {
           if (!readPageMessage(event, window, ACCOUNT_IDENTITY_MESSAGE) || identityUpdate !== null) return;
@@ -5215,6 +5397,25 @@
       }, sync() {
       }, update() {
       } });
+    }
+  });
+
+  // src/core/imageUrl.ts
+  function getTankiImageUrl(value) {
+    if (typeof value !== "string" || !value || value.length > 2048 || /[\s"'<>\\]/.test(value)) return "";
+    try {
+      const url = new URL(value);
+      if (url.protocol !== "https:" || url.username || url.password || url.port) return "";
+      if (url.hostname !== "tankionline.com" && !url.hostname.endsWith(".tankionline.com")) return "";
+      if (!/\.(svg|webp|png|jpe?g|gif|avif|ico)$/i.test(url.pathname)) return "";
+      return url.href;
+    } catch {
+      return "";
+    }
+  }
+  var init_imageUrl = __esm({
+    "src/core/imageUrl.ts"() {
+      "use strict";
     }
   });
 
@@ -8942,9 +9143,7 @@
       if (state.friendsMenuOpen) {
         modules.customFriends();
       }
-      if (state.currentScreen === "lobby" || state.currentScreen === "garage" || state.currentScreen === "match_results") {
-        modules.customTrophies();
-      }
+      modules.customTrophies();
       if (state.currentScreen === "garage") {
         modules.autoUpgrade();
         modules.augmentSpecs();

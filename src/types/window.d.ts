@@ -2,6 +2,7 @@ export { };
 
 declare global {
     interface Window {
+        __kaspRain?: ReturnType<typeof import('../core/rainWeather').installRainWeather>;
         __kaspKillFeedPrivacy?: ReturnType<typeof import('../core/killFeedPrivacy').installKillFeedPrivacy>;
         __kaspBoxPickup?: ReturnType<typeof import('../core/boxPickup').installBoxPickup>;
         __kaspSupplyPrivacy?: ReturnType<typeof import('../core/supplyPrivacy').installSupplyPrivacy>;

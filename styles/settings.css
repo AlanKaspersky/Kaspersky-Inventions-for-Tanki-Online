@@ -275,6 +275,68 @@
 #kaspersky-settings-content .kasp-toggle-switch:checked { background: #171717; border-color: #171717; }
 #kaspersky-settings-content .kasp-toggle-switch:checked::before { transform: translate(1em, -50%); }
 #kaspersky-settings-content .kasp-toggle-row:hover { background: rgba(0, 0, 0, .025); }
+#kaspersky-settings-content .kasp-weather-options {
+    display: block;
+    flex: 0 0 auto;
+    max-height: 0;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    visibility: hidden;
+    transition: max-height .3s ease, opacity .25s ease, visibility 0s .3s;
+}
+#kaspersky-settings-content .kasp-weather-options.kasp-expanded {
+    max-height: 14em;
+    opacity: 1;
+    visibility: visible;
+    transition-delay: 0s;
+}
+#kaspersky-settings-content .kasp-weather-options-inner { min-height: 0; overflow: hidden; }
+#kaspersky-settings-content .kasp-weather-volume {
+    display: block;
+    width: 100%;
+    padding: 10px 0;
+    box-sizing: border-box;
+    transform: translateY(-.4em);
+    transition: transform .3s ease;
+}
+#kaspersky-settings-content .kasp-expanded .kasp-weather-volume { transform: none; }
+#kaspersky-settings-content .kasp-weather-volume-heading {
+    display: flex;
+    justify-content: space-between;
+    gap: 1em;
+    margin-bottom: 8px;
+    font: 1em/20px BaseFontMedium, FallbackFontMedium, sans-serif;
+}
+#kaspersky-settings-content .kasp-weather-volume-heading > * { color: #111; font: inherit; }
+#kaspersky-settings-content .kasp-weather-volume output { font-variant-numeric: tabular-nums; }
+#kaspersky-settings-content .kasp-weather-volume input {
+    appearance: none;
+    -webkit-appearance: none;
+    display: block;
+    width: 100%;
+    max-width: none;
+    height: 18px;
+    box-sizing: border-box;
+    border: 0;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    font-size: inherit;
+    cursor: pointer;
+}
+/* Whole-pixel row and track dimensions keep both rails aligned alike. */
+#kaspersky-settings-content .kasp-weather-volume input::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: #999; }
+#kaspersky-settings-content .kasp-weather-volume input::-webkit-slider-thumb {
+    appearance: none; -webkit-appearance: none;
+    width: 14px; height: 14px; margin-top: -5px; box-sizing: border-box;
+    border: 1px solid #171717; border-radius: 50%; background: #171717;
+}
+#kaspersky-settings-content .kasp-weather-volume input::-moz-range-track { height: 4px; border-radius: 2px; background: #999; }
+#kaspersky-settings-content .kasp-weather-volume input::-moz-range-thumb { width: 14px; height: 14px; box-sizing: border-box; border: 1px solid #171717; border-radius: 50%; background: #171717; }
+#kaspersky-settings-content .kasp-weather-volume input:focus-visible { outline: 2px solid #111; outline-offset: .2em; border-radius: .2em; }
 #kaspersky-settings-content .kasp-settings-notice {
     color: #c5c5c5;
     margin: 1.25em 0 0;
@@ -296,7 +358,9 @@
     #kaspersky-settings-content .kasp-settings-panel { animation: none; }
     #kaspersky-settings-content .kasp-toggle-switch,
     #kaspersky-settings-content .kasp-toggle-switch::before,
-    #kaspersky-settings-content .kasp-settings-links a { transition: none; }
+    #kaspersky-settings-content .kasp-settings-links a,
+    #kaspersky-settings-content .kasp-weather-options,
+    #kaspersky-settings-content .kasp-weather-volume { transition: none; }
 }
 .kasp-tooltip {
     position: fixed !important;
