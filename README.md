@@ -75,9 +75,15 @@ This repository documents extension **3.0.1**, reviewed against source on **Octo
 
 | Document | Audience and contents |
 | --- | --- |
-| [README](README.md) | Installation, feature behavior, RU user guide, FAQ, EN/RU publication descriptions, backups and credits |
-| [DOCUMENTATION](DOCUMENTATION.md) | Architecture, native mappings, weather/kill-feed rendering, module contracts and Electron bridge |
-| [MAINTENANCE](MAINTENANCE.md) | Diagnostics, recovery, native updates, weather/client verification, deployment and publication |
+| [README](README.md) | Installation, feature behavior, settings, backups, troubleshooting and credits |
+| [Technical reference](DOCUMENTATION.md) | Execution worlds, native mappings, module contracts, storage, lifecycle and development |
+| [Maintenance guide](MAINTENANCE.md) | Failure isolation, diagnostics, native updates, regression checks and release review |
+| [FAQ](docs/FAQ.md) | Practical questions about settings, privacy, history, account discovery and compatibility |
+| [Russian user guide](docs/USER_GUIDE.ru.md) | Installation, feature groups, everyday workflows, data and recovery in Russian |
+| [English store description](docs/DESCRIPTION.en.md) / [Russian store description](docs/DESCRIPTION.ru.md) | Full public descriptions, ending with the current welcome-window credits |
+| [Kill-feed investigation](docs/kill-feed-rendering.md) | Verified renderer chain and the missing-glyph crash regression |
+| [Electron integration](tools/electron-discord/README.md) | Optional client-side Discord preload/IPC integration |
+| [License and Terms of Use](LICENSE.txt) | English international edition; proprietary terms and retained Tanki Tweaks permission |
 
 For players, begin with Installation and Configuration. For a developer changing native hooks, begin with the technical reference and maintenance guide. A prepared extension needs no Node.js installation; source development does.
 
