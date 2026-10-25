@@ -2,7 +2,7 @@
 
 ## Complete Implementation Reference
 
-**Extension version:** 3.0.1 (`manifest.json`)
+**Extension version:** 3.0.2 (`manifest.json`)
 
 **Documentation updated:** October 24, 2026
 
@@ -216,9 +216,8 @@ On a transition to loading or battle, the scheduler hides the augment tooltip an
 
 | Path | Calls |
 | --- | --- |
-| Every heavy pass | `changeCounter.onTick`, `overdriveTimer.sync`, welcome, nickname privacy, Tankoin balance, account-search notice, currency privacy, lobby pass layout, garage skins and cybersport |
-| Heavy pass in lobby/loading | Enhanced Play |
-| Every heavy pass after Enhanced Play | Lobby navigation artwork/layout synchronization |
+| Every heavy pass | `changeCounter.onTick`, `overdriveTimer.sync`, welcome, nickname privacy, Tankoin balance, account-search notice, currency privacy, garage skins and cybersport |
+| Startup and mutation callback with lobby roots present; also language/screen transitions | Enhanced Play, then lobby navigation artwork/layout and lobby pass layout |
 | Heavy pass while friends/invitations are open | Friend categories |
 | Heavy pass in lobby/garage/results | Trophy favorites |
 | Heavy pass in garage | Auto Upgrade, augment specifications, paint search |
@@ -230,6 +229,8 @@ On a transition to loading or battle, the scheduler hides the augment tooltip an
 | Mutation callback with native garage action controls present | Auto Upgrade button presentation |
 
 These paths can call the same module more than once around a single UI transition. Feature code must consequently tolerate repeated calls.
+
+Lobby presentation does not wait for an animation frame or the 150 ms heavy pass. The mutation callback decorates newly mounted native roots/cards before paint, including staged mounts and returning from sections without a screen-classification change. When lobby roots disappear, navigation/pass adapters run once to release their previous sources; unrelated mutations outside the lobby do not run these adapters. Screen transitions retry presentation with the fresh state so Enhanced Play can resume after leaving battle.
 
 `syncKillBoardDoubleHeader()` clones the existing table header when there is exactly one header row and adds `kasp-cloned-header`. It does not keep adding rows after the second header exists.
 
@@ -335,7 +336,7 @@ Fallback loading does not reinstall interception or guarantee instrumentation. A
 
 Source: [src/core/settings.ts](src/core/settings.ts).
 
-`SETTINGS_KEYS` defines fourteen boolean keys. At import time, twelve are read with default `false`; `k_arcade_reload` and `k_critical_indicator` default to `true`. Values are cached in `settingsCache`.
+`SETTINGS_KEYS` defines fifteen boolean keys. At import time, thirteen are read with default `false`; `k_arcade_reload` and `k_critical_indicator` default to `true`. Values are cached in `settingsCache`.
 
 | Function | Contract |
 | --- | --- |
@@ -565,6 +566,7 @@ Source: [coreSettings.ts](src/core/coreSettings.ts), [settings.ts](src/core/sett
 | Advanced | `k_critical_indicator` | true | Live |
 | Visual changes | `k_box_pickup` | false | Live |
 | Visual changes | `k_rain_weather` | false | Live; expanding full-width rain/thunder volume controls |
+| Visual changes | `k_rain_puddles` | false | Live; experimental reflections during rain; requires weather |
 
 The `liveSettings` set contains supply privacy, box pickup, random weather, arcade reload and critical indication. Numeric rain/thunder volume controls also apply live, independently of the boolean reload baseline. On switch change, the native input's checked state drives the active class and saved setting. `needsReload` compares every non-live option with `initialSettingsState`; reverting changes cancels the reload. Baselines survive a language rebuild while settings remain open. Normal close clears them and reloads only if required.
 
@@ -751,7 +753,7 @@ CSS restyles the native challenge and Elite Pass roots. It changes grid layout, 
 
 The adapter adds scoped classes, CSS custom properties, and an absolutely positioned decorative span inside each card. These isolated background layers use assets/art1.png with a light overlay and 2px image-only blur. Assets resolve through chrome.runtime.getURL. Their shared image dimensions and origin preserve a continuous panorama across card gaps, including scaled ancestors, without changing content geometry. Native sibling stacking cannot cover the card-local layers, and the original white backgrounds remain as a fallback. Resize/replacement refreshes their coordinates; cleanup removes the layers and owned classes. `readStarProgress()` reads the native current/required counter. `readCircleProgress()` reads one or two native half-ring rotations, using inline transforms or computed DOM matrices: the first half covers 0–180 degrees, and the second covers 180–360. A second identity matrix represents 100%, while a lone identity matrix represents 0%. Missing/incompatible geometry produces no percentage. Original half-rings are made invisible with `visibility: hidden`, keeping transforms computable; `display: none` would erase their computed angles in Chromium. The displayed bar is transparent when the percentage is unavailable, while the native level/timer remain visible.
 
-Elite card position/width follow the challenge's actual bounds in its offset-parent coordinate space, including parent scaling. Parent custom properties align trophy favorites with the challenge's left edge and width, below the last card. Typography, progress-bar sizes and calculated geometry use `em`; measured coordinates, announcement height and panorama offsets are converted using the font size of the element consuming each value. Spacing accounts for parent transforms. Pixel minimums no longer clamp text when the game font or browser zoom changes. Existing 1px borders, 2px hover outline and 2px artwork blur remain unchanged. A scoped mutation observer follows native text/class/child changes; it ignores the adapter's own root style changes. A ResizeObserver and window resize listener maintain alignment, and ordinary heavy passes cover source replacement/navigation. Updates retain the native DOM and skip unchanged properties. Cleanup removes owned classes/variables and restores the previous trophy-position/width variables. The CSS-only pseudo-title and level prefix follow `data-kasp-pass-lang` for RU/EN. There is no independent countdown, persistent pass cache, additional request, or account-ownership inference.
+Elite card position/width follow the challenge's actual bounds in its offset-parent coordinate space, including parent scaling. Parent custom properties align trophy favorites with the challenge's left edge and width, below the last card. Typography, progress-bar sizes and calculated geometry use `em`; measured coordinates, announcement height and panorama offsets are converted using the font size of the element consuming each value. Spacing accounts for parent transforms. Pixel minimums no longer clamp text when the game font or browser zoom changes. Existing 1px borders, 2px hover outline and 2px artwork blur remain unchanged. A scoped mutation observer follows native text/class/child changes; it ignores the adapter's own root style changes. A ResizeObserver and window resize listener maintain alignment, and the immediate boot mutation path covers source replacement/navigation. Updates retain the native DOM and skip unchanged properties. Cleanup removes owned classes/variables and restores the previous trophy-position/width variables. The CSS-only pseudo-title and level prefix follow `data-kasp-pass-lang` for RU/EN. There is no independent countdown, persistent pass cache, additional request, or account-ownership inference.
 
 ### Trophy Favorites
 
@@ -1727,7 +1729,7 @@ Boot observers remain page-wide; feature scopes own module listeners, timers and
 
 ## Feature Failure Isolation
 
-`src/core/featureRuntime.ts` provides independent scopes, guarded initialization/updates/callbacks, resource ownership, rolling error thresholds, synchronous timing diagnostics, idempotent cleanup, and diagnostics. `src/modules/index.ts` wraps entries separately. Boot coalesces most garage work into its 150 ms heavy pass; TAB statistics and quick-upgrade button presentation retain direct mutation-driven updates. Native indicators use `src/core/nativeFeature.ts`; arcade plans require `runtimeControls` and stale plans without this flag are not selected. Generated hooks remain installed until page reload, but quarantined callbacks become inert.
+`src/core/featureRuntime.ts` provides independent scopes, guarded initialization/updates/callbacks, resource ownership, rolling error thresholds, synchronous timing diagnostics, idempotent cleanup, and diagnostics. `src/modules/index.ts` wraps entries separately. Boot coalesces most garage work into its 150 ms heavy pass; TAB statistics, quick-upgrade buttons and lobby presentation retain direct mutation-driven updates. Native indicators use `src/core/nativeFeature.ts`; arcade plans require `runtimeControls` and stale plans without this flag are not selected. Generated hooks remain installed until page reload, but quarantined callbacks become inert.
 
 Three errors within ten seconds disable a scope. The synchronous duration threshold is diagnostic only: 16 ms by default and 4 ms for native HUD indicators. Exceeding it updates `slowCalls`, `lastMs`, and `maxMs` without disabling the scope, releasing resources or throttling callbacks. Timing happens after return and cannot preempt a hang. See [MAINTENANCE.md](MAINTENANCE.md) for live settings, cleanup ownership, diagnostics, test commands, and manual adapter repair.
 
@@ -1771,7 +1773,7 @@ The full build and ZIP command stop on failed type checking or regression tests.
 
 ### Dependency Metadata
 
-The manifest, package, and lockfile package versions are 3.0.1. Both package files declare `UNLICENSED`; the package is marked `private: true`. Package/lockfile-root ranges agree: `@types/chrome` `^0.3.0`, esbuild `^0.28.2`, TypeScript `^7.0.2`, Acorn `^8.19.0`, acorn-walk `^8.3.5`, and Astring `^1.9.0`. The parser/walker/generator are development dependencies, not imports of the runtime entries.
+The manifest, package, and lockfile package versions are 3.0.2. Both package files declare `UNLICENSED`; the package is marked `private: true`. Package/lockfile-root ranges agree: `@types/chrome` `^0.3.0`, esbuild `^0.28.2`, TypeScript `^7.0.2`, Acorn `^8.19.0`, acorn-walk `^8.3.5`, and Astring `^1.9.0`. The parser/walker/generator are development dependencies, not imports of the runtime entries.
 
 Use `npm ci` to install the locked dependency graph. Dependency changes should update the manifest and lockfile together; `npm install` can rewrite the lockfile. The project does not declare a Node `engines` field; tooling requires APIs such as `fs.cpSync` and the built-in Node test runner.
 
@@ -1818,7 +1820,7 @@ Generated JSON is statically imported into `dist/kasp_injector.js`; it is not fe
 
 Configured directories are `dist`, `styles`, `assets`, `database`, `_locales`, `templates` and `docs`. Configured root files are `manifest.json`, `LICENSE.txt`, `README.md`, `DOCUMENTATION.md`, and `MAINTENANCE.md`.
 
-For 3.0.1, the folder and archive names are `release/Kaspersky's Inventions 3.0.1/` and `release/Kaspersky's Inventions 3.0.1.zip`. The ordinary ZIP contains that outer versioned folder. A second `Kaspersky's Inventions 3.0.1-firefox.zip` contains its contents directly, including the root manifest. Both are unsigned distribution archives.
+For 3.0.2, the folder and archive names are `release/Kaspersky's Inventions 3.0.2/` and `release/Kaspersky's Inventions 3.0.2.zip`. The ordinary ZIP contains that outer versioned folder. A second `Kaspersky's Inventions 3.0.2-firefox.zip` contains its contents directly, including the root manifest. Both are unsigned distribution archives.
 
 The script removes the existing same-version output before recreating it. It throws if no directory or no root file was copied, but does not require every configured input to exist. `build:zip` can package stale bundles or partial resources if invoked without appropriate preparation.
 
@@ -1979,7 +1981,7 @@ Disable, world replacement, battle-canvas removal, recognized battle exit, pageh
 
 ### Random Battle Weather
 
-The default-off `k_rain_weather` option uses the two-stage `ki-rain-v2` prepared AST contract: clouds after native SkyBox, then rain/colour grading before SpritesOnTop/HUD. Enabling immediately reveals two full-width localized volume sliders. Their independent 0–1 localStorage preferences (`k_rain_volume`, `k_thunder_volume`) update separate rain/thunder gain buses live and persist across sessions. Scheduling allows one preset/episode per known battle ID, with approximately 24% of eligible battles receiving rain; the remaining episodes are dry or absent. Session plans prevent rerolls within the same tab. The 1024 × 256 hemispherical cloud atlas uses soft density gradients, optional half-float colour and cubic reconstruction, is fixed in world orientation/altitude and updated up to 10 Hz; its projection follows the current view every frame without stale camera/depth silhouettes. Uniform storm grading runs each frame even without a depth copy. Clouds/rain fade gradually, storm intensity reaches 14,000 instanced streaks, and native fog lightens distant clouds much closer than the game's fog distance, using neutral weather colours. Rare world-space branched lightning and delayed rolling thunder occur only during full-strength storms; rain audio has a stable, slightly quieter background level. No puddles, waves, track spray, rainbow or birds are included. Audio stops on battle exit and render inactivity. See [the complete implementation contract](#weather-reference), including depth-based impacts, GPU limits, AST preparation and test boundaries.
+The default-off `k_rain_weather` option uses the two-stage `ki-rain-v2` prepared AST contract: clouds after native SkyBox, then rain before SpritesOnTop/HUD. Enabling immediately reveals localized generation controls and two full-width volume sliders. Generation preferences (`k_rain_chance`: 0–1, default .24; `k_rain_preset`: random/sunny/overcast/drizzle/sunshower/storm) are saved independently of the boolean cache and read when a new battle plan is created. Their independent 0–1 localStorage preferences (`k_rain_volume`, `k_thunder_volume`) update separate rain/thunder gain buses live and persist across sessions. Scheduling allows one preset/episode per known battle ID, with a user-selected chance (24% by default) and preset. Random selects only rainy presets; sunny and overcast are explicit dry choices. Session plans prevent rerolls within the same tab. The 1024 × 256 hemispherical cloud atlas uses soft density gradients, optional half-float colour and cubic reconstruction, is fixed in world orientation/altitude and updated up to 10 Hz; its projection follows the current view every frame without stale camera/depth silhouettes. Storm shading scales the native ambient/sun LightingBlock at upload, restoring its CPU values in finally; dynamic/emissive additions are preserved and the integrated renderer skips the old full-screen grade. Clouds/rain fade gradually, storm intensity reaches 25,000 instanced streaks, and native fog lightens distant clouds much closer than the game's fog distance, using neutral weather colours. Rare world-space branched lightning and delayed rolling thunder occur only during full-strength storms; rain audio has a stable, slightly quieter background level. Experimental puddles are a separate default-off setting requiring active rain; see the limitations below. Bounded tank-contact splash droplets are included; fluid wakes, rainbow and birds are not. High-detail puddles have small wind waves and rain rings. Audio stops on battle exit and render inactivity. See [the complete implementation contract](#weather-reference), including collision-based impacts, GPU limits, AST preparation and test boundaries.
 
 ### Supported Features versus Diagnostics
 
@@ -2007,13 +2009,13 @@ Project use and distribution are governed by [LICENSE.txt](LICENSE.txt), which c
 
 ---
 
-Technical documentation aligned with source/manifest version **3.0.1**, updated **October 24, 2026**.
+Technical documentation aligned with source/manifest version **3.0.2**, updated **October 24, 2026**.
 
 <a id="weather-reference"></a>
 
 ## Weather Rendering and Audio Reference
 
-Extension 3.0.1 · Implementation review: October 24, 2026
+Extension 3.0.2 · Implementation review: October 25, 2026
 
 Enable **Settings → KASPERSKY → Visual changes → Random battle weather**. The feature is off by default and enables immediately. Two full-width sliders smoothly expand beneath its switch: **Thunder volume** and **Rain volume**, localized in English/Russian. Both range from 0% (muted) to 100% of the existing sound level, default to 100%, persist across sessions and apply live. Disabling collapses the controls and releases the weather renderer and audio without discarding volume preferences.
 
@@ -2023,7 +2025,7 @@ Disable the old Tampermonkey weather script before using the integrated version.
 
 ### When weather appears
 
-The client chooses at most one finite episode for each observed battle ID. There is a 40% chance of an episode; each of the five retained presets is equally likely. Three presets contain rain, so roughly 24% of eligible battles receive rain. These are probabilities, not a repeating sequence or a promise that every fourth battle is wet.
+The client chooses at most one episode for each observed battle ID. Rain chance is configurable from 0% to 100%, defaulting to 24%. Random selects uniformly among the three rainy presets; the two dry presets remain available by explicit selection. At 0%, no new episode is scheduled. At 100%, an eligible battle receives the chosen preset (or a rainy random choice). A zero duration prevents weather even if chance is 100%. These are probabilities, not a repeating sequence. Chance, duration and preset changes affect future plans only; the existing plan and same-battle session cache are retained.
 
 | Preset | Rain | Atmosphere |
 | --- | --- | --- |
@@ -2033,7 +2035,9 @@ The client chooses at most one finite episode for each observed battle ID. There
 | `overcast` | None | Heavy cloud cover |
 | `sunny` | None | Light cloud cover |
 
-Episodes can start on arrival or later in the remaining battle time. Clouds build over 24 seconds; rain follows 12 seconds after cloud onset. The full-strength hold is normally 45–135 seconds, then clouds clear over 30 seconds while rain ends slightly earlier. Short remaining times shorten the hold; fewer than 75 seconds remaining skips weather. If the native timer is unavailable, scheduling assumes ten minutes from first observation.
+`window.__kaspRain.status().timing` distinguishes clear/waiting/forming/holding/clearing/finished and exposes `startsInSeconds` and `rainStartsInSeconds`. A ready renderer with zero frames, `active: false`, `finished: false` and a future episode start is waiting normally, rather than failing. The rain countdown includes the 12-second cloud lead-in.
+
+Rain duration is an origin preference `k_rain_duration`, bounded to 0–1 (default .30), displayed as a full-width localized 0–100% slider. Zero schedules no weather. Values below 100% create one uniformly randomly placed interval whose total duration, including formation and clearing, equals the selected share of the remaining timer at first observation. Fade-in is at most 24 seconds and fade-out at most 30 seconds, each at most 30% of a short episode. Rain follows half the forming transition, capped at 12 seconds. Full-battle (100%) plans start immediately, fade in smoothly and remain active until native battle exit rather than an estimated timeout. They persist across re-entry/toggle/reload of the same known battle. Chance remains independent: 100% duration does not override a failed chance roll or a dry preset. When no readable battle timer exists, fractional scheduling uses the existing ten-minute estimate; full-battle weather has no such timeout.
 
 The plan is retained across settings changes and scene changes, and in a bounded per-tab session cache across reloads. Returning to the same known battle ID does not reroll or restart its episode. There is no cross-tab/server synchronization. Without a usable native battle ID, reuse is limited to the observed scene object. Different players can see different local weather.
 
@@ -2041,31 +2045,120 @@ The plan is retained across settings changes and scene changes, and in a bounded
 
 ### Rendering and boundaries
 
-- Rain contains up to **14,000 instanced streaks** at full storm intensity, generated in world space without a CPU terrain grid. Rain appears smoothly rather than waiting for raycasts to fill a height map.
-- Brief depth-based impact crowns appear on visible near-horizontal surfaces. These are statistical rain impacts; each impact is not physically paired to a falling particle. No persistent surface water is drawn.
+- Rain contains up to **25,000 instanced streaks** at full storm intensity, generated in world space without a CPU terrain grid. Rain appears smoothly rather than waiting for raycasts to fill a height map.
+- Ground impacts use a bounded pool of world-space ballistic droplets, sampled on colliding map surfaces; inclines remain available for rain splashes although they cannot hold puddles. Tanks emit additional droplets when rain hits their transformed hull collision faces, including stationary tanks and with puddles disabled. Shared precipitation and splash controls set the rate and launch strength; driving speed does not create track wakes. Birth positions stay fixed in world space, and native depth occludes the ribbons. These are statistical impacts, not a one-to-one collision simulation of every falling streak.
 - Layered procedural clouds use a twelve-step volume pass with four-octave noise and soft erosion. A **1024 × 256 world-aligned hemispherical atlas** is updated up to 10 times per second. Half-float colour is used when supported, with an RGBA8 fallback; this preserves faint formation gradients. Smooth density thresholds, coherent integration samples and four-tap cubic reconstruction soften the former pixel-sized patches. The cloud layer has a fixed world origin and altitude, independent of camera translation/height. Each presentation frame projects the current viewing direction into that atlas. Camera rotation does not reuse a previous screen image or scene-depth silhouettes. Rain and surface impacts use the current viewport resolution.
-- Native Fog controls whether cloud distance lightening is active. Its distances are scaled to 18%, with onset clamped to 450–1,600 native units and the far distance capped at 6,000. Cloud detail remains partly visible through the haze. Weather haze uses neutral cool-grey colours derived from map fog brightness, so pink map fog does not turn the clouds pink.
-- The cloud sky is composed immediately after the native SkyBox layer, before later transparent meshes and effects. Rain and a uniform storm colour grade are composed before SpritesOnTop/HUD. The grade runs **every presentation frame**, including when only clouds remain during onset/clearing; it is independent of cloud-cache updates and scene-depth copies. It does not replace map textures or change native lighting, physics, rewards or network weather.
+- Native Fog controls cloud distance haze. Its distances are scaled to 18%, with onset clamped to 450–1,600 native units and the far distance capped at 6,000. Cloud detail remains partly visible through the haze. Weather haze uses the authored preset palette independently of map fog RGB, so pink map fog does not turn the clouds pink.
+- Clouds compose after native SkyBox; rain and splash droplets compose before SpritesOnTop/HUD. Storm dimming uses scoped native ambient/main-light RGB attenuation, restored after each upload; native fog fades out during actual precipitation. Dynamic-light textures, emissive terms and later luminous effects are not globally multiplied by a screen overlay. Missing lighting evidence leaves native illumination unchanged; the integrated runtime does not revert to the old screen-wide darkening. Physics, rewards and network weather remain native.
 - Lightning is a real procedural world-space path with a main channel and eleven fading branches, normally 152 segments, capped at 256. Segments render as glowing geometry with a hot core, not an electric image/sprite. Their endpoints remain fixed for the discharge. Native depth hides bolts behind terrain. A brief cloud glow and exposure change accompany the visible discharge; there is no periodic independent screen strobe.
-- **No puddles, wet-ground layer, water simulation, waves, track spray, rainbow, birds or bird sounds remain in this feature.**
+- **No fluid simulation, tank wakes, rainbow, birds or bird sounds are included.** Tank-contact droplets and ground splashes are visual effects with bounded pools; they do not change vehicle or water physics.
+
+<a id="weather-reference-experimental-puddles"></a>
+
+### Experimental puddles
+
+The live boolean `k_rain_puddles` defaults to false. Its RU/EN switch is inside the expanded weather controls, alongside generation and volume settings. Disabling weather hides/disables this switch while retaining its saved value. It requires `k_rain_weather` and visible rain. It does not change chance, preset, episode count or physics. Toggle changes ease over a 1.2-second time constant, multiplied by the rain and battle-entry envelopes. Water still renders in the after-SkyBox callback. Additional validated scene captures provide map collision ownership, tank interpolation and native light upload access.
+
+`mapSurface.ts` reads only the captured native BattleMap collision DTO (boxes, planes and triangles), using validated AST-derived fields. Native Rz*Ry*Rx transforms and full box dimensions produce world-space triangles. Only upward faces within one degree of horizontal enter an owned, full-resolution collision-depth pass; tilted/downward faces do not become puddles. The ordinary visible scene depth must agree with this map depth within 14 native units in height. This rejects tanks/supply boxes, noncolliding props, hidden floors and unsupported geometry without classifying arbitrary scene objects. Missing/invalid map data disables puddles rather than falling back to all scene surfaces. Small visual-mesh bumps can remain within the tolerance, and a horizontal colliding map roof can qualify: this is collision ownership/shape filtering, not a soil/material classifier. The water itself remains a full-screen shader, attached to eligible 3D surfaces by both depth buffers; it does not replace source textures or add a visible water mesh. The former ramp-film behavior is removed. Renderer diagnostics report surfaceRevision native-fog-off-v13 and map readiness/errors. A separate CPU spatial index supports bounded splash contact lookups; it is not a tiled puddle texture.
+
+Reflections use a separate owned normalized-colour copy of the opaque scene after sky composition, before later transparent effects and HUD. A bounded 24-step reflected ray with six binary refinements samples depth/colour for visible object intersections. Exponential stepping starts close to the water, and height confidence starts at 2–12 cm rather than discarding the first 20–90 cm of a reflected wall. Candidate hits reconstruct a camera-facing normal from neighbouring depth samples and reject rays approaching the invisible back side; this prevents a floating object’s visible top from being pasted into water underneath it. Reflection confidence also fades near the configured ray limit (12,000 native units by default). SSR still cannot recover unseen object undersides. Both qualities use dielectric Schlick Fresnel (0.02 head-on, capped at 0.72 for grazing reflections) and shallow absorption. Refraction validates all four bilinear colour taps against depth and the water plane; invalid foreground/sky taps fall back to the current ground pixel. Reflection hits and blur taps use texel-centred, depth-checked samples so a nearby gun/tank silhouette cannot be smeared from an unrelated surface into the water. This addresses the puddles-only foreground ghost; live moving-camera validation remains necessary. Final water luminance retains at least 72% of the underlying ground luminance before blending; this relative safeguard prevents black reflections from erasing the bottom without adding a constant glow to dark maps. Misses, screen edges and rejected depth intersections fade to procedural sky/cloud colours limited by locally shaded ground and bounded screen-space sun occlusion; objects outside the screen, occluded objects, the native skybox image, foliage/effects rendered later and back faces cannot be reconstructed. This is screen-space reflection, not a complete environment capture or material-metalness change. Thin geometry and moving-camera disocclusions remain limitations.
+
+Puddles always request High detail. The quality slider and its preference reader are removed; legacy `k_rain_puddle_detail=low` values are ignored. The puddle enable switch stays default-off, persists and applies live without rerolling weather. Low remains an internal fallback only if High fails to compile.
+
+Low compiles the original simple outline/sine-ripple shader. High adapts the user-supplied Weather 3D 3.20.2 surface functions in `puddleSurface.ts`: the nine-neighbour warped organic shoreline, concentric rain-impact rings, two-band wind noise, three directional micro-wave bands, dielectric Fresnel and refracted ground colour with depth absorption/a thin wet rim. The surface scale is fixed at 540 native units rather than inferred from tank geometry. An analytic ripple gradient evaluates the nine impact cells once instead of three finite-difference field calls. Shorelines stay fixed in world space; only the surface normal/optics animate. The reference height-grid renderer, tank response/foam/splashes, streams, day/night cycle and other unrelated systems are not imported.
+
+Each quality has an independently cached program, compiled only when requested. A rejected High shader records `puddleErrors.high` in renderer diagnostics and falls back to Low; optional shader compilation cannot quarantine rain. Selected quality appears in `status().puddleDetail`, and each renderer reports the actual quality used. Both qualities retain the existing depth clipping, 24-step/six-refinement screen-space reflection and its visibility limitations. Surface visibility extends to 25,000 native units (300 metres), fading from 19,500 to 25,000. This is separate from the bounded 6,000-unit reflection ray length. High-detail rain rings/wind micro-waves fade between 7,000 and 18,000 units and skip their evaluation beyond that range to reduce distant shimmer and work. High adds per-fragment work; it has not been benchmarked in a live battle.
+
+Only enabled, visible puddles allocate/copy scene colour and perform the extra draw. The shader can precompile while an episode waits. MSAA colour resolves use the exact source internal format: RGB8 for an alpha:false default buffer, RGBA8 for alpha:true, or the queried renderbuffer format for a native FBO. Supported linear normalized formats are RGB8, RGBA8, RGB565, RGBA4, RGB5_A1 and RGB10_A2. Single-sample native FBOs can convert normalized colour into RGBA8. Changing format reallocates the owned texture even if the viewport dimensions stay the same. MSAA source/destination coordinates must match exactly; nonzero viewport origins and viewports outside known source bounds skip depth-dependent weather effects rather than attempting an invalid copy. Unsupported floating-point/HDR, sRGB or unknown multisample colour targets skip puddles while rain continues. Renderer diagnostics expose sceneCopy and depthCopy with format, samples and the last skip reason. No global gl.getError drain is used. Texture/sampler unit 14, framebuffers and all other touched native state are restored. Colour resources are released after fade-out, battle exit, episode completion, weather disable and renderer disposal. No CPU pixel readback or global WebGL hook is added. A full-resolution colour texture and bounded per-fragment ray march still add GPU/memory cost; real-game FPS must be measured on the player's hardware.
 
 <a id="weather-reference-stable-rain-audio-and-distant-thunder"></a>
 
+### Surface Parameters
+
+The developer panel, its opening hotkey and authoring/export API have been removed. Ordinary in-game weather controls remain available; existing saved surface preferences remain compatible.
+
+Existing surface parameters are read from the versioned origin-local `k_rain_surface_tuning_v1` key. They apply live across presets, without shader recompilation, account data or extra particle meshes:
+
+| Parameter | Range | Default | Meaning |
+| --- | --- | --- | --- |
+| `rainIntensity` | 0–1 | 1 | Common multiplier for rain count, ring density, splash rate and rain noise |
+| `edgeInset` | 0–200 | 200 | Open-edge fade distance in native centimetres; native centimetres |
+| `rippleSizeReduction` | 1–30 | 15 | Divide rain-ring radius and spacing by this factor |
+| `rippleDensity` | 0–1 | 1 | Active fraction of world-fixed impact cells, also scaled by visible rain |
+| `rippleSpeed` | 0.25–8 | 8 | Ring animation time multiplier |
+| `rippleStrength` | 0–2 | 0.7 | Ring normal/height contribution; zero disables rings |
+| `waveSizeReduction` | 1–30 | 16 | Divide wind-wave wavelengths by this factor |
+| `waveSpeed` | 0.25–8 | 8 | Wind-wave animation time multiplier |
+| `waveStrength` | 0–2 | 2 | Wind-wave normal contribution; zero disables it |
+| `reflectionStrength` | 0–2 | 2 | Reflection/Fresnel multiplier; zero bypasses SSR marching |
+| `reflectionDistance` | 1,000–12,000 | 12,000 | Native centimetres for SSR rays; native centimetres |
+| `reflectionRoughness` | 0–1 | 1 | Bounded five-tap reflection blur |
+| `refractionStrength` | 0–2 | 2 | Ground-refraction offset multiplier |
+| `groundSplashDensity` | 0–4 | 4 | Statistical ground-droplet rate multiplier |
+| `tankSplashDensity` | 0–4 | 4 | Rain-impact droplet rate on tank hull surfaces, including stationary tanks |
+| `splashSpeed` | 0.25–4 | 4 | Launch velocity multiplier |
+| `splashSize` | 0.25–4 | 0.25 | Droplet ribbon width/length multiplier |
+| `splashLifetime` | 0.15–1.5 | 1.5 | Maximum droplet lifetime in seconds |
+| `splashGravity` | 0.25–3 | 3 | Ballistic downward acceleration multiplier |
+
+The supplied tuning export now defines defaults: ring radius/spacing divided by 15, active-cell fraction 1, ring speed 8, ring strength 0.7, wind wavelengths divided by 16, wind speed 8 and wind strength 2. The ring field has 225 times the old candidate-centre density, but evaluates at most nine neighbours rather than creating that many objects. Pixel-footprint filtering fades unresolved rings/waves and bounds normal perturbation. Existing saved local tuning wins over new defaults. All presets share these surface defaults; rain chance remains 24% and weather/puddles remain default off.
+
+The shared intensity is the sampled episode rain multiplied by `rainIntensity`. This one value drives the instanced streak count, rain-ring activation, splash spawning and rain-noise gain; user volume is an additional independent multiplier. Zero stops rain audio and droplets while clouds can remain. Ground emission is bounded to 60 candidate contacts per update. Up to 12 recently interpolated tanks participate. Native hull box descriptions supply local collision faces and the interpolated body matrix transforms rain-ray hits into world positions. These are rain impacts on a hull, not track wakes: stationary tanks emit too, independently of puddles and speed. Missing hull geometry emits nothing; captured map roofs above a contact suppress its spawn. Collision hulls can differ from visual skins and do not include a separately articulated turret. The particle pool is capped at 1,024, with one preallocated GPU buffer and one instanced call. The normal rain field is not read back to the CPU and ground impacts are statistical, not exact rain-particle collisions. Hull spray does not sample the puddle mask. The owned horizontal and bank collision meshes are uploaded once per captured map, and water mask depth is rasterized only when needed for visible puddles.
+
+`tools/ast/weather-scene-ast.cjs` adds eight validated scene capabilities: map collision capture, hull setup/interpolation, native LightingBlock upload, battle-ID/theme observation, static foliage, native skybox tone, native fog-strength suppression and drop-zone depth isolation. The upload wrapper always calls native code exactly once and restores only its own temporary CPU values in finally. The current plan contains 28 insertions and 57 evidence templates. Foliage edits wrap four vertex-source expressions without any per-draw wind callback. Fog and drop-zone edits scope temporary state around existing native uploads/dispatch. Original source assembly/program selection still executes once. DTO getters, list operations, coordinates and tank fields are derived from source evidence and adapted across renamed/minified bundles. Missing scene evidence never authorizes treating all depth as terrain. `status()` includes `environment`, `map`, `nativeLightingReady`, recent `tanks`, usable `tankSurfaces`, `splashes`, and per-renderer `mapError`/`splashError`. Live validation remains necessary for collision/visual-mesh differences on each map.
+
+### Open edges, tree wind and map environment
+
+The validated `edgeInset` parameter uses 0–200 cm (default 200 cm). Eight directions probe at the full inset and 1.25 times that distance, plus a conservative pixel footprint. The full configured distance stays dry beside voids/lower levels; the outer band softens the transition. Three world-fixed noise bands vary extra inward erosion beyond that minimum, creating bays, notches and detached patches instead of a uniform parallel stripe. The 1.083 directional margin conservatively covers the gaps between eight probe directions. No clock or camera offset drives the shoreline. A separate depth pass over complete static map collision faces includes retaining walls: a raised bank does not drain the lower puddle. Same-height neighbours preserve continuity. Only the original horizontal-face mask authorizes water, so walls, slopes, tanks and supply boxes do not become puddles. Abrupt levels therefore have separate water surfaces. Texel-centred, plane-relative depth avoids far-distance height noise. Off-screen probes remain unknown; this is screen-space continuity, not an exact offline fluid/topology solver. Both collision buffers upload once per map. The extra bank depth target/pass is needed only for a positive inset, with no CPU readback.
+
+Native InstancedTrees, InstancedTreesDepth, InstancedTreesLightingPrePass and Trees vertex sources now remove foliage displacement completely. The three instanced paths gate getPositionModifiedByWind behind the frozen uniform; the standard/sprite path keeps localPosition=position and gates positionOffset in the same way. UVs, model transforms, fog, shadows and visibility stay native. This freezes both native breeze and the removed custom storm bend, even when weather is off. A new kiFoliageMotion uniform is intentionally left at WebGL's initial zero and gates all native displacement. Keeping the unreachable-at-runtime branch preserves the native mandatory time/noise uniforms at link time, avoiding missing-uniform diagnostics. No custom time upload or per-draw wind callback remains. The legacy scene capability/file name treeWind still identifies this validated foliage contract; status().foliageAnimation is false.
+
+BattleCreateParameters.theme provides SUMMER_DAY, SUMMER_EVENING, SUMMER_NIGHT, AUTUMN_DAY, WINTER_DAY, WINTER_NIGHT and SPACE. The BattleParamInfoCC dispatch associates metadata with the exact battle ID; another battle preview cannot recolour the current map. Known SPACE battles skip weather rendering, audio, lightning, lighting attenuation, added tree wind and force previews. Other themes select seasonal/time-of-day cloud tones; native fog fades out during rain. Missing metadata is reported as environment.theme=null and retains neutral tone. Verify metadata on direct matchmaking entry: the collision DTO itself carries no theme, and localized map names are not treated as theme evidence.
+
+Direct distance-based grading of BattleMapProgram_ / Terrain remains removed. Native fog colour/distance are unchanged; fog strength alone fades out during rain. Source textures, UV/AO and native dynamic-light calculations remain original. The weather LightingBlock wrapper darkens ambient/sun RGB only for one upload and restores its CPU buffer immediately.
+
+Cloud colour comes from appearance.ts rather than native daylight fog RGB. Storm defaults to low=[.055,.065,.085], high=[.16,.18,.22], haze=[.085,.10,.13] and fog=[.075,.09,.115]. Drizzle uses cool grey, Overcast a lighter slate, Sunshower a pale daylight grey and Sunny the lightest palette. Formation uses the chosen preset colour from the first visible cloud instead of brightening while rain is still zero. Native fog flags, alpha and distance affect haze coverage, never a minimum cloud luminance or pink map tint. Seasonal/evening/night tint is mild, avoiding order-of-magnitude jumps between maps. A full storm therefore stays dark under white, pink and dark map fog alike. Palette coefficients are frozen defaults, not new user sliders.
+
+Drop-zone markers use a transparent 500-unit native quad raised 5 units above the map; the render loop dispatches DropZones before Trees and SkyBox. Previously this layer could write the whole transparent square into scene depth. Water then reconstructed that raised plane instead of the underlying collision surface, producing square holes/edge discontinuities. A validated wrapper around only the native DropZones dispatch disables depth writes while active rain/puddles are visible, then restores the previous mask in finally. Native depth testing, colour blending, marker resources and opaque terrain/tank depth remain intact. Missing/disabled weather, Space and maps without puddles leave the dispatch native. No global WebGL interception, extra buffer or new water pass is introduced. A raised-marker regression checks both detail levels, 5/30-unit quad offsets, visible marker pixels and identical water outside the glyph.
+
+Native BattleStatistics mapNameWithoutMode/mapName identifies Бойня / Massacre, optionally with a mode suffix. On this map puddle amount is forced to zero and reflection/mask resources are cleared, while rain, audio, clouds and lightning continue. The saved puddle switch is preserved for other maps. status() reports mapName, puddlesAllowed and puddleBlockedReason=map-massacre. A missing native map title remains null in diagnostics rather than guessing from terrain shape.
+
+Sun-visibility probes suppress a bright sky fallback beside visible occluders. They do not replace native shadow maps/baked lightmaps or find off-screen occluders. Local shaded-ground luminance also bounds fallback; actual SSR hits retain sampled object colours and dynamic illumination in both quality modes.
+
+Weather presence also supports a WebGL-only HUD: a validated native frame requires main-map capture plus loaded-battle or recent active-tank evidence. Arbitrary canvases/render calls do not establish presence. Disconnecting the native canvas, native unload or a one-second render timeout invalidates fallback presence. Manual force reports render-hook-missing, battle-not-present or battle-loading separately. `status().patch` exposes pending/loading/installed/unsupported/conflict/error. A missing render hook requires reloading the game after updating; it cannot be repaired by pretending the renderer has run.
+
 ### Stable Rain Audio and Distant Thunder
 
-Rain uses a normalized six-second seamless stereo noise bed with fixed filters and no camera panning, distance attenuation or moving low-pass filter. Gain follows only the slow weather/entry envelope. Repeated equal levels do not add automation events; changing levels are limited to 20 updates per second. The old correlated low-frequency parallel branch is removed. OfflineAudioContext comparison of the full-strength storm bed measured approximately 18% lower RMS than the old implementation and about 2% variation between quarter-second windows. This is a controlled synthesis check, not a measurement of the player's full game mix.
+Rain uses a normalized six-second seamless stereo noise bed with fixed filters and no camera panning, distance attenuation or moving low-pass filter. Gain follows the actual visible rain intensity (`0.45 × rain`) and entry envelope, preserving the full-strength storm peak and removing the former preset-specific mismatch between drop density and background sound. Repeated equal levels do not add automation events; changing levels are limited to 20 updates per second. The old correlated low-frequency parallel branch is removed. OfflineAudioContext comparison of the full-strength storm bed measured approximately 18% lower RMS than the old implementation and about 2% variation between quarter-second windows. This is a controlled synthesis check, not a measurement of the player's full game mix.
 
-Only the `storm` preset schedules lightning/thunder. The first strike occurs 20–42 seconds after the full-strength hold begins; subsequent gaps are 48–78 seconds. There are at most three per episode and none during formation/clearing. Strike schedules are deterministic for the existing weather seed, so frame rate and camera movement cannot reroll them. They may occur outside the current view.
+Only the `storm` preset schedules lightning/thunder. The first strike occurs 8–18 seconds after the full-strength hold begins; subsequent gaps are 20–35 seconds. There are at most seven per episode and none during formation/clearing. Strike schedules are deterministic for the existing weather seed, so frame rate and camera movement cannot reroll them. They may occur outside the current view.
 
 Bolts are placed beyond the playable area at a visual radius of 85,000–125,000 native units. Using the effect's 100-units-per-metre convention gives a 2.5–3.6-second thunder delay. The eight-second synthesized thunder contains a low body, several delayed acoustic arrivals and a fading rumble. It is loud relative to the rain and peak-limited before mixing. Each event is queued once; missed events are not burst-replayed when a tab resumes. Thunder buffers are prepared ahead of the strike when possible, at a suitable 16 kHz rate for their low-pass spectrum.
 
 Leaving the battle stops audio independently of the native render callback; a watchdog also stops it if rendering stops. Disabling/page exit closes the owned context, cancelling future thunder. Browser autoplay rules may require a click/key before sound is audible.
 
+### Native fog during rain
+
+The separate fog and enhanced dynamic-lighting features have been rolled back. There is no independent mist setting, 3D fog texture/pass, light-gain shader or atmospheric tuner section. The regular weather settings retain rain volumes, chance, duration, preset and the puddle switch. The developer panel and its surface/reflection/splash controls are removed. Old atmosphere/light preference keys are no longer read or exported.
+
+Only during a rainy preset, both native common Fog binders receive a fading fog-strength cap and the separate SkyBox fog upload receives the same fading alpha. At full preset intensity they are zero, so native fog does not whiten distant geometry, foliage or the skybox. This is normalized per preset: drizzle and sunshower remove fog fully too. Fog colour, distance, shader source and saved graphics flags remain native. Existing zero strength remains zero. Each original strength expression is evaluated once; observer errors fall back to the original. Rain ending, disabling weather, zero precipitation, SPACE and leaving battle restore native uploads automatically, including graphics changes made by the player during rain. The cloud renderer follows the same suppression envelope. Native fog is not permanently disabled in game settings.
+
+The earlier scoped LightingBlock darkening is restored and strengthened: only ambient/main-light RGB is attenuated, up to 78% (full storm factor 0.22); direction/padding and later native dynamic/emissive additions remain untouched. CPU values restore after each native upload in finally. Skybox darkening reaches 82%, with the existing 65% night-theme multiplier. The temporary global fog/light shader changes have been removed. The original weather stage order, cloudy presets, lightning, puddles and unrelated features are preserved; the pre-fog 25,000-drop budget is restored.
+
+### Native lighting and distance sound: investigation
+
+The inspected local `main.js` (SHA-256 `4ef9f256178c771071ce9cc0baf2a00d939073746badf40c8656c6d5760c3db4`) provides these distinct systems. Native symbol names are evidence for this bundle, not a stable API:
+
+- Render layers begin with Shadows (0), OpaqueDepth (1), LightingPrePass (2), Opaque (3), OutlineStencil (4) and SkyBox (5). Their buffers/passes are not interchangeable. A cloud model needs a shadow-compatible native draw contract; simply inserting its sky fragment shader into Opaque cannot make it cast a shadow.
+- `BattleMapProgram_` binds LightingBlock (ambientLightColor, mainLightColor, mainLightDirection), ShadowParams and shadowMVP separately from lightmapTexture. Its fragment combines directional lighting with shadow attenuation, then caps the result using `min(2. * light, staticLight)` for baked lightmaps; dynamic light is added later. Thus baked shading cannot be undone by changing the dynamic shadow layer alone. Weather attenuates native ambient/main-light RGB only during its weather envelope and suppresses native fog during rain. Dynamic-light textures and emissive additions remain original. Cloud-shaped sunlight occlusion, native shadow-map generation and changes to baked source lightmaps remain unimplemented.
+- Native SkyBox samples `samplerCube skyboxTexture` and optionally mixes map fog. Weather adds a guarded uniform after the native SkyBox binds: its fragment multiplies RGB after native fog composition. Cloud/rain/storm darkness fades smoothly up to 82%; night themes use 65% of that attenuation. A zero uniform preserves the original colour and alpha. The procedural puddle sky fallback follows the same attenuation. Individual remastered mountain/perimeter resources have not been reliably classified across maps; their source textures are not recoloured. Direct static-map material grading was rolled back. Native fog strength fades out instead; authored texture/UV/AO and dynamic-light calculations stay intact.
+- The native 3D sound update calculates listener distance and inverse attenuation `reference / (reference + rolloff × (distance - reference))` beyond the reference distance, plus stereo position from the listener axis. The current rain bed deliberately stays stationary. Material-specific rain impacts near tanks/objects would need separately budgeted world emitters, verified surface contacts/materials and the listener transform; the render/fog hook alone does not provide those data. Such emitters are not implemented here. Camera motion must not modulate or repeatedly restart the background loop.
+
 <a id="kill-feed-rendering-investigation"></a>
 
 ## Киллфид: исследование рендера и проверка символов
 
-Разбор локального `main.js` для расширения **3.0.1**, проверено **22 октября 2026 года**.
+Разбор локального `main.js` для расширения **3.0.2**, проверено **22 октября 2026 года**.
 
 SHA-256 исследованного бандла:
 `4ef9f256178c771071ce9cc0baf2a00d939073746badf40c8656c6d5760c3db4`.
@@ -2154,7 +2247,7 @@ AST-анализатор находит таблицу глифов в расч�
 
 Reference source files mentioned below are in `tools/client/discord/`. Deployment, building, verification and recovery are covered in [MAINTENANCE.md](MAINTENANCE.md#electron-client-maintenance).
 
-Extension integration reference: **3.0.1**, updated **October 24, 2026**. Client executable versioning and automatic updates belong to the separate Electron project.
+Extension integration reference: **3.0.2**, updated **October 24, 2026**. Client executable versioning and automatic updates belong to the separate Electron project.
 
 The extension reads the nickname and current screen and sends a heartbeat every three seconds. In a regular browser the module remains inactive. Discord labels are always in English, regardless of the game's interface language.
 
@@ -2206,4 +2299,6 @@ The extension now embeds fifteen native plan sets. Account discovery is availabl
 
 The visible UID line can be completely hidden in streamer mode without deleting the underlying identity text. This does not remove the real account from the native cache. Discord uses its own masked state field: `Hidden`, not the SDF-font fallback used by the WebGL kill-feed. Map/mode, countdown and capacity remain activity fields; nickname hiding does not clear the entire activity.
 
-There is no per-feature Discord switch in the fourteen-option settings panel. Presence activates only when the client bridge/environment is available. In an ordinary browser, absence of Discord activity is expected. The bridge is not installed merely by importing a history backup or opening a client-source link.
+There is no per-feature Discord switch in the fifteen-option settings panel. Presence activates only when the client bridge/environment is available. In an ordinary browser, absence of Discord activity is expected. The bridge is not installed merely by importing a history backup or opening a client-source link.
+
+Weather continuity (2026-10-25): one runtime episode is owned by the battle, not individual native render scenes. Secondary/loading canvases before statistics arrives share the same seed, preset, start and fade. A late ID binds that episode to the existing battle cache; an actual different known ID selects its own cached/new episode. Verify full-battle rain at 60, 600 and 1,200 seconds while alternating two WebGL contexts, plus late-ID adoption without a new fade or chance roll.

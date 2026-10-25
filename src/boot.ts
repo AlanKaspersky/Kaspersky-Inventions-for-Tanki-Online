@@ -22,6 +22,24 @@ export function startBoot() {
     let refreshScheduled = false;
     const REFRESH_INTERVAL_MS = 150;
 
+    let lobbyPresentationActive = false;
+    const lobbyPresentationRoots = [gameDOM.lobbyNavigation.root, gameDOM.play.mainMenu,
+        gameDOM.lobbyPasses.challenge].join(', ');
+    const syncLobbyPresentation = () => {
+        const present = !!document.querySelector(lobbyPresentationRoots);
+        if (present) {
+            // Native elements can mount in several batches while the screen marker stays unchanged.
+            // Decorate each batch in the mutation microtask, before the browser paints it.
+            modules.customPlayButton();
+            modules.lobbyNavigation();
+            modules.lobbyPasses();
+        } else if (lobbyPresentationActive) {
+            modules.lobbyNavigation();
+            modules.lobbyPasses();
+        }
+        lobbyPresentationActive = present;
+    };
+
     const runHeavyModules = () => {
         lastFullRefresh = performance.now();
         refreshScheduled = false;
@@ -38,14 +56,9 @@ export function startBoot() {
         modules.tankoinBalance();
         modules.accountSearchNotice();
         modules.hideCurrency();
-        modules.lobbyPasses();
         modules.customGarageSkins();
 
         modules.cybersport();
-        if (state.currentScreen === 'lobby' || state.currentScreen === 'loading') {
-            modules.customPlayButton();
-        }
-        modules.lobbyNavigation();
         if (state.friendsMenuOpen) {
             modules.customFriends();
         }
@@ -116,6 +129,8 @@ export function startBoot() {
         state.currentScreen = newScreen;
 
         if (screenChanged) {
+            // The play adapter needs the fresh screen state when returning directly from battle.
+            syncLobbyPresentation();
             if (newScreen === 'loading' || newScreen === 'battle') {
                 const specsTooltip = document.getElementById('kasp-specs-tooltip');
                 if (specsTooltip) specsTooltip.style.display = 'none';
@@ -188,6 +203,7 @@ export function startBoot() {
 
     const masterObserver = new MutationObserver((records = []) => {
         if (records.length && records.every(isOwnStatisticsMutation)) return;
+        syncLobbyPresentation();
         if (document.querySelector(gameDOM.statistics.container)) {
             modules.changeCounter.sync();
             modules.zeroResists.sync();
@@ -209,6 +225,7 @@ export function startBoot() {
         if (newLang === state.lang)
             return;
         state.lang = newLang;
+        syncLobbyPresentation();
         lastFullRefresh = 0;
         if (refreshScheduled)
             refreshScheduled = false;
@@ -234,6 +251,7 @@ export function startBoot() {
         state.lang = utils.getLang();
         modules.overdriveTimer.setup();
         masterObserver.observe(document.documentElement, { childList: true, subtree: true });
+        syncLobbyPresentation();
         window.setInterval(() => modules.customGarageSkins(), 250);
 
         const langObserver = new MutationObserver(() => {

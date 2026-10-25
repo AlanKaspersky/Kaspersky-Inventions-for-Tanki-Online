@@ -4,3 +4,4 @@ release/
 /main.js
 artifacts/
 userscripts/
+.vscode/

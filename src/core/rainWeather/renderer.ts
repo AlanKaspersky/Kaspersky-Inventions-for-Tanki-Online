@@ -2,26 +2,44 @@ import { WEATHER } from './schedule';
 import * as shader from './shaders';
 import { buildBolt } from './lightning';
 import type { LightningFrame } from './lightning';
+import { PUDDLE_FRAGMENT, HIGH_PUDDLE_FRAGMENT, PUDDLE_SURFACE_REVISION } from './puddles';
+import type { PuddleDetail } from './preferences';
+import { DEFAULT_SURFACE_TUNING } from './tuning';
+import type { SurfaceTuning } from './tuning';
+import type { CollisionSurface } from './mapSurface';
+import { MAP_VERTEX,MAP_FRAGMENT,SPLASH_VERTEX,SPLASH_FRAGMENT } from './splashShaders';
+import { SPLASHES } from './splashes';
+import { WEATHER_PALETTES } from './appearance';
+import type { WeatherPalette } from './appearance';
 // Only values read from this same context are restored.
 type GLState = {
  prog:WebGLProgram|null;vao:WebGLVertexArrayObject|null;arrayBuffer:WebGLBuffer|null;unit:number;
- dtex:WebGLTexture|null;vtex:WebGLTexture|null;
- dsampler:WebGLSampler|null;vsampler:WebGLSampler|null;
+ dtex:WebGLTexture|null;vtex:WebGLTexture|null;stex:WebGLTexture|null;
+ dsampler:WebGLSampler|null;vsampler:WebGLSampler|null;ssampler:WebGLSampler|null;
+ mtex:WebGLTexture|null;msampler:WebGLSampler|null;utext:WebGLTexture|null;usampler:WebGLSampler|null;clearDepth:number;cullMode:number;frontFace:number;
  blend:boolean;bsrc:number;bdst:number;bsrcA:number;bdstA:number;beq:number;beqA:number;
  depth:boolean;dmask:boolean;dfunc:number;cull:boolean;stencil:boolean;scissor:boolean;
  poly:boolean;polyF:number;polyU:number;cmask:boolean[];fb:WebGLFramebuffer|null;readfb:WebGLFramebuffer|null;
  discard:boolean;viewport:Int32Array;depthRange:Float32Array;a2c:boolean;drawBuffers:number[]|null;
 };
 type Program = { p: WebGLProgram; u: Record<string, WebGLUniformLocation | null> };
+type CopyInfo = { format:number|null; samples:number; reason:string|null };
 export interface RainFrame {
     vp: Float32Array; camera: [number,number,number]; time: number; seed: number; fade: number;
     rain: number; clouds: number; wind: number; flash: number; storm: number;
     fog: [number,number,number]; fogColor: [number,number,number,number];
     lightning?:LightningFrame;
+    puddles?:number;
+    puddleDetail?:PuddleDetail;
+    surfaceTuning?:Readonly<SurfaceTuning>;
+    map?:CollisionSurface;splashData?:Float32Array;nativeLighting?:boolean;
+    cloudPalette?:WeatherPalette;cloudTone?:[number,number,number];sunDirection?:[number,number,number];skyDarkness?:number;
 }
 export type RainStage='sky'|'weather'|'all';
 export function createRainRenderer(gl: WebGL2RenderingContext) {
- const DUNIT=12,VUNIT=13;
+ const UUNIT=11,DUNIT=12,VUNIT=13,SUNIT=14,MUNIT=15;
+ const colourFormats=new Set<number>([gl.RGBA8,gl.RGB8,gl.RGB565,gl.RGBA4,gl.RGB5_A1,gl.RGB10_A2]);
+ const defaultColourFormat=gl.getContextAttributes()?.alpha===false?gl.RGB8:gl.RGBA8;
  const info:{depthFormat?:number}={};
  const curRes:{depthTex:WebGLTexture|null;depthFbo:WebGLFramebuffer|null;depthWidth:number;depthHeight:number;depthFormat:number;depthReady:boolean}=
    {depthTex:null,depthFbo:null,depthWidth:0,depthHeight:0,depthFormat:0,depthReady:false};
@@ -29,9 +47,118 @@ export function createRainRenderer(gl: WebGL2RenderingContext) {
  let ready=false,disposed=false,vao:WebGLVertexArrayObject|null=null,cloudTex:WebGLTexture|null=null,cloudFbo:WebGLFramebuffer|null=null;
  let cw=0,ch=0,cloudAt=-Infinity;
  const cloudFloat=!!gl.getExtension('EXT_color_buffer_float');
- let cloud:Program,composite:Program,rain:Program,impact:Program,atmosphere:Program,bolt:Program;
+ let cloud:Program,composite:Program,rain:Program,atmosphere:Program,bolt:Program;
  let boltBuffer:WebGLBuffer|null=null,boltVao:WebGLVertexArrayObject|null=null,boltKey='',boltCount=0;
+ const puddlePrograms:Partial<Record<PuddleDetail,Program>>={},puddleErrors:Partial<Record<PuddleDetail,string>>={};
+ let sceneTex:WebGLTexture|null=null,sceneFbo:WebGLFramebuffer|null=null,sw=0,sh=0,sceneFormat=0,lastPuddleDetail:PuddleDetail|null=null;
+ const sceneCopy:CopyInfo={format:null,samples:0,reason:null},depthCopy:CopyInfo={format:null,samples:0,reason:null};
+ type MapPass={vao:WebGLVertexArrayObject|null;buffer:WebGLBuffer|null;texture:WebGLTexture|null;fbo:WebGLFramebuffer|null;width:number;height:number;source?:Float32Array};
+ const mapPasses:MapPass[]=Array.from({length:2},()=>({vao:null,buffer:null,texture:null,fbo:null,width:0,height:0}));
+ let mapProgram:Program|undefined,mapSource:CollisionSurface|undefined,mapFrames=0,mapError:string|null=null;
+ let splashProgram:Program|undefined,splashVao:WebGLVertexArrayObject|null=null,splashBuffer:WebGLBuffer|null=null,splashError:string|null=null,splashParticles=0;
+ function releaseMap(){for(const p of mapPasses){gl.deleteVertexArray(p.vao);gl.deleteBuffer(p.buffer);gl.deleteTexture(p.texture);gl.deleteFramebuffer(p.fbo);Object.assign(p,{vao:null,buffer:null,texture:null,fbo:null,width:0,height:0,source:undefined});}mapSource=undefined;}
+ function drawMap(f:RainFrame,S:GLState){
+  if(!f.map?.vertices.length||mapError)return false;
+  try{
+   mapProgram??=owned(MAP_VERTEX,MAP_FRAGMENT,['uVP','uCam']);
+   const hasBanks=(f.surfaceTuning||DEFAULT_SURFACE_TUNING).edgeInset>0&&!!f.map.supportVertices?.length;
+   const w=S.viewport[2],h=S.viewport[3];
+   gl.viewport(0,0,w,h);gl.colorMask(false,false,false,false);gl.disable(gl.BLEND);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LESS);gl.depthMask(true);gl.disable(gl.CULL_FACE);gl.clearDepth(1);
+   for(let i=0;i<(hasBanks?2:1);i++){
+    const p=mapPasses[i],vertices=i===0?f.map.vertices:f.map.supportVertices!;
+    if(!p.vao){p.vao=gl.createVertexArray();p.buffer=gl.createBuffer();gl.bindVertexArray(p.vao);gl.bindBuffer(gl.ARRAY_BUFFER,p.buffer);gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,3,gl.FLOAT,false,12,0);}
+    gl.bindVertexArray(p.vao);gl.bindBuffer(gl.ARRAY_BUFFER,p.buffer);
+    if(p.source!==vertices){gl.bufferData(gl.ARRAY_BUFFER,vertices,gl.STATIC_DRAW);p.source=vertices;}
+    const unit=i===0?MUNIT:UUNIT;gl.activeTexture(gl.TEXTURE0+unit);gl.bindSampler(unit,null);
+    if(!p.texture||p.width!==w||p.height!==h){
+     gl.deleteTexture(p.texture);gl.deleteFramebuffer(p.fbo);p.texture=gl.createTexture();p.fbo=gl.createFramebuffer();p.width=w;p.height=h;
+     gl.bindTexture(gl.TEXTURE_2D,p.texture);gl.texStorage2D(gl.TEXTURE_2D,1,gl.DEPTH_COMPONENT24,w,h);
+     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+     gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,p.fbo);gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER,gl.DEPTH_ATTACHMENT,gl.TEXTURE_2D,p.texture,0);gl.drawBuffers([gl.NONE]);
+     if(gl.checkFramebufferStatus(gl.DRAW_FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE)throw Error('Collision mask framebuffer incomplete');
+    }else gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,p.fbo);
+    gl.bindTexture(gl.TEXTURE_2D,null);gl.clear(gl.DEPTH_BUFFER_BIT);gl.useProgram(mapProgram.p);gl.uniformMatrix4fv(mapProgram.u.uVP,false,f.vp);gl.uniform3fv(mapProgram.u.uCam,f.camera);gl.drawArrays(gl.TRIANGLES,0,vertices.length/3);gl.bindTexture(gl.TEXTURE_2D,p.texture);
+   }
+   // Full static collision depth closes raised banks; only the horizontal pass
+   // authorizes water. Tanks and supply boxes cannot enter either owned mesh.
+   if(!hasBanks){gl.activeTexture(gl.TEXTURE0+UUNIT);gl.bindSampler(UUNIT,null);gl.bindTexture(gl.TEXTURE_2D,mapPasses[0].texture);}
+   mapSource=f.map;mapFrames++;return true;
+  }catch(error){mapError=String(error);return false;}
+  finally{
+   gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,S.fb);gl.viewport(S.viewport[0],S.viewport[1],S.viewport[2],S.viewport[3]);gl.clearDepth(S.clearDepth);gl.cullFace(S.cullMode);gl.frontFace(S.frontFace);
+   gl.disable(gl.CULL_FACE);gl.depthMask(false);gl.colorMask(true,true,true,false);gl.enable(gl.BLEND);gl.bindVertexArray(vao);
+  }
+ }
+ let reflectionCopies=0,puddleFrames=0;
+ function releaseReflections(){
+   gl.deleteTexture(sceneTex);gl.deleteFramebuffer(sceneFbo);sceneTex=null;sceneFbo=null;sw=0;sh=0;sceneFormat=0;
+ }
+ function renderbufferInfo(target:number,attachment:number){
+   if(gl.getFramebufferAttachmentParameter(target,attachment,gl.FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE)!==gl.RENDERBUFFER)return null;
+   const previous=gl.getParameter(gl.RENDERBUFFER_BINDING);
+   gl.bindRenderbuffer(gl.RENDERBUFFER,gl.getFramebufferAttachmentParameter(target,attachment,gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME));
+   try{return {format:gl.getRenderbufferParameter(gl.RENDERBUFFER,gl.RENDERBUFFER_INTERNAL_FORMAT) as number,
+     width:gl.getRenderbufferParameter(gl.RENDERBUFFER,gl.RENDERBUFFER_WIDTH) as number,
+     height:gl.getRenderbufferParameter(gl.RENDERBUFFER,gl.RENDERBUFFER_HEIGHT) as number};}
+   finally{gl.bindRenderbuffer(gl.RENDERBUFFER,previous);}
+ }
+ function copyBounds(S:GLState,info:CopyInfo,size:{width:number;height:number}|null){
+   const [x,y,w,h]=S.viewport;
+   // WebGL MSAA resolve requires identical source/destination coordinates,
+   // not merely equal rectangle sizes. Our viewport textures start at (0,0).
+   if(info.samples>0&&(x!==0||y!==0)){info.reason='msaa-viewport-offset';return false;}
+   if(x<0||y<0||w<1||h<1||(size&&(x+w>size.width||y+h>size.height))){info.reason='viewport-out-of-bounds';return false;}
+   return true;
+ }
+ function copySceneColor(S:GLState){
+   // Resolve into a separate colour texture. Never sample the render target that
+   // is currently being written, and never borrow a native framebuffer attachment.
+   gl.bindFramebuffer(gl.READ_FRAMEBUFFER,S.fb);
+   try{
+     sceneCopy.samples=gl.getParameter(gl.SAMPLES);sceneCopy.format=null;sceneCopy.reason=null;
+     const attachment=gl.getParameter(gl.READ_BUFFER);
+     if(attachment===gl.NONE){sceneCopy.reason='no-read-buffer';return false;}
+     let format=gl.RGBA8 as number,size:{width:number;height:number}|null=null;
+     if(S.fb){
+       const type=gl.getFramebufferAttachmentParameter(gl.READ_FRAMEBUFFER,attachment,gl.FRAMEBUFFER_ATTACHMENT_COMPONENT_TYPE);
+       // The experimental pass supports normalized colour; float/HDR stays native.
+       if(type!==gl.UNSIGNED_NORMALIZED){sceneCopy.reason='unsupported-colour-type';return false;}
+       if(gl.getFramebufferAttachmentParameter(gl.READ_FRAMEBUFFER,attachment,gl.FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING)!==gl.LINEAR){sceneCopy.reason='unsupported-colour-encoding';return false;}
+       const buffer=renderbufferInfo(gl.READ_FRAMEBUFFER,attachment);size=buffer;
+       if(sceneCopy.samples>0){
+         if(!buffer){sceneCopy.reason='unknown-msaa-format';return false;}
+         format=buffer.format;
+       }
+     }else{
+       // alpha:false default buffers are RGB8 for WebGL blits, even if ANGLE
+       // internally backs them with RGBA storage. MSAA cannot convert formats.
+       format=defaultColourFormat;
+       size={width:gl.drawingBufferWidth,height:gl.drawingBufferHeight};
+     }
+     sceneCopy.format=format;
+     if(!colourFormats.has(format)){
+       sceneCopy.reason='unsupported-colour-format';return false;
+     }
+     if(!copyBounds(S,sceneCopy,size))return false;
+     const w=S.viewport[2],h=S.viewport[3];
+     gl.activeTexture(gl.TEXTURE0+SUNIT);
+     if(!sceneTex||sw!==w||sh!==h||sceneFormat!==format){
+       releaseReflections();sceneTex=gl.createTexture();sceneFbo=gl.createFramebuffer();sw=w;sh=h;sceneFormat=format;
+       if(!sceneTex||!sceneFbo)return false;
+       gl.bindTexture(gl.TEXTURE_2D,sceneTex);gl.texStorage2D(gl.TEXTURE_2D,1,format,w,h);
+       gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+       gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+       gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,sceneFbo);gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,sceneTex,0);
+       if(gl.checkFramebufferStatus(gl.DRAW_FRAMEBUFFER)!==gl.FRAMEBUFFER_COMPLETE){releaseReflections();return false;}
+     }else gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,sceneFbo);
+     gl.blitFramebuffer(S.viewport[0],S.viewport[1],S.viewport[0]+w,S.viewport[1]+h,0,0,w,h,gl.COLOR_BUFFER_BIT,gl.NEAREST);
+     gl.bindTexture(gl.TEXTURE_2D,sceneTex);reflectionCopies++;return true;
+   }finally{
+     gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,S.fb);gl.bindFramebuffer(gl.READ_FRAMEBUFFER,S.readfb);
+   }
+ }
   function copySceneDepth(S: GLState) {
+    depthCopy.samples=gl.getParameter(gl.SAMPLES);depthCopy.format=null;depthCopy.reason=null;
     if (!boundHasDepth(S)) return false;
     const width = S.viewport[2], height = S.viewport[3];
     if (!(width > 0 && height > 0)) return false;
@@ -40,13 +167,12 @@ export function createRainRenderer(gl: WebGL2RenderingContext) {
     let packed = stencilBits > 0 || !S.fb;
     let format: number = packed ? (depthBits > 24 ? gl.DEPTH32F_STENCIL8 : gl.DEPTH24_STENCIL8)
       : depthBits > 24 ? gl.DEPTH_COMPONENT32F : depthBits > 16 ? gl.DEPTH_COMPONENT24 : gl.DEPTH_COMPONENT16;
+    let sourceSize:{width:number;height:number}|null=S.fb?null:{width:gl.drawingBufferWidth,height:gl.drawingBufferHeight};
     if (S.fb) {
       const kind = gl.getFramebufferAttachmentParameter(gl.FRAMEBUFFER,gl.DEPTH_ATTACHMENT,gl.FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE);
       if (kind === gl.RENDERBUFFER) {
-        const previous = gl.getParameter(gl.RENDERBUFFER_BINDING);
-        gl.bindRenderbuffer(gl.RENDERBUFFER,gl.getFramebufferAttachmentParameter(gl.FRAMEBUFFER,gl.DEPTH_ATTACHMENT,gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME));
-        try { format = gl.getRenderbufferParameter(gl.RENDERBUFFER,gl.RENDERBUFFER_INTERNAL_FORMAT); }
-        finally { gl.bindRenderbuffer(gl.RENDERBUFFER,previous); }
+        const buffer=renderbufferInfo(gl.FRAMEBUFFER,gl.DEPTH_ATTACHMENT)!;
+        format=buffer.format;sourceSize=buffer;
       } else if (kind === gl.TEXTURE) {
         const stencilSize = gl.getFramebufferAttachmentParameter(gl.FRAMEBUFFER,gl.DEPTH_ATTACHMENT,gl.FRAMEBUFFER_ATTACHMENT_STENCIL_SIZE);
         if (stencilSize > 0) format = depthBits > 24 ? gl.DEPTH32F_STENCIL8 : gl.DEPTH24_STENCIL8;
@@ -56,6 +182,8 @@ export function createRainRenderer(gl: WebGL2RenderingContext) {
     if (format === gl.DEPTH_COMPONENT) format = gl.DEPTH_COMPONENT16;
     packed = format === gl.DEPTH24_STENCIL8 || format === gl.DEPTH32F_STENCIL8;
     info.depthFormat = format;
+    depthCopy.format=format;
+    if(!copyBounds(S,depthCopy,sourceSize))return false;
     const attachment = packed ? gl.DEPTH_STENCIL_ATTACHMENT : gl.DEPTH_ATTACHMENT;
     const resource = curRes;
     gl.activeTexture(gl.TEXTURE0 + DUNIT);
@@ -133,6 +261,11 @@ export function createRainRenderer(gl: WebGL2RenderingContext) {
     gl.activeTexture(gl.TEXTURE0 + VUNIT);
     S.vtex = gl.getParameter(gl.TEXTURE_BINDING_2D);
     S.vsampler = gl.getParameter(gl.SAMPLER_BINDING);
+    gl.activeTexture(gl.TEXTURE0 + SUNIT);
+    S.stex = gl.getParameter(gl.TEXTURE_BINDING_2D);
+    S.ssampler = gl.getParameter(gl.SAMPLER_BINDING);
+    gl.activeTexture(gl.TEXTURE0+MUNIT);S.mtex=gl.getParameter(gl.TEXTURE_BINDING_2D);S.msampler=gl.getParameter(gl.SAMPLER_BINDING);
+    gl.activeTexture(gl.TEXTURE0+UUNIT);S.utext=gl.getParameter(gl.TEXTURE_BINDING_2D);S.usampler=gl.getParameter(gl.SAMPLER_BINDING);
     gl.activeTexture(S.unit);
     S.blend = gl.isEnabled(gl.BLEND);
     S.bsrc = gl.getParameter(gl.BLEND_SRC_RGB); S.bdst = gl.getParameter(gl.BLEND_DST_RGB);
@@ -152,6 +285,7 @@ export function createRainRenderer(gl: WebGL2RenderingContext) {
     S.discard = gl.isEnabled(gl.RASTERIZER_DISCARD);
     S.viewport = gl.getParameter(gl.VIEWPORT);
     S.depthRange = gl.getParameter(gl.DEPTH_RANGE);
+    S.clearDepth=gl.getParameter(gl.DEPTH_CLEAR_VALUE);S.cullMode=gl.getParameter(gl.CULL_FACE_MODE);S.frontFace=gl.getParameter(gl.FRONT_FACE);
     S.a2c = gl.isEnabled(gl.SAMPLE_ALPHA_TO_COVERAGE);
     S.drawBuffers = null;
     if (S.fb) {
@@ -176,6 +310,11 @@ export function createRainRenderer(gl: WebGL2RenderingContext) {
     gl.activeTexture(gl.TEXTURE0 + VUNIT);
     gl.bindTexture(gl.TEXTURE_2D, S.vtex);
     gl.bindSampler(VUNIT, S.vsampler);
+    gl.activeTexture(gl.TEXTURE0 + SUNIT);
+    gl.bindTexture(gl.TEXTURE_2D, S.stex);
+    gl.bindSampler(SUNIT, S.ssampler);
+    gl.activeTexture(gl.TEXTURE0+MUNIT);gl.bindTexture(gl.TEXTURE_2D,S.mtex);gl.bindSampler(MUNIT,S.msampler);
+    gl.activeTexture(gl.TEXTURE0+UUNIT);gl.bindTexture(gl.TEXTURE_2D,S.utext);gl.bindSampler(UUNIT,S.usampler);
     gl.activeTexture(S.unit);
     gl.bindVertexArray(S.vao);
     gl.bindBuffer(gl.ARRAY_BUFFER,S.arrayBuffer);
@@ -187,6 +326,7 @@ export function createRainRenderer(gl: WebGL2RenderingContext) {
     gl.depthMask(S.dmask);
     gl.depthFunc(S.dfunc);
     S.cull ? gl.enable(gl.CULL_FACE) : gl.disable(gl.CULL_FACE);
+    gl.clearDepth(S.clearDepth);gl.cullFace(S.cullMode);gl.frontFace(S.frontFace);
     S.stencil ? gl.enable(gl.STENCIL_TEST) : gl.disable(gl.STENCIL_TEST);
     S.scissor ? gl.enable(gl.SCISSOR_TEST) : gl.disable(gl.SCISSOR_TEST);
     S.poly ? gl.enable(gl.POLYGON_OFFSET_FILL) : gl.disable(gl.POLYGON_OFFSET_FILL);
@@ -243,23 +383,34 @@ export function createRainRenderer(gl: WebGL2RenderingContext) {
     }
   }
 
- const shared=['uInvVP','uCam','uTime','uRain','uCloud','uSeed','uFade','uFog','uFogColor','uDepth'];
+ const shared=['uInvVP','uCam','uTime','uRain','uCloud','uSeed','uFade','uFog','uFogColor','uDepth','uSkyDarkness'];
  function owned(vs:string,fs:string,names:string[]):Program {const p=program(vs,fs,names);programs.push(p);return p;}
+ function prepareReflections(detail:PuddleDetail):Program|undefined{
+   if(puddlePrograms[detail])return puddlePrograms[detail];
+   if(!puddleErrors[detail]){
+     try{return puddlePrograms[detail]=owned(shader.FULL_VERTEX,detail==='high'?HIGH_PUDDLE_FRAGMENT:PUDDLE_FRAGMENT,[...shared,'uSky','uVP','uScene','uMapDepth','uMapSupportDepth','uCloudTexture','uPuddles','uWind','uRippleTuning','uWaveTuning','uOptics','uEdgeInset','uSunDirection','uCloudTone']);}
+     catch(error){puddleErrors[detail]=String(error);}
+   }
+   // Optional water quality must never disable rain on a driver that rejects it.
+   return detail==='high'?prepareReflections('low'):undefined;
+ }
  function dispose(){
    disposed=true;for(const p of programs.splice(0))gl.deleteProgram(p.p);
    gl.deleteVertexArray(vao);gl.deleteTexture(cloudTex);gl.deleteFramebuffer(cloudFbo);
    gl.deleteVertexArray(boltVao);gl.deleteBuffer(boltBuffer);
    gl.deleteTexture(curRes.depthTex);gl.deleteFramebuffer(curRes.depthFbo);ready=false;
+   releaseReflections();
+   releaseMap();gl.deleteVertexArray(splashVao);gl.deleteBuffer(splashBuffer);
  }
- function warm(){
-   if(ready||disposed)return;const state=saveState();
+ function warm(reflections=false,detail:PuddleDetail='low'){
+   if(disposed)return;if(ready){if(reflections)prepareReflections(detail);return;}const state=saveState();
    try {
-     cloud=owned(shader.FULL_VERTEX,shader.CLOUD_FRAGMENT,[...shared,'uSky','uCloudBase','uThickness']);
+     cloud=owned(shader.FULL_VERTEX,shader.CLOUD_FRAGMENT,[...shared,'uSky','uCloudBase','uThickness','uCloudLow','uCloudHigh','uCloudHaze','uCloudTone']);
      composite=owned(shader.FULL_VERTEX,shader.COMPOSITE_FRAGMENT,['uSky','uCloudTexture','uFade','uInvVP','uBoltFlash','uBoltDirection']);
      atmosphere=owned(shader.FULL_VERTEX,shader.ATMOSPHERE_FRAGMENT,[...shared,'uSky','uStorm','uBoltFlash']);
      rain=owned(shader.RAIN_VERTEX,shader.RAIN_FRAGMENT,[...shared,'uVP','uViewport','uWind','uCount']);
-     impact=owned(shader.FULL_VERTEX,shader.IMPACT_FRAGMENT,[...shared,'uSky']);
      bolt=owned(shader.LIGHTNING_VERTEX,shader.LIGHTNING_FRAGMENT,['uVP','uViewport','uPower','uFade']);
+     if(reflections)prepareReflections(detail);
      vao=gl.createVertexArray();cloudTex=gl.createTexture();cloudFbo=gl.createFramebuffer();ready=true;
      boltVao=gl.createVertexArray();boltBuffer=gl.createBuffer();
      if(!boltVao||!boltBuffer)throw Error('Cannot allocate lightning mesh');
@@ -271,6 +422,8 @@ export function createRainRenderer(gl: WebGL2RenderingContext) {
    gl.useProgram(p.p);const u=p.u;
    gl.uniformMatrix4fv(u.uInvVP??null,false,invVP);gl.uniform3fv(u.uCam??null,f.camera);
    gl.uniform1f(u.uTime??null,f.time);gl.uniform1f(u.uRain??null,f.rain);gl.uniform1f(u.uCloud??null,f.clouds);
+   gl.uniform3fv(u.uCloudTone??null,f.cloudTone??[1,1,1]);gl.uniform3fv(u.uSunDirection??null,f.sunDirection??[0,0,1]);
+   gl.uniform1f(u.uSkyDarkness??null,f.skyDarkness??0);
    gl.uniform1f(u.uSeed??null,f.seed);gl.uniform1f(u.uFade??null,f.fade);
    gl.uniform3fv(u.uFog??null,f.fog);gl.uniform4fv(u.uFogColor??null,f.fogColor);gl.uniform1i(u.uDepth??null,DUNIT);
    gl.uniform1f(u.uSky??null,0);
@@ -279,20 +432,22 @@ export function createRainRenderer(gl: WebGL2RenderingContext) {
  function draw(f:RainFrame,stage:RainStage='all'){
    if(disposed||gl.isContextLost()||f.fade<=0)return;
    warm();if(!ready||!invert4(f.vp,invVP))return;
-   if(f.clouds<.001&&f.rain<.001&&f.storm<.001)return;
+   if(f.clouds<.001&&f.rain<.001&&f.storm<.001){releaseReflections();return;}
    const sky=stage!=='weather',weather=stage!=='sky';
    const state=saveState();
    try {
      if(!boundHasDepth(state))return;
      const width=state.viewport[2],height=state.viewport[3];if(width<1||height<1)return;
      const refreshCloud=sky&&f.clouds>.001&&f.time-cloudAt>=1/WEATHER.cloudHz;
-     const depthNeeded=weather&&f.rain>.03;
+     const wet=sky&&Math.max(0,Math.min(1,f.puddles??0))*f.rain*f.fade>.002;
+     const depthNeeded=weather&&f.rain>.03||wet;
      const depth=depthNeeded&&copySceneDepth(state);if(depth)depthCopies++;
      gl.disable(gl.STENCIL_TEST);gl.disable(gl.SCISSOR_TEST);gl.disable(gl.CULL_FACE);
      gl.disable(gl.SAMPLE_ALPHA_TO_COVERAGE);gl.disable(gl.RASTERIZER_DISCARD);gl.disable(gl.POLYGON_OFFSET_FILL);
      gl.depthMask(false);gl.bindVertexArray(vao);
      gl.depthRange(0,1);
      gl.bindSampler(DUNIT,null);gl.bindSampler(VUNIT,null);
+     gl.bindSampler(SUNIT,null);
      gl.activeTexture(gl.TEXTURE0+DUNIT);gl.bindTexture(gl.TEXTURE_2D,curRes.depthTex);
      gl.activeTexture(gl.TEXTURE0+VUNIT);gl.bindTexture(gl.TEXTURE_2D,cloudTex);
      if(refreshCloud){
@@ -307,6 +462,7 @@ export function createRainRenderer(gl: WebGL2RenderingContext) {
        gl.viewport(0,0,cw,ch);gl.colorMask(true,true,true,true);gl.disable(gl.DEPTH_TEST);gl.disable(gl.BLEND);
        // A low resolution cloud pass never samples its own attached colour texture.
        gl.bindTexture(gl.TEXTURE_2D,null);use(cloud,f);
+       const palette=f.cloudPalette||WEATHER_PALETTES.storm;gl.uniform3fv(cloud.u.uCloudLow,palette.low);gl.uniform3fv(cloud.u.uCloudHigh,palette.high);gl.uniform3fv(cloud.u.uCloudHaze,palette.haze);
        gl.uniform1f(cloud.u.uCloudBase,WEATHER.cloudBase);gl.uniform1f(cloud.u.uThickness,WEATHER.cloudThickness);
        gl.drawArrays(gl.TRIANGLES,0,3);cloudAt=f.time;cloudFrames++;
        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,state.fb);gl.viewport(state.viewport[0],state.viewport[1],state.viewport[2],state.viewport[3]);
@@ -333,13 +489,48 @@ export function createRainRenderer(gl: WebGL2RenderingContext) {
        gl.drawArraysInstanced(gl.TRIANGLE_STRIP,0,4,boltCount);
        gl.bindVertexArray(vao);gl.blendFuncSeparate(gl.ONE,gl.ONE_MINUS_SRC_ALPHA,gl.ZERO,gl.ONE);
      }
-     if(weather&&(f.storm>.001||f.rain>.001)){
+     const mapped=wet&&depth&&drawMap(f,state);
+     if(mapped&&cw&&copySceneColor(state)){
+       // Opt-in compilation and colour-copy allocation; disabled puddles have no
+       // reflection render pass. All opaque geometry is ready before this stage.
+       const program=prepareReflections(f.puddleDetail==='high'?'high':'low');
+       if(program){
+         gl.disable(gl.DEPTH_TEST);use(program,f);
+         gl.uniformMatrix4fv(program.u.uVP,false,f.vp);gl.uniform1i(program.u.uScene,SUNIT);gl.uniform1i(program.u.uCloudTexture,VUNIT);
+         gl.uniform1f(program.u.uPuddles,Math.max(0,Math.min(1,f.puddles??0)));gl.uniform1f(program.u.uWind,f.wind);
+         gl.uniform1i(program.u.uMapDepth,MUNIT);gl.uniform1i(program.u.uMapSupportDepth,UUNIT);
+         const tuning=f.surfaceTuning||DEFAULT_SURFACE_TUNING;
+         gl.uniform4f(program.u.uRippleTuning,tuning.rippleSizeReduction,tuning.rippleSpeed,tuning.rippleDensity,tuning.rippleStrength);
+         gl.uniform3f(program.u.uWaveTuning,tuning.waveSizeReduction,tuning.waveSpeed,tuning.waveStrength);
+         gl.uniform4f(program.u.uOptics,tuning.reflectionStrength,tuning.reflectionDistance,tuning.reflectionRoughness,tuning.refractionStrength);
+         gl.uniform1f(program.u.uEdgeInset,tuning.edgeInset);
+         gl.drawArrays(gl.TRIANGLES,0,3);puddleFrames++;lastPuddleDetail=program===puddlePrograms.high?'high':'low';
+       }
+     }else if(!wet&&sky&&sceneTex)releaseReflections();
+     if(weather&&!f.nativeLighting&&(f.storm>.001||f.rain>.001)){
        gl.disable(gl.DEPTH_TEST);use(atmosphere,f);gl.uniform1f(atmosphere.u.uStorm,f.storm);
        gl.uniform1f(atmosphere.u.uBoltFlash,f.lightning?.flash??0);
        gl.drawArrays(gl.TRIANGLES,0,3);
      }
      if(weather&&f.rain>.001){
-       if(depth&&f.rain>.03){gl.disable(gl.DEPTH_TEST);use(impact,f);gl.drawArrays(gl.TRIANGLES,0,3);}
+       // World-space droplets replace the old screen-space impact crowns.
+       const data=f.splashData;
+       if(data?.length&&!splashError){
+        try{
+         if(!splashProgram){
+          splashProgram=owned(SPLASH_VERTEX,SPLASH_FRAGMENT,[...shared,'uVP','uViewport','uSplash','uPuddles','uDetail']);splashVao=gl.createVertexArray();splashBuffer=gl.createBuffer();
+          gl.bindVertexArray(splashVao);gl.bindBuffer(gl.ARRAY_BUFFER,splashBuffer);
+          gl.bufferData(gl.ARRAY_BUFFER,SPLASHES.capacity*SPLASHES.stride*4,gl.DYNAMIC_DRAW);
+          for(const [index,size,offset]of [[0,3,0],[1,3,3],[2,2,6],[3,3,8]]){gl.enableVertexAttribArray(index);gl.vertexAttribPointer(index,size,gl.FLOAT,false,SPLASHES.stride*4,offset*4);gl.vertexAttribDivisor(index,1);}
+         }
+         const count=Math.min(SPLASHES.capacity,Math.floor(data.length/SPLASHES.stride));
+         gl.bindVertexArray(splashVao);gl.bindBuffer(gl.ARRAY_BUFFER,splashBuffer);gl.bufferSubData(gl.ARRAY_BUFFER,0,data.subarray(0,count*SPLASHES.stride));use(splashProgram,f);
+         const tuning=f.surfaceTuning||DEFAULT_SURFACE_TUNING;
+         gl.uniformMatrix4fv(splashProgram.u.uVP,false,f.vp);gl.uniform2f(splashProgram.u.uViewport,width,height);gl.uniform3f(splashProgram.u.uSplash,tuning.splashSpeed,tuning.splashSize,tuning.splashGravity);
+         gl.uniform1f(splashProgram.u.uPuddles,f.puddles??0);gl.uniform1f(splashProgram.u.uDetail,f.puddleDetail==='high'?1:0);
+         gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);splashParticles=count;gl.drawArraysInstanced(gl.TRIANGLE_STRIP,0,4,splashParticles);
+        }catch(error){splashError=String(error);}finally{gl.bindVertexArray(vao);}
+       }else splashParticles=0;
        gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);use(rain,f);
        const count=Math.round(WEATHER.maxDrops*f.rain);
        gl.uniformMatrix4fv(rain.u.uVP,false,f.vp);gl.uniform2f(rain.u.uViewport,width,height);
@@ -349,5 +540,7 @@ export function createRainRenderer(gl: WebGL2RenderingContext) {
      frames++;
    } finally {restoreState(state);}
  }
- return { warm,draw,dispose,status:()=>({ready,disposed,frames,depthCopies,cloudFrames,cloudSize:[cw,ch],cloudFloat,boltSegments:boltCount,depthFormat:info.depthFormat}) };
+ return { warm,draw,dispose,clearReflections:()=>{releaseReflections();releaseMap();},status:()=>({ready,disposed,frames,depthCopies,cloudFrames,cloudSize:[cw,ch],cloudFloat,boltSegments:boltCount,depthFormat:info.depthFormat,
+   puddleFrames,surfaceRevision:PUDDLE_SURFACE_REVISION,puddleDetail:lastPuddleDetail,puddleErrors:{...puddleErrors},reflectionCopies,reflectionSize:sceneTex?[sw,sh]:null,
+   sceneCopy:{...sceneCopy},depthCopy:{...depthCopy},mapFrames,mapTriangles:mapSource?.triangles??0,mapError,splashParticles,splashError}) };
 }

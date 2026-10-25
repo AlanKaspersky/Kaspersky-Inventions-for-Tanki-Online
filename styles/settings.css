@@ -288,7 +288,7 @@
     transition: max-height .3s ease, opacity .25s ease, visibility 0s .3s;
 }
 #kaspersky-settings-content .kasp-weather-options.kasp-expanded {
-    max-height: 14em;
+    max-height: 50em;
     opacity: 1;
     visibility: visible;
     transition-delay: 0s;
@@ -337,6 +337,22 @@
 #kaspersky-settings-content .kasp-weather-volume input::-moz-range-track { height: 4px; border-radius: 2px; background: #999; }
 #kaspersky-settings-content .kasp-weather-volume input::-moz-range-thumb { width: 14px; height: 14px; box-sizing: border-box; border: 1px solid #171717; border-radius: 50%; background: #171717; }
 #kaspersky-settings-content .kasp-weather-volume input:focus-visible { outline: 2px solid #111; outline-offset: .2em; border-radius: .2em; }
+#kaspersky-settings-content .kasp-weather-preset {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 8px 12px;
+    border: 1px solid rgba(0, 0, 0, .2);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, .4);
+    color: #111;
+    font: inherit;
+    cursor: pointer;
+}
+#kaspersky-settings-content .kasp-weather-preset option { background: #eee; color: #111; }
+#kaspersky-settings-content .kasp-weather-preset:focus-visible { outline: 2px solid #111; outline-offset: 2px; }
+#kaspersky-settings-content .kasp-weather-hint { margin: 0 0 4px; color: #444; font: .857em/1.5 BaseFontRegular, FallbackFontRegular, sans-serif; }
 #kaspersky-settings-content .kasp-settings-notice {
     color: #c5c5c5;
     margin: 1.25em 0 0;

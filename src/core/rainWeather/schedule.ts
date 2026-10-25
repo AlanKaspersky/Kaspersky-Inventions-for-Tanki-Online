@@ -1,8 +1,8 @@
 export const WEATHER = Object.freeze({
-    chance: .4, // Five equally likely presets; three contain rain: ~24% of battles get rain.
+    chance: .24, // Actual rain probability in random mode, preserving the previous ~24% default.
     fadeIn: 24, fadeOut: 30, cloudLead: 12,
-    minHold: 45, maxHold: 135, unknownBattleSeconds: 600,
-    maxDrops: 14000, cloudWidth: 1024, cloudHeight: 256, cloudHz: 10,
+    unknownBattleSeconds: 600, maxBattleSeconds: 86400,
+    maxDrops: 25000, cloudWidth: 1024, cloudHeight: 256, cloudHz: 10,
     cloudBase: 11000, cloudThickness: 4200,
     fogDistanceScale: .18, // Bring cloud lightening much closer than native map fog.
 });
@@ -14,34 +14,57 @@ export const RAIN_PRESETS = Object.freeze({
     sunny: { rain: 0, clouds: .20, wind: .20, storm: 0, sound: 0 },
 });
 export type RainPreset = keyof typeof RAIN_PRESETS;
-export interface RainEpisode { version: 1; preset: RainPreset | null; start: number; hold: number; seed: number; fadeIn: number; fadeOut: number; }
+export type WeatherPresetChoice = 'random' | RainPreset;
+export interface WeatherGeneration { chance: number; preset: WeatherPresetChoice; duration: number; }
+export const DEFAULT_WEATHER_GENERATION: Readonly<WeatherGeneration> = Object.freeze({ chance: WEATHER.chance, preset: 'random', duration: .3 });
+const rainyPresets = (Object.keys(RAIN_PRESETS) as RainPreset[]).filter(name => RAIN_PRESETS[name].rain > 0);
+export interface RainEpisode { version: 1; preset: RainPreset | null; start: number; hold: number; seed: number; fadeIn: number; fadeOut: number; continuous?: boolean; }
 export const smooth = (x: number) => { const t = Math.max(0, Math.min(1, x)); return t * t * (3 - 2 * t); };
-export function planRain(now: number, remaining: number | undefined, random: () => number): RainEpisode {
-    const seconds = Number.isFinite(remaining) ? Math.max(0, remaining!) : WEATHER.unknownBattleSeconds;
+export function planRain(now: number, remaining: number | undefined, random: () => number,
+    generation: Readonly<WeatherGeneration> = DEFAULT_WEATHER_GENERATION): RainEpisode {
+    const seconds = Number.isFinite(remaining) ? Math.max(0, Math.min(WEATHER.maxBattleSeconds, remaining!)) : WEATHER.unknownBattleSeconds;
+    const fraction = Number.isFinite(generation.duration) ? Math.max(0, Math.min(1, generation.duration)) : DEFAULT_WEATHER_GENERATION.duration;
     const empty: RainEpisode = { version: 1, preset: null, start: now, hold: 0, seed: Math.floor(random() * 0xffffff), fadeIn: WEATHER.fadeIn, fadeOut: WEATHER.fadeOut };
-    if (random() >= WEATHER.chance || seconds < 75) return empty;
-    const names = Object.keys(RAIN_PRESETS) as RainPreset[];
-    const preset = names[Math.min(names.length - 1, Math.floor(random() * names.length))];
-    const hold = Math.min(WEATHER.minHold + random() * (WEATHER.maxHold - WEATHER.minHold), seconds - WEATHER.fadeIn - WEATHER.fadeOut - 10);
-    if (hold < 15) return empty;
-    const available = Math.max(0, seconds - hold - WEATHER.fadeIn - WEATHER.fadeOut - 10);
-    // Some episodes start on arrival; others can begin near the end of a long battle.
-    const delay = random() < .15 ? 0 : random() * available;
-    return { ...empty, preset, hold, start: now + delay * 1000 };
+    if (random() >= generation.chance || seconds <= 0 || fraction <= 0) return empty;
+    const preset = generation.preset === 'random'
+        ? rainyPresets[Math.min(rainyPresets.length - 1, Math.floor(random() * rainyPresets.length))]
+        : generation.preset;
+    // Full-battle weather must not expire because a WebGL HUD supplied no clock.
+    // Its battle-owned plan ends on native battle exit, never an estimated timeout.
+    if (fraction === 1) return { ...empty, preset, hold: seconds, continuous: true };
+    const total = seconds * fraction;
+    const fadeIn = Math.min(WEATHER.fadeIn, total * .3), fadeOut = Math.min(WEATHER.fadeOut, total * .3);
+    const hold = Math.max(0, total - fadeIn - fadeOut);
+    const delay = random() * Math.max(0, seconds - total);
+    return { ...empty, preset, hold, fadeIn, fadeOut, start: now + delay * 1000 };
 }
 export function sampleRain(plan: RainEpisode, now: number) {
     const elapsed = (now - plan.start) / 1000, total = plan.fadeIn + plan.hold + plan.fadeOut;
     const profile = plan.preset ? RAIN_PRESETS[plan.preset] : RAIN_PRESETS.sunny;
-    const clouds = plan.preset ? smooth(elapsed / plan.fadeIn) * (1 - smooth((elapsed - plan.fadeIn - plan.hold) / plan.fadeOut)) : 0;
-    const rain = plan.preset ? smooth((elapsed - WEATHER.cloudLead) / Math.max(1, plan.fadeIn - WEATHER.cloudLead))
-        * (1 - smooth((elapsed - plan.fadeIn - plan.hold + 5) / Math.max(1, plan.fadeOut - 5))) : 0;
+    const lead = Math.min(WEATHER.cloudLead, plan.fadeIn * .5), tail = Math.min(5, plan.fadeOut / 6);
+    const clouds = plan.preset ? smooth(elapsed / plan.fadeIn) * (plan.continuous ? 1 : 1 - smooth((elapsed - plan.fadeIn - plan.hold) / plan.fadeOut)) : 0;
+    const rain = plan.preset ? smooth((elapsed - lead) / Math.max(.001, plan.fadeIn - lead))
+        * (plan.continuous ? 1 : 1 - smooth((elapsed - plan.fadeIn - plan.hold + tail) / Math.max(.001, plan.fadeOut - tail))) : 0;
     return { clouds: clouds * profile.clouds, rain: rain * profile.rain, wind: profile.wind,
-        sound: rain * profile.sound, storm: clouds * profile.storm, flash: 0, finished: elapsed >= total, active: elapsed >= 0 && elapsed < total };
+        sound: rain * profile.sound, storm: clouds * profile.storm, flash: 0, finished: !plan.continuous && elapsed >= total, active: elapsed >= 0 && (plan.continuous === true || elapsed < total) };
+}
+/** Expose a delayed episode explicitly; zero rendered frames while waiting is normal. */
+export function rainTiming(plan: RainEpisode, now: number) {
+    const elapsed = (now - plan.start) / 1000;
+    const phase = !plan.preset ? 'clear' : elapsed < 0 ? 'waiting'
+        : plan.continuous && elapsed >= plan.fadeIn ? 'holding'
+        : elapsed >= plan.fadeIn + plan.hold + plan.fadeOut ? 'finished'
+        : elapsed < plan.fadeIn ? 'forming' : elapsed < plan.fadeIn + plan.hold ? 'holding' : 'clearing';
+    return { phase,
+        startsInSeconds: plan.preset && phase !== 'finished' ? Math.max(0, Math.ceil(-elapsed)) : null,
+        rainStartsInSeconds: plan.preset && RAIN_PRESETS[plan.preset].rain > 0 && phase !== 'finished'
+            ? Math.max(0, Math.ceil(Math.min(WEATHER.cloudLead, plan.fadeIn * .5) - elapsed)) : null };
 }
 export function validEpisode(value: unknown): value is RainEpisode {
     if (!value || typeof value !== 'object') return false;
     const p = value as RainEpisode;
     return p.version === 1 && (p.preset === null || Object.prototype.hasOwnProperty.call(RAIN_PRESETS, p.preset))
-        && [p.start,p.hold,p.seed,p.fadeIn,p.fadeOut].every(Number.isFinite) && p.hold >= 0 && p.hold <= 180
-        && p.fadeIn >= 10 && p.fadeIn <= 60 && p.fadeOut >= 10 && p.fadeOut <= 60;
+        && [p.start,p.hold,p.seed,p.fadeIn,p.fadeOut].every(Number.isFinite) && p.hold >= 0 && p.hold <= WEATHER.maxBattleSeconds
+        && p.fadeIn > 0 && p.fadeIn <= 60 && p.fadeOut > 0 && p.fadeOut <= 60
+        && (p.continuous === undefined || typeof p.continuous === 'boolean');
 }

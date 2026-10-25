@@ -3,6 +3,10 @@ import type { WeatherVolumes } from './preferences';
 
 export const WEATHER_AUDIO=Object.freeze({rainVolume:.85,bedSeconds:6,bedRms:.14,automationHz:20,
     thunderSeconds:8,thunderRate:16000,thunderPeak:.68});
+/** Same intensity that controls visible instance count; storm keeps its old peak. */
+export function rainSoundLevel(rain:number):number{
+    return Number.isFinite(rain)?Math.max(0,Math.min(1,rain))*.45:0;
+}
 /** Stationary, seamless noise; no moving panner, camera occlusion or short repeating gust. */
 export function rainSamples(rate:number,seed:number):Float32Array{
     const length=Math.round(rate*WEATHER_AUDIO.bedSeconds),overlap=Math.round(rate*.08),raw=new Float32Array(length+overlap),random=seeded(seed);

@@ -141,6 +141,7 @@ import rainPlans from './generated/rain-weather.json';
             for (const node of Array.from(m.addedNodes)) {
                 if (!bundleIntercepted && node instanceof HTMLScriptElement && node.src.includes('/static/js/main.')) {
                     bundleIntercepted = true;
+                    window.__kaspRain?.patch?.('loading');
                     const originalScript = document.createElement('script');
                     for (const attribute of Array.from(node.attributes)) {
                         originalScript.setAttribute(attribute.name, attribute.value);
@@ -308,10 +309,11 @@ import rainPlans from './generated/rain-weather.json';
                             try {
                                 rainPlan=await selectRainPlan(originalCode,rainPlans.plans as RainPlan[]);
                                 if(rainPlan)prepared.push(rainPlan);
-                            } catch { console.warn('[KI Weather] Render mapping unavailable; native weather is unchanged'); }
+                                else {window.__kaspRain?.patch?.('unsupported');console.warn('[KI Weather] Render mapping unavailable; native weather is unchanged');}
+                            } catch {window.__kaspRain?.patch?.('error');console.warn('[KI Weather] Render mapping unavailable; native weather is unchanged');}
                             const merged = mergeClientPatchPlans(originalCode, prepared);
                             code = merged.code;
-                            if(rainPlan&&merged.rejected.includes(rainPlan))console.warn('[KI Weather] Render patch conflict; weather disabled');
+                            if(rainPlan){if(merged.rejected.includes(rainPlan)){window.__kaspRain?.patch?.('conflict');console.warn('[KI Weather] Render patch conflict; weather disabled');}else window.__kaspRain?.patch?.('installed');}
                             if (killFeedPrivacyPlan && merged.rejected.includes(killFeedPrivacyPlan)) console.warn('[KI Kill feed privacy] Text patch conflict');
                             if (boxPickupPlan && merged.rejected.includes(boxPickupPlan)) console.warn('[KI Box pickup] Animation patch conflict; using the original animation');
                             if (supplyPrivacyPlan && merged.rejected.includes(supplyPrivacyPlan)) console.warn('[KI Supply privacy] Count label patch conflict');
@@ -334,6 +336,7 @@ import rainPlans from './generated/rain-weather.json';
                             (document.head || document.documentElement).appendChild(script);
                         })
                         .catch(error => {
+                            window.__kaspRain?.patch?.('error');
                             console.error('[Kaspersky Inventions] Bundle injection failed; loading the original game script:', error);
                             originalScript.addEventListener('error', () => {
                                 console.error('[Kaspersky Inventions] The original game script also failed to load:', originalScript.src);

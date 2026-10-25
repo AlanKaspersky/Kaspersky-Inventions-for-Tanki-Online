@@ -16590,7 +16590,7 @@
     const scope = featureScope("killFeedPrivacy");
     const renderers = /* @__PURE__ */ new Set();
     let versions = /* @__PURE__ */ new WeakMap();
-    let enabled = false, own = null, nativeOwn = null, label = "Hidden", revision = 0;
+    let enabled = false, own3 = null, nativeOwn = null, label = "Hidden", revision = 0;
     const refreshAll = () => {
       for (const record of renderers) {
         const renderer = record.ref.deref();
@@ -16609,9 +16609,9 @@
       }
       const nextOwn = getAccountIdentity()?.nickname || nativeOwn;
       const nextLabel = hiddenLabel();
-      if (enabled === nextEnabled && own === nextOwn && label === nextLabel) return;
+      if (enabled === nextEnabled && own3 === nextOwn && label === nextLabel) return;
       enabled = nextEnabled;
-      own = nextOwn;
+      own3 = nextOwn;
       label = nextLabel;
       revision++;
       refreshAll();
@@ -16627,7 +16627,7 @@
     scope.interval(sync, 250);
     scope.onCleanup(() => {
       enabled = false;
-      own = nativeOwn = null;
+      own3 = nativeOwn = null;
       revision++;
       refreshAll();
       renderers.clear();
@@ -16636,8 +16636,8 @@
     sync();
     const bridge = {
       text(value, glyphs) {
-        if (!enabled || scope.disabled || !own || typeof value !== "string") return value;
-        if (parseAccountIdentity(value)?.nickname !== own) return value;
+        if (!enabled || scope.disabled || !own3 || typeof value !== "string") return value;
+        if (parseAccountIdentity(value)?.nickname !== own3) return value;
         const supported = (text2) => {
           if (!glyphs) return false;
           for (let i = 0; i < text2.length; i++) {
@@ -16894,23 +16894,25 @@
   });
 
   // src/core/rainWeather/schedule.ts
-  function planRain(now, remaining, random3) {
-    const seconds = Number.isFinite(remaining) ? Math.max(0, remaining) : WEATHER.unknownBattleSeconds;
+  function planRain(now, remaining, random3, generation = DEFAULT_WEATHER_GENERATION) {
+    const seconds = Number.isFinite(remaining) ? Math.max(0, Math.min(WEATHER.maxBattleSeconds, remaining)) : WEATHER.unknownBattleSeconds;
+    const fraction = Number.isFinite(generation.duration) ? Math.max(0, Math.min(1, generation.duration)) : DEFAULT_WEATHER_GENERATION.duration;
     const empty = { version: 1, preset: null, start: now, hold: 0, seed: Math.floor(random3() * 16777215), fadeIn: WEATHER.fadeIn, fadeOut: WEATHER.fadeOut };
-    if (random3() >= WEATHER.chance || seconds < 75) return empty;
-    const names = Object.keys(RAIN_PRESETS);
-    const preset = names[Math.min(names.length - 1, Math.floor(random3() * names.length))];
-    const hold = Math.min(WEATHER.minHold + random3() * (WEATHER.maxHold - WEATHER.minHold), seconds - WEATHER.fadeIn - WEATHER.fadeOut - 10);
-    if (hold < 15) return empty;
-    const available = Math.max(0, seconds - hold - WEATHER.fadeIn - WEATHER.fadeOut - 10);
-    const delay = random3() < 0.15 ? 0 : random3() * available;
-    return { ...empty, preset, hold, start: now + delay * 1e3 };
+    if (random3() >= generation.chance || seconds <= 0 || fraction <= 0) return empty;
+    const preset = generation.preset === "random" ? rainyPresets[Math.min(rainyPresets.length - 1, Math.floor(random3() * rainyPresets.length))] : generation.preset;
+    if (fraction === 1) return { ...empty, preset, hold: seconds, continuous: true };
+    const total = seconds * fraction;
+    const fadeIn = Math.min(WEATHER.fadeIn, total * 0.3), fadeOut = Math.min(WEATHER.fadeOut, total * 0.3);
+    const hold = Math.max(0, total - fadeIn - fadeOut);
+    const delay = random3() * Math.max(0, seconds - total);
+    return { ...empty, preset, hold, fadeIn, fadeOut, start: now + delay * 1e3 };
   }
   function sampleRain(plan, now) {
     const elapsed = (now - plan.start) / 1e3, total = plan.fadeIn + plan.hold + plan.fadeOut;
     const profile = plan.preset ? RAIN_PRESETS[plan.preset] : RAIN_PRESETS.sunny;
-    const clouds = plan.preset ? smooth(elapsed / plan.fadeIn) * (1 - smooth((elapsed - plan.fadeIn - plan.hold) / plan.fadeOut)) : 0;
-    const rain = plan.preset ? smooth((elapsed - WEATHER.cloudLead) / Math.max(1, plan.fadeIn - WEATHER.cloudLead)) * (1 - smooth((elapsed - plan.fadeIn - plan.hold + 5) / Math.max(1, plan.fadeOut - 5))) : 0;
+    const lead = Math.min(WEATHER.cloudLead, plan.fadeIn * 0.5), tail = Math.min(5, plan.fadeOut / 6);
+    const clouds = plan.preset ? smooth(elapsed / plan.fadeIn) * (plan.continuous ? 1 : 1 - smooth((elapsed - plan.fadeIn - plan.hold) / plan.fadeOut)) : 0;
+    const rain = plan.preset ? smooth((elapsed - lead) / Math.max(1e-3, plan.fadeIn - lead)) * (plan.continuous ? 1 : 1 - smooth((elapsed - plan.fadeIn - plan.hold + tail) / Math.max(1e-3, plan.fadeOut - tail))) : 0;
     return {
       clouds: clouds * profile.clouds,
       rain: rain * profile.rain,
@@ -16918,29 +16920,37 @@
       sound: rain * profile.sound,
       storm: clouds * profile.storm,
       flash: 0,
-      finished: elapsed >= total,
-      active: elapsed >= 0 && elapsed < total
+      finished: !plan.continuous && elapsed >= total,
+      active: elapsed >= 0 && (plan.continuous === true || elapsed < total)
+    };
+  }
+  function rainTiming(plan, now) {
+    const elapsed = (now - plan.start) / 1e3;
+    const phase = !plan.preset ? "clear" : elapsed < 0 ? "waiting" : plan.continuous && elapsed >= plan.fadeIn ? "holding" : elapsed >= plan.fadeIn + plan.hold + plan.fadeOut ? "finished" : elapsed < plan.fadeIn ? "forming" : elapsed < plan.fadeIn + plan.hold ? "holding" : "clearing";
+    return {
+      phase,
+      startsInSeconds: plan.preset && phase !== "finished" ? Math.max(0, Math.ceil(-elapsed)) : null,
+      rainStartsInSeconds: plan.preset && RAIN_PRESETS[plan.preset].rain > 0 && phase !== "finished" ? Math.max(0, Math.ceil(Math.min(WEATHER.cloudLead, plan.fadeIn * 0.5) - elapsed)) : null
     };
   }
   function validEpisode(value) {
     if (!value || typeof value !== "object") return false;
     const p = value;
-    return p.version === 1 && (p.preset === null || Object.prototype.hasOwnProperty.call(RAIN_PRESETS, p.preset)) && [p.start, p.hold, p.seed, p.fadeIn, p.fadeOut].every(Number.isFinite) && p.hold >= 0 && p.hold <= 180 && p.fadeIn >= 10 && p.fadeIn <= 60 && p.fadeOut >= 10 && p.fadeOut <= 60;
+    return p.version === 1 && (p.preset === null || Object.prototype.hasOwnProperty.call(RAIN_PRESETS, p.preset)) && [p.start, p.hold, p.seed, p.fadeIn, p.fadeOut].every(Number.isFinite) && p.hold >= 0 && p.hold <= WEATHER.maxBattleSeconds && p.fadeIn > 0 && p.fadeIn <= 60 && p.fadeOut > 0 && p.fadeOut <= 60 && (p.continuous === void 0 || typeof p.continuous === "boolean");
   }
-  var WEATHER, RAIN_PRESETS, smooth;
+  var WEATHER, RAIN_PRESETS, DEFAULT_WEATHER_GENERATION, rainyPresets, smooth;
   var init_schedule = __esm({
     "src/core/rainWeather/schedule.ts"() {
       "use strict";
       WEATHER = Object.freeze({
-        chance: 0.4,
-        // Five equally likely presets; three contain rain: ~24% of battles get rain.
+        chance: 0.24,
+        // Actual rain probability in random mode, preserving the previous ~24% default.
         fadeIn: 24,
         fadeOut: 30,
         cloudLead: 12,
-        minHold: 45,
-        maxHold: 135,
         unknownBattleSeconds: 600,
-        maxDrops: 14e3,
+        maxBattleSeconds: 86400,
+        maxDrops: 25e3,
         cloudWidth: 1024,
         cloudHeight: 256,
         cloudHz: 10,
@@ -16956,6 +16966,8 @@
         overcast: { rain: 0, clouds: 0.85, wind: 0.3, storm: 0, sound: 0 },
         sunny: { rain: 0, clouds: 0.2, wind: 0.2, storm: 0, sound: 0 }
       });
+      DEFAULT_WEATHER_GENERATION = Object.freeze({ chance: WEATHER.chance, preset: "random", duration: 0.3 });
+      rainyPresets = Object.keys(RAIN_PRESETS).filter((name) => RAIN_PRESETS[name].rain > 0);
       smooth = (x) => {
         const t = Math.max(0, Math.min(1, x));
         return t * t * (3 - 2 * t);
@@ -16964,7 +16976,7 @@
   });
 
   // src/core/rainWeather/shaders.ts
-  var FULL_VERTEX, COMMON, CLOUD_FRAGMENT, COMPOSITE_FRAGMENT, RAIN_VERTEX, ATMOSPHERE_FRAGMENT, LIGHTNING_VERTEX, LIGHTNING_FRAGMENT, RAIN_FRAGMENT, IMPACT_FRAGMENT;
+  var FULL_VERTEX, COMMON, CLOUD_FRAGMENT, COMPOSITE_FRAGMENT, RAIN_VERTEX, ATMOSPHERE_FRAGMENT, LIGHTNING_VERTEX, LIGHTNING_FRAGMENT, RAIN_FRAGMENT;
   var init_shaders = __esm({
     "src/core/rainWeather/shaders.ts"() {
       "use strict";
@@ -16978,6 +16990,7 @@ precision highp float;precision highp int;
 uniform mat4 uInvVP;
 uniform vec3 uCam;
 uniform float uTime,uRain,uCloud,uSeed,uFade;
+uniform float uSkyDarkness;
 uniform vec4 uFogColor;
 uniform vec3 uFog; // enabled, near, far
 out vec4 o;
@@ -16994,6 +17007,7 @@ float fogAt(float distance_){return uFog.x*smoothstep(uFog.y,uFog.z,distance_)*u
 ${COMMON}
 in vec2 uv;
 uniform float uCloudBase,uThickness;
+uniform vec3 uCloudTone,uCloudLow,uCloudHigh,uCloudHaze;
 float fbm(vec3 p){float v=0.,a=.52;for(int i=0;i<4;i++){v+=a*noise3(p);p=p*2.03+vec3(11.1,3.7,9.2);a*=.48;}return v;}
 float density(vec3 p){
  float height=(p.z-uCloudBase)/uThickness;
@@ -17023,15 +17037,11 @@ void main(){
    if(d>.004){
      float shadow=density(p+vec3(-900.,500.,1100.));
      float height=clamp((p.z-uCloudBase)/uThickness,0.,1.);
-     vec3 ambient=mix(vec3(.24,.28,.34),vec3(.72,.76,.81),height*.65+.2)*mix(1.,.30,uRain);
-     vec3 light=vec3(.78,.79,.78)*exp(-shadow*3.5)*mix(.7,.04,uRain);
-     vec3 shade=ambient+light;
-     // Native fog option and map colour; much nearer horizontal whitening keeps
-     // overhead structure while distant cloud masses merge with the horizon.
+     vec3 shade=mix(uCloudLow,uCloudHigh,clamp(height*.75+.15-shadow*.5,0.,1.));
+     // The map fog controls haze distance/opacity, never the weather palette.
+     // In particular a bright/pink daytime fog cannot whiten a storm cloud.
      float haze=min(.88,fogAt(length(p.xy)));
-     float fogLight=clamp(dot(uFogColor.rgb,vec3(.2126,.7152,.0722)),.65,.8);
-     vec3 hazeColor=vec3(fogLight-.02,fogLight,fogLight+.025);
-     shade=mix(shade,hazeColor,haze);
+     shade=mix(shade,uCloudHaze,haze)*uCloudTone;
      float alpha=1.-exp(-d*min(step_/uThickness,1.5)*4.);
      color+=transmission*alpha*shade;transmission*=1.-alpha;
      if(transmission<.025)break;
@@ -17123,25 +17133,6 @@ float core=exp(-q.x*q.x*5.);float a=opacity*edge*pow(1.-q.y,1.5)*(.25+.75*core)*
 vec3 color=mix(vec3(.57,.70,.79),vec3(.94,.97,1.),core);
 float fog=uFog.x*smoothstep(uFog.y,uFog.z,distance_)*uFogColor.a;
 o=vec4(mix(color,uFogColor.rgb,fog)*a,a);}`;
-      IMPACT_FRAGMENT = `#version 300 es
-${COMMON}
-in vec2 uv;uniform sampler2D uDepth;
-void main(){
-float depth=texture(uDepth,uv).r;if(depth>.999999)discard;
-vec3 p=worldAt(uv,depth);vec3 normal=cross(dFdx(p),dFdy(p));
-float flatness=abs(normal.z)/max(length(normal),.00001);if(flatness<.65)discard;
-vec2 cell=floor(p.xy/110.);uint key=uint(int(cell.x))+pcg(uint(int(cell.y))+uint(uSeed));
-float period=.45+hash(key)*.5,age=fract(uTime/period+hash(key+1u))*period;
-if(age>.16||hash(key+2u)>uRain*.65)discard;
-vec2 center=(cell+.4+.2*vec2(hash(key+3u),hash(key+4u)))*110.;
-vec2 delta=(p.xy-center)/(4.+age*130.);float r=length(delta);if(r>1.)discard;
-float spokes=pow(max(0.,cos(atan(delta.y,delta.x)*7.+hash(key+5u)*6.28)),8.);
-float crown=spokes*smoothstep(.1,.3,r)*(1.-smoothstep(.55,1.,r));
-float contact=exp(-r*r*30.)*(1.-smoothstep(.01,.06,age));
-float a=(crown*.5+contact*.35)*smoothstep(0.,.012,age)*(1.-smoothstep(.05,.16,age))*flatness*uFade;
-a*=1.-smoothstep(3500.,8500.,distance(p,uCam));
-o=vec4(vec3(.72,.81,.87)*a,a);
-}`;
     }
   });
 
@@ -17159,7 +17150,7 @@ o=vec4(vec3(.72,.81,.87)*a,a);
     if (plan.preset !== "storm") return [];
     const random3 = seeded(plan.seed ^ 1910917849), out = [];
     let seconds = plan.fadeIn + LIGHTNING.firstMin + random3() * (LIGHTNING.firstMax - LIGHTNING.firstMin);
-    while (seconds < plan.fadeIn + plan.hold - 8 && out.length < 3) {
+    while (seconds < plan.fadeIn + plan.hold - 8 && out.length < LIGHTNING.maxStrikes) {
       const radius = LIGHTNING.radiusMin + random3() * (LIGHTNING.radiusMax - LIGHTNING.radiusMin);
       out.push({
         id: out.length,
@@ -17212,10 +17203,11 @@ o=vec4(vec3(.72,.81,.87)*a,a);
       "use strict";
       init_schedule();
       LIGHTNING = Object.freeze({
-        firstMin: 20,
-        firstMax: 42,
-        gapMin: 48,
-        gapMax: 78,
+        firstMin: 8,
+        firstMax: 18,
+        gapMin: 20,
+        gapMax: 35,
+        maxStrikes: 7,
         duration: 0.75,
         radiusMin: 85e3,
         radiusMax: 125e3,
@@ -17226,9 +17218,738 @@ o=vec4(vec3(.72,.81,.87)*a,a);
     }
   });
 
+  // src/core/rainWeather/puddleSurface.ts
+  var HIGH_PUDDLE_SURFACE;
+  var init_puddleSurface = __esm({
+    "src/core/rainWeather/puddleSurface.ts"() {
+      "use strict";
+      HIGH_PUDDLE_SURFACE = `
+const float WATER_UNIT=540.;
+uniform float uWind;
+uniform vec4 uRippleTuning; // size reduction, speed, active-cell fraction, strength
+float hash21(vec2 p){vec3 p3=fract(vec3(p.xyx)*.1031);p3+=dot(p3,p3.yzx+33.33);return fract((p3.x+p3.y)*p3.z);}
+vec2 hash22(vec2 p){vec3 p3=fract(vec3(p.xyx)*vec3(.1031,.1030,.0973));p3+=dot(p3,p3.yzx+33.33);return fract((p3.xx+p3.yz)*p3.zy);}
+float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
+ return mix(mix(hash21(i),hash21(i+vec2(1,0)),f.x),mix(hash21(i+vec2(0,1)),hash21(i+vec2(1,1)),f.x),f.y);}
+float fbm(vec2 p){float v=0.,a=.5;for(int i=0;i<4;i++){v+=a*noise(p);p=p*2.03+17.1;a*=.5;}return v;}
+float hq(ivec2 c,uint s){return float(pcg(uint(c.x)+pcg(uint(c.y)+pcg(s))))*(1./4294967296.);}
+float pn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);ivec2 c=ivec2(i);
+ return mix(mix(hq(c,8u),hq(c+ivec2(1,0),8u),f.x),mix(hq(c+ivec2(0,1),8u),hq(c+ivec2(1,1),8u),f.x),f.y);}
+float pfbm(vec2 p){float v=0.,a=.5;for(int i=0;i<4;i++){v+=a*pn(p);p=p*2.03+17.1;a*=.5;}return v;}
+vec2 puddleAt(vec2 g){
+ vec2 p=g+(vec2(pfbm(g*.33+3.1),pfbm(g*.33+8.7))-.5)*1.7;
+ const float C=5.2;ivec2 ci=ivec2(floor(p/C));float mask=0.,rim=0.;
+ for(int j=-1;j<=1;j++)for(int i=-1;i<=1;i++){
+   ivec2 cell=ci+ivec2(i,j);if(hq(cell,1u)>.80)continue;
+   vec2 c=(vec2(cell)+.2+.6*vec2(hq(cell,2u),hq(cell,3u)))*C;
+   float R=1.15+1.85*hq(cell,4u);vec2 q=p-c;if(dot(q,q)>3.2*R*R)continue;
+   float ang=hq(cell,5u)*6.2831;q=mat2(cos(ang),-sin(ang),sin(ang),cos(ang))*q;
+   q.y*=1.+.5*hq(cell,6u);
+   float d=length(q)+(pfbm(p*1.85+hq(cell,7u)*40.)-.5)*.42*R+(pn(p*6.2)-.5)*.10*R;
+   float m=1.-smoothstep(.78*R,1.02*R,d);
+   float r=smoothstep(.68*R,.82*R,d)*(1.-smoothstep(1.01*R,1.10*R,d));
+   mask=max(mask,m);rim=max(rim,r*step(.001,m));
+ }
+ return vec2(mask,rim);
+}
+// xy = analytic height gradient, z = height. Each impact centre stays fixed.
+vec3 rippleField(vec2 p){
+ p*=uRippleTuning.x;
+ float footprint=max(length(dFdx(p)),length(dFdy(p)));
+ float visible=1.-smoothstep(.18,.8,footprint);
+ if(visible<.001||uRippleTuning.z<=0.||uRippleTuning.w<=0.)return vec3(0.);
+ const float C=1.12;vec2 ci=floor(p/C);vec2 grad=vec2(0.);float acc=0.;
+ for(int j=-1;j<=1;j++)for(int i=-1;i<=1;i++){
+   vec2 cell=ci+vec2(float(i),float(j)),h=hash22(cell*1.37+3.1);
+   if(hash21(cell+vec2(71.7,28.9))>uRippleTuning.z*uRain)continue;
+   float per=1.15+1.35*h.x,ph=fract(uTime*uRippleTuning.y/per+h.y*4.7);
+   vec2 delta=p-(cell+.15+.7*hash22(cell+3.1))*C;float d=length(delta);
+   float fade=1.-smoothstep(.72,1.,ph),w1=max(.045+.015*ph,footprint*.55),q1=(d-ph*.46)/w1;
+   float r1=exp(-q1*q1)*fade;
+   float ph2=max(0.,ph-.24),w2=max(.05+.018*ph2,footprint*.55),q2=(d-ph2*.35)/w2;
+   float r2=exp(-q2*q2)*pow(1.-ph2,1.8)*.30;
+   float dotv=exp(-pow(d/.055,2.))*(1.-smoothstep(0.,.12,ph))*.16;
+   acc+=r1+r2+dotv;
+   grad+=delta/max(d,.0001)*(-2.*q1/w1*r1-2.*q2/w2*r2-2.*d/(.055*.055)*dotv);
+ }
+ grad*=min(1.,8./max(length(grad),.001));
+ return vec3(grad,clamp(acc,0.,1.))*visible*uRippleTuning.w;
+}
+vec2 microWindGrad(vec2 p,vec2 wind,float t){
+ vec2 wd=length(wind)>.01?normalize(wind):vec2(.8,.6);float spd=max(.2,length(wind));
+ vec2 p1=p*4.5+wd*(t*2.8*spd),p2=p*8.2-vec2(-wd.y,wd.x)*(t*1.9*spd)+vec2(13.7,7.3);
+ float n1=noise(p1),n2=noise(p2);
+ vec2 g1=vec2(noise(p1+vec2(.08,0.))-n1,noise(p1+vec2(0.,.08))-n1);
+ vec2 g2=vec2(noise(p2+vec2(.05,0.))-n2,noise(p2+vec2(0.,.05))-n2);
+ return(g1*3.5+g2*4.5)*(.15+.35*spd);
+}
+vec2 microWaveGrad(vec2 p,vec2 wind,float t){
+ vec2 wd=length(wind)>.01?normalize(wind):normalize(vec2(.8,.6));float spd=clamp(length(wind),.2,1.5);
+ vec2 d1=normalize(wd+vec2(.28,.17)),d2=normalize(vec2(-wd.y,wd.x)+wd*.22),d3=normalize(-wd*.48+vec2(.61,.73));
+ float a=dot(p,d1)*3.2-t*(1.+spd*1.8),b=dot(p,d2)*6.7+t*(1.35+spd*1.25),c=dot(p,d3)*12.4-t*(2.+spd*1.6);
+ return d1*cos(a)*.105+d2*cos(b)*.046+d3*cos(c)*.018;
+}
+`;
+    }
+  });
+
+  // src/core/rainWeather/mapSurface.ts
+  function collisionList(v, s) {
+    if (Array.isArray(v)) {
+      if (v.length > 4e4) throw Error("Map collision list exceeds limit");
+      return v;
+    }
+    if (!v || typeof v !== "object") throw Error("Unknown map collision list");
+    const native = v, countMethod = native[s.count], getMethod = native[s.get];
+    if (typeof countMethod !== "function" || typeof getMethod !== "function") throw Error("Unknown map collision list");
+    const count = countMethod.call(v);
+    if (typeof count !== "number" || !Number.isInteger(count) || count < 0 || count > 4e4) throw Error("Map collision list exceeds limit");
+    return Array.from({ length: count }, (_, i) => getMethod.call(v, i));
+  }
+  function buildMapSurface(raw, s) {
+    const vector = (v) => {
+      const result = [own(v, s.x), own(v, s.y), own(v, s.z)];
+      if (!result.every(Number.isFinite)) throw Error("Invalid map collision vector");
+      return result;
+    };
+    const number = (n) => {
+      if (typeof n !== "number" || !Number.isFinite(n)) throw Error("Invalid collision dimension");
+      return n;
+    };
+    const points = [], support = [], faces = [], grid = /* @__PURE__ */ new Map();
+    let cells = 0;
+    const add = (a, b, c) => {
+      const u = b.map((v2, i) => v2 - a[i]), v = c.map((n2, i) => n2 - a[i]), n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]], length = Math.hypot(...n);
+      if (length < 0.01) return;
+      if (support.length / 9 >= MAP_SURFACE.maxTriangles * 6) throw Error("Map support exceeds triangle budget");
+      support.push(...a, ...b, ...c);
+      if (n[2] / length < 0.35) return;
+      if (faces.length >= MAP_SURFACE.maxTriangles) throw Error("Map surface exceeds triangle budget");
+      const flat = n[2] / length >= MAP_SURFACE.minUp, id = faces.length, f = [...a, ...b, ...c, Number(flat)];
+      faces.push(f);
+      if (flat) points.push(...f.slice(0, 9));
+      const minX = Math.floor(Math.min(a[0], b[0], c[0]) / MAP_SURFACE.cell), maxX = Math.floor(Math.max(a[0], b[0], c[0]) / MAP_SURFACE.cell);
+      const minY = Math.floor(Math.min(a[1], b[1], c[1]) / MAP_SURFACE.cell), maxY = Math.floor(Math.max(a[1], b[1], c[1]) / MAP_SURFACE.cell);
+      if ((maxX - minX + 1) * (maxY - minY + 1) > MAP_SURFACE.maxCells) throw Error("Map collision extent exceeds budget");
+      for (let x = minX; x <= maxX; x++) for (let y = minY; y <= maxY; y++) {
+        if (++cells > MAP_SURFACE.maxCells) throw Error("Map collision lookup exceeds budget");
+        const key = x + ":" + y, items = grid.get(key);
+        if (items) items.push(id);
+        else grid.set(key, [id]);
+      }
+    };
+    const pose = (position, rotation) => {
+      const t = vector(position), r = vector(rotation), cx = Math.cos(r[0]), sx = Math.sin(r[0]), cy = Math.cos(r[1]), sy = Math.sin(r[1]), cz = Math.cos(r[2]), sz = Math.sin(r[2]);
+      return (p) => [
+        t[0] + cz * cy * p[0] + (cz * sy * sx - sz * cx) * p[1] + (cz * sy * cx + sz * sx) * p[2],
+        t[1] + sz * cy * p[0] + (sz * sy * sx + cz * cx) * p[1] + (sz * sy * cx - cz * sx) * p[2],
+        t[2] - sy * p[0] + cy * sx * p[1] + cy * cx * p[2]
+      ];
+    };
+    const quad = (p) => {
+      add(p[0], p[1], p[2]);
+      add(p[0], p[2], p[3]);
+    };
+    for (const box of collisionList(own(raw, s.boxes), s)) {
+      const size = vector(own(box, s.size)).map((v) => v * 0.5), transform = pose(own(box, s.boxPosition), own(box, s.boxRotation));
+      if (size.some((n) => n < 0 || n > 2e5)) throw Error("Invalid collision box dimensions");
+      const corner = (x, y, z) => transform([x * size[0], y * size[1], z * size[2]]);
+      for (const corners of [
+        [[1, -1, -1], [1, 1, -1], [1, 1, 1], [1, -1, 1]],
+        [[-1, 1, -1], [-1, -1, -1], [-1, -1, 1], [-1, 1, 1]],
+        [[1, 1, -1], [-1, 1, -1], [-1, 1, 1], [1, 1, 1]],
+        [[-1, -1, -1], [1, -1, -1], [1, -1, 1], [-1, -1, 1]],
+        [[-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]],
+        [[1, -1, -1], [-1, -1, -1], [-1, 1, -1], [1, 1, -1]]
+      ]) quad(corners.map((c) => corner(c[0], c[1], c[2])));
+    }
+    for (const plane of collisionList(own(raw, s.planes), s)) {
+      const transform = pose(own(plane, s.planePosition), own(plane, s.planeRotation)), w = number(own(plane, s.width)) * 0.5, h = number(own(plane, s.length)) * 0.5;
+      if (!Number.isFinite(w + h) || w < 0 || h < 0 || w + h > 2e5) throw Error("Invalid collision plane dimensions");
+      quad([[-w, -h, 0], [w, -h, 0], [w, h, 0], [-w, h, 0]].map((p) => transform(p)));
+    }
+    for (const triangle of collisionList(own(raw, s.triangles), s)) {
+      const transform = pose(own(triangle, s.trianglePosition), own(triangle, s.triangleRotation));
+      add(transform(vector(own(triangle, s.v0))), transform(vector(own(triangle, s.v1))), transform(vector(own(triangle, s.v2))));
+    }
+    return { vertices: new Float32Array(points), supportVertices: new Float32Array(support), triangles: points.length / 9, ground(x, y, z, gap = 80, flatOnly = true) {
+      if (![x, y, z].every(Number.isFinite)) return null;
+      let closest = null, distance = gap;
+      for (const id of grid.get(Math.floor(x / MAP_SURFACE.cell) + ":" + Math.floor(y / MAP_SURFACE.cell)) || []) {
+        const f = faces[id];
+        if (flatOnly && !f[9]) continue;
+        const den = (f[4] - f[7]) * (f[0] - f[6]) + (f[6] - f[3]) * (f[1] - f[7]);
+        if (Math.abs(den) < 1e-3) continue;
+        const a = ((f[4] - f[7]) * (x - f[6]) + (f[6] - f[3]) * (y - f[7])) / den, b = ((f[7] - f[1]) * (x - f[6]) + (f[0] - f[6]) * (y - f[7])) / den;
+        if (a < 0 || b < 0 || a + b > 1) continue;
+        const height = a * f[2] + b * f[5] + (1 - a - b) * f[8], d = Math.abs(z - height);
+        if (d <= distance) {
+          distance = d;
+          closest = [x, y, height];
+        }
+      }
+      return closest;
+    } };
+  }
+  var MAP_SURFACE, own;
+  var init_mapSurface = __esm({
+    "src/core/rainWeather/mapSurface.ts"() {
+      "use strict";
+      MAP_SURFACE = Object.freeze({ minUp: Math.cos(Math.PI / 180), tolerance: 14, maxTriangles: 12e4, cell: 600, maxCells: 5e5 });
+      own = (v, key) => v && typeof v === "object" ? Object.getOwnPropertyDescriptor(v, key)?.value : void 0;
+    }
+  });
+
+  // src/core/rainWeather/puddles.ts
+  function buildPuddleFragment(detail = "low") {
+    const high = detail === "high";
+    return `#version 300 es
+${COMMON}
+in vec2 uv;
+uniform highp sampler2D uDepth;
+uniform highp sampler2D uMapDepth,uMapSupportDepth;
+uniform sampler2D uScene,uCloudTexture;
+uniform mat4 uVP;
+uniform float uPuddles;
+uniform vec3 uWaveTuning;
+uniform vec4 uOptics;
+uniform float uEdgeInset;
+uniform vec3 uSunDirection,uCloudTone;
+${high ? HIGH_PUDDLE_SURFACE : ""}
+
+vec3 environment(vec3 direction){
+ vec2 skyUV=vec2(atan(direction.y,direction.x)/6.283185307+.5,asin(clamp(direction.z,0.,1.))/1.570796327);
+ vec4 cloud=texture(uCloudTexture,skyUV);
+ vec3 sky=mix(vec3(.44,.55,.65),vec3(.18,.22,.27),uCloud);
+ return cloud.rgb+sky*uCloudTone*(1.-uSkyDarkness)*(1.-cloud.a);
+}
+bool project(vec3 p,out vec2 screen){
+ vec4 clip=uVP*vec4(p,1.);screen=clip.xy/max(clip.w,.001)*.5+.5;
+ return clip.w>0.&&all(greaterThan(screen,vec2(.002)))&&all(lessThan(screen,vec2(.998)));
+}
+float openEdgeFade(vec3 p){
+ if(uEdgeInset<.01)return 1.;
+ float inside=1.,outside=1.;
+ // World-fixed multiscale erosion. Never reduce the configured minimum inset;
+ // remove extra water inward in broad bays, fine notches and detached islands.
+ float shoreSeed=uSeed*.001;
+ float erosion=noise3(vec3(p.xy/(uEdgeInset*3.4+80.),shoreSeed+47.))*.55
+              +noise3(vec3(p.xy/(uEdgeInset*.9+35.),shoreSeed+109.))*.30
+              +noise3(vec3(p.xy/(uEdgeInset*.23+15.),shoreSeed+211.))*.15;
+ float shoreInset=uEdgeInset*(1.083+2.2*pow(erosion,1.5));
+ float pixelRadius=max(length(dFdx(p.xy)),length(dFdy(p.xy)));
+ float baseDepth=texture(uMapDepth,uv).r;
+ vec4 plane=transpose(uInvVP)*vec4(0.,0.,1.,-p.z);
+ // Query the union of map collision faces, never individual triangles/props.
+ // Same-height neighbours therefore retain water across their shared seam.
+ for(int i=0;i<8;i++){
+  float angle=float(i)*.7853981634;vec2 direction=vec2(cos(angle),sin(angle));
+  for(int j=0;j<2;j++){
+   vec2 screen;vec3 probe=p+vec3(direction*(shoreInset*(j==0?1.:1.25)+pixelRadius),0.);
+   // Beyond the viewport is unknown, not an open world edge.
+   if(!project(probe,screen))continue;
+   // Depth belongs to a texel centre. Reconstructing at the fractional probe
+   // UV turns half a far-away pixel into a false height discontinuity.
+   vec2 size=vec2(textureSize(uMapDepth,0));screen=(floor(screen*size)+.5)/size;
+   float d=texture(uMapSupportDepth,screen).r;
+   // Compare plane-relative depth, not two ill-conditioned absolute world Zs.
+   float expected=baseDepth-dot(plane.xy,screen-uv)/plane.z;
+   vec4 h=uInvVP*vec4(screen*2.-1.,d*2.-1.,1.);
+   float tolerance=max(2./16777215.,${MAP_SURFACE.tolerance}.*abs(h.w/plane.z)*.5);
+   // Positive means a higher map surface: a retaining wall is a closed bank,
+   // not a drain. Only missing/lower support creates the configurable dry inset.
+   float relativeHeight=(d-expected)*sign(plane.z*h.w);
+   float supported=float(d<.999999)*(1.-smoothstep(tolerance,tolerance*1.5,-relativeHeight));
+   if(j==0)inside=min(inside,supported);else outside=min(outside,supported);
+  }
+ }
+ return inside*mix(.45,1.,outside);
+}
+float sunlightVisibility(vec3 p){
+ if(uSunDirection.z<=.01)return 0.;
+ vec3 direction=normalize(uSunDirection);
+ for(int i=1;i<=8;i++){
+  vec3 q=p+vec3(0.,0.,10.)+direction*(20.+float(i*i)*35.);vec2 screen;
+  if(!project(q,screen))break;
+  float d=texture(uDepth,screen).r;if(d>=.999999)continue;
+  vec3 surface=worldAt(screen,d);
+  if(surface.z>p.z+14.&&distance(q,uCam)>distance(surface,uCam)+8.)return 0.;
+ }return 1.;
+}
+vec3 reflectionNormal(vec2 screen,vec3 p){
+ vec2 pixel=1./vec2(textureSize(uDepth,0));
+ vec3 l=worldAt(screen-vec2(pixel.x,0.),texture(uDepth,screen-vec2(pixel.x,0.)).r);
+ vec3 r=worldAt(screen+vec2(pixel.x,0.),texture(uDepth,screen+vec2(pixel.x,0.)).r);
+ vec3 b=worldAt(screen-vec2(0.,pixel.y),texture(uDepth,screen-vec2(0.,pixel.y)).r);
+ vec3 t=worldAt(screen+vec2(0.,pixel.y),texture(uDepth,screen+vec2(0.,pixel.y)).r);
+ vec3 dx=length(r-p)<length(p-l)?r-p:p-l,dy=length(t-p)<length(p-b)?t-p:p-b;
+ vec3 n=cross(dx,dy);n/=max(length(n),.00001);
+ return dot(n,uCam-p)<0.?-n:n;
+}
+vec3 waterNormal(vec3 surface,vec2 gradient){
+ // Perturb within the actual surface plane, rather than resetting a ramp's
+ // normal to world-up. Flat ground retains the original normal calculation.
+ vec3 perturb=vec3(gradient,0.);
+ return normalize(surface+perturb-surface*dot(perturb,surface));
+}
+vec2 scenePixel(vec2 screen){vec2 size=vec2(textureSize(uDepth,0));return(floor(screen*size)+.5)/size;}
+float sameSurface(vec2 q,vec3 p,vec3 normal){
+ if(any(lessThan(q,vec2(0.)))||any(greaterThan(q,vec2(1.))))return 0.;
+ float d=texture(uDepth,q).r;
+ return float(d<.999999)*(1.-smoothstep(6.,24.,abs(dot(worldAt(q,d)-p,normal))));
+}
+vec3 reflectionColour(vec2 q,vec3 p,vec3 normal){
+ vec3 result=texture(uScene,q).rgb*2.;float weight=2.;
+ if(uOptics.z>.001){
+  vec2 radius=vec2(uOptics.z*12.)/vec2(textureSize(uScene,0));
+  for(int i=0;i<4;i++){
+   vec2 delta=i==0?vec2(radius.x,0.):i==1?vec2(-radius.x,0.):i==2?vec2(0.,radius.y):vec2(0.,-radius.y);
+   vec2 sample_=scenePixel(q+delta);float valid=sameSurface(sample_,p,normal);
+   result+=texture(uScene,sample_).rgb*valid;weight+=valid;
+  }
+ }return result/weight;
+}
+vec3 refractedFloor(vec2 screen,vec3 p,vec3 fallback){
+ // Validate every bilinear colour tap against depth. A linear colour sample
+ // combined with one nearest depth sample can pull a gun silhouette onto water.
+ vec2 size=vec2(textureSize(uScene,0)),pixel=screen*size-.5,base=floor(pixel),f=fract(pixel);
+ vec3 colour=vec3(0.);float total=0.;
+ for(int i=0;i<4;i++){
+  vec2 offset=vec2(float(i&1),float(i>>1)),q=(base+offset+.5)/size;
+  vec2 weights=mix(1.-f,f,offset);float weight=weights.x*weights.y*sameSurface(q,p,vec3(0.,0.,1.));
+  colour+=texture(uScene,q).rgb*weight;total+=weight;
+ }return mix(fallback,colour/max(total,.0001),clamp(total,0.,1.));
+}
+void main(){
+ float depth=texture(uDepth,uv).r;
+ if(depth>=.999999)discard;
+ vec3 p=worldAt(uv,depth);
+ float mapDepth=texture(uMapDepth,uv).r;
+ if(mapDepth>=.999999||abs(worldAt(uv,mapDepth).z-p.z)>${MAP_SURFACE.tolerance}.)discard;
+ vec2 pixel=1./vec2(textureSize(uDepth,0));
+ vec3 l=worldAt(uv-vec2(pixel.x,0.),texture(uDepth,uv-vec2(pixel.x,0.)).r);
+ vec3 r=worldAt(uv+vec2(pixel.x,0.),texture(uDepth,uv+vec2(pixel.x,0.)).r);
+ vec3 b=worldAt(uv-vec2(0.,pixel.y),texture(uDepth,uv-vec2(0.,pixel.y)).r);
+ vec3 t=worldAt(uv+vec2(0.,pixel.y),texture(uDepth,uv+vec2(0.,pixel.y)).r);
+ // No coarse collision tiles: the current geometry depth clips every fragment.
+ // Fade at discontinuities instead of stretching a normal across a wall edge.
+ vec3 dx=length(r-p)<length(p-l)?r-p:p-l,dy=length(t-p)<length(p-b)?t-p:p-b;
+ vec3 normal=normalize(cross(dx,dy));if(normal.z<0.)normal=-normal;
+ vec3 surfaceNormal=vec3(0.,0.,1.);
+ // A change in world Z is normal on a ramp. Only distance away from the local
+ // tangent plane indicates a depth discontinuity at a wall or an object edge.
+ float planeGap=max(max(abs(dot(l-p,normal)),abs(dot(r-p,normal))),max(abs(dot(t-p,normal)),abs(dot(b-p,normal))));
+ float contact=1.-smoothstep(6.,24.,planeGap);
+ float flatness=smoothstep(.985,.998,normal.z),distance_=distance(p,uCam);
+ contact*=mix(1.-smoothstep(.5,3.,planeGap),1.,flatness);
+ // Eligibility already comes from horizontal collision faces. Ignore small
+ // visual-mesh bumps while still rejecting vertical silhouettes at their feet.
+ float upward=smoothstep(.55,.85,normal.z);
+ if(upward<.001||contact<.001||distance_>${PUDDLES.far}.)discard;
+ float distanceFade=1.-smoothstep(${PUDDLES.far * 0.65}.,${PUDDLES.far}.,distance_);
+ ${high ? `
+ // The reference's organic, world-fixed shoreline. Rain fades its opacity rather
+ // than moving the bank or depending on the underlying game's texture.
+ vec2 gp=p.xy/WATER_UNIT+vec2(uSeed*.00073,uSeed*.00019);
+ vec2 field=puddleAt(gp);
+ float coverage=field.x*upward*contact;
+ ` : `
+ // Stable world-space islands, independent of the camera and the original albedo.
+ float broad=noise3(vec3(p.xy/1050.,uSeed*.001));
+ float detail=noise3(vec3(p.xy/270.,uSeed*.001+13.));
+ float shape=broad*.8+detail*.2;
+ float coverage=smoothstep(.56,.64,shape)*upward*contact;
+ `}
+ coverage*=distanceFade;
+ if(coverage<.002)discard;
+ coverage*=openEdgeFade(p);
+ float alpha=coverage*uPuddles*uRain*uFade*mix(.90,1.,flatness);
+ if(alpha<.002)discard;
+ ${high ? `
+ vec2 wind=vec2(-uWind*.85,-uWind*.255);
+ float surfaceDetail=1.-smoothstep(7000.,18000.,distance_);
+ vec3 waterRipple=vec3(0.);vec2 totalGrad=vec2(0.);
+ if(surfaceDetail>.001){
+   waterRipple=rippleField(gp)*surfaceDetail;
+   float wavePixel=max(length(dFdx(gp)),length(dFdy(gp)))*uWaveTuning.x;
+   float waveVisible=1.-smoothstep(.04,.25,wavePixel);
+   if(waveVisible>.001&&uWaveTuning.z>0.)totalGrad=(microWindGrad(gp*uWaveTuning.x,wind,uTime*uWaveTuning.y)*.030+microWaveGrad(gp*uWaveTuning.x,wind,uTime*uWaveTuning.y)*.55)*surfaceDetail*uWaveTuning.z*waveVisible;
+   totalGrad+=waterRipple.xy*.025*uRain;
+ }
+ normal=waterNormal(surfaceNormal,-totalGrad*smoothstep(.01,.15,field.x)*mix(.18,1.,flatness));
+ ` : `
+ // Tiny wind ripples perturb the reflection, never the puddle's outline.
+ vec2 phase=vec2(p.x*.034+p.y*.021,p.y*.029-p.x*.017)*uWaveTuning.x;
+ vec2 waveVisible=1.-smoothstep(vec2(1.),vec2(3.14159),abs(dFdx(phase))+abs(dFdy(phase)));
+ vec2 ripple=vec2(sin(phase.x-uTime*3.*uWaveTuning.y),cos(phase.y-uTime*2.4*uWaveTuning.y))*.009*uRain*uWaveTuning.z*waveVisible;
+ normal=waterNormal(surfaceNormal,ripple*mix(.18,1.,flatness));
+ `}
+ vec3 incident=normalize(p-uCam),ray=reflect(incident,normal),origin=p+normal*5.;
+ vec3 ground=texture(uScene,uv).rgb;
+ vec3 sky=environment(ray);
+ // A missing screen-space hit is not evidence of an unobstructed light source.
+ // Native sun visibility and the locally shaded ground bound only the fallback;
+ // actual reflected objects keep their own colour and dynamic illumination.
+ float localLight=dot(ground,vec3(.2126,.7152,.0722));
+ float skyLight=max(.001,dot(sky,vec3(.2126,.7152,.0722)));
+ float skyLimit=(localLight*1.4+.004)*mix(.45,1.,sunlightVisibility(p));
+ vec3 reflected=sky*min(1.,skyLimit/skyLight);
+ float previous=0.;
+ if(uOptics.x>0.)for(int i=0;i<${PUDDLES.steps};i++){
+   float travel=8.*(pow(1.+uOptics.y/8.,float(i+1)/float(${PUDDLES.steps}))-1.);
+   vec3 sample_=origin+ray*travel;vec2 screen;
+   if(!project(sample_,screen))break;
+   float sceneDepth=texture(uDepth,screen).r;
+   if(sceneDepth<.999999){
+     vec3 surface=worldAt(screen,sceneDepth);
+     float delta=distance(sample_,uCam)-distance(surface,uCam);
+     if(delta>0.){
+       float lo=previous,hi=travel;
+       for(int j=0;j<${PUDDLES.refinements};j++){
+         float mid=(lo+hi)*.5;vec3 point_=origin+ray*mid;vec2 q;
+         if(!project(point_,q)){hi=mid;continue;}
+         float d=texture(uDepth,q).r;
+         if(d<.999999&&distance(point_,uCam)>distance(worldAt(q,d),uCam))hi=mid;else lo=mid;
+       }
+       vec3 hit=origin+ray*((lo+hi)*.5);vec2 q;
+       if(project(hit,q)){
+         q=scenePixel(q);float d=texture(uDepth,q).r;vec3 surface_=worldAt(q,d);
+         // Reject self intersections and false hits behind depth discontinuities.
+         float confidence=(1.-smoothstep(20.,100.,distance(hit,surface_)))*smoothstep(2.,12.,surface_.z-p.z);
+         // The depth buffer contains only the face visible to the camera. A ray
+         // from water underneath a floating box cannot reflect its visible top.
+         // Reject that false back-face hit instead of drawing a sliced decal.
+         vec3 hitNormal=reflectionNormal(q,surface_);
+         if(confidence>.001){
+           confidence*=smoothstep(.02,.18,dot(hitNormal,-ray));
+         }
+         confidence*=1.-smoothstep(uOptics.y*.75,uOptics.y,travel);
+         confidence*=smoothstep(0.,.08,min(min(q.x,q.y),min(1.-q.x,1.-q.y)));
+         vec3 colour=reflectionColour(q,surface_,hitNormal);
+         reflected=mix(reflected,colour,confidence);
+       }
+       break;
+     }
+   }
+   previous=travel;
+ }
+ // Shallow rainwater is a dielectric. Keep the ground visible head-on and
+ // reserve strong reflection for grazing views, on both quality levels.
+ float cosTheta=clamp(dot(-incident,normal),0.,1.);
+ float fresnel=min(.72,(.02+.98*pow(1.-cosTheta,5.))*uOptics.x);
+ ${high ? `
+ float bedNoise=fbm(gp*2.7+vec2(4.1,9.7)),depthK=field.x*(.50+.50*bedNoise)*(1.-.75*field.y)*mix(.60,1.,flatness);
+ // Invalid refraction uses the current ground pixel, never a fixed black bed.
+ vec3 waterFloor=ground*.86;
+ vec2 bedUV;
+ vec3 refraction=vec3(normal.xy,0.);refraction-=surfaceNormal*dot(refraction,surfaceNormal);
+ if(project(p-refraction*WATER_UNIT*(.05+.11*depthK)*uOptics.w,bedUV)){
+   float valid=smoothstep(0.,.04,min(min(bedUV.x,bedUV.y),min(1.-bedUV.x,1.-bedUV.y)));
+   vec3 absorption=mix(vec3(.96),vec3(.70,.76,.74),clamp(depthK,0.,1.));
+   waterFloor=mix(waterFloor,refractedFloor(bedUV,p,ground)*absorption,valid);
+ }
+ vec3 water=mix(waterFloor,reflected,fresnel);
+ water+=vec3(.68,.78,.88)*clamp(waterRipple.z*.17,0.,.30)*.19;
+ water*=1.-.06*field.y;water+=vec3(.30,.42,.45)*field.y*.025;
+ alpha*=.90+.10*fresnel*.9;
+ ` : `
+ vec3 water=mix(ground*.82,reflected,fresnel);
+ `}
+ // A dark SSR hit/cloud cannot erase the bottom of a shallow puddle. This
+ // relative bound preserves dark maps and their texture instead of adding a
+ // constant grey glow. It does not change silhouettes, normals or reflections.
+ const vec3 luminance=vec3(.2126,.7152,.0722);
+ float groundLight=dot(ground,luminance),waterLight=dot(water,luminance);
+ water+=ground*max(0.,.72-waterLight/max(groundLight,.0001));
+ o=vec4(water*alpha,alpha);
+}`;
+  }
+  var PUDDLES, PUDDLE_SURFACE_REVISION, PUDDLE_FRAGMENT, HIGH_PUDDLE_FRAGMENT;
+  var init_puddles = __esm({
+    "src/core/rainWeather/puddles.ts"() {
+      "use strict";
+      init_shaders();
+      init_puddleSurface();
+      init_mapSurface();
+      PUDDLES = Object.freeze({ steps: 24, refinements: 6, distance: 6e3, far: 25e3, fadeSeconds: 1.2 });
+      PUDDLE_SURFACE_REVISION = "native-fog-off-v13";
+      PUDDLE_FRAGMENT = buildPuddleFragment("low");
+      HIGH_PUDDLE_FRAGMENT = buildPuddleFragment("high");
+    }
+  });
+
+  // src/core/rainWeather/tuning.ts
+  function sanitizeSurfaceTuning(value) {
+    const result = { ...DEFAULT_SURFACE_TUNING };
+    if (!value || typeof value !== "object" || Array.isArray(value)) return result;
+    for (const control of SURFACE_CONTROLS) {
+      const n = Object.getOwnPropertyDescriptor(value, control.key)?.value;
+      if (typeof n === "number" && Number.isFinite(n)) result[control.key] = Math.max(control.min, Math.min(control.max, n));
+    }
+    return result;
+  }
+  function readSurfaceTuning(storage) {
+    try {
+      return sanitizeSurfaceTuning(JSON.parse(storage.getItem(WEATHER_TUNING_KEY) || "null"));
+    } catch {
+      return { ...DEFAULT_SURFACE_TUNING };
+    }
+  }
+  var WEATHER_TUNING_KEY, SURFACE_CONTROLS, DEFAULT_SURFACE_TUNING;
+  var init_tuning = __esm({
+    "src/core/rainWeather/tuning.ts"() {
+      "use strict";
+      WEATHER_TUNING_KEY = "k_rain_surface_tuning_v1";
+      SURFACE_CONTROLS = [
+        { key: "rainIntensity", min: 0, max: 1, step: 0.01, value: 1 },
+        { key: "edgeInset", min: 0, max: 200, step: 5, value: 200 },
+        { key: "rippleSizeReduction", min: 1, max: 30, step: 0.5, value: 15 },
+        { key: "rippleDensity", min: 0, max: 1, step: 0.01, value: 1 },
+        { key: "rippleSpeed", min: 0.25, max: 8, step: 0.05, value: 8 },
+        { key: "rippleStrength", min: 0, max: 2, step: 0.05, value: 0.7 },
+        { key: "waveSizeReduction", min: 1, max: 30, step: 0.5, value: 16 },
+        { key: "waveSpeed", min: 0.25, max: 8, step: 0.05, value: 8 },
+        { key: "waveStrength", min: 0, max: 2, step: 0.05, value: 2 },
+        { key: "reflectionStrength", min: 0, max: 2, step: 0.05, value: 2 },
+        { key: "reflectionDistance", min: 1e3, max: 12e3, step: 100, value: 12e3 },
+        { key: "reflectionRoughness", min: 0, max: 1, step: 0.01, value: 1 },
+        { key: "refractionStrength", min: 0, max: 2, step: 0.05, value: 2 },
+        { key: "groundSplashDensity", min: 0, max: 4, step: 0.05, value: 4 },
+        { key: "tankSplashDensity", min: 0, max: 4, step: 0.05, value: 4 },
+        { key: "splashSpeed", min: 0.25, max: 4, step: 0.05, value: 4 },
+        { key: "splashSize", min: 0.25, max: 4, step: 0.05, value: 0.25 },
+        { key: "splashLifetime", min: 0.15, max: 1.5, step: 0.05, value: 1.5 },
+        { key: "splashGravity", min: 0.25, max: 3, step: 0.05, value: 3 }
+      ];
+      DEFAULT_SURFACE_TUNING = Object.freeze(Object.fromEntries(SURFACE_CONTROLS.map((c) => [c.key, c.value])));
+    }
+  });
+
+  // src/core/rainWeather/splashShaders.ts
+  var MAP_VERTEX, MAP_FRAGMENT, SPLASH_VERTEX, SPLASH_FRAGMENT;
+  var init_splashShaders = __esm({
+    "src/core/rainWeather/splashShaders.ts"() {
+      "use strict";
+      init_shaders();
+      MAP_VERTEX = `#version 300 es
+precision highp float;layout(location=0)in vec3 position;uniform mat4 uVP;out float worldZ;
+void main(){worldZ=position.z;gl_Position=uVP*vec4(position,1.);}`;
+      MAP_FRAGMENT = `#version 300 es
+precision highp float;in float worldZ;uniform vec3 uCam;
+void main(){if(uCam.z<=worldZ+.5)discard;}`;
+      SPLASH_VERTEX = `#version 300 es
+${COMMON}
+layout(location=0)in vec3 aOrigin;layout(location=1)in vec3 aVelocity;
+layout(location=2)in vec2 aTimes;layout(location=3)in vec3 aStyle;
+uniform mat4 uVP;uniform vec2 uViewport;uniform vec3 uSplash;
+uniform float uPuddles,uDetail;
+out vec2 q;out float opacity;
+void main(){
+ float age=max(0.,uTime-aTimes.x),life=age/max(aTimes.y,.001);
+ vec3 velocity=aVelocity*uSplash.x;float gravity=980.*uSplash.z;
+ vec3 head=aOrigin+velocity*age-vec3(0.,0.,.5*gravity*age*age);
+ vec3 tangent=normalize(velocity-vec3(0.,0.,gravity*age));
+ vec3 side=cross(tangent,uCam-head);side=length(side)>.001?normalize(side):vec3(1.,0.,0.);
+ vec4 clip=uVP*vec4(head,1.),delta=uVP*vec4(side,0.);
+ float pixels=length((delta.xy*clip.w-clip.xy*delta.w)/max(.001,clip.w*clip.w)*uViewport*.5);
+ float width=max(aStyle.x*uSplash.y,.55/max(pixels,.001));
+ float edge=float(gl_VertexID&1)*2.-1.,along=float(gl_VertexID>>1);
+ gl_Position=uVP*vec4(head-tangent*along*aStyle.y*uSplash.y+side*edge*width,1.);q=vec2(edge,along);
+ opacity=smoothstep(0.,.025,age)*(1.-smoothstep(.25,1.,life))*step(0.,head.z-aOrigin.z+.5)*uRain*uFade;
+}`;
+      SPLASH_FRAGMENT = `#version 300 es
+precision highp float;in vec2 q;in float opacity;out vec4 o;
+void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84,.92)*a,a);}`;
+    }
+  });
+
+  // src/core/rainWeather/tankSurface.ts
+  function nativeMatrix(value, s) {
+    const m = new Float32Array(16);
+    m[15] = 1;
+    for (const i of [0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14]) {
+      const v = own2(value, s["m" + i]);
+      if (typeof v !== "number" || !Number.isFinite(v)) return;
+      m[i] = v;
+    }
+    return m;
+  }
+  function hullSurface(main, boxes, s) {
+    const result = [];
+    for (const box of [main, ...collisionList(boxes, s)].slice(0, 64)) {
+      const v = own2(box, s.halfSize), half = [own2(v, s.x), own2(v, s.y), own2(v, s.z)], m = nativeMatrix(own2(box, s.boxMatrix), s);
+      if (!m || !half.every((n) => Number.isFinite(n) && n > 0 && n < 4e3)) continue;
+      const p = (x, y, z) => transformPoint(m, [x * half[0], y * half[1], z * half[2]]);
+      for (const face of [
+        [[1, -1, -1], [1, 1, -1], [1, 1, 1], [1, -1, 1]],
+        [[-1, 1, -1], [-1, -1, -1], [-1, -1, 1], [-1, 1, 1]],
+        [[1, 1, -1], [-1, 1, -1], [-1, 1, 1], [1, 1, 1]],
+        [[-1, -1, -1], [1, -1, -1], [1, -1, 1], [-1, -1, 1]],
+        [[-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]],
+        [[1, -1, -1], [-1, -1, -1], [-1, 1, -1], [1, 1, -1]]
+      ]) {
+        const q = face.map((c) => p(c[0], c[1], c[2]));
+        result.push(...q[0], ...q[1], ...q[2], ...q[0], ...q[2], ...q[3]);
+      }
+    }
+    return new Float32Array(result);
+  }
+  function transformHull(vertices, m, out = new Float32Array(vertices.length)) {
+    for (let i = 0; i < vertices.length; i += 3) {
+      const x = vertices[i], y = vertices[i + 1], z = vertices[i + 2];
+      out[i] = m[0] * x + m[4] * y + m[8] * z + m[12];
+      out[i + 1] = m[1] * x + m[5] * y + m[9] * z + m[13];
+      out[i + 2] = m[2] * x + m[6] * y + m[10] * z + m[14];
+    }
+    return out;
+  }
+  function worldRainHit(vertices, x, y, z, wind) {
+    const dx = wind * 0.4, dy = wind * 0.12;
+    let highest = -Infinity;
+    for (let i = 0; i < vertices.length; i += 9) {
+      const ax = vertices[i], ay = vertices[i + 1], az = vertices[i + 2], ux = vertices[i + 3] - ax, uy = vertices[i + 4] - ay, uz = vertices[i + 5] - az, vx = vertices[i + 6] - ax, vy = vertices[i + 7] - ay, vz = vertices[i + 8] - az;
+      const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx, den = nx * dx + ny * dy + nz;
+      if (den < 1e-3) continue;
+      const t = (nx * (ax - x) + ny * (ay - y) + nz * (az - z)) / den;
+      if (z + t <= highest) continue;
+      const wx = x + dx * t - ax, wy = y + dy * t - ay, wz = z + t - az;
+      const s = ((wy * vz - wz * vy) * nx + (wz * vx - wx * vz) * ny + (wx * vy - wy * vx) * nz) / (nx * nx + ny * ny + nz * nz);
+      const r = ((uy * wz - uz * wy) * nx + (uz * wx - ux * wz) * ny + (ux * wy - uy * wx) * nz) / (nx * nx + ny * ny + nz * nz);
+      if (s < 0 || r < 0 || s + r > 1) continue;
+      highest = z + t;
+    }
+    return Number.isFinite(highest) ? [x + dx * (highest - z), y + dy * (highest - z), highest] : null;
+  }
+  var own2, transformPoint;
+  var init_tankSurface = __esm({
+    "src/core/rainWeather/tankSurface.ts"() {
+      "use strict";
+      init_mapSurface();
+      own2 = (v, k) => v && typeof v === "object" ? Object.getOwnPropertyDescriptor(v, k)?.value : void 0;
+      transformPoint = (m, p) => [m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12], m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13], m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14]];
+    }
+  });
+
+  // src/core/rainWeather/splashes.ts
+  function createSplashEmitter() {
+    const particles = [], buffer = new Float32Array(SPLASHES.capacity * SPLASHES.stride);
+    let previous = 0, seed = 1, plan = -1, groundCarry = 0;
+    let carry = /* @__PURE__ */ new WeakMap();
+    let hullBuffers = /* @__PURE__ */ new WeakMap();
+    const random3 = () => {
+      seed = Math.imul(seed, 1664525) + 1013904223 >>> 0;
+      return seed / 4294967296;
+    };
+    const clear = () => {
+      particles.length = 0;
+      previous = 0;
+      groundCarry = 0;
+      plan = -1;
+      carry = /* @__PURE__ */ new WeakMap();
+      hullBuffers = /* @__PURE__ */ new WeakMap();
+    };
+    function update(f) {
+      if (plan !== f.seed) {
+        clear();
+        plan = f.seed;
+        seed = f.seed >>> 0 || 1;
+      }
+      const dt = previous ? Math.min(0.08, Math.max(0, f.time - previous)) : 0;
+      previous = f.time;
+      for (let i = particles.length - 1; i >= 0; i--) if (f.time - particles[i][6] > particles[i][7]) particles.splice(i, 1);
+      const visible = (p) => {
+        const m = f.vp, w = m[3] * p[0] + m[7] * p[1] + m[11] * p[2] + m[15];
+        if (w <= 0) return false;
+        return Math.abs(m[0] * p[0] + m[4] * p[1] + m[8] * p[2] + m[12]) < w * 1.08 && Math.abs(m[1] * p[0] + m[5] * p[1] + m[9] * p[2] + m[13]) < w * 1.08;
+      };
+      const spawn = (p, kind, drive = 1) => {
+        if (particles.length >= SPLASHES.capacity || !visible(p)) return;
+        const angle = random3() * Math.PI * 2, lateral = (30 + random3() * 110) * drive, height = (90 + random3() * 180) * drive;
+        particles.push([p[0], p[1], p[2] + 2, Math.cos(angle) * lateral, Math.sin(angle) * lateral, height, f.time, f.tuning.splashLifetime, 0.5 + random3() * 0.8, 6 + random3() * 10, kind]);
+      };
+      if (f.map && dt > 0 && f.rain > 0) {
+        groundCarry = Math.min(60, groundCarry + dt * SPLASHES.groundRate * f.rain * f.tuning.groundSplashDensity);
+        const attempts = Math.min(60, Math.floor(groundCarry));
+        groundCarry -= attempts;
+        for (let i = 0; i < attempts; i++) {
+          const x = f.camera[0] + (random3() - 0.5) * 9e3, y = f.camera[1] + (random3() - 0.5) * 9e3, p = f.map.ground(x, y, f.camera[2], 2e4, false);
+          if (p && p[2] <= f.camera[2] + 30) spawn(p, 0);
+        }
+      }
+      if (dt > 0 && f.rain > 0) for (const tank of f.tanks.slice(0, 12)) {
+        if (!tank.hull?.length || !tank.matrix || !visible(tank.position)) continue;
+        const amount = Math.min(30, (carry.get(tank) || 0) + dt * SPLASHES.tankRate * f.rain * f.tuning.tankSplashDensity);
+        const count = Math.min(30, Math.floor(amount));
+        carry.set(tank, amount - count);
+        if (!count) continue;
+        let hull = hullBuffers.get(tank);
+        if (hull?.length !== tank.hull.length) {
+          hull = new Float32Array(tank.hull.length);
+          hullBuffers.set(tank, hull);
+        }
+        transformHull(tank.hull, tank.matrix, hull);
+        for (let i = 0; i < count; i++) {
+          const radius = Math.hypot(tank.size[0], tank.size[1]) * 0.5;
+          const x = tank.position[0] + (random3() * 2 - 1) * radius, y = tank.position[1] + (random3() * 2 - 1) * radius;
+          const p = worldRainHit(hull, x, y, tank.position[2], f.wind ?? 0);
+          if (!p) continue;
+          const cover = f.map?.ground(p[0], p[1], p[2] + 2e4, 2e4, false);
+          if (cover && cover[2] > p[2] + 20) continue;
+          spawn(p, 1);
+        }
+      }
+      if (f.rain <= 0) particles.length = 0;
+      particles.forEach((p, i) => buffer.set(p, i * SPLASHES.stride));
+      return buffer.subarray(0, particles.length * SPLASHES.stride);
+    }
+    return { update, clear, status: () => ({ particles: particles.length, capacity: SPLASHES.capacity }) };
+  }
+  var SPLASHES;
+  var init_splashes = __esm({
+    "src/core/rainWeather/splashes.ts"() {
+      "use strict";
+      init_tankSurface();
+      SPLASHES = Object.freeze({ capacity: 1024, stride: 11, groundRate: 220, tankRate: 65 });
+    }
+  });
+
+  // src/core/rainWeather/appearance.ts
+  function suppressNativeFog(value, amount) {
+    if (!Number.isFinite(value) || !Number.isFinite(amount)) return value;
+    return value * (1 - Math.max(0, Math.min(1, amount)));
+  }
+  function suppressOverlayDepth(gl) {
+    if (!gl || typeof gl.getParameter !== "function" || typeof gl.depthMask !== "function" || gl.isContextLost()) return;
+    const previous = gl.getParameter(gl.DEPTH_WRITEMASK);
+    if (previous !== true) return;
+    gl.depthMask(false);
+    return () => gl.depthMask(previous);
+  }
+  var WEATHER_PALETTES, weatherPalette;
+  var init_appearance = __esm({
+    "src/core/rainWeather/appearance.ts"() {
+      "use strict";
+      WEATHER_PALETTES = {
+        storm: { low: [0.055, 0.065, 0.085], high: [0.16, 0.18, 0.22], haze: [0.085, 0.1, 0.13], fog: [0.075, 0.09, 0.115] },
+        drizzle: { low: [0.16, 0.19, 0.24], high: [0.32, 0.37, 0.43], haze: [0.24, 0.28, 0.33], fog: [0.22, 0.25, 0.29] },
+        overcast: { low: [0.23, 0.26, 0.3], high: [0.43, 0.47, 0.53], haze: [0.33, 0.37, 0.42], fog: [0.26, 0.29, 0.32] },
+        sunshower: { low: [0.39, 0.43, 0.48], high: [0.75, 0.78, 0.8], haze: [0.6, 0.64, 0.68], fog: [0.5, 0.54, 0.59] },
+        sunny: { low: [0.68, 0.73, 0.79], high: [0.91, 0.94, 0.98], haze: [0.77, 0.81, 0.86], fog: [0.61, 0.66, 0.71] }
+      };
+      Object.values(WEATHER_PALETTES).forEach((p) => {
+        Object.values(p).forEach(Object.freeze);
+        Object.freeze(p);
+      });
+      Object.freeze(WEATHER_PALETTES);
+      weatherPalette = (preset) => WEATHER_PALETTES[preset || "storm"];
+    }
+  });
+
   // src/core/rainWeather/renderer.ts
   function createRainRenderer(gl) {
-    const DUNIT = 12, VUNIT = 13;
+    const UUNIT = 11, DUNIT = 12, VUNIT = 13, SUNIT = 14, MUNIT = 15;
+    const colourFormats = /* @__PURE__ */ new Set([gl.RGBA8, gl.RGB8, gl.RGB565, gl.RGBA4, gl.RGB5_A1, gl.RGB10_A2]);
+    const defaultColourFormat = gl.getContextAttributes()?.alpha === false ? gl.RGB8 : gl.RGBA8;
     const info = {};
     const curRes = { depthTex: null, depthFbo: null, depthWidth: 0, depthHeight: 0, depthFormat: 0, depthReady: false };
     const invVP = new Float32Array(16);
@@ -17236,25 +17957,233 @@ o=vec4(vec3(.72,.81,.87)*a,a);
     let ready = false, disposed = false, vao = null, cloudTex = null, cloudFbo = null;
     let cw = 0, ch = 0, cloudAt = -Infinity;
     const cloudFloat = !!gl.getExtension("EXT_color_buffer_float");
-    let cloud, composite, rain, impact, atmosphere, bolt;
+    let cloud, composite, rain, atmosphere, bolt;
     let boltBuffer = null, boltVao = null, boltKey = "", boltCount = 0;
+    const puddlePrograms = {}, puddleErrors = {};
+    let sceneTex = null, sceneFbo = null, sw = 0, sh = 0, sceneFormat = 0, lastPuddleDetail = null;
+    const sceneCopy = { format: null, samples: 0, reason: null }, depthCopy = { format: null, samples: 0, reason: null };
+    const mapPasses = Array.from({ length: 2 }, () => ({ vao: null, buffer: null, texture: null, fbo: null, width: 0, height: 0 }));
+    let mapProgram, mapSource, mapFrames = 0, mapError = null;
+    let splashProgram, splashVao = null, splashBuffer = null, splashError = null, splashParticles = 0;
+    function releaseMap() {
+      for (const p of mapPasses) {
+        gl.deleteVertexArray(p.vao);
+        gl.deleteBuffer(p.buffer);
+        gl.deleteTexture(p.texture);
+        gl.deleteFramebuffer(p.fbo);
+        Object.assign(p, { vao: null, buffer: null, texture: null, fbo: null, width: 0, height: 0, source: void 0 });
+      }
+      mapSource = void 0;
+    }
+    function drawMap(f, S) {
+      if (!f.map?.vertices.length || mapError) return false;
+      try {
+        mapProgram ??= owned(MAP_VERTEX, MAP_FRAGMENT, ["uVP", "uCam"]);
+        const hasBanks = (f.surfaceTuning || DEFAULT_SURFACE_TUNING).edgeInset > 0 && !!f.map.supportVertices?.length;
+        const w = S.viewport[2], h = S.viewport[3];
+        gl.viewport(0, 0, w, h);
+        gl.colorMask(false, false, false, false);
+        gl.disable(gl.BLEND);
+        gl.enable(gl.DEPTH_TEST);
+        gl.depthFunc(gl.LESS);
+        gl.depthMask(true);
+        gl.disable(gl.CULL_FACE);
+        gl.clearDepth(1);
+        for (let i = 0; i < (hasBanks ? 2 : 1); i++) {
+          const p = mapPasses[i], vertices = i === 0 ? f.map.vertices : f.map.supportVertices;
+          if (!p.vao) {
+            p.vao = gl.createVertexArray();
+            p.buffer = gl.createBuffer();
+            gl.bindVertexArray(p.vao);
+            gl.bindBuffer(gl.ARRAY_BUFFER, p.buffer);
+            gl.enableVertexAttribArray(0);
+            gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 12, 0);
+          }
+          gl.bindVertexArray(p.vao);
+          gl.bindBuffer(gl.ARRAY_BUFFER, p.buffer);
+          if (p.source !== vertices) {
+            gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+            p.source = vertices;
+          }
+          const unit = i === 0 ? MUNIT : UUNIT;
+          gl.activeTexture(gl.TEXTURE0 + unit);
+          gl.bindSampler(unit, null);
+          if (!p.texture || p.width !== w || p.height !== h) {
+            gl.deleteTexture(p.texture);
+            gl.deleteFramebuffer(p.fbo);
+            p.texture = gl.createTexture();
+            p.fbo = gl.createFramebuffer();
+            p.width = w;
+            p.height = h;
+            gl.bindTexture(gl.TEXTURE_2D, p.texture);
+            gl.texStorage2D(gl.TEXTURE_2D, 1, gl.DEPTH_COMPONENT24, w, h);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, p.fbo);
+            gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, p.texture, 0);
+            gl.drawBuffers([gl.NONE]);
+            if (gl.checkFramebufferStatus(gl.DRAW_FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw Error("Collision mask framebuffer incomplete");
+          } else gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, p.fbo);
+          gl.bindTexture(gl.TEXTURE_2D, null);
+          gl.clear(gl.DEPTH_BUFFER_BIT);
+          gl.useProgram(mapProgram.p);
+          gl.uniformMatrix4fv(mapProgram.u.uVP, false, f.vp);
+          gl.uniform3fv(mapProgram.u.uCam, f.camera);
+          gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 3);
+          gl.bindTexture(gl.TEXTURE_2D, p.texture);
+        }
+        if (!hasBanks) {
+          gl.activeTexture(gl.TEXTURE0 + UUNIT);
+          gl.bindSampler(UUNIT, null);
+          gl.bindTexture(gl.TEXTURE_2D, mapPasses[0].texture);
+        }
+        mapSource = f.map;
+        mapFrames++;
+        return true;
+      } catch (error) {
+        mapError = String(error);
+        return false;
+      } finally {
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, S.fb);
+        gl.viewport(S.viewport[0], S.viewport[1], S.viewport[2], S.viewport[3]);
+        gl.clearDepth(S.clearDepth);
+        gl.cullFace(S.cullMode);
+        gl.frontFace(S.frontFace);
+        gl.disable(gl.CULL_FACE);
+        gl.depthMask(false);
+        gl.colorMask(true, true, true, false);
+        gl.enable(gl.BLEND);
+        gl.bindVertexArray(vao);
+      }
+    }
+    let reflectionCopies = 0, puddleFrames = 0;
+    function releaseReflections() {
+      gl.deleteTexture(sceneTex);
+      gl.deleteFramebuffer(sceneFbo);
+      sceneTex = null;
+      sceneFbo = null;
+      sw = 0;
+      sh = 0;
+      sceneFormat = 0;
+    }
+    function renderbufferInfo(target, attachment) {
+      if (gl.getFramebufferAttachmentParameter(target, attachment, gl.FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE) !== gl.RENDERBUFFER) return null;
+      const previous = gl.getParameter(gl.RENDERBUFFER_BINDING);
+      gl.bindRenderbuffer(gl.RENDERBUFFER, gl.getFramebufferAttachmentParameter(target, attachment, gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME));
+      try {
+        return {
+          format: gl.getRenderbufferParameter(gl.RENDERBUFFER, gl.RENDERBUFFER_INTERNAL_FORMAT),
+          width: gl.getRenderbufferParameter(gl.RENDERBUFFER, gl.RENDERBUFFER_WIDTH),
+          height: gl.getRenderbufferParameter(gl.RENDERBUFFER, gl.RENDERBUFFER_HEIGHT)
+        };
+      } finally {
+        gl.bindRenderbuffer(gl.RENDERBUFFER, previous);
+      }
+    }
+    function copyBounds(S, info2, size) {
+      const [x, y, w, h] = S.viewport;
+      if (info2.samples > 0 && (x !== 0 || y !== 0)) {
+        info2.reason = "msaa-viewport-offset";
+        return false;
+      }
+      if (x < 0 || y < 0 || w < 1 || h < 1 || size && (x + w > size.width || y + h > size.height)) {
+        info2.reason = "viewport-out-of-bounds";
+        return false;
+      }
+      return true;
+    }
+    function copySceneColor(S) {
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, S.fb);
+      try {
+        sceneCopy.samples = gl.getParameter(gl.SAMPLES);
+        sceneCopy.format = null;
+        sceneCopy.reason = null;
+        const attachment = gl.getParameter(gl.READ_BUFFER);
+        if (attachment === gl.NONE) {
+          sceneCopy.reason = "no-read-buffer";
+          return false;
+        }
+        let format = gl.RGBA8, size = null;
+        if (S.fb) {
+          const type2 = gl.getFramebufferAttachmentParameter(gl.READ_FRAMEBUFFER, attachment, gl.FRAMEBUFFER_ATTACHMENT_COMPONENT_TYPE);
+          if (type2 !== gl.UNSIGNED_NORMALIZED) {
+            sceneCopy.reason = "unsupported-colour-type";
+            return false;
+          }
+          if (gl.getFramebufferAttachmentParameter(gl.READ_FRAMEBUFFER, attachment, gl.FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING) !== gl.LINEAR) {
+            sceneCopy.reason = "unsupported-colour-encoding";
+            return false;
+          }
+          const buffer = renderbufferInfo(gl.READ_FRAMEBUFFER, attachment);
+          size = buffer;
+          if (sceneCopy.samples > 0) {
+            if (!buffer) {
+              sceneCopy.reason = "unknown-msaa-format";
+              return false;
+            }
+            format = buffer.format;
+          }
+        } else {
+          format = defaultColourFormat;
+          size = { width: gl.drawingBufferWidth, height: gl.drawingBufferHeight };
+        }
+        sceneCopy.format = format;
+        if (!colourFormats.has(format)) {
+          sceneCopy.reason = "unsupported-colour-format";
+          return false;
+        }
+        if (!copyBounds(S, sceneCopy, size)) return false;
+        const w = S.viewport[2], h = S.viewport[3];
+        gl.activeTexture(gl.TEXTURE0 + SUNIT);
+        if (!sceneTex || sw !== w || sh !== h || sceneFormat !== format) {
+          releaseReflections();
+          sceneTex = gl.createTexture();
+          sceneFbo = gl.createFramebuffer();
+          sw = w;
+          sh = h;
+          sceneFormat = format;
+          if (!sceneTex || !sceneFbo) return false;
+          gl.bindTexture(gl.TEXTURE_2D, sceneTex);
+          gl.texStorage2D(gl.TEXTURE_2D, 1, format, w, h);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+          gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, sceneFbo);
+          gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, sceneTex, 0);
+          if (gl.checkFramebufferStatus(gl.DRAW_FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+            releaseReflections();
+            return false;
+          }
+        } else gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, sceneFbo);
+        gl.blitFramebuffer(S.viewport[0], S.viewport[1], S.viewport[0] + w, S.viewport[1] + h, 0, 0, w, h, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+        gl.bindTexture(gl.TEXTURE_2D, sceneTex);
+        reflectionCopies++;
+        return true;
+      } finally {
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, S.fb);
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, S.readfb);
+      }
+    }
     function copySceneDepth(S) {
+      depthCopy.samples = gl.getParameter(gl.SAMPLES);
+      depthCopy.format = null;
+      depthCopy.reason = null;
       if (!boundHasDepth(S)) return false;
       const width = S.viewport[2], height = S.viewport[3];
       if (!(width > 0 && height > 0)) return false;
       const depthBits = gl.getParameter(gl.DEPTH_BITS), stencilBits = gl.getParameter(gl.STENCIL_BITS);
       let packed = stencilBits > 0 || !S.fb;
       let format = packed ? depthBits > 24 ? gl.DEPTH32F_STENCIL8 : gl.DEPTH24_STENCIL8 : depthBits > 24 ? gl.DEPTH_COMPONENT32F : depthBits > 16 ? gl.DEPTH_COMPONENT24 : gl.DEPTH_COMPONENT16;
+      let sourceSize = S.fb ? null : { width: gl.drawingBufferWidth, height: gl.drawingBufferHeight };
       if (S.fb) {
         const kind = gl.getFramebufferAttachmentParameter(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE);
         if (kind === gl.RENDERBUFFER) {
-          const previous = gl.getParameter(gl.RENDERBUFFER_BINDING);
-          gl.bindRenderbuffer(gl.RENDERBUFFER, gl.getFramebufferAttachmentParameter(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME));
-          try {
-            format = gl.getRenderbufferParameter(gl.RENDERBUFFER, gl.RENDERBUFFER_INTERNAL_FORMAT);
-          } finally {
-            gl.bindRenderbuffer(gl.RENDERBUFFER, previous);
-          }
+          const buffer = renderbufferInfo(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT);
+          format = buffer.format;
+          sourceSize = buffer;
         } else if (kind === gl.TEXTURE) {
           const stencilSize = gl.getFramebufferAttachmentParameter(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.FRAMEBUFFER_ATTACHMENT_STENCIL_SIZE);
           if (stencilSize > 0) format = depthBits > 24 ? gl.DEPTH32F_STENCIL8 : gl.DEPTH24_STENCIL8;
@@ -17264,6 +18193,8 @@ o=vec4(vec3(.72,.81,.87)*a,a);
       if (format === gl.DEPTH_COMPONENT) format = gl.DEPTH_COMPONENT16;
       packed = format === gl.DEPTH24_STENCIL8 || format === gl.DEPTH32F_STENCIL8;
       info.depthFormat = format;
+      depthCopy.format = format;
+      if (!copyBounds(S, depthCopy, sourceSize)) return false;
       const attachment = packed ? gl.DEPTH_STENCIL_ATTACHMENT : gl.DEPTH_ATTACHMENT;
       const resource = curRes;
       gl.activeTexture(gl.TEXTURE0 + DUNIT);
@@ -17345,6 +18276,15 @@ o=vec4(vec3(.72,.81,.87)*a,a);
       gl.activeTexture(gl.TEXTURE0 + VUNIT);
       S.vtex = gl.getParameter(gl.TEXTURE_BINDING_2D);
       S.vsampler = gl.getParameter(gl.SAMPLER_BINDING);
+      gl.activeTexture(gl.TEXTURE0 + SUNIT);
+      S.stex = gl.getParameter(gl.TEXTURE_BINDING_2D);
+      S.ssampler = gl.getParameter(gl.SAMPLER_BINDING);
+      gl.activeTexture(gl.TEXTURE0 + MUNIT);
+      S.mtex = gl.getParameter(gl.TEXTURE_BINDING_2D);
+      S.msampler = gl.getParameter(gl.SAMPLER_BINDING);
+      gl.activeTexture(gl.TEXTURE0 + UUNIT);
+      S.utext = gl.getParameter(gl.TEXTURE_BINDING_2D);
+      S.usampler = gl.getParameter(gl.SAMPLER_BINDING);
       gl.activeTexture(S.unit);
       S.blend = gl.isEnabled(gl.BLEND);
       S.bsrc = gl.getParameter(gl.BLEND_SRC_RGB);
@@ -17368,6 +18308,9 @@ o=vec4(vec3(.72,.81,.87)*a,a);
       S.discard = gl.isEnabled(gl.RASTERIZER_DISCARD);
       S.viewport = gl.getParameter(gl.VIEWPORT);
       S.depthRange = gl.getParameter(gl.DEPTH_RANGE);
+      S.clearDepth = gl.getParameter(gl.DEPTH_CLEAR_VALUE);
+      S.cullMode = gl.getParameter(gl.CULL_FACE_MODE);
+      S.frontFace = gl.getParameter(gl.FRONT_FACE);
       S.a2c = gl.isEnabled(gl.SAMPLE_ALPHA_TO_COVERAGE);
       S.drawBuffers = null;
       if (S.fb) {
@@ -17395,6 +18338,15 @@ o=vec4(vec3(.72,.81,.87)*a,a);
       gl.activeTexture(gl.TEXTURE0 + VUNIT);
       gl.bindTexture(gl.TEXTURE_2D, S.vtex);
       gl.bindSampler(VUNIT, S.vsampler);
+      gl.activeTexture(gl.TEXTURE0 + SUNIT);
+      gl.bindTexture(gl.TEXTURE_2D, S.stex);
+      gl.bindSampler(SUNIT, S.ssampler);
+      gl.activeTexture(gl.TEXTURE0 + MUNIT);
+      gl.bindTexture(gl.TEXTURE_2D, S.mtex);
+      gl.bindSampler(MUNIT, S.msampler);
+      gl.activeTexture(gl.TEXTURE0 + UUNIT);
+      gl.bindTexture(gl.TEXTURE_2D, S.utext);
+      gl.bindSampler(UUNIT, S.usampler);
       gl.activeTexture(S.unit);
       gl.bindVertexArray(S.vao);
       gl.bindBuffer(gl.ARRAY_BUFFER, S.arrayBuffer);
@@ -17406,6 +18358,9 @@ o=vec4(vec3(.72,.81,.87)*a,a);
       gl.depthMask(S.dmask);
       gl.depthFunc(S.dfunc);
       S.cull ? gl.enable(gl.CULL_FACE) : gl.disable(gl.CULL_FACE);
+      gl.clearDepth(S.clearDepth);
+      gl.cullFace(S.cullMode);
+      gl.frontFace(S.frontFace);
       S.stencil ? gl.enable(gl.STENCIL_TEST) : gl.disable(gl.STENCIL_TEST);
       S.scissor ? gl.enable(gl.SCISSOR_TEST) : gl.disable(gl.SCISSOR_TEST);
       S.poly ? gl.enable(gl.POLYGON_OFFSET_FILL) : gl.disable(gl.POLYGON_OFFSET_FILL);
@@ -17489,11 +18444,22 @@ o=vec4(vec3(.72,.81,.87)*a,a);
         gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, pbo);
       }
     }
-    const shared = ["uInvVP", "uCam", "uTime", "uRain", "uCloud", "uSeed", "uFade", "uFog", "uFogColor", "uDepth"];
+    const shared = ["uInvVP", "uCam", "uTime", "uRain", "uCloud", "uSeed", "uFade", "uFog", "uFogColor", "uDepth", "uSkyDarkness"];
     function owned(vs, fs, names) {
       const p = program(vs, fs, names);
       programs.push(p);
       return p;
+    }
+    function prepareReflections(detail) {
+      if (puddlePrograms[detail]) return puddlePrograms[detail];
+      if (!puddleErrors[detail]) {
+        try {
+          return puddlePrograms[detail] = owned(FULL_VERTEX, detail === "high" ? HIGH_PUDDLE_FRAGMENT : PUDDLE_FRAGMENT, [...shared, "uSky", "uVP", "uScene", "uMapDepth", "uMapSupportDepth", "uCloudTexture", "uPuddles", "uWind", "uRippleTuning", "uWaveTuning", "uOptics", "uEdgeInset", "uSunDirection", "uCloudTone"]);
+        } catch (error) {
+          puddleErrors[detail] = String(error);
+        }
+      }
+      return detail === "high" ? prepareReflections("low") : void 0;
     }
     function dispose() {
       disposed = true;
@@ -17506,17 +18472,25 @@ o=vec4(vec3(.72,.81,.87)*a,a);
       gl.deleteTexture(curRes.depthTex);
       gl.deleteFramebuffer(curRes.depthFbo);
       ready = false;
+      releaseReflections();
+      releaseMap();
+      gl.deleteVertexArray(splashVao);
+      gl.deleteBuffer(splashBuffer);
     }
-    function warm() {
-      if (ready || disposed) return;
+    function warm(reflections = false, detail = "low") {
+      if (disposed) return;
+      if (ready) {
+        if (reflections) prepareReflections(detail);
+        return;
+      }
       const state = saveState();
       try {
-        cloud = owned(FULL_VERTEX, CLOUD_FRAGMENT, [...shared, "uSky", "uCloudBase", "uThickness"]);
+        cloud = owned(FULL_VERTEX, CLOUD_FRAGMENT, [...shared, "uSky", "uCloudBase", "uThickness", "uCloudLow", "uCloudHigh", "uCloudHaze", "uCloudTone"]);
         composite = owned(FULL_VERTEX, COMPOSITE_FRAGMENT, ["uSky", "uCloudTexture", "uFade", "uInvVP", "uBoltFlash", "uBoltDirection"]);
         atmosphere = owned(FULL_VERTEX, ATMOSPHERE_FRAGMENT, [...shared, "uSky", "uStorm", "uBoltFlash"]);
         rain = owned(RAIN_VERTEX, RAIN_FRAGMENT, [...shared, "uVP", "uViewport", "uWind", "uCount"]);
-        impact = owned(FULL_VERTEX, IMPACT_FRAGMENT, [...shared, "uSky"]);
         bolt = owned(LIGHTNING_VERTEX, LIGHTNING_FRAGMENT, ["uVP", "uViewport", "uPower", "uFade"]);
+        if (reflections) prepareReflections(detail);
         vao = gl.createVertexArray();
         cloudTex = gl.createTexture();
         cloudFbo = gl.createFramebuffer();
@@ -17546,6 +18520,9 @@ o=vec4(vec3(.72,.81,.87)*a,a);
       gl.uniform1f(u.uTime ?? null, f.time);
       gl.uniform1f(u.uRain ?? null, f.rain);
       gl.uniform1f(u.uCloud ?? null, f.clouds);
+      gl.uniform3fv(u.uCloudTone ?? null, f.cloudTone ?? [1, 1, 1]);
+      gl.uniform3fv(u.uSunDirection ?? null, f.sunDirection ?? [0, 0, 1]);
+      gl.uniform1f(u.uSkyDarkness ?? null, f.skyDarkness ?? 0);
       gl.uniform1f(u.uSeed ?? null, f.seed);
       gl.uniform1f(u.uFade ?? null, f.fade);
       gl.uniform3fv(u.uFog ?? null, f.fog);
@@ -17558,7 +18535,10 @@ o=vec4(vec3(.72,.81,.87)*a,a);
       if (disposed || gl.isContextLost() || f.fade <= 0) return;
       warm();
       if (!ready || !invert4(f.vp, invVP)) return;
-      if (f.clouds < 1e-3 && f.rain < 1e-3 && f.storm < 1e-3) return;
+      if (f.clouds < 1e-3 && f.rain < 1e-3 && f.storm < 1e-3) {
+        releaseReflections();
+        return;
+      }
       const sky = stage !== "weather", weather = stage !== "sky";
       const state = saveState();
       try {
@@ -17566,7 +18546,8 @@ o=vec4(vec3(.72,.81,.87)*a,a);
         const width = state.viewport[2], height = state.viewport[3];
         if (width < 1 || height < 1) return;
         const refreshCloud = sky && f.clouds > 1e-3 && f.time - cloudAt >= 1 / WEATHER.cloudHz;
-        const depthNeeded = weather && f.rain > 0.03;
+        const wet = sky && Math.max(0, Math.min(1, f.puddles ?? 0)) * f.rain * f.fade > 2e-3;
+        const depthNeeded = weather && f.rain > 0.03 || wet;
         const depth = depthNeeded && copySceneDepth(state);
         if (depth) depthCopies++;
         gl.disable(gl.STENCIL_TEST);
@@ -17580,6 +18561,7 @@ o=vec4(vec3(.72,.81,.87)*a,a);
         gl.depthRange(0, 1);
         gl.bindSampler(DUNIT, null);
         gl.bindSampler(VUNIT, null);
+        gl.bindSampler(SUNIT, null);
         gl.activeTexture(gl.TEXTURE0 + DUNIT);
         gl.bindTexture(gl.TEXTURE_2D, curRes.depthTex);
         gl.activeTexture(gl.TEXTURE0 + VUNIT);
@@ -17604,6 +18586,10 @@ o=vec4(vec3(.72,.81,.87)*a,a);
           gl.disable(gl.BLEND);
           gl.bindTexture(gl.TEXTURE_2D, null);
           use(cloud, f);
+          const palette = f.cloudPalette || WEATHER_PALETTES.storm;
+          gl.uniform3fv(cloud.u.uCloudLow, palette.low);
+          gl.uniform3fv(cloud.u.uCloudHigh, palette.high);
+          gl.uniform3fv(cloud.u.uCloudHaze, palette.haze);
           gl.uniform1f(cloud.u.uCloudBase, WEATHER.cloudBase);
           gl.uniform1f(cloud.u.uThickness, WEATHER.cloudThickness);
           gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -17653,7 +18639,30 @@ o=vec4(vec3(.72,.81,.87)*a,a);
           gl.bindVertexArray(vao);
           gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE);
         }
-        if (weather && (f.storm > 1e-3 || f.rain > 1e-3)) {
+        const mapped = wet && depth && drawMap(f, state);
+        if (mapped && cw && copySceneColor(state)) {
+          const program2 = prepareReflections(f.puddleDetail === "high" ? "high" : "low");
+          if (program2) {
+            gl.disable(gl.DEPTH_TEST);
+            use(program2, f);
+            gl.uniformMatrix4fv(program2.u.uVP, false, f.vp);
+            gl.uniform1i(program2.u.uScene, SUNIT);
+            gl.uniform1i(program2.u.uCloudTexture, VUNIT);
+            gl.uniform1f(program2.u.uPuddles, Math.max(0, Math.min(1, f.puddles ?? 0)));
+            gl.uniform1f(program2.u.uWind, f.wind);
+            gl.uniform1i(program2.u.uMapDepth, MUNIT);
+            gl.uniform1i(program2.u.uMapSupportDepth, UUNIT);
+            const tuning = f.surfaceTuning || DEFAULT_SURFACE_TUNING;
+            gl.uniform4f(program2.u.uRippleTuning, tuning.rippleSizeReduction, tuning.rippleSpeed, tuning.rippleDensity, tuning.rippleStrength);
+            gl.uniform3f(program2.u.uWaveTuning, tuning.waveSizeReduction, tuning.waveSpeed, tuning.waveStrength);
+            gl.uniform4f(program2.u.uOptics, tuning.reflectionStrength, tuning.reflectionDistance, tuning.reflectionRoughness, tuning.refractionStrength);
+            gl.uniform1f(program2.u.uEdgeInset, tuning.edgeInset);
+            gl.drawArrays(gl.TRIANGLES, 0, 3);
+            puddleFrames++;
+            lastPuddleDetail = program2 === puddlePrograms.high ? "high" : "low";
+          }
+        } else if (!wet && sky && sceneTex) releaseReflections();
+        if (weather && !f.nativeLighting && (f.storm > 1e-3 || f.rain > 1e-3)) {
           gl.disable(gl.DEPTH_TEST);
           use(atmosphere, f);
           gl.uniform1f(atmosphere.u.uStorm, f.storm);
@@ -17661,11 +18670,43 @@ o=vec4(vec3(.72,.81,.87)*a,a);
           gl.drawArrays(gl.TRIANGLES, 0, 3);
         }
         if (weather && f.rain > 1e-3) {
-          if (depth && f.rain > 0.03) {
-            gl.disable(gl.DEPTH_TEST);
-            use(impact, f);
-            gl.drawArrays(gl.TRIANGLES, 0, 3);
-          }
+          const data = f.splashData;
+          if (data?.length && !splashError) {
+            try {
+              if (!splashProgram) {
+                splashProgram = owned(SPLASH_VERTEX, SPLASH_FRAGMENT, [...shared, "uVP", "uViewport", "uSplash", "uPuddles", "uDetail"]);
+                splashVao = gl.createVertexArray();
+                splashBuffer = gl.createBuffer();
+                gl.bindVertexArray(splashVao);
+                gl.bindBuffer(gl.ARRAY_BUFFER, splashBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, SPLASHES.capacity * SPLASHES.stride * 4, gl.DYNAMIC_DRAW);
+                for (const [index, size, offset] of [[0, 3, 0], [1, 3, 3], [2, 2, 6], [3, 3, 8]]) {
+                  gl.enableVertexAttribArray(index);
+                  gl.vertexAttribPointer(index, size, gl.FLOAT, false, SPLASHES.stride * 4, offset * 4);
+                  gl.vertexAttribDivisor(index, 1);
+                }
+              }
+              const count2 = Math.min(SPLASHES.capacity, Math.floor(data.length / SPLASHES.stride));
+              gl.bindVertexArray(splashVao);
+              gl.bindBuffer(gl.ARRAY_BUFFER, splashBuffer);
+              gl.bufferSubData(gl.ARRAY_BUFFER, 0, data.subarray(0, count2 * SPLASHES.stride));
+              use(splashProgram, f);
+              const tuning = f.surfaceTuning || DEFAULT_SURFACE_TUNING;
+              gl.uniformMatrix4fv(splashProgram.u.uVP, false, f.vp);
+              gl.uniform2f(splashProgram.u.uViewport, width, height);
+              gl.uniform3f(splashProgram.u.uSplash, tuning.splashSpeed, tuning.splashSize, tuning.splashGravity);
+              gl.uniform1f(splashProgram.u.uPuddles, f.puddles ?? 0);
+              gl.uniform1f(splashProgram.u.uDetail, f.puddleDetail === "high" ? 1 : 0);
+              gl.enable(gl.DEPTH_TEST);
+              gl.depthFunc(gl.LEQUAL);
+              splashParticles = count2;
+              gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, splashParticles);
+            } catch (error) {
+              splashError = String(error);
+            } finally {
+              gl.bindVertexArray(vao);
+            }
+          } else splashParticles = 0;
           gl.enable(gl.DEPTH_TEST);
           gl.depthFunc(gl.LEQUAL);
           use(rain, f);
@@ -17681,7 +18722,33 @@ o=vec4(vec3(.72,.81,.87)*a,a);
         restoreState(state);
       }
     }
-    return { warm, draw, dispose, status: () => ({ ready, disposed, frames, depthCopies, cloudFrames, cloudSize: [cw, ch], cloudFloat, boltSegments: boltCount, depthFormat: info.depthFormat }) };
+    return { warm, draw, dispose, clearReflections: () => {
+      releaseReflections();
+      releaseMap();
+    }, status: () => ({
+      ready,
+      disposed,
+      frames,
+      depthCopies,
+      cloudFrames,
+      cloudSize: [cw, ch],
+      cloudFloat,
+      boltSegments: boltCount,
+      depthFormat: info.depthFormat,
+      puddleFrames,
+      surfaceRevision: PUDDLE_SURFACE_REVISION,
+      puddleDetail: lastPuddleDetail,
+      puddleErrors: { ...puddleErrors },
+      reflectionCopies,
+      reflectionSize: sceneTex ? [sw, sh] : null,
+      sceneCopy: { ...sceneCopy },
+      depthCopy: { ...depthCopy },
+      mapFrames,
+      mapTriangles: mapSource?.triangles ?? 0,
+      mapError,
+      splashParticles,
+      splashError
+    }) };
   }
   var init_renderer = __esm({
     "src/core/rainWeather/renderer.ts"() {
@@ -17689,10 +18756,18 @@ o=vec4(vec3(.72,.81,.87)*a,a);
       init_schedule();
       init_shaders();
       init_lightning();
+      init_puddles();
+      init_tuning();
+      init_splashShaders();
+      init_splashes();
+      init_appearance();
     }
   });
 
   // src/core/rainWeather/audio.ts
+  function rainSoundLevel(rain) {
+    return Number.isFinite(rain) ? Math.max(0, Math.min(1, rain)) * 0.45 : 0;
+  }
   function rainSamples(rate, seed) {
     const length = Math.round(rate * WEATHER_AUDIO.bedSeconds), overlap = Math.round(rate * 0.08), raw = new Float32Array(length + overlap), random3 = seeded(seed);
     let soft = 0, low = 0;
@@ -17841,6 +18916,27 @@ o=vec4(vec3(.72,.81,.87)*a,a);
   });
 
   // src/core/rainWeather/preferences.ts
+  function readWeatherGeneration(storage) {
+    let chance = DEFAULT_WEATHER_GENERATION.chance, preset = DEFAULT_WEATHER_GENERATION.preset, duration = DEFAULT_WEATHER_GENERATION.duration;
+    try {
+      const raw = storage.getItem(WEATHER_GENERATION_KEYS.chance);
+      const value = raw === null || raw.trim() === "" ? NaN : Number(raw);
+      if (Number.isFinite(value)) chance = Math.max(0, Math.min(1, value));
+    } catch {
+    }
+    try {
+      const value = storage.getItem(WEATHER_GENERATION_KEYS.preset);
+      if (value === "random" || value !== null && Object.prototype.hasOwnProperty.call(RAIN_PRESETS, value)) preset = value;
+    } catch {
+    }
+    try {
+      const raw = storage.getItem(WEATHER_GENERATION_KEYS.duration);
+      const value = raw === null || raw.trim() === "" ? NaN : Number(raw);
+      if (Number.isFinite(value)) duration = Math.max(0, Math.min(1, value));
+    } catch {
+    }
+    return { chance, preset, duration };
+  }
   function readWeatherVolumes(storage) {
     const read = (key) => {
       try {
@@ -17854,11 +18950,116 @@ o=vec4(vec3(.72,.81,.87)*a,a);
     };
     return { rain: read(WEATHER_VOLUME_KEYS.rain), thunder: read(WEATHER_VOLUME_KEYS.thunder) };
   }
-  var WEATHER_VOLUME_KEYS;
+  var WEATHER_VOLUME_KEYS, WEATHER_GENERATION_KEYS;
   var init_preferences = __esm({
     "src/core/rainWeather/preferences.ts"() {
       "use strict";
+      init_schedule();
       WEATHER_VOLUME_KEYS = { rain: "k_rain_volume", thunder: "k_thunder_volume" };
+      WEATHER_GENERATION_KEYS = { chance: "k_rain_chance", preset: "k_rain_preset", duration: "k_rain_duration" };
+    }
+  });
+
+  // src/core/rainWeather/lighting.ts
+  function lightAttenuation(storm, rain, fade, flash = 0) {
+    const safe = (v) => Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0;
+    return 1 - Math.min(0.78, safe(storm) * 0.7 + safe(rain) * 0.1) * (1 - safe(flash) * 0.85) * safe(fade);
+  }
+  function attenuateLighting(buffer, factor) {
+    if (!(buffer instanceof Float32Array) || buffer.length < 12 || !Number.isFinite(factor) || factor >= 1) return;
+    const indices = [0, 1, 2, 4, 5, 6];
+    if (indices.some((i) => !Number.isFinite(buffer[i]))) return;
+    const saved = indices.map((i) => buffer[i]);
+    indices.forEach((i) => {
+      buffer[i] *= Math.max(0, factor);
+    });
+    const applied = indices.map((i) => buffer[i]);
+    return () => indices.forEach((index, i) => {
+      if (buffer[index] === applied[i]) buffer[index] = saved[i];
+    });
+  }
+  var init_lighting = __esm({
+    "src/core/rainWeather/lighting.ts"() {
+      "use strict";
+    }
+  });
+
+  // src/core/rainWeather/environment.ts
+  function mapAllowsPuddles(name) {
+    if (typeof name !== "string") return true;
+    const title = name.normalize("NFKC").trim().toLowerCase().replace(/\s+/g, " ");
+    return !/^(?:бойня|massacre)(?:\s*(?:\(|\[)?\s*(?:dm|tdm|ctf|cp|sge|rgb|jgr|tjr|asl|ar|as|rugby|sur|holiday|tar|tutorial)\s*(?:\)|\])?)?$/.test(title);
+  }
+  function mapTheme(value) {
+    if (typeof value === "string" && MAP_THEMES.includes(value)) return value;
+  }
+  function cloudTone(theme) {
+    switch (theme) {
+      case "SUMMER_EVENING":
+        return [0.9, 0.86, 0.85];
+      case "SUMMER_NIGHT":
+        return [0.72, 0.78, 0.9];
+      case "WINTER_NIGHT":
+        return [0.78, 0.84, 0.95];
+      case "WINTER_DAY":
+        return [0.86, 0.92, 1];
+      case "AUTUMN_DAY":
+        return [0.83, 0.81, 0.78];
+      default:
+        return [1, 1, 1];
+    }
+  }
+  var MAP_THEMES;
+  var init_environment = __esm({
+    "src/core/rainWeather/environment.ts"() {
+      "use strict";
+      MAP_THEMES = ["SUMMER_DAY", "SUMMER_EVENING", "SUMMER_NIGHT", "AUTUMN_DAY", "WINTER_DAY", "WINTER_NIGHT", "SPACE"];
+    }
+  });
+
+  // src/core/rainWeather/treeWind.ts
+  function treeWindShader(source, instanced) {
+    if (source.includes("/* kiStaticFoliage */")) return source;
+    const anchor = instanced ? "vertexWorldPosition = getPositionModifiedByWind(vertexWorldPosition, time, windStrength);" : "vec3 localPosition = position + positionOffset;";
+    if (!source.includes(anchor)) return source;
+    return "uniform float kiFoliageMotion;\n" + source.replace(anchor, instanced ? "/* kiStaticFoliage */ if(kiFoliageMotion>0.){" + anchor + "}" : "/* kiStaticFoliage */ vec3 localPosition = position; if(kiFoliageMotion>0.)localPosition+=positionOffset;");
+  }
+  var init_treeWind = __esm({
+    "src/core/rainWeather/treeWind.ts"() {
+      "use strict";
+    }
+  });
+
+  // src/core/rainWeather/skybox.ts
+  function skyboxDarkness(weather, fade, theme) {
+    const safe = (v) => Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0;
+    const night = theme === "SUMMER_NIGHT" || theme === "WINTER_NIGHT";
+    return Math.min(0.82, safe(weather.clouds) * 0.26 + safe(weather.rain) * 0.16 + safe(weather.storm) * 0.4) * safe(fade) * (night ? 0.65 : 1);
+  }
+  function skyboxShader(source) {
+    const anchor = "outColor0 = color;";
+    if (source.includes("kiWeatherSky") || !source.includes("uniform samplerCube skyboxTexture;") || !source.includes(anchor)) return source;
+    return "uniform float kiWeatherSky;\n" + source.replace(anchor, "color.rgb *= 1.-clamp(kiWeatherSky,0.,.85);\n" + anchor);
+  }
+  function createSkyboxUniforms() {
+    const contexts = /* @__PURE__ */ new WeakMap();
+    return (gl, darkness) => {
+      if (!gl || typeof gl.getUniformLocation !== "function" || gl.isContextLost()) return;
+      const program = gl.getParameter(gl.CURRENT_PROGRAM);
+      if (!program) return;
+      let cache = contexts.get(gl);
+      if (!cache) {
+        cache = /* @__PURE__ */ new WeakMap();
+        contexts.set(gl, cache);
+      }
+      if (!cache.has(program)) cache.set(program, gl.getUniformLocation(program, "kiWeatherSky"));
+      const location = cache.get(program);
+      if (location) gl.uniform1f(location, Math.max(0, Math.min(0.85, darkness)));
+    };
+  }
+  var init_skybox = __esm({
+    "src/core/rainWeather/skybox.ts"() {
+      "use strict";
     }
   });
 
@@ -17881,12 +19082,25 @@ o=vec4(vec3(.72,.81,.87)*a,a);
   }
   function installRainWeather(page) {
     const scope = featureScope("rainWeather", { budgetMs: 12 });
-    const episodes = /* @__PURE__ */ new Map(), scenes = /* @__PURE__ */ new WeakMap();
+    const episodes = /* @__PURE__ */ new Map();
     const contexts = /* @__PURE__ */ new Map();
     let enabled = false, present = false, battleId, nativeLoaded;
+    let mapName;
     let entryAt = 0, lastFrame = 0, current, hookReady = false, error = null;
     let override;
     let draws = 0;
+    let nativeFrameAt = -Infinity, nativeMapCaptured = false;
+    let nativeCanvas;
+    let patchState = "pending";
+    let puddles = false, puddleAmount = 0, puddleAt = performance.now();
+    const puddleDetail = "high";
+    let surfaceTuning = readSurfaceTuning(localStorage);
+    let pendingMap, mapSurface, mapError = null, nativeLightingReady = false;
+    const tanks = /* @__PURE__ */ new Map(), splashes = createSplashEmitter();
+    const hulls = /* @__PURE__ */ new WeakMap(), themes = /* @__PURE__ */ new Map();
+    const theme = () => battleId ? themes.get(battleId) : void 0;
+    const skyUniforms = createSkyboxUniforms();
+    let sunDirection = [0, 0, 1];
     let audio = null;
     let strikePlan, strikes = [], strikeOrigin;
     const heard = /* @__PURE__ */ new Set(), prepared = /* @__PURE__ */ new Set();
@@ -17902,6 +19116,16 @@ o=vec4(vec3(.72,.81,.87)*a,a);
       try {
         sessionStorage.setItem(STORE, JSON.stringify([...episodes].slice(-24)));
       } catch {
+      }
+    };
+    const prepareMap = () => {
+      if (!pendingMap) return;
+      const capture = pendingMap;
+      pendingMap = void 0;
+      try {
+        mapSurface = buildMapSurface(capture.raw, capture.schema);
+      } catch (cause) {
+        mapError = String(cause);
       }
     };
     const stopSound = () => {
@@ -17927,16 +19151,26 @@ o=vec4(vec3(.72,.81,.87)*a,a);
       present = false;
       entryAt = 0;
       lastFrame = 0;
+      nativeFrameAt = -Infinity;
+      nativeMapCaptured = false;
       current = void 0;
       override = void 0;
       battleId = void 0;
+      mapName = void 0;
       nativeLoaded = void 0;
       strikePlan = void 0;
       strikeOrigin = void 0;
       strikes = [];
       heard.clear();
+      puddleAmount = 0;
+      pendingMap = void 0;
+      mapSurface = void 0;
+      tanks.clear();
+      splashes.clear();
+      for (const r of contexts.values()) r.clearReflections();
       stopSound();
     };
+    const nativeBattle = () => nativeLoaded !== false && performance.now() - nativeFrameAt < 1e3 && (!nativeCanvas || !("isConnected" in nativeCanvas) || nativeCanvas.isConnected);
     const sync = () => {
       let next = false;
       try {
@@ -17949,8 +19183,15 @@ o=vec4(vec3(.72,.81,.87)*a,a);
         dropContexts();
       }
       enabled = next;
+      try {
+        puddles = localStorage.getItem("k_rain_puddles") === "true";
+      } catch {
+        puddles = false;
+      }
+      surfaceTuning = readSurfaceTuning(localStorage);
+      if (enabled && pendingMap) scope.timeout(prepareMap, 0);
       audio?.volumes(readWeatherVolumes(localStorage));
-      const visible = !!document.querySelector(gameDOM.screens.battleHud);
+      const visible = !!document.querySelector(gameDOM.screens.battleHud) || nativeBattle();
       if (!visible && present) leave();
       if (visible && !present) {
         present = true;
@@ -17997,13 +19238,113 @@ o=vec4(vec3(.72,.81,.87)*a,a);
       if (enabled && present && audio?.ctx.state === "suspended") audio.ctx.resume().catch(() => {
       });
     }, { passive: true });
+    const weather = (plan, now) => {
+      const value = sampleRain(plan, now);
+      value.rain *= surfaceTuning.rainIntensity;
+      value.sound = rainSoundLevel(value.rain);
+      return value;
+    };
+    const rainEnvelope = () => {
+      const plan = override || current;
+      if (!enabled || scope.disabled || !present || nativeLoaded === false || theme() === "SPACE" || !plan?.preset || surfaceTuning.rainIntensity <= 0) return 0;
+      const profile = RAIN_PRESETS[plan.preset];
+      if (profile.rain <= 0) return 0;
+      return Math.max(0, Math.min(1, sampleRain(plan, Date.now()).rain / profile.rain)) * smooth((Date.now() - entryAt) / 1800);
+    };
     const api = {
+      skyShader: skyboxShader,
+      skyUniform(gl) {
+        const plan = override || current, now = Date.now();
+        const darkness = enabled && !scope.disabled && present && nativeLoaded !== false && theme() !== "SPACE" && plan ? skyboxDarkness(weather(plan, now), smooth((now - entryAt) / 1800), theme()) : 0;
+        skyUniforms(gl, darkness);
+      },
+      patch(state) {
+        patchState = state;
+      },
+      environment(id, value) {
+        const next = mapTheme(value);
+        if (!next || typeof id !== "string" || !/^[\w:-]{1,140}$/.test(id)) return;
+        themes.set(id, next);
+        while (themes.size > 64) themes.delete(themes.keys().next().value);
+        if (id === battleId && next === "SPACE") {
+          override = void 0;
+          splashes.clear();
+          dropContexts();
+          stopSound();
+        }
+      },
+      treeShader: treeWindShader,
+      nativeFogStrength(value) {
+        return suppressNativeFog(value, rainEnvelope());
+      },
+      dropZones(gl) {
+        const plan = override || current;
+        if (!enabled || !puddles || scope.disabled || !present || nativeLoaded === false || theme() === "SPACE" || !plan?.preset || !mapAllowsPuddles(mapName)) return;
+        if (weather(plan, Date.now()).rain * puddleAmount < 2e-3) return;
+        return suppressOverlayDepth(gl);
+      },
+      hull(value, main, boxes, schema) {
+        if (scope.disabled || !value || typeof value !== "object") return;
+        try {
+          hulls.set(value, hullSurface(main, boxes, schema));
+        } catch {
+          hulls.delete(value);
+        }
+      },
+      map(raw, schema) {
+        if (scope.disabled) return;
+        nativeMapCaptured = true;
+        pendingMap = { raw, schema };
+        mapSurface = void 0;
+        mapError = null;
+        splashes.clear();
+        if (enabled) scope.timeout(prepareMap, 0);
+      },
+      tank(value, schema) {
+        if (!enabled || scope.disabled || !value || typeof value !== "object") return;
+        const get = (v, key) => v && typeof v === "object" ? Object.getOwnPropertyDescriptor(v, key)?.value : void 0;
+        if (get(value, schema.active) !== true) {
+          tanks.delete(value);
+          return;
+        }
+        const read = (v) => [get(v, schema.x), get(v, schema.y), get(v, schema.z)];
+        const position = read(get(value, schema.position)), size = read(get(value, schema.size));
+        if (![...position, ...size].every(Number.isFinite) || size.some((n) => n <= 0 || n > 4e3)) return;
+        const hull = hulls.get(value), matrix = nativeMatrix(get(value, schema.matrix), schema);
+        const now = performance.now() / 1e3, old = tanks.get(value), dt = old ? now - old.at : 0;
+        const velocity = old && dt > 1e-3 && dt < 0.25 ? position.map((n, i) => (n - old.position[i]) / dt) : [0, 0, 0];
+        if (Math.hypot(...velocity) > 1e4) velocity.fill(0);
+        if (old) {
+          old.position = position;
+          old.size = size;
+          old.velocity = velocity;
+          old.at = now;
+          old.hull = hull;
+          old.matrix = matrix;
+        } else {
+          if (tanks.size >= 64) tanks.delete(tanks.keys().next().value);
+          tanks.set(value, { position, size, velocity, at: now, hull, matrix });
+        }
+      },
+      lighting(buffer) {
+        nativeLightingReady = true;
+        if (buffer instanceof Float32Array && buffer.length >= 11 && [buffer[8], buffer[9], buffer[10]].every(Number.isFinite)) sunDirection = [-buffer[8], -buffer[9], -buffer[10]];
+        if (!enabled || scope.disabled || !present || nativeLoaded === false || theme() === "SPACE") return;
+        const plan = override || current;
+        if (!plan) return;
+        const now = Date.now(), sample = weather(plan, now), fade = smooth((now - entryAt) / 1800);
+        const strike = strikes.find((s) => now >= s.at && now < s.at + LIGHTNING.duration * 1e3), flash = strike ? strikeLight((now - strike.at) / 1e3).flash : 0;
+        return attenuateLighting(buffer, lightAttenuation(sample.storm, sample.rain, fade, flash));
+      },
       /** Temporary console preview. Never enables the setting or rewrites the battle's random plan. */
       force(preset = "storm", hold = 120) {
         sync();
         if (!enabled) return { ok: false, reason: "Enable Random battle weather in settings first" };
+        if (theme() === "SPACE") return { ok: false, reason: "Weather is disabled on space maps" };
         if (scope.disabled) return { ok: false, reason: "Weather stopped after an error; reload the game" };
-        if (!present || nativeLoaded === false || !current) return { ok: false, reason: "Enter a battle and wait for its first rendered frame" };
+        if (!hookReady) return { ok: false, code: "render-hook-missing", reason: "Weather render hook has not run. Reload the game after updating the extension; check status().patch if it persists" };
+        if (!present) return { ok: false, code: "battle-not-present", reason: "No active battle detected" };
+        if (nativeLoaded === false || !current) return { ok: false, code: "battle-loading", reason: "Battle loading has not finished; wait for a valid battle render frame" };
         if (!Object.prototype.hasOwnProperty.call(RAIN_PRESETS, preset) || !Number.isFinite(hold)) return { ok: false, reason: "Invalid preset or duration" };
         override = { version: 1, preset, start: Date.now(), hold: Math.max(15, Math.min(180, hold)), seed: Math.floor(random2() * 16777215), fadeIn: WEATHER.fadeIn, fadeOut: WEATHER.fadeOut };
         stopSound();
@@ -18020,6 +19361,11 @@ o=vec4(vec3(.72,.81,.87)*a,a);
         if (typeof loaded === "boolean") nativeLoaded = loaded;
         if (loaded === false) {
           override = void 0;
+          mapName = void 0;
+          nativeFrameAt = -Infinity;
+          splashes.clear();
+          tanks.clear();
+          for (const r of contexts.values()) r.clearReflections();
           stopSound();
           return;
         }
@@ -18028,43 +19374,74 @@ o=vec4(vec3(.72,.81,.87)*a,a);
           if (/^[\w:-]{1,140}$/.test(id) && id !== "undefined" && id !== "null") {
             if (battleId && battleId !== id) {
               override = void 0;
+              current = episodes.get(id);
+              mapName = void 0;
               stopSound();
-            }
+            } else if (!battleId) current = episodes.get(id) || current;
             battleId = id;
           }
         } catch {
+        }
+        const name = v[schema.mapNameWithoutMode || schema.mapName];
+        if (typeof name === "string" && name.trim() && name.length <= 200) {
+          const allowed = mapAllowsPuddles(mapName);
+          mapName = name.trim();
+          if (allowed && !mapAllowsPuddles(mapName)) {
+            puddleAmount = 0;
+            for (const r of contexts.values()) r.clearReflections();
+          }
         }
       },
       frame(renderer, scene, camera, s, stage = "all") {
         hookReady = true;
         if (!enabled || scope.disabled) return;
         scope.run(() => {
-          if (!present) sync();
-          if (!present || nativeLoaded === false || !scene || typeof scene !== "object") return;
+          if (nativeLoaded === false || !scene || typeof scene !== "object") return;
           const r = nativeObject(renderer), c = nativeObject(camera);
           if (!r || !c) return;
           const gl = nativeObject(r[s.gl])?.[s.context];
           const vp = c[s.vp], p = nativeObject(c[s.camera]);
           if (!gl || typeof gl.drawArraysInstanced !== "function" || gl.isContextLost() || !(vp instanceof Float32Array) || vp.length !== 16 || !p) return;
+          if (gl.canvas && "isConnected" in gl.canvas && !gl.canvas.isConnected) return;
+          nativeCanvas = gl.canvas;
+          if (nativeMapCaptured && (nativeLoaded === true || [...tanks.values()].some((t) => performance.now() / 1e3 - t.at < 0.5))) nativeFrameAt = performance.now();
+          if (!present) sync();
+          if (!present) return;
+          if (theme() === "SPACE") return;
+          const cameraPosition = [p[s.x], p[s.y], p[s.z]];
+          if (!cameraPosition.every(Number.isFinite)) return;
+          const getRenderer = () => {
+            let gpu2 = contexts.get(gl);
+            if (!gpu2) {
+              if (contexts.size >= 2) {
+                const oldest = contexts.keys().next().value;
+                contexts.get(oldest)?.dispose();
+                contexts.delete(oldest);
+              }
+              gpu2 = createRainRenderer(gl);
+              contexts.set(gl, gpu2);
+              scope.listen(gl.canvas, "webglcontextlost", () => {
+                contexts.get(gl)?.dispose();
+                contexts.delete(gl);
+              });
+              scope.listen(gl.canvas, "webglcontextrestored", () => {
+                entryAt = Date.now();
+              });
+            }
+            return gpu2;
+          };
           const now = Date.now();
-          let record = scenes.get(scene);
-          if (!record || battleId && record.id && record.id !== battleId) {
+          if (!current) {
             const remaining = clock(document.querySelector(gameDOM.presence.timer)?.textContent || "");
-            record = { id: battleId, plan: battleId && episodes.get(battleId) || planRain(now, remaining, random2) };
-            scenes.set(scene, record);
-          }
-          if (battleId && !record.id) {
-            record.id = battleId;
-            record.plan = episodes.get(battleId) || record.plan;
+            current = battleId && episodes.get(battleId) || planRain(now, remaining, random2, readWeatherGeneration(localStorage));
           }
           if (battleId && !episodes.has(battleId)) {
-            episodes.set(battleId, record.plan);
+            episodes.set(battleId, current);
             while (episodes.size > 24) episodes.delete(episodes.keys().next().value);
             save();
           }
-          current = record.plan;
           if (override && sampleRain(override, now).finished) override = void 0;
-          const activePlan = override || current, sample = sampleRain(activePlan, now);
+          const activePlan = override || current, sample = weather(activePlan, now);
           if (strikePlan !== activePlan) {
             strikePlan = activePlan;
             strikes = stormStrikes(activePlan);
@@ -18073,32 +19450,24 @@ o=vec4(vec3(.72,.81,.87)*a,a);
             prepared.clear();
           }
           lastFrame = performance.now();
+          const elapsed = Math.max(0, Math.min(0.25, (lastFrame - puddleAt) / 1e3));
+          puddleAt = lastFrame;
+          const allowPuddles = mapAllowsPuddles(mapName);
+          if (!allowPuddles) puddleAmount = 0;
+          else puddleAmount += (Number(puddles) - puddleAmount) * (1 - Math.exp(-elapsed / PUDDLES.fadeSeconds));
           if (!activePlan.preset || sample.finished) {
             stopSound();
+            for (const r2 of contexts.values()) r2.clearReflections();
             return;
           }
-          let gpu = contexts.get(gl);
-          if (!gpu) {
-            if (contexts.size >= 2) {
-              const oldest = contexts.keys().next().value;
-              contexts.get(oldest)?.dispose();
-              contexts.delete(oldest);
-            }
-            gpu = createRainRenderer(gl);
-            contexts.set(gl, gpu);
-            scope.listen(gl.canvas, "webglcontextlost", () => {
-              contexts.get(gl)?.dispose();
-              contexts.delete(gl);
-            });
-            scope.listen(gl.canvas, "webglcontextrestored", () => {
-              entryAt = Date.now();
-            });
-          }
-          gpu.warm();
+          const gpu = getRenderer();
+          gpu.warm(puddles && allowPuddles, puddleDetail);
           if (!sample.active) return;
           const fog = rainFog(r, s), fade = smooth((now - entryAt) / 1800);
-          const cameraPosition = [p[s.x], p[s.y], p[s.z]];
-          if (!cameraPosition.every(Number.isFinite)) return;
+          fog.fog[0] *= 1 - rainEnvelope();
+          prepareMap();
+          for (const [key, tank] of tanks) if (lastFrame / 1e3 - tank.at > 0.5) tanks.delete(key);
+          const nearby = [...tanks.values()].sort((a, b) => Math.hypot(a.position[0] - cameraPosition[0], a.position[1] - cameraPosition[1]) - Math.hypot(b.position[0] - cameraPosition[0], b.position[1] - cameraPosition[1])).slice(0, 12);
           if (!strikeOrigin) strikeOrigin = [cameraPosition[0], cameraPosition[1], 0];
           const strike = strikes.find((s2) => now >= s2.at && now < s2.at + LIGHTNING.duration * 1e3);
           let lightning;
@@ -18122,23 +19491,44 @@ o=vec4(vec3(.72,.81,.87)*a,a);
               if (audio?.thunder(key, s2.seed, s2.delay - (now - s2.at) / 1e3)) heard.add(key);
             }
           }
-          gpu.draw({ vp, camera: cameraPosition, time: lastFrame / 1e3, seed: activePlan.seed, fade, ...sample, lightning, fog: fog.fog, fogColor: fog.color }, stage);
+          const splashData = stage !== "sky" ? splashes.update({ time: lastFrame / 1e3, seed: activePlan.seed, rain: sample.rain, wind: sample.wind, puddles: puddleAmount, camera: cameraPosition, map: mapSurface, tanks: nearby, tuning: surfaceTuning, vp }) : void 0;
+          gpu.draw({ vp, camera: cameraPosition, time: lastFrame / 1e3, seed: activePlan.seed, fade, ...sample, skyDarkness: skyboxDarkness(sample, fade, theme()), cloudTone: cloudTone(theme()), sunDirection, lightning, puddles: puddleAmount, puddleDetail, surfaceTuning, map: mapSurface, splashData, nativeLighting: true, fog: fog.fog, fogColor: fog.color, cloudPalette: weatherPalette(activePlan.preset) }, stage);
           draws++;
         });
       },
       status: () => ({
         enabled,
+        nativeFogSuppression: rainEnvelope(),
         present,
         hookReady,
+        patch: patchState,
+        nativeLoaded: nativeLoaded ?? null,
+        nativeBattle: nativeBattle(),
+        environment: { theme: theme() ?? null, weatherAllowed: theme() !== "SPACE", cloudTone: cloudTone(theme()), palette: (override || current)?.preset ?? "storm" },
+        surfaceRevision: PUDDLE_SURFACE_REVISION,
         battleId: battleId ?? null,
         episode: current ? { ...current } : null,
         override: override ? { ...override } : null,
-        weather: override || current ? sampleRain(override || current, Date.now()) : null,
+        timing: override || current ? rainTiming(override || current, Date.now()) : null,
+        weather: override || current ? weather(override || current, Date.now()) : null,
+        puddles,
+        puddlesAllowed: mapAllowsPuddles(mapName),
+        puddleBlockedReason: mapAllowsPuddles(mapName) ? null : "map-massacre",
+        mapName: mapName ?? null,
+        foliageAnimation: false,
+        puddleAmount,
+        puddleDetail,
+        surfaceTuning: { ...surfaceTuning },
         draws,
         error,
         audio: audio?.ctx.state ?? "off",
         sound: audio?.status() ?? null,
         strikes: strikes.map((s) => ({ ...s })),
+        map: { ready: !!mapSurface, triangles: mapSurface?.triangles ?? 0, pending: !!pendingMap, error: mapError },
+        nativeLightingReady,
+        tanks: tanks.size,
+        tankSurfaces: [...tanks.values()].filter((t) => t.hull?.length && t.matrix).length,
+        splashes: splashes.status(),
         renderers: [...contexts.values()].map((r) => r.status()),
         runtime: scope.status()
       })
@@ -18157,8 +19547,18 @@ o=vec4(vec3(.72,.81,.87)*a,a);
       init_renderer();
       init_schedule();
       init_audio();
+      init_puddles();
       init_preferences();
       init_lightning();
+      init_tuning();
+      init_mapSurface();
+      init_splashes();
+      init_lighting();
+      init_environment();
+      init_treeWind();
+      init_tankSurface();
+      init_skybox();
+      init_appearance();
       nativeObject = (value) => value !== null && typeof value === "object" ? value : void 0;
       STORE = "ki.rain-episodes.v1";
       random2 = () => {
@@ -18219,6 +19619,78 @@ o=vec4(vec3(.72,.81,.87)*a,a);
             },
             edits: [
               {
+                start: 2702648,
+                end: 2702648,
+                expected: "",
+                before: ").k7k().x57(), t.shj_1, ",
+                after: "t.l2a(), n.dhj_1))\r\n    ",
+                text: "((_kiParams)=>{try{window.__kaspRain?.environment(String(ot().k7k().x57()),String(_kiParams.vbz_1));}catch(_kiEnvironmentError){}return _kiParams;})("
+              },
+              {
+                start: 2702655,
+                end: 2702655,
+                expected: "",
+                before: ".x57(), t.shj_1, t.l2a()",
+                after: ", n.dhj_1))\r\n           ",
+                text: ")"
+              },
+              {
+                start: 17913667,
+                end: 17913667,
+                expected: "",
+                before: "        e = i8(i.s7w());",
+                after: "\r\n                      ",
+                text: ';try{window.__kaspRain?.map(i.s7w(),{"boxes":"g7x_1","planes":"h7x_1","triangles":"i7x_1","boxPosition":"z7w_1","boxRotation":"a7x_1","size":"b7x_1","planePosition":"p7x_1","planeRotation":"q7x_1","trianglePosition":"y7x_1","triangleRotation":"z7x_1","v0":"a7y_1","v1":"b7y_1","v2":"c7y_1","width":"r7x_1","length":"o7x_1","count":"e1","get":"g1","x":"a81_1","y":"b81_1","z":"c81_1"});}catch(_kiMapError){}'
+              },
+              {
+                start: 18625635,
+                end: 18625635,
+                expected: "",
+                before: "l)\r\n                    ",
+                after: "}, Zq(ejt).az4 = functio",
+                text: ';try{window.__kaspRain?.hull(this,n.e14g_1,n.f14g_1,Object.assign({"position":"dzr_1","size":"zzq_1","active":"xzq_1","matrix":"fzr_1","m0":"g22_1","m1":"h22_1","m2":"i22_1","m4":"j22_1","m5":"k22_1","m6":"l22_1","m8":"m22_1","m9":"n22_1","m10":"o22_1","m12":"y23_1","m13":"z23_1","m14":"a24_1","halfSize":"o14g_1","boxMatrix":"p14g_1","count":"e1","get":"g1"},{"gl":"y39_1","context":"f75_1","vp":"g37_1","camera":"t35_1","x":"f20_1","y":"g20_1","z":"h20_1","settings":"y38_1","fogEnabled":"n3o_1","mapFog":"o3o_1","fogStart":"c3a_1","fogEnd":"b3a_1","fogColor":"d3a_1","red":"l2r_1","green":"m2r_1","blue":"n2r_1","alpha":"o2r_1"}));}catch(_kiHullError){}'
+              },
+              {
+                start: 18635161,
+                end: 18635161,
+                expected: "",
+                before: "r)\r\n                    ",
+                after: "}, Zq(ejt).t9q = functio",
+                text: ';try{window.__kaspRain?.tank(this,Object.assign({"position":"dzr_1","size":"zzq_1","active":"xzq_1","matrix":"fzr_1","m0":"g22_1","m1":"h22_1","m2":"i22_1","m4":"j22_1","m5":"k22_1","m6":"l22_1","m8":"m22_1","m9":"n22_1","m10":"o22_1","m12":"y23_1","m13":"z23_1","m14":"a24_1","halfSize":"o14g_1","boxMatrix":"p14g_1","count":"e1","get":"g1"},{"gl":"y39_1","context":"f75_1","vp":"g37_1","camera":"t35_1","x":"f20_1","y":"g20_1","z":"h20_1","settings":"y38_1","fogEnabled":"n3o_1","mapFog":"o3o_1","fogStart":"c3a_1","fogEnd":"b3a_1","fogColor":"d3a_1","red":"l2r_1","green":"m2r_1","blue":"n2r_1","alpha":"o2r_1"}));}catch(_kiTankError){}'
+              },
+              {
+                start: 21564822,
+                end: 21564822,
+                expected: "",
+                before: "g20_1, _[10] = o.h20_1, ",
+                after: "this.q3b_1.l3q(this.y39_",
+                text: "(()=>{let _kiLightRestore;try{_kiLightRestore=window.__kaspRain?.lighting(this.q3b_1.h3q_1);}catch(_kiLightError){}try{return "
+              },
+              {
+                start: 21564848,
+                end: 21564848,
+                expected: "",
+                before: "is.q3b_1.l3q(this.y39_1)",
+                after: ", t.i3l(n, this), this.r",
+                text: "}finally{try{_kiLightRestore?.();}catch(_kiLightError){}}})()"
+              },
+              {
+                start: 21571051,
+                end: 21571051,
+                expected: "",
+                before: "            this.v3r(), ",
+                after: "ef(this, Rl(), n), this.",
+                text: "(()=>{let _kiDropRestore;try{_kiDropRestore=window.__kaspRain?.dropZones(this.y39_1.f75_1);}catch(_kiDropError){}try{return "
+              },
+              {
+                start: 21571068,
+                end: 21571068,
+                expected: "",
+                before: "v3r(), ef(this, Rl(), n)",
+                after: ", this.w3r(), this.a3a_1",
+                text: ";}finally{try{_kiDropRestore?.();}catch(_kiDropError){}}})()"
+              },
+              {
                 start: 21571932,
                 end: 21571932,
                 expected: "",
@@ -18233,6 +19705,142 @@ o=vec4(vec3(.72,.81,.87)*a,a);
                 before: "                        ",
                 after: "var lt = this.g39_1[Gl()",
                 text: ';try{window.__kaspRain?.frame(this,arguments[0],arguments[1],{"gl":"y39_1","context":"f75_1","vp":"g37_1","camera":"t35_1","x":"f20_1","y":"g20_1","z":"h20_1","settings":"y38_1","fogEnabled":"n3o_1","mapFog":"o3o_1","fogStart":"c3a_1","fogEnd":"b3a_1","fogColor":"d3a_1","red":"l2r_1","green":"m2r_1","blue":"n2r_1","alpha":"o2r_1"},"weather");}catch(_kiRainError){}'
+              },
+              {
+                start: 21863943,
+                end: 21863943,
+                expected: "",
+                before: "                 return ",
+                after: '"\\n\\t\\t" + b$("USE_FOG",',
+                text: "((_kiSky)=>{try{return window.__kaspRain?.skyShader(_kiSky)??_kiSky;}catch(_kiSkyError){return _kiSky;}})("
+              },
+              {
+                start: 21864321,
+                end: 21864321,
+                expected: "",
+                before: 'or0 = color;\\n\\t\\t}\\n\\t"',
+                after: "\r\n                    },",
+                text: ")"
+              },
+              {
+                start: 21864565,
+                end: 21864565,
+                expected: "",
+                before: "1.m2r_1, t.d3a_1.n2r_1, ",
+                after: "t.d3a_1.o2r_1 * this.u62",
+                text: "((_kiFog)=>{try{return window.__kaspRain?.nativeFogStrength(_kiFog)??_kiFog;}catch(_kiFogError){return _kiFog;}})("
+              },
+              {
+                start: 21864591,
+                end: 21864591,
+                expected: "",
+                before: "d3a_1.o2r_1 * this.u62_1",
+                after: "), t.d3w(xf(), e.n62_1, ",
+                text: ")"
+              },
+              {
+                start: 21864655,
+                end: 21864655,
+                expected: "",
+                before: "7)\r\n                    ",
+                after: "}, Is(jq).h40 = function",
+                text: ";try{window.__kaspRain?.skyUniform(t.y39_1.f75_1);}catch(_kiSkyError){}"
+              },
+              {
+                start: 21884742,
+                end: 21884742,
+                expected: "",
+                before: "                 return ",
+                after: '"\\n\\t\\tuniform mat4 view',
+                text: "((_kiShader)=>{try{return window.__kaspRain?.treeShader(_kiShader,true)??_kiShader;}catch(_kiTreeError){return _kiShader;}})("
+              },
+              {
+                start: 21887346,
+                end: 21887346,
+                expected: "",
+                before: 'rldPosition;\\n\\t\\t}\\n\\t"',
+                after: "\r\n                    },",
+                text: ")"
+              },
+              {
+                start: 21888113,
+                end: 21888113,
+                expected: "",
+                before: "                 return ",
+                after: '"\\n\\t\\t\\n\\t\\t\\t#ifndef C',
+                text: "((_kiShader)=>{try{return window.__kaspRain?.treeShader(_kiShader,true)??_kiShader;}catch(_kiTreeError){return _kiShader;}})("
+              },
+              {
+                start: 21891600,
+                end: 21891600,
+                expected: "",
+                before: 'rldPosition;\\n\\t\\t}\\n\\t"',
+                after: "\r\n                    },",
+                text: ")"
+              },
+              {
+                start: 21893835,
+                end: 21893835,
+                expected: "",
+                before: "                 return ",
+                after: '"\\n\\t\\t\\n\\t\\t\\t#ifndef C',
+                text: "((_kiShader)=>{try{return window.__kaspRain?.treeShader(_kiShader,true)??_kiShader;}catch(_kiTreeError){return _kiShader;}})("
+              },
+              {
+                start: 21900888,
+                end: 21900888,
+                expected: "",
+                before: 'rldPosition;\\n\\t\\t}\\n\\t"',
+                after: "\r\n                    },",
+                text: ")"
+              },
+              {
+                start: 21912050,
+                end: 21912050,
+                expected: "",
+                before: "                 return ",
+                after: '"\\n\\t\\t\\n\\t\\t#ifndef LIG',
+                text: "((_kiShader)=>{try{return window.__kaspRain?.treeShader(_kiShader,false)??_kiShader;}catch(_kiTreeError){return _kiShader;}})("
+              },
+              {
+                start: 21916475,
+                end: 21916475,
+                expected: "",
+                before: 'sition") + "\\n\\t\\t}\\n\\t"',
+                after: "\r\n                    },",
+                text: ")"
+              },
+              {
+                start: 21927318,
+                end: 21927318,
+                expected: "",
+                before: "39_1, t.e3a_1, t.f3a_1, ",
+                after: "s)\r\n                    ",
+                text: "((_kiFog)=>{try{return window.__kaspRain?.nativeFogStrength(_kiFog)??_kiFog;}catch(_kiFogError){return _kiFog;}})("
+              },
+              {
+                start: 21927319,
+                end: 21927319,
+                expected: "",
+                before: "9_1, t.e3a_1, t.f3a_1, s",
+                after: ")\r\n                    }",
+                text: ")"
+              },
+              {
+                start: 21927747,
+                end: 21927747,
+                expected: "",
+                before: "39_1, t.e3a_1, t.f3a_1, ",
+                after: "e)\r\n                    ",
+                text: "((_kiFog)=>{try{return window.__kaspRain?.nativeFogStrength(_kiFog)??_kiFog;}catch(_kiFogError){return _kiFog;}})("
+              },
+              {
+                start: 21927748,
+                end: 21927748,
+                expected: "",
+                before: "9_1, t.e3a_1, t.f3a_1, e",
+                after: ")\r\n                    }",
+                text: ")"
               }
             ],
             templates: [
@@ -18403,6 +20011,1144 @@ o=vec4(vec3(.72,.81,.87)*a,a);
                     ]
                   }
                 ]
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*toString\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?:"CollisionGeometry \\["|'CollisionGeometry \\[')\\s*;\\s*return(?![$\\w])\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\k<s2>(?![$\\w])\\s*\\+\\s*(?:"boxes = "|'boxes = ')\\s*\\+\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"planes = "|'planes = ')\\s*\\+\\s*\\k<s3>(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"triangles = "|'triangles = ')\\s*\\+\\s*\\k<s3>(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"\\]"|'\\]')\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_geometry: "s1"
+                },
+                count: 1,
+                search: {
+                  literal: "CollisionGeometry [",
+                  margin: 2472
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*toString\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?:"CollisionBox \\["|'CollisionBox \\[')\\s*;\\s*return(?![$\\w])\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\k<s2>(?![$\\w])\\s*\\+\\s*(?:"position = "|'position = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"rotation = "|'rotation = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"size = "|'size = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"\\]"|'\\]')\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_box: "s1",
+                  scene_count: "s5"
+                },
+                count: 1,
+                search: {
+                  literal: "CollisionBox [",
+                  margin: 2616
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*toString\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?:"CollisionPlane \\["|'CollisionPlane \\[')\\s*;\\s*return(?![$\\w])\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\k<s2>(?![$\\w])\\s*\\+\\s*(?:"length = "|'length = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"position = "|'position = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"rotation = "|'rotation = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"width = "|'width = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"\\]"|'\\]')\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_plane: "s1",
+                  scene_width: "s6",
+                  scene_length: "s3"
+                },
+                count: 1,
+                search: {
+                  literal: "CollisionPlane [",
+                  margin: 2872
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*toString\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?:"CollisionTriangle \\["|'CollisionTriangle \\[')\\s*;\\s*return(?![$\\w])\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\k<s2>(?![$\\w])\\s*\\+\\s*(?:"length = "|'length = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"position = "|'position = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"rotation = "|'rotation = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"v0 = "|'v0 = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"v1 = "|'v1 = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"v2 = "|'v2 = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"\\]"|'\\]')\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_triangle: "s1"
+                },
+                count: 1,
+                search: {
+                  literal: "CollisionTriangle [",
+                  margin: 3696
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"boxes"|'boxes')\\s*\\)\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_geometry: "s1",
+                  scene_boxes: "s4"
+                },
+                count: 1,
+                search: {
+                  literal: "boxes",
+                  margin: 1688
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"planes"|'planes')\\s*\\)\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_geometry: "s1",
+                  scene_planes: "s4"
+                },
+                count: 1,
+                search: {
+                  literal: "planes",
+                  margin: 1696
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"triangles"|'triangles')\\s*\\)\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_geometry: "s1",
+                  scene_triangles: "s4"
+                },
+                count: 1,
+                search: {
+                  literal: "triangles",
+                  margin: 1720
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"position"|'position')\\s*\\)\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_box: "s1",
+                  scene_boxPosition: "s4"
+                },
+                count: 1,
+                search: {
+                  literal: "position",
+                  margin: 1712
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"rotation"|'rotation')\\s*\\)\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_box: "s1",
+                  scene_boxRotation: "s4"
+                },
+                count: 1,
+                search: {
+                  literal: "rotation",
+                  margin: 1712
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"size"|'size')\\s*\\)\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_box: "s1",
+                  scene_size: "s4",
+                  scene_count: "s2"
+                },
+                count: 1,
+                search: {
+                  margin: 1672
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"position"|'position')\\s*\\)\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_plane: "s1",
+                  scene_planePosition: "s4"
+                },
+                count: 1,
+                search: {
+                  literal: "position",
+                  margin: 1712
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"rotation"|'rotation')\\s*\\)\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_plane: "s1",
+                  scene_planeRotation: "s4"
+                },
+                count: 1,
+                search: {
+                  literal: "rotation",
+                  margin: 1712
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"position"|'position')\\s*\\)\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_triangle: "s1",
+                  scene_trianglePosition: "s4"
+                },
+                count: 1,
+                search: {
+                  literal: "position",
+                  margin: 1712
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"rotation"|'rotation')\\s*\\)\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_triangle: "s1",
+                  scene_triangleRotation: "s4"
+                },
+                count: 1,
+                search: {
+                  literal: "rotation",
+                  margin: 1712
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"v0"|'v0')\\s*\\)\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_triangle: "s1",
+                  scene_v0: "s4"
+                },
+                count: 1,
+                search: {
+                  margin: 1664
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"v1"|'v1')\\s*\\)\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_triangle: "s1",
+                  scene_v1: "s4"
+                },
+                count: 1,
+                search: {
+                  margin: 1664
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"v2"|'v2')\\s*\\)\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_triangle: "s1",
+                  scene_v2: "s4"
+                },
+                count: 1,
+                search: {
+                  margin: 1664
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*for(?![$\\w])\\s*\\(\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*new(?![$\\w])\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])(?:\\s*\\(\\s*\\))?\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*,\\s*10\\s*\\)\\s*\\)\\s*,\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s13>(?![$\\w])\\s*\\)\\s*;?\\s*\\}\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*;\\s*for(?![$\\w])\\s*\\(\\s*var(?![$\\w])\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\k<s18>(?![$\\w])\\s*,\\s*10\\s*\\)\\s*\\)\\s*,\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s18>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s21>(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s21>(?![$\\w])\\s*\\.\\s*\\k<s15>(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*\\k<s20>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\(\\s*\\k<s22>(?![$\\w])\\s*\\)\\s*;?\\s*\\}\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s17>(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*\\)\\s*;\\s*for(?![$\\w])\\s*\\(\\s*var(?![$\\w])\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s28>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s24>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s29>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s30>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*\\k<s15>(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*null(?![$\\w])\\s*==\\s*\\k<s29>(?![$\\w])\\s*\\|\\|\\s*\\k<s26>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\(\\s*\\k<s29>(?![$\\w])\\s*\\)\\s*;?\\s*\\}\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s17>(?![$\\w])\\s*\\(\\s*\\k<s26>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s31>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*0\\s*,\\s*(?<s32>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s33>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\k<s31>(?![$\\w])\\s*<\\s*\\k<s32>(?![$\\w])\\s*\\)\\s*do(?![$\\w])\\s*\\{\\s*var(?![$\\w])\\s*(?<s34>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s31>(?![$\\w])\\s*;\\s*\\(?\\s*\\k<s31>(?![$\\w])\\s*=\\s*\\k<s31>(?![$\\w])\\s*\\+\\s*1\\s*\\|\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s35>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s34>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s36>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)?\\s*;?\\s*\\}\\s*while(?![$\\w])\\s*\\(\\s*\\k<s31>(?![$\\w])\\s*<\\s*\\k<s32>(?![$\\w])\\s*\\)\\s*;\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;?\\s*\\}",
+                roles: {
+                  scene_count: "s33",
+                  scene_get: "s35"
+                },
+                count: 1,
+                search: {
+                  margin: 9200
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\(?\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s2>(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s2>(?![$\\w])\\s*\\)?\\s*;?\\s*\\}",
+                roles: {
+                  scene_mapx: "s5",
+                  scene_mapy: "s6",
+                  scene_mapz: "s7"
+                },
+                count: 1,
+                search: {
+                  margin: 1184
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*var(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;(?<e0start>)(?<e0end>)",
+                roles: {},
+                count: 1,
+                search: {
+                  margin: 1216
+                },
+                edits: [
+                  {
+                    start: "e0start",
+                    end: "e0end",
+                    parts: [
+                      ";try{window.__kaspRain?.map(",
+                      {
+                        capture: "s0",
+                        quoted: false
+                      },
+                      ".",
+                      {
+                        capture: "s7",
+                        quoted: false
+                      },
+                      '(),{"boxes":',
+                      {
+                        role: "scene_boxes",
+                        quoted: true
+                      },
+                      ',"planes":',
+                      {
+                        role: "scene_planes",
+                        quoted: true
+                      },
+                      ',"triangles":',
+                      {
+                        role: "scene_triangles",
+                        quoted: true
+                      },
+                      ',"boxPosition":',
+                      {
+                        role: "scene_boxPosition",
+                        quoted: true
+                      },
+                      ',"boxRotation":',
+                      {
+                        role: "scene_boxRotation",
+                        quoted: true
+                      },
+                      ',"size":',
+                      {
+                        role: "scene_size",
+                        quoted: true
+                      },
+                      ',"planePosition":',
+                      {
+                        role: "scene_planePosition",
+                        quoted: true
+                      },
+                      ',"planeRotation":',
+                      {
+                        role: "scene_planeRotation",
+                        quoted: true
+                      },
+                      ',"trianglePosition":',
+                      {
+                        role: "scene_trianglePosition",
+                        quoted: true
+                      },
+                      ',"triangleRotation":',
+                      {
+                        role: "scene_triangleRotation",
+                        quoted: true
+                      },
+                      ',"v0":',
+                      {
+                        role: "scene_v0",
+                        quoted: true
+                      },
+                      ',"v1":',
+                      {
+                        role: "scene_v1",
+                        quoted: true
+                      },
+                      ',"v2":',
+                      {
+                        role: "scene_v2",
+                        quoted: true
+                      },
+                      ',"width":',
+                      {
+                        role: "scene_width",
+                        quoted: true
+                      },
+                      ',"length":',
+                      {
+                        role: "scene_length",
+                        quoted: true
+                      },
+                      ',"count":',
+                      {
+                        role: "scene_count",
+                        quoted: true
+                      },
+                      ',"get":',
+                      {
+                        role: "scene_get",
+                        quoted: true
+                      },
+                      ',"x":',
+                      {
+                        role: "scene_mapx",
+                        quoted: true
+                      },
+                      ',"y":',
+                      {
+                        role: "scene_mapy",
+                        quoted: true
+                      },
+                      ',"z":',
+                      {
+                        role: "scene_mapz",
+                        quoted: true
+                      },
+                      "});}catch(_kiMapError){}"
+                    ]
+                  }
+                ]
+              },
+              {
+                pattern: "(?<![$\\w])\\s*\\(?\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*0\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*0\\s*\\)\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\(\\s*0\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*,\\s*4\\s*\\)\\s*,\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\(\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*\\[\\s*8\\s*\\]\\s*=\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s9>(?![$\\w])\\s*\\[\\s*9\\s*\\]\\s*=\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s9>(?![$\\w])\\s*\\[\\s*10\\s*\\]\\s*=\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)?",
+                roles: {
+                  scene_lightingData: "s4",
+                  scene_lightingBuffer: "s3"
+                },
+                count: 1,
+                search: {
+                  margin: 1808
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*(?<e0start>)(?<e0end>)this(?![$\\w])\\s*\\.\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)(?<e1start>)(?<e1end>)",
+                roles: {
+                  scene_lightingBuffer: "s0"
+                },
+                count: 1,
+                search: {
+                  margin: 464
+                },
+                edits: [
+                  {
+                    start: "e0start",
+                    end: "e0end",
+                    parts: [
+                      "(()=>{let _kiLightRestore;try{_kiLightRestore=window.__kaspRain?.lighting(this.",
+                      {
+                        role: "scene_lightingBuffer",
+                        quoted: false
+                      },
+                      ".",
+                      {
+                        role: "scene_lightingData",
+                        quoted: false
+                      },
+                      ");}catch(_kiLightError){}try{return "
+                    ]
+                  },
+                  {
+                    start: "e1start",
+                    end: "e1end",
+                    parts: [
+                      "}finally{try{_kiLightRestore?.();}catch(_kiLightError){}}})()"
+                    ]
+                  }
+                ]
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*\\(?\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*new(?![$\\w])\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*new(?![$\\w])\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])(?:\\s*\\(\\s*\\))?\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\(?\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\.5\\s*\\)\\s*,\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s16>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\(?\\s*\\k<s24>(?![$\\w])\\s*\\.\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?:"hull-main"|'hull-main')\\s*,\\s*\\k<s24>(?![$\\w])\\s*\\.\\s*(?<s28>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*1\\s*,\\s*\\k<s24>(?![$\\w])\\s*\\.\\s*(?<s29>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*!\\s*0\\s*,\\s*\\k<s24>(?![$\\w])\\s*\\.\\s*(?<s30>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s31>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s32>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s33>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s24>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s34>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*\\k<s33>(?![$\\w])\\s*\\)\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s35>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s36>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s37>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*0\\s*,\\s*(?<s38>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s35>(?![$\\w])\\s*\\.\\s*(?<s39>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\k<s37>(?![$\\w])\\s*<\\s*\\k<s38>(?![$\\w])\\s*\\)\\s*do(?![$\\w])\\s*\\{\\s*var(?![$\\w])\\s*(?<s40>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s37>(?![$\\w])\\s*;\\s*\\k<s37>(?![$\\w])\\s*=\\s*\\k<s37>(?![$\\w])\\s*\\+\\s*1\\s*\\|\\s*0\\s*;\\s*var(?![$\\w])\\s*(?<s41>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s35>(?![$\\w])\\s*\\.\\s*(?<s42>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s40>(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s26>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\(?\\s*\\k<s41>(?![$\\w])\\s*\\.\\s*\\k<s28>(?![$\\w])\\s*=\\s*1\\s*,\\s*\\k<s41>(?![$\\w])\\s*\\.\\s*(?<s43>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*16\\s*,\\s*\\k<s41>(?![$\\w])\\s*\\.\\s*\\k<s30>(?![$\\w])\\s*=\\s*(?:"hull-static-top"|'hull-static-top')\\s*===\\s*\\k<s41>(?![$\\w])\\s*\\.\\s*\\k<s27>(?![$\\w])\\s*\\?\\s*\\k<s31>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s44>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*:\\s*\\k<s31>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s32>(?![$\\w])\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s45>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s41>(?![$\\w])\\s*;\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s34>(?![$\\w])\\s*\\(\\s*\\k<s45>(?![$\\w])\\s*\\)\\s*;?\\s*\\}\\s*while(?![$\\w])\\s*\\(\\s*\\k<s37>(?![$\\w])\\s*<\\s*\\k<s38>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s46>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s47>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s48>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*0\\s*,\\s*(?<s49>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s46>(?![$\\w])\\s*\\.\\s*\\k<s39>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\k<s48>(?![$\\w])\\s*<\\s*\\k<s49>(?![$\\w])\\s*\\)\\s*do(?![$\\w])\\s*\\{\\s*var(?![$\\w])\\s*(?<s50>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s48>(?![$\\w])\\s*;\\s*\\k<s48>(?![$\\w])\\s*=\\s*\\k<s48>(?![$\\w])\\s*\\+\\s*1\\s*\\|\\s*0\\s*;\\s*var(?![$\\w])\\s*(?<s51>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s46>(?![$\\w])\\s*\\.\\s*\\k<s42>(?![$\\w])\\s*\\(\\s*\\k<s50>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s52>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\(?\\s*\\k<s51>(?![$\\w])\\s*\\.\\s*\\k<s28>(?![$\\w])\\s*=\\s*1\\s*,\\s*\\k<s51>(?![$\\w])\\s*\\.\\s*\\k<s43>(?![$\\w])\\s*=\\s*16\\s*,\\s*\\k<s51>(?![$\\w])\\s*\\.\\s*\\k<s30>(?![$\\w])\\s*=\\s*(?:"hull-static-top"|'hull-static-top')\\s*===\\s*\\k<s51>(?![$\\w])\\s*\\.\\s*\\k<s27>(?![$\\w])\\s*\\?\\s*\\k<s31>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s44>(?![$\\w])\\s*:\\s*\\k<s31>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s32>(?![$\\w])\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s53>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s51>(?![$\\w])\\s*;\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s34>(?![$\\w])\\s*\\(\\s*\\k<s53>(?![$\\w])\\s*\\)\\s*;?\\s*\\}\\s*while(?![$\\w])\\s*\\(\\s*\\k<s48>(?![$\\w])\\s*<\\s*\\k<s49>(?![$\\w])\\s*\\)\\s*;?\\s*(?<e6start>)(?<e6end>)\\}`,
+                roles: {
+                  scene_tankSize: "s5",
+                  scene_count: "s39",
+                  scene_get: "s42"
+                },
+                count: 1,
+                search: {
+                  literal: "hull-static-top",
+                  margin: 14360
+                },
+                edits: [
+                  {
+                    start: "e6start",
+                    end: "e6end",
+                    parts: [
+                      ";try{window.__kaspRain?.hull(this,",
+                      {
+                        capture: "s4",
+                        quoted: false
+                      },
+                      ".",
+                      {
+                        capture: "s25",
+                        quoted: false
+                      },
+                      ",",
+                      {
+                        capture: "s4",
+                        quoted: false
+                      },
+                      ".",
+                      {
+                        capture: "s36",
+                        quoted: false
+                      },
+                      ',Object.assign({"position":',
+                      {
+                        role: "scene_tankPosition",
+                        quoted: true
+                      },
+                      ',"size":',
+                      {
+                        role: "scene_tankSize",
+                        quoted: true
+                      },
+                      ',"active":',
+                      {
+                        role: "scene_tankActive",
+                        quoted: true
+                      },
+                      ',"matrix":',
+                      {
+                        role: "scene_tankMatrix",
+                        quoted: true
+                      },
+                      ',"m0":',
+                      {
+                        role: "scene_matrix0",
+                        quoted: true
+                      },
+                      ',"m1":',
+                      {
+                        role: "scene_matrix1",
+                        quoted: true
+                      },
+                      ',"m2":',
+                      {
+                        role: "scene_matrix2",
+                        quoted: true
+                      },
+                      ',"m4":',
+                      {
+                        role: "scene_matrix4",
+                        quoted: true
+                      },
+                      ',"m5":',
+                      {
+                        role: "scene_matrix5",
+                        quoted: true
+                      },
+                      ',"m6":',
+                      {
+                        role: "scene_matrix6",
+                        quoted: true
+                      },
+                      ',"m8":',
+                      {
+                        role: "scene_matrix8",
+                        quoted: true
+                      },
+                      ',"m9":',
+                      {
+                        role: "scene_matrix9",
+                        quoted: true
+                      },
+                      ',"m10":',
+                      {
+                        role: "scene_matrix10",
+                        quoted: true
+                      },
+                      ',"m12":',
+                      {
+                        role: "scene_matrix12",
+                        quoted: true
+                      },
+                      ',"m13":',
+                      {
+                        role: "scene_matrix13",
+                        quoted: true
+                      },
+                      ',"m14":',
+                      {
+                        role: "scene_matrix14",
+                        quoted: true
+                      },
+                      ',"halfSize":',
+                      {
+                        role: "scene_hullHalfSize",
+                        quoted: true
+                      },
+                      ',"boxMatrix":',
+                      {
+                        role: "scene_hullLocalMatrix",
+                        quoted: true
+                      },
+                      ',"count":',
+                      {
+                        role: "scene_count",
+                        quoted: true
+                      },
+                      ',"get":',
+                      {
+                        role: "scene_get",
+                        quoted: true
+                      },
+                      "},__KI_RAIN_SCHEMA__));}catch(_kiHullError){}"
+                    ]
+                  }
+                ]
+              },
+              {
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*if(?![$\\w])\\s*\\(\\s*!\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*0\\s*,\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*<\\s*\\k<s10>(?![$\\w])\\s*\\)\\s*do(?![$\\w])\\s*\\{\\s*var(?![$\\w])\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s9>(?![$\\w])\\s*;\\s*\\(?\\s*\\k<s9>(?![$\\w])\\s*=\\s*\\k<s9>(?![$\\w])\\s*\\+\\s*1\\s*\\|\\s*0\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s12>(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s2>(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\)?\\s*;?\\s*\\}\\s*while(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*<\\s*\\k<s10>(?![$\\w])\\s*\\)\\s*;?\\s*(?<e1start>)(?<e1end>)\\}",
+                roles: {
+                  scene_tankActive: "s4",
+                  scene_count: "s11",
+                  scene_get: "s13"
+                },
+                count: 1,
+                search: {
+                  margin: 4152
+                },
+                edits: [
+                  {
+                    start: "e1start",
+                    end: "e1end",
+                    parts: [
+                      ';try{window.__kaspRain?.tank(this,Object.assign({"position":',
+                      {
+                        role: "scene_tankPosition",
+                        quoted: true
+                      },
+                      ',"size":',
+                      {
+                        role: "scene_tankSize",
+                        quoted: true
+                      },
+                      ',"active":',
+                      {
+                        role: "scene_tankActive",
+                        quoted: true
+                      },
+                      ',"matrix":',
+                      {
+                        role: "scene_tankMatrix",
+                        quoted: true
+                      },
+                      ',"m0":',
+                      {
+                        role: "scene_matrix0",
+                        quoted: true
+                      },
+                      ',"m1":',
+                      {
+                        role: "scene_matrix1",
+                        quoted: true
+                      },
+                      ',"m2":',
+                      {
+                        role: "scene_matrix2",
+                        quoted: true
+                      },
+                      ',"m4":',
+                      {
+                        role: "scene_matrix4",
+                        quoted: true
+                      },
+                      ',"m5":',
+                      {
+                        role: "scene_matrix5",
+                        quoted: true
+                      },
+                      ',"m6":',
+                      {
+                        role: "scene_matrix6",
+                        quoted: true
+                      },
+                      ',"m8":',
+                      {
+                        role: "scene_matrix8",
+                        quoted: true
+                      },
+                      ',"m9":',
+                      {
+                        role: "scene_matrix9",
+                        quoted: true
+                      },
+                      ',"m10":',
+                      {
+                        role: "scene_matrix10",
+                        quoted: true
+                      },
+                      ',"m12":',
+                      {
+                        role: "scene_matrix12",
+                        quoted: true
+                      },
+                      ',"m13":',
+                      {
+                        role: "scene_matrix13",
+                        quoted: true
+                      },
+                      ',"m14":',
+                      {
+                        role: "scene_matrix14",
+                        quoted: true
+                      },
+                      ',"halfSize":',
+                      {
+                        role: "scene_hullHalfSize",
+                        quoted: true
+                      },
+                      ',"boxMatrix":',
+                      {
+                        role: "scene_hullLocalMatrix",
+                        quoted: true
+                      },
+                      ',"count":',
+                      {
+                        role: "scene_count",
+                        quoted: true
+                      },
+                      ',"get":',
+                      {
+                        role: "scene_get",
+                        quoted: true
+                      },
+                      "},__KI_RAIN_SCHEMA__));}catch(_kiTankError){}"
+                    ]
+                  }
+                ]
+              },
+              {
+                pattern: "(?<![$\\w])\\s*\\(?\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*\\k<s1>(?![$\\w])\\s*\\)\\s*\\)?",
+                roles: {
+                  scene_tankPosition: "s1",
+                  scene_tankMatrix: "s10"
+                },
+                count: 1,
+                search: {
+                  margin: 1032
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*\\(?\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*0\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*1\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*2\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*3\\s*\\]\\s*=\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*4\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*5\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*6\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*7\\s*\\]\\s*=\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*8\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*9\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*10\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*11\\s*\\]\\s*=\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*12\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*13\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*14\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*15\\s*\\]\\s*=\\s*1\\s*\\)?\\s*;?\\s*\\}",
+                roles: {
+                  scene_matrix0: "s4",
+                  scene_matrix1: "s5",
+                  scene_matrix2: "s6",
+                  scene_matrix4: "s7",
+                  scene_matrix5: "s8",
+                  scene_matrix6: "s9",
+                  scene_matrix8: "s10",
+                  scene_matrix9: "s11",
+                  scene_matrix10: "s12",
+                  scene_matrix12: "s13",
+                  scene_matrix13: "s14",
+                  scene_matrix14: "s15"
+                },
+                count: 1,
+                search: {
+                  margin: 3032
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*;\\s*return(?![$\\w])\\s*\\(?\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\)?\\s*;?\\s*\\}",
+                roles: {
+                  scene_hullHalfSize: "s5",
+                  scene_hullLocalMatrix: "s10"
+                },
+                count: 1,
+                search: {
+                  margin: 1728
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*toString\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?:"BattleCreateParameters \\["|'BattleCreateParameters \\[')\\s*;\\s*return(?![$\\w])\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\k<s2>(?![$\\w])\\s*\\+\\s*(?:"battleMode = "|'battleMode = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"battleModeForMatchmaking = "|'battleModeForMatchmaking = ')\\s*\\+\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"battleOptions = "|'battleOptions = ')\\s*\\+\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"crossPlayMode = "|'crossPlayMode = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"formatMode = "|'formatMode = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"limits = "|'limits = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"mapId = "|'mapId = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"maxPeopleCount = "|'maxPeopleCount = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"name = "|'name = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"proBattle = "|'proBattle = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"rankRange = "|'rankRange = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"theme = "|'theme = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"\\]"|'\\]')\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapTheme: "s16"
+                },
+                count: 1,
+                search: {
+                  literal: "battleModeForMatchmaking = ",
+                  margin: 6232
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*toString\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?:"BattleParamInfoCC \\["|'BattleParamInfoCC \\[')\\s*;\\s*return(?![$\\w])\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\k<s2>(?![$\\w])\\s*\\+\\s*(?:"creatorId = "|'creatorId = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"map = "|'map = ')\\s*\\+\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"parameters = "|'parameters = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"\\]"|'\\]')\\s*;?\\s*\\}`,
+                roles: {
+                  scene_battleParamInfoType: "s1",
+                  scene_parametersGetter: "s6"
+                },
+                count: 1,
+                search: {
+                  literal: "BattleParamInfoCC [",
+                  margin: 2616
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"parameters"|'parameters')\\s*\\)\\s*;?\\s*\\}`,
+                roles: {
+                  scene_battleParamInfoType: "s1",
+                  scene_parametersGetter: "s2"
+                },
+                count: 1,
+                search: {
+                  literal: "parameters",
+                  margin: 1728
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*new(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<e0start>)(?<e0end>)\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)(?<e1start>)(?<e1end>)\\s*,\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)",
+                roles: {
+                  scene_parametersGetter: "s6"
+                },
+                count: 1,
+                search: {
+                  margin: 664
+                },
+                edits: [
+                  {
+                    start: "e0start",
+                    end: "e0end",
+                    parts: [
+                      "((_kiParams)=>{try{window.__kaspRain?.environment(String(",
+                      {
+                        capture: "s1",
+                        quoted: false
+                      },
+                      "().",
+                      {
+                        capture: "s2",
+                        quoted: false
+                      },
+                      "().",
+                      {
+                        capture: "s3",
+                        quoted: false
+                      },
+                      "()),String(_kiParams.",
+                      {
+                        role: "scene_mapTheme",
+                        quoted: false
+                      },
+                      "));}catch(_kiEnvironmentError){}return _kiParams;})("
+                    ]
+                  },
+                  {
+                    start: "e1start",
+                    end: "e1end",
+                    parts: [
+                      ")"
+                    ]
+                  }
+                ]
+              },
+              {
+                pattern: `(?<![$\\w])\\s*return(?![$\\w])\\s*(?<e0start>)(?<e0end>)(?:"\\\\n\\\\t\\\\tuniform mat4 viewProjectionMatrix;\\\\n\\\\t\\\\tuniform vec2 timeAndWindStrength;\\\\n\\\\n\\\\t\\\\tlayout\\(location=0\\)\\\\n\\\\t\\\\tin vec3 position;\\\\n\\\\t\\\\tlayout\\(location=1\\)\\\\n\\\\t\\\\tin vec2 uv;\\\\n\\\\t\\\\tlayout\\(location=3\\)\\\\n\\\\t\\\\tin vec3 instancePosition;\\\\n\\\\t\\\\t// x = scale, y = cos\\(alpha\\), z = sin\\(alpha\\)\\\\n\\\\t\\\\tlayout\\(location=4\\)\\\\n\\\\t\\\\tin vec3 instanceScaleRotation;\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tout vec2 vUV;\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tmat4 makeModelMatrix\\(in float scale, in float cosRotationZ, in float sinRotationZ, in vec3 position\\) \\{\\\\n\\\\t\\\\t\\\\t\\\\tfloat c = scale \\* cosRotationZ;\\\\n\\\\t\\\\t\\\\t\\\\tfloat s = scale \\* sinRotationZ;\\\\n\\\\t\\\\t\\\\t\\\\treturn mat4\\(\\\\n\\\\t\\\\t\\\\t\\\\t\\\\tvec4\\(c, s, 0\\., 0\\.\\),\\\\n\\\\t\\\\t\\\\t\\\\t\\\\tvec4\\(-s, c, 0\\., 0\\.\\),\\\\n\\\\t\\\\t\\\\t\\\\t\\\\tvec4\\(0\\., 0\\., scale, 0\\.\\),\\\\n\\\\t\\\\t\\\\t\\\\t\\\\tvec4\\(position, 1\\.0\\)\\\\n\\\\t\\\\t\\\\t\\\\t\\);\\\\n\\\\t\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\tvec2 unity_gradientNoise_dir\\(vec2 p\\)\\\\n\\\\t\\\\t\\{\\\\n\\\\t\\\\t\\\\tp = mod\\(p,289\\.0\\);\\\\n\\\\t\\\\t\\\\tfloat x = \\(34\\.0 \\* p\\.x \\+ 1\\.0\\) \\* mod\\(p\\.x, 289\\.0\\) \\+ p\\.y;\\\\n\\\\t\\\\t\\\\tx = \\(34\\.0 \\* x \\+ 1\\.0\\) \\* mod\\(x, 289\\.0\\);\\\\n\\\\t\\\\t\\\\tx = fract\\(x / 41\\.0\\) \\* 2\\.0 - 1\\.0;\\\\n\\\\t\\\\t\\\\treturn normalize\\(vec2\\(x - floor\\(x \\+ 0\\.5\\), abs\\(x\\) - 0\\.5\\)\\);\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat unity_gradientNoise\\(vec2 p\\)\\\\n\\\\t\\\\t\\{\\\\n\\\\t\\\\t\\\\tvec2 ip = floor\\(p\\);\\\\n\\\\t\\\\t\\\\tvec2 fp = fract\\(p\\);\\\\n\\\\t\\\\t\\\\tfloat d00 = dot\\(unity_gradientNoise_dir\\(ip\\), fp\\);\\\\n\\\\t\\\\t\\\\tfloat d01 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(0, 1\\)\\), fp - vec2\\(0, 1\\)\\);\\\\n\\\\t\\\\t\\\\tfloat d10 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(1, 0\\)\\), fp - vec2\\(1, 0\\)\\);\\\\n\\\\t\\\\t\\\\tfloat d11 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(1, 1\\)\\), fp - vec2\\(1, 1\\)\\);\\\\n\\\\t\\\\t\\\\tfp = fp \\* fp \\* fp \\* \\(fp \\* \\(fp \\* 6\\.0 - 15\\.0\\) \\+ 10\\.0\\);\\\\n\\\\t\\\\t\\\\treturn mix\\(mix\\(d00, d01, fp\\.y\\), mix\\(d10, d11, fp\\.y\\), fp\\.x\\);\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat gradientNoise\\(vec2 UV, float Scale\\)\\\\n\\\\t\\\\t\\{\\\\n\\\\t\\\\t\\\\treturn unity_gradientNoise\\(UV \\* Scale\\) \\+ 0\\.5;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\n\\\\t\\\\t\\\\t#define WIND_SPEED 0\\.3\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tvec4 getPositionModifiedByWind\\(vec4 position, float time, float windStrength\\) \\{\\\\n\\\\t\\\\t\\\\t\\\\tfloat noise = gradientNoise\\(position\\.xy \\+ time, WIND_SPEED\\);\\\\n\\\\t\\\\t\\\\t\\\\tfloat offset = \\(2\\. \\* noise - 1\\.\\) \\* windStrength;\\\\n\\\\t\\\\t\\\\t\\\\treturn position \\+ vec4\\(offset, offset, 0\\., 0\\.\\);\\\\n\\\\t\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\n\\\\t\\\\tvoid main\\(\\) \\{\\\\n\\\\t\\\\t\\\\tvUV = uv;\\\\n\\\\t\\\\t\\\\tmat4 modelMatrix = makeModelMatrix\\(\\\\n\\\\t\\\\t\\\\t\\\\tinstanceScaleRotation\\.x,\\\\n\\\\t\\\\t\\\\t\\\\tinstanceScaleRotation\\.y,\\\\n\\\\t\\\\t\\\\t\\\\tinstanceScaleRotation\\.z,\\\\n\\\\t\\\\t\\\\t\\\\tinstancePosition\\\\n\\\\t\\\\t\\\\t\\);\\\\n\\\\t\\\\t\\\\tvec4 vertexWorldPosition = modelMatrix \\* vec4\\(position, 1\\.0\\);\\\\n\\\\t\\\\t\\\\tfloat time = timeAndWindStrength\\.x;\\\\n\\\\t\\\\t\\\\tfloat windStrength = timeAndWindStrength\\.y;\\\\n\\\\t\\\\t\\\\tvertexWorldPosition = getPositionModifiedByWind\\(vertexWorldPosition, time, windStrength\\);\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tgl_Position = viewProjectionMatrix \\* vertexWorldPosition;\\\\n\\\\t\\\\t\\}\\\\n\\\\t"|'\\\\n		uniform mat4 viewProjectionMatrix;\\\\n		uniform vec2 timeAndWindStrength;\\\\n\\\\n		layout\\(location=0\\)\\\\n		in vec3 position;\\\\n		layout\\(location=1\\)\\\\n		in vec2 uv;\\\\n		layout\\(location=3\\)\\\\n		in vec3 instancePosition;\\\\n		// x = scale, y = cos\\(alpha\\), z = sin\\(alpha\\)\\\\n		layout\\(location=4\\)\\\\n		in vec3 instanceScaleRotation;\\\\n		\\\\n		out vec2 vUV;\\\\n		\\\\n		\\\\n			mat4 makeModelMatrix\\(in float scale, in float cosRotationZ, in float sinRotationZ, in vec3 position\\) \\{\\\\n				float c = scale \\* cosRotationZ;\\\\n				float s = scale \\* sinRotationZ;\\\\n				return mat4\\(\\\\n					vec4\\(c, s, 0\\., 0\\.\\),\\\\n					vec4\\(-s, c, 0\\., 0\\.\\),\\\\n					vec4\\(0\\., 0\\., scale, 0\\.\\),\\\\n					vec4\\(position, 1\\.0\\)\\\\n				\\);\\\\n			\\}\\\\n			\\\\n			\\\\n		vec2 unity_gradientNoise_dir\\(vec2 p\\)\\\\n		\\{\\\\n			p = mod\\(p,289\\.0\\);\\\\n			float x = \\(34\\.0 \\* p\\.x \\+ 1\\.0\\) \\* mod\\(p\\.x, 289\\.0\\) \\+ p\\.y;\\\\n			x = \\(34\\.0 \\* x \\+ 1\\.0\\) \\* mod\\(x, 289\\.0\\);\\\\n			x = fract\\(x / 41\\.0\\) \\* 2\\.0 - 1\\.0;\\\\n			return normalize\\(vec2\\(x - floor\\(x \\+ 0\\.5\\), abs\\(x\\) - 0\\.5\\)\\);\\\\n		\\}\\\\n		\\\\n		float unity_gradientNoise\\(vec2 p\\)\\\\n		\\{\\\\n			vec2 ip = floor\\(p\\);\\\\n			vec2 fp = fract\\(p\\);\\\\n			float d00 = dot\\(unity_gradientNoise_dir\\(ip\\), fp\\);\\\\n			float d01 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(0, 1\\)\\), fp - vec2\\(0, 1\\)\\);\\\\n			float d10 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(1, 0\\)\\), fp - vec2\\(1, 0\\)\\);\\\\n			float d11 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(1, 1\\)\\), fp - vec2\\(1, 1\\)\\);\\\\n			fp = fp \\* fp \\* fp \\* \\(fp \\* \\(fp \\* 6\\.0 - 15\\.0\\) \\+ 10\\.0\\);\\\\n			return mix\\(mix\\(d00, d01, fp\\.y\\), mix\\(d10, d11, fp\\.y\\), fp\\.x\\);\\\\n		\\}\\\\n		\\\\n		float gradientNoise\\(vec2 UV, float Scale\\)\\\\n		\\{\\\\n			return unity_gradientNoise\\(UV \\* Scale\\) \\+ 0\\.5;\\\\n		\\}\\\\n	\\\\n			#define WIND_SPEED 0\\.3\\\\n			\\\\n			vec4 getPositionModifiedByWind\\(vec4 position, float time, float windStrength\\) \\{\\\\n				float noise = gradientNoise\\(position\\.xy \\+ time, WIND_SPEED\\);\\\\n				float offset = \\(2\\. \\* noise - 1\\.\\) \\* windStrength;\\\\n				return position \\+ vec4\\(offset, offset, 0\\., 0\\.\\);\\\\n			\\}\\\\n		\\\\n	\\\\n		void main\\(\\) \\{\\\\n			vUV = uv;\\\\n			mat4 modelMatrix = makeModelMatrix\\(\\\\n				instanceScaleRotation\\.x,\\\\n				instanceScaleRotation\\.y,\\\\n				instanceScaleRotation\\.z,\\\\n				instancePosition\\\\n			\\);\\\\n			vec4 vertexWorldPosition = modelMatrix \\* vec4\\(position, 1\\.0\\);\\\\n			float time = timeAndWindStrength\\.x;\\\\n			float windStrength = timeAndWindStrength\\.y;\\\\n			vertexWorldPosition = getPositionModifiedByWind\\(vertexWorldPosition, time, windStrength\\);\\\\n		\\\\n			gl_Position = viewProjectionMatrix \\* vertexWorldPosition;\\\\n		\\}\\\\n	')(?<e1start>)(?<e1end>)`,
+                roles: {},
+                count: 1,
+                search: {
+                  margin: 21144
+                },
+                edits: [
+                  {
+                    start: "e0start",
+                    end: "e0end",
+                    parts: [
+                      "((_kiShader)=>{try{return window.__kaspRain?.treeShader(_kiShader,true)??_kiShader;}catch(_kiTreeError){return _kiShader;}})("
+                    ]
+                  },
+                  {
+                    start: "e1start",
+                    end: "e1end",
+                    parts: [
+                      ")"
+                    ]
+                  }
+                ]
+              },
+              {
+                pattern: `(?<![$\\w])\\s*return(?![$\\w])\\s*(?<e0start>)(?<e0end>)(?:"\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t\\\\t#ifndef CAMERA_PARAMS_BLOCK\\\\n\\\\t\\\\t\\\\t#define CAMERA_PARAMS_BLOCK\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\tlayout\\(std140\\) uniform CameraParams \\{\\\\n\\\\t\\\\t\\\\tmat4 viewMatrix;\\\\n\\\\t\\\\t\\\\tmat4 projectionMatrix;\\\\n\\\\t\\\\t\\\\tmat4 viewProjectionMatrix;\\\\n\\\\t\\\\t\\\\tmat4 viewToWorldMatrix;\\\\n\\\\t\\\\t\\\\tvec4 sceneDepthParams;\\\\n\\\\t\\\\t\\\\tvec2 screenSize;\\\\n\\\\t\\\\t\\};\\\\n\\\\t\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tfloat GetSceneDepth\\(float zBufferDepth\\) \\{\\\\t\\\\t\\\\n\\\\t\\\\t\\\\t\\\\treturn 1\\.0 / \\(sceneDepthParams\\.z \\* zBufferDepth \\+ sceneDepthParams\\.w\\);\\\\n\\\\t\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\t#endif\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tuniform vec2 timeAndWindStrength;\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tlayout\\(location=0\\)\\\\n\\\\t\\\\tin vec3 position;\\\\n\\\\t\\\\tlayout\\(location=2\\)\\\\n\\\\t\\\\tin vec3 normal;\\\\n\\\\t\\\\tlayout\\(location=1\\)\\\\n\\\\t\\\\tin vec2 uv;\\\\n\\\\t\\\\tlayout\\(location=3\\)\\\\n\\\\t\\\\tin vec3 instancePosition;\\\\n\\\\t\\\\t// x = scale, y = cos\\(alpha\\), z = sin\\(alpha\\)\\\\n\\\\t\\\\tlayout\\(location=4\\)\\\\n\\\\t\\\\tin vec3 instanceScaleRotation;\\\\n\\\\n\\\\t\\\\tout vec2 v_uv;\\\\n\\\\t\\\\tout vec3 v_viewNormal;\\\\n\\\\t\\\\tout float v_viewZ;\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tmat4 makeModelMatrix\\(in float scale, in float cosRotationZ, in float sinRotationZ, in vec3 position\\) \\{\\\\n\\\\t\\\\t\\\\t\\\\tfloat c = scale \\* cosRotationZ;\\\\n\\\\t\\\\t\\\\t\\\\tfloat s = scale \\* sinRotationZ;\\\\n\\\\t\\\\t\\\\t\\\\treturn mat4\\(\\\\n\\\\t\\\\t\\\\t\\\\t\\\\tvec4\\(c, s, 0\\., 0\\.\\),\\\\n\\\\t\\\\t\\\\t\\\\t\\\\tvec4\\(-s, c, 0\\., 0\\.\\),\\\\n\\\\t\\\\t\\\\t\\\\t\\\\tvec4\\(0\\., 0\\., scale, 0\\.\\),\\\\n\\\\t\\\\t\\\\t\\\\t\\\\tvec4\\(position, 1\\.0\\)\\\\n\\\\t\\\\t\\\\t\\\\t\\);\\\\n\\\\t\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\tvec2 unity_gradientNoise_dir\\(vec2 p\\)\\\\n\\\\t\\\\t\\{\\\\n\\\\t\\\\t\\\\tp = mod\\(p,289\\.0\\);\\\\n\\\\t\\\\t\\\\tfloat x = \\(34\\.0 \\* p\\.x \\+ 1\\.0\\) \\* mod\\(p\\.x, 289\\.0\\) \\+ p\\.y;\\\\n\\\\t\\\\t\\\\tx = \\(34\\.0 \\* x \\+ 1\\.0\\) \\* mod\\(x, 289\\.0\\);\\\\n\\\\t\\\\t\\\\tx = fract\\(x / 41\\.0\\) \\* 2\\.0 - 1\\.0;\\\\n\\\\t\\\\t\\\\treturn normalize\\(vec2\\(x - floor\\(x \\+ 0\\.5\\), abs\\(x\\) - 0\\.5\\)\\);\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat unity_gradientNoise\\(vec2 p\\)\\\\n\\\\t\\\\t\\{\\\\n\\\\t\\\\t\\\\tvec2 ip = floor\\(p\\);\\\\n\\\\t\\\\t\\\\tvec2 fp = fract\\(p\\);\\\\n\\\\t\\\\t\\\\tfloat d00 = dot\\(unity_gradientNoise_dir\\(ip\\), fp\\);\\\\n\\\\t\\\\t\\\\tfloat d01 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(0, 1\\)\\), fp - vec2\\(0, 1\\)\\);\\\\n\\\\t\\\\t\\\\tfloat d10 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(1, 0\\)\\), fp - vec2\\(1, 0\\)\\);\\\\n\\\\t\\\\t\\\\tfloat d11 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(1, 1\\)\\), fp - vec2\\(1, 1\\)\\);\\\\n\\\\t\\\\t\\\\tfp = fp \\* fp \\* fp \\* \\(fp \\* \\(fp \\* 6\\.0 - 15\\.0\\) \\+ 10\\.0\\);\\\\n\\\\t\\\\t\\\\treturn mix\\(mix\\(d00, d01, fp\\.y\\), mix\\(d10, d11, fp\\.y\\), fp\\.x\\);\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat gradientNoise\\(vec2 UV, float Scale\\)\\\\n\\\\t\\\\t\\{\\\\n\\\\t\\\\t\\\\treturn unity_gradientNoise\\(UV \\* Scale\\) \\+ 0\\.5;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\n\\\\t\\\\t\\\\t#define WIND_SPEED 0\\.3\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tvec4 getPositionModifiedByWind\\(vec4 position, float time, float windStrength\\) \\{\\\\n\\\\t\\\\t\\\\t\\\\tfloat noise = gradientNoise\\(position\\.xy \\+ time, WIND_SPEED\\);\\\\n\\\\t\\\\t\\\\t\\\\tfloat offset = \\(2\\. \\* noise - 1\\.\\) \\* windStrength;\\\\n\\\\t\\\\t\\\\t\\\\treturn position \\+ vec4\\(offset, offset, 0\\., 0\\.\\);\\\\n\\\\t\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t\\\\t\\\\t\\\\n\\\\t\\\\tvoid main\\(\\) \\{\\\\n\\\\t\\\\t\\\\tv_uv = uv;\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tmat4 modelMatrix = makeModelMatrix\\(\\\\n\\\\t\\\\t\\\\t\\\\tinstanceScaleRotation\\.x,\\\\n\\\\t\\\\t\\\\t\\\\tinstanceScaleRotation\\.y,\\\\n\\\\t\\\\t\\\\t\\\\tinstanceScaleRotation\\.z,\\\\n\\\\t\\\\t\\\\t\\\\tinstancePosition\\\\n\\\\t\\\\t\\\\t\\);\\\\n\\\\t\\\\t\\\\tvec4 vertexWorldPosition = modelMatrix \\* vec4\\(position, 1\\.0\\);\\\\n\\\\t\\\\t\\\\tfloat time = timeAndWindStrength\\.x;\\\\n\\\\t\\\\t\\\\tfloat windStrength = timeAndWindStrength\\.y;\\\\n\\\\t\\\\t\\\\tvertexWorldPosition = getPositionModifiedByWind\\(vertexWorldPosition, time, windStrength\\);\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tvec4 vertexViewPosition = viewMatrix \\* vertexWorldPosition;\\\\n\\\\t\\\\t\\\\tv_viewZ = vertexViewPosition\\.z;\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tmat3 normalToWorldMatrix = transpose\\(inverse\\(mat3\\(modelMatrix\\)\\)\\);\\\\n\\\\t\\\\t\\\\tvec3 normalWorldSpace = normalize\\(normalToWorldMatrix \\* normal\\);\\\\n\\\\t\\\\t\\\\tv_viewNormal = mat3\\(viewMatrix\\) \\* normalWorldSpace;\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tgl_Position = viewProjectionMatrix \\* vertexWorldPosition;\\\\n\\\\t\\\\t\\}\\\\n\\\\t"|'\\\\n		\\\\n			#ifndef CAMERA_PARAMS_BLOCK\\\\n			#define CAMERA_PARAMS_BLOCK\\\\n			\\\\n		layout\\(std140\\) uniform CameraParams \\{\\\\n			mat4 viewMatrix;\\\\n			mat4 projectionMatrix;\\\\n			mat4 viewProjectionMatrix;\\\\n			mat4 viewToWorldMatrix;\\\\n			vec4 sceneDepthParams;\\\\n			vec2 screenSize;\\\\n		\\};\\\\n	\\\\n			\\\\n			float GetSceneDepth\\(float zBufferDepth\\) \\{		\\\\n				return 1\\.0 / \\(sceneDepthParams\\.z \\* zBufferDepth \\+ sceneDepthParams\\.w\\);\\\\n			\\}\\\\n			#endif\\\\n		\\\\n		uniform vec2 timeAndWindStrength;\\\\n		\\\\n		layout\\(location=0\\)\\\\n		in vec3 position;\\\\n		layout\\(location=2\\)\\\\n		in vec3 normal;\\\\n		layout\\(location=1\\)\\\\n		in vec2 uv;\\\\n		layout\\(location=3\\)\\\\n		in vec3 instancePosition;\\\\n		// x = scale, y = cos\\(alpha\\), z = sin\\(alpha\\)\\\\n		layout\\(location=4\\)\\\\n		in vec3 instanceScaleRotation;\\\\n\\\\n		out vec2 v_uv;\\\\n		out vec3 v_viewNormal;\\\\n		out float v_viewZ;\\\\n		\\\\n		\\\\n			mat4 makeModelMatrix\\(in float scale, in float cosRotationZ, in float sinRotationZ, in vec3 position\\) \\{\\\\n				float c = scale \\* cosRotationZ;\\\\n				float s = scale \\* sinRotationZ;\\\\n				return mat4\\(\\\\n					vec4\\(c, s, 0\\., 0\\.\\),\\\\n					vec4\\(-s, c, 0\\., 0\\.\\),\\\\n					vec4\\(0\\., 0\\., scale, 0\\.\\),\\\\n					vec4\\(position, 1\\.0\\)\\\\n				\\);\\\\n			\\}\\\\n			\\\\n			\\\\n		vec2 unity_gradientNoise_dir\\(vec2 p\\)\\\\n		\\{\\\\n			p = mod\\(p,289\\.0\\);\\\\n			float x = \\(34\\.0 \\* p\\.x \\+ 1\\.0\\) \\* mod\\(p\\.x, 289\\.0\\) \\+ p\\.y;\\\\n			x = \\(34\\.0 \\* x \\+ 1\\.0\\) \\* mod\\(x, 289\\.0\\);\\\\n			x = fract\\(x / 41\\.0\\) \\* 2\\.0 - 1\\.0;\\\\n			return normalize\\(vec2\\(x - floor\\(x \\+ 0\\.5\\), abs\\(x\\) - 0\\.5\\)\\);\\\\n		\\}\\\\n		\\\\n		float unity_gradientNoise\\(vec2 p\\)\\\\n		\\{\\\\n			vec2 ip = floor\\(p\\);\\\\n			vec2 fp = fract\\(p\\);\\\\n			float d00 = dot\\(unity_gradientNoise_dir\\(ip\\), fp\\);\\\\n			float d01 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(0, 1\\)\\), fp - vec2\\(0, 1\\)\\);\\\\n			float d10 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(1, 0\\)\\), fp - vec2\\(1, 0\\)\\);\\\\n			float d11 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(1, 1\\)\\), fp - vec2\\(1, 1\\)\\);\\\\n			fp = fp \\* fp \\* fp \\* \\(fp \\* \\(fp \\* 6\\.0 - 15\\.0\\) \\+ 10\\.0\\);\\\\n			return mix\\(mix\\(d00, d01, fp\\.y\\), mix\\(d10, d11, fp\\.y\\), fp\\.x\\);\\\\n		\\}\\\\n		\\\\n		float gradientNoise\\(vec2 UV, float Scale\\)\\\\n		\\{\\\\n			return unity_gradientNoise\\(UV \\* Scale\\) \\+ 0\\.5;\\\\n		\\}\\\\n	\\\\n			#define WIND_SPEED 0\\.3\\\\n			\\\\n			vec4 getPositionModifiedByWind\\(vec4 position, float time, float windStrength\\) \\{\\\\n				float noise = gradientNoise\\(position\\.xy \\+ time, WIND_SPEED\\);\\\\n				float offset = \\(2\\. \\* noise - 1\\.\\) \\* windStrength;\\\\n				return position \\+ vec4\\(offset, offset, 0\\., 0\\.\\);\\\\n			\\}\\\\n		\\\\n				\\\\n		void main\\(\\) \\{\\\\n			v_uv = uv;\\\\n			\\\\n			mat4 modelMatrix = makeModelMatrix\\(\\\\n				instanceScaleRotation\\.x,\\\\n				instanceScaleRotation\\.y,\\\\n				instanceScaleRotation\\.z,\\\\n				instancePosition\\\\n			\\);\\\\n			vec4 vertexWorldPosition = modelMatrix \\* vec4\\(position, 1\\.0\\);\\\\n			float time = timeAndWindStrength\\.x;\\\\n			float windStrength = timeAndWindStrength\\.y;\\\\n			vertexWorldPosition = getPositionModifiedByWind\\(vertexWorldPosition, time, windStrength\\);\\\\n			\\\\n			vec4 vertexViewPosition = viewMatrix \\* vertexWorldPosition;\\\\n			v_viewZ = vertexViewPosition\\.z;\\\\n			\\\\n			mat3 normalToWorldMatrix = transpose\\(inverse\\(mat3\\(modelMatrix\\)\\)\\);\\\\n			vec3 normalWorldSpace = normalize\\(normalToWorldMatrix \\* normal\\);\\\\n			v_viewNormal = mat3\\(viewMatrix\\) \\* normalWorldSpace;\\\\n			\\\\n			gl_Position = viewProjectionMatrix \\* vertexWorldPosition;\\\\n		\\}\\\\n	')(?<e1start>)(?<e1end>)`,
+                roles: {},
+                count: 1,
+                search: {
+                  margin: 28208
+                },
+                edits: [
+                  {
+                    start: "e0start",
+                    end: "e0end",
+                    parts: [
+                      "((_kiShader)=>{try{return window.__kaspRain?.treeShader(_kiShader,true)??_kiShader;}catch(_kiTreeError){return _kiShader;}})("
+                    ]
+                  },
+                  {
+                    start: "e1start",
+                    end: "e1end",
+                    parts: [
+                      ")"
+                    ]
+                  }
+                ]
+              },
+              {
+                pattern: `(?<![$\\w])\\s*return(?![$\\w])\\s*(?<e0start>)(?<e0end>)(?:"\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t\\\\t#ifndef CAMERA_PARAMS_BLOCK\\\\n\\\\t\\\\t\\\\t#define CAMERA_PARAMS_BLOCK\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\tlayout\\(std140\\) uniform CameraParams \\{\\\\n\\\\t\\\\t\\\\tmat4 viewMatrix;\\\\n\\\\t\\\\t\\\\tmat4 projectionMatrix;\\\\n\\\\t\\\\t\\\\tmat4 viewProjectionMatrix;\\\\n\\\\t\\\\t\\\\tmat4 viewToWorldMatrix;\\\\n\\\\t\\\\t\\\\tvec4 sceneDepthParams;\\\\n\\\\t\\\\t\\\\tvec2 screenSize;\\\\n\\\\t\\\\t\\};\\\\n\\\\t\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tfloat GetSceneDepth\\(float zBufferDepth\\) \\{\\\\t\\\\t\\\\n\\\\t\\\\t\\\\t\\\\treturn 1\\.0 / \\(sceneDepthParams\\.z \\* zBufferDepth \\+ sceneDepthParams\\.w\\);\\\\n\\\\t\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\t#endif\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t#ifndef LIGHTING_UNIFORM_BLOCK\\\\n\\\\t\\\\t#define LIGHTING_UNIFORM_BLOCK\\\\n\\\\t\\\\tlayout\\(std140\\) uniform LightingBlock \\{\\\\n\\\\t\\\\t\\\\tvec3 ambientLightColor;\\\\n\\\\t\\\\t\\\\tvec3 mainLightColor;\\\\n\\\\t\\\\t\\\\tvec3 mainLightDirection;\\\\n\\\\t\\\\t\\};\\\\n\\\\t\\\\t#endif\\\\n\\\\t\\\\n\\\\t\\\\tuniform vec2 timeAndWindStrength;\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tlayout\\(location=0\\)\\\\n\\\\t\\\\tin vec3 position;\\\\n\\\\t\\\\tlayout\\(location=2\\)\\\\n\\\\t\\\\tin vec3 normal;\\\\n\\\\t\\\\tlayout\\(location=1\\)\\\\n\\\\t\\\\tin vec2 uv;\\\\n\\\\t\\\\tlayout\\(location=3\\)\\\\n\\\\t\\\\tin vec3 instancePosition;\\\\n\\\\t\\\\t// x = scale, y = cos\\(alpha\\), z = sin\\(alpha\\)\\\\n\\\\t\\\\tlayout\\(location=4\\)\\\\n\\\\t\\\\tin vec3 instanceScaleRotation;\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tout vec2 v_uv;\\\\n\\\\t\\\\tout float v_illumination;\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t#define USE_SHADOW_MAP "|'\\\\n		\\\\n			#ifndef CAMERA_PARAMS_BLOCK\\\\n			#define CAMERA_PARAMS_BLOCK\\\\n			\\\\n		layout\\(std140\\) uniform CameraParams \\{\\\\n			mat4 viewMatrix;\\\\n			mat4 projectionMatrix;\\\\n			mat4 viewProjectionMatrix;\\\\n			mat4 viewToWorldMatrix;\\\\n			vec4 sceneDepthParams;\\\\n			vec2 screenSize;\\\\n		\\};\\\\n	\\\\n			\\\\n			float GetSceneDepth\\(float zBufferDepth\\) \\{		\\\\n				return 1\\.0 / \\(sceneDepthParams\\.z \\* zBufferDepth \\+ sceneDepthParams\\.w\\);\\\\n			\\}\\\\n			#endif\\\\n		\\\\n		\\\\n		#ifndef LIGHTING_UNIFORM_BLOCK\\\\n		#define LIGHTING_UNIFORM_BLOCK\\\\n		layout\\(std140\\) uniform LightingBlock \\{\\\\n			vec3 ambientLightColor;\\\\n			vec3 mainLightColor;\\\\n			vec3 mainLightDirection;\\\\n		\\};\\\\n		#endif\\\\n	\\\\n		uniform vec2 timeAndWindStrength;\\\\n		\\\\n		layout\\(location=0\\)\\\\n		in vec3 position;\\\\n		layout\\(location=2\\)\\\\n		in vec3 normal;\\\\n		layout\\(location=1\\)\\\\n		in vec2 uv;\\\\n		layout\\(location=3\\)\\\\n		in vec3 instancePosition;\\\\n		// x = scale, y = cos\\(alpha\\), z = sin\\(alpha\\)\\\\n		layout\\(location=4\\)\\\\n		in vec3 instanceScaleRotation;\\\\n		\\\\n		out vec2 v_uv;\\\\n		out float v_illumination;\\\\n		\\\\n		#define USE_SHADOW_MAP ')\\s*\\+\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\?\\s*1\\s*:\\s*0\\s*\\)\\s*\\+\\s*(?:"\\\\n\\\\t\\\\t#if USE_SHADOW_MAP\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tlayout\\(std140\\) uniform ShadowParams \\{\\\\n\\\\t\\\\t\\\\t// x -- depth bias, y -- normal bias, z -- slope bias, w -- view bias\\\\n\\\\t\\\\t\\\\tvec4 shadowMapBias;\\\\n\\\\t\\\\t\\\\t// x -- strength, y -- full distance, z -- fade distance, w -- blur size\\\\n\\\\t\\\\t\\\\tvec4 shadowParams;\\\\n\\\\t\\\\t\\};\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat ShadowMapDepthBias\\(\\) \\{\\\\n\\\\t\\\\t\\\\treturn shadowMapBias\\.x;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat ShadowMapNormalBias\\(\\) \\{\\\\n\\\\t\\\\t\\\\treturn max\\(shadowMapBias\\.y, 0\\.0001\\);\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat ShadowMapSlopeBias\\(\\) \\{\\\\n\\\\t\\\\t\\\\treturn shadowMapBias\\.z;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat ShadowMapViewBias\\(\\) \\{\\\\n\\\\t\\\\t\\\\treturn shadowMapBias\\.w;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat GetShadowStrength\\(\\) \\{\\\\n\\\\t\\\\t\\\\treturn shadowParams\\.x;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat GetShadowFullDistance\\(\\) \\{\\\\n\\\\t\\\\t\\\\treturn shadowParams\\.y;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat GetShadowFadeDistance\\(\\) \\{\\\\n\\\\t\\\\t\\\\treturn shadowParams\\.z;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat GetBlurSize\\(\\) \\{\\\\n\\\\t\\\\t\\\\treturn shadowParams\\.w;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\n\\\\t\\\\tout vec3 v_shadowCoordinate;\\\\n\\\\t\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tvec3 GetShadowMapCoordinate\\(\\\\n\\\\t\\\\t\\\\tin vec3 position,\\\\n\\\\t\\\\t\\\\tin vec3 normal,\\\\n\\\\t\\\\t\\\\tin vec3 worldNormal,\\\\n\\\\t\\\\t\\\\tin vec3 lightDirection,\\\\n\\\\t\\\\t\\\\tin mat4 vertexSpaceToShadowMatrix\\\\n\\\\t\\\\t\\) \\{\\\\n\\\\t\\\\t\\\\tfloat cosAlpha = max\\(dot\\(worldNormal, -lightDirection\\), 0\\.0\\);\\\\n\\\\t\\\\t\\\\tfloat normalBiasScale = sqrt\\(1\\.0 - cosAlpha \\* cosAlpha\\); // sin\\(acos\\(L\u0412\xB7N\\)\\)\\\\n\\\\t\\\\t\\\\tfloat slopeBiasScale = min\\(normalBiasScale / cosAlpha, 2\\.0\\); // tan\\(acos\\(L\u0412\xB7N\\)\\)\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tfloat normalBias = ShadowMapNormalBias\\(\\) \\* normalBiasScale;\\\\n\\\\t\\\\t\\\\tvec3 positionWithOffset = position \\+ normal \\* normalBias;\\\\n\\\\t\\\\t\\\\tvec3 result = \\(vertexSpaceToShadowMatrix \\* vec4\\(positionWithOffset, 1\\.0\\)\\)\\.xyz;\\\\n\\\\t\\\\t\\\\t// remap \\[-1, 1\\] => \\[0, 1\\]\\.\\\\n\\\\t\\\\t\\\\tresult = \\(result \\+ vec3\\(1\\.0\\)\\) \\* 0\\.5;\\\\n\\\\t\\\\t\\\\t// todo\\(fominykh\\): \u0421\u0402\u0420\xB0\u0420\xB7\u0420\u0455\u0420\xB1\u0421\u0402\u0420\xB0\u0421\u201A\u0421\u040A\u0421\u0403\u0421\u040F, \u0420\u0405\u0420\xB0\u0421\u0403\u0420\u0454\u0420\u0455\u0420\xBB\u0421\u040A\u0420\u0454\u0420\u0455 \u0421\u040C\u0421\u201A\u0420\u0455 \u0420\xB0\u0420\u0491\u0420\xB5\u0420\u0454\u0420\u0406\u0420\xB0\u0421\u201A\u0420\u0405\u0421\u2039\u0420\u2116 \u0420\u0454\u0420\u0455\u0420\u0491\\. \u0420\u0459\u0420\xB0\u0420\xB6\u0420\xB5\u0421\u201A\u0421\u0403\u0421\u040F \u0421\u0403\u0421\u201A\u0421\u0402\u0420\xB0\u0420\u0405\u0420\u0405\u0421\u2039\u0420\u0458, \u0421\u2021\u0421\u201A\u0420\u0455 \u0420\u0458\u0421\u2039 \u0420\u0458\u0420\xB5\u0420\u0405\u0421\u040F\u0420\xB5\u0420\u0458 \u0420\u0454\u0420\u0455\u0420\u0455\u0421\u0402\u0420\u0491\u0420\u0451\u0420\u0405\u0420\xB0\u0421\u201A\u0421\u2039 \u0420\u0406\\\\n\\\\t\\\\t\\\\t// \u0420\u0405\u0420\u0455\u0421\u0402\u0420\u0458\u0420\xB0\u0420\xBB\u0420\u0451\u0420\xB7\u0420\u0455\u0420\u0406\u0420\xB0\u0420\u0405\u0420\u0405\u0420\u0455\u0420\u0458 \u0420\u0457\u0421\u0402\u0420\u0455\u0421\u0403\u0421\u201A\u0421\u0402\u0420\xB0\u0420\u0405\u0421\u0403\u0421\u201A\u0420\u0406\u0420\xB5\\. \u0420\u2019\u0420\u0455\u0420\xB7\u0420\u0458\u0420\u0455\u0420\xB6\u0420\u0405\u0420\u0455, \u0421\u040C\u0421\u201A\u0420\u0455 \u0420\u0457\u0421\u0402\u0420\xB0\u0420\u0406\u0420\u0451\u0420\xBB\u0421\u040A\u0420\u0405\u0420\u0455, \u0420\u0405\u0420\u0455 \u0420\u0405\u0420\xB5\u0420\u0455\u0421\u2021\u0420\xB5\u0420\u0406\u0420\u0451\u0420\u0491\u0420\u0405\u0420\u0455 \u0420\u0457\u0420\u0455\u0420\u0454\u0420\xB0\\.\\\\n\\\\t\\\\t\\\\tresult\\.z \\+= ShadowMapSlopeBias\\(\\) \\* slopeBiasScale;\\\\n\\\\t\\\\t\\\\tresult\\.z \\+= ShadowMapViewBias\\(\\);\\\\n\\\\t\\\\t\\\\treturn result;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tvoid SetOutputShadowMapCoordinate\\(\\\\n\\\\t\\\\t\\\\tin vec3 position,\\\\n\\\\t\\\\t\\\\tin vec3 normal,\\\\n\\\\t\\\\t\\\\tin vec3 worldNormal,\\\\n\\\\t\\\\t\\\\tin vec3 lightDirection,\\\\n\\\\t\\\\t\\\\tin mat4 vertexSpaceToShadowMatrix\\\\n\\\\t\\\\t\\) \\{\\\\n\\\\t\\\\t\\\\tv_shadowCoordinate = GetShadowMapCoordinate\\(position, normal, worldNormal, lightDirection, vertexSpaceToShadowMatrix\\);\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\n\\\\t\\\\tuniform mat4 shadowViewProjectionMatrix;\\\\n\\\\t\\\\t#endif\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t#define USE_ALPHA_DITHERING "|'\\\\n		#if USE_SHADOW_MAP\\\\n		\\\\n		\\\\n		layout\\(std140\\) uniform ShadowParams \\{\\\\n			// x -- depth bias, y -- normal bias, z -- slope bias, w -- view bias\\\\n			vec4 shadowMapBias;\\\\n			// x -- strength, y -- full distance, z -- fade distance, w -- blur size\\\\n			vec4 shadowParams;\\\\n		\\};\\\\n		\\\\n		float ShadowMapDepthBias\\(\\) \\{\\\\n			return shadowMapBias\\.x;\\\\n		\\}\\\\n		\\\\n		float ShadowMapNormalBias\\(\\) \\{\\\\n			return max\\(shadowMapBias\\.y, 0\\.0001\\);\\\\n		\\}\\\\n		\\\\n		float ShadowMapSlopeBias\\(\\) \\{\\\\n			return shadowMapBias\\.z;\\\\n		\\}\\\\n		\\\\n		float ShadowMapViewBias\\(\\) \\{\\\\n			return shadowMapBias\\.w;\\\\n		\\}\\\\n		\\\\n		float GetShadowStrength\\(\\) \\{\\\\n			return shadowParams\\.x;\\\\n		\\}\\\\n		\\\\n		float GetShadowFullDistance\\(\\) \\{\\\\n			return shadowParams\\.y;\\\\n		\\}\\\\n		\\\\n		float GetShadowFadeDistance\\(\\) \\{\\\\n			return shadowParams\\.z;\\\\n		\\}\\\\n		\\\\n		float GetBlurSize\\(\\) \\{\\\\n			return shadowParams\\.w;\\\\n		\\}\\\\n	\\\\n		out vec3 v_shadowCoordinate;\\\\n	\\\\n		\\\\n		vec3 GetShadowMapCoordinate\\(\\\\n			in vec3 position,\\\\n			in vec3 normal,\\\\n			in vec3 worldNormal,\\\\n			in vec3 lightDirection,\\\\n			in mat4 vertexSpaceToShadowMatrix\\\\n		\\) \\{\\\\n			float cosAlpha = max\\(dot\\(worldNormal, -lightDirection\\), 0\\.0\\);\\\\n			float normalBiasScale = sqrt\\(1\\.0 - cosAlpha \\* cosAlpha\\); // sin\\(acos\\(L\u0412\xB7N\\)\\)\\\\n			float slopeBiasScale = min\\(normalBiasScale / cosAlpha, 2\\.0\\); // tan\\(acos\\(L\u0412\xB7N\\)\\)\\\\n			\\\\n			float normalBias = ShadowMapNormalBias\\(\\) \\* normalBiasScale;\\\\n			vec3 positionWithOffset = position \\+ normal \\* normalBias;\\\\n			vec3 result = \\(vertexSpaceToShadowMatrix \\* vec4\\(positionWithOffset, 1\\.0\\)\\)\\.xyz;\\\\n			// remap \\[-1, 1\\] => \\[0, 1\\]\\.\\\\n			result = \\(result \\+ vec3\\(1\\.0\\)\\) \\* 0\\.5;\\\\n			// todo\\(fominykh\\): \u0421\u0402\u0420\xB0\u0420\xB7\u0420\u0455\u0420\xB1\u0421\u0402\u0420\xB0\u0421\u201A\u0421\u040A\u0421\u0403\u0421\u040F, \u0420\u0405\u0420\xB0\u0421\u0403\u0420\u0454\u0420\u0455\u0420\xBB\u0421\u040A\u0420\u0454\u0420\u0455 \u0421\u040C\u0421\u201A\u0420\u0455 \u0420\xB0\u0420\u0491\u0420\xB5\u0420\u0454\u0420\u0406\u0420\xB0\u0421\u201A\u0420\u0405\u0421\u2039\u0420\u2116 \u0420\u0454\u0420\u0455\u0420\u0491\\. \u0420\u0459\u0420\xB0\u0420\xB6\u0420\xB5\u0421\u201A\u0421\u0403\u0421\u040F \u0421\u0403\u0421\u201A\u0421\u0402\u0420\xB0\u0420\u0405\u0420\u0405\u0421\u2039\u0420\u0458, \u0421\u2021\u0421\u201A\u0420\u0455 \u0420\u0458\u0421\u2039 \u0420\u0458\u0420\xB5\u0420\u0405\u0421\u040F\u0420\xB5\u0420\u0458 \u0420\u0454\u0420\u0455\u0420\u0455\u0421\u0402\u0420\u0491\u0420\u0451\u0420\u0405\u0420\xB0\u0421\u201A\u0421\u2039 \u0420\u0406\\\\n			// \u0420\u0405\u0420\u0455\u0421\u0402\u0420\u0458\u0420\xB0\u0420\xBB\u0420\u0451\u0420\xB7\u0420\u0455\u0420\u0406\u0420\xB0\u0420\u0405\u0420\u0405\u0420\u0455\u0420\u0458 \u0420\u0457\u0421\u0402\u0420\u0455\u0421\u0403\u0421\u201A\u0421\u0402\u0420\xB0\u0420\u0405\u0421\u0403\u0421\u201A\u0420\u0406\u0420\xB5\\. \u0420\u2019\u0420\u0455\u0420\xB7\u0420\u0458\u0420\u0455\u0420\xB6\u0420\u0405\u0420\u0455, \u0421\u040C\u0421\u201A\u0420\u0455 \u0420\u0457\u0421\u0402\u0420\xB0\u0420\u0406\u0420\u0451\u0420\xBB\u0421\u040A\u0420\u0405\u0420\u0455, \u0420\u0405\u0420\u0455 \u0420\u0405\u0420\xB5\u0420\u0455\u0421\u2021\u0420\xB5\u0420\u0406\u0420\u0451\u0420\u0491\u0420\u0405\u0420\u0455 \u0420\u0457\u0420\u0455\u0420\u0454\u0420\xB0\\.\\\\n			result\\.z \\+= ShadowMapSlopeBias\\(\\) \\* slopeBiasScale;\\\\n			result\\.z \\+= ShadowMapViewBias\\(\\);\\\\n			return result;\\\\n		\\}\\\\n	\\\\n		\\\\n		void SetOutputShadowMapCoordinate\\(\\\\n			in vec3 position,\\\\n			in vec3 normal,\\\\n			in vec3 worldNormal,\\\\n			in vec3 lightDirection,\\\\n			in mat4 vertexSpaceToShadowMatrix\\\\n		\\) \\{\\\\n			v_shadowCoordinate = GetShadowMapCoordinate\\(position, normal, worldNormal, lightDirection, vertexSpaceToShadowMatrix\\);\\\\n		\\}\\\\n	\\\\n		uniform mat4 shadowViewProjectionMatrix;\\\\n		#endif\\\\n		\\\\n		#define USE_ALPHA_DITHERING ')\\s*\\+\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\?\\s*1\\s*:\\s*0\\s*\\)\\s*\\+\\s*(?:"\\\\n\\\\t\\\\t#if USE_ALPHA_DITHERING\\\\n\\\\t\\\\tlayout\\(location=6\\) in float instanceAlpha;\\\\n\\\\t\\\\tout float v_alpha;\\\\n\\\\t\\\\t#endif\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t#define USE_FOG "|'\\\\n		#if USE_ALPHA_DITHERING\\\\n		layout\\(location=6\\) in float instanceAlpha;\\\\n		out float v_alpha;\\\\n		#endif\\\\n		\\\\n		#define USE_FOG ')\\s*\\+\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\?\\s*1\\s*:\\s*0\\s*\\)\\s*\\+\\s*(?:"\\\\n\\\\t\\\\t#if USE_FOG\\\\n\\\\t\\\\tout vec3 v_viewPosition;\\\\n\\\\t\\\\t#endif\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tmat4 makeModelMatrix\\(in float scale, in float cosRotationZ, in float sinRotationZ, in vec3 position\\) \\{\\\\n\\\\t\\\\t\\\\t\\\\tfloat c = scale \\* cosRotationZ;\\\\n\\\\t\\\\t\\\\t\\\\tfloat s = scale \\* sinRotationZ;\\\\n\\\\t\\\\t\\\\t\\\\treturn mat4\\(\\\\n\\\\t\\\\t\\\\t\\\\t\\\\tvec4\\(c, s, 0\\., 0\\.\\),\\\\n\\\\t\\\\t\\\\t\\\\t\\\\tvec4\\(-s, c, 0\\., 0\\.\\),\\\\n\\\\t\\\\t\\\\t\\\\t\\\\tvec4\\(0\\., 0\\., scale, 0\\.\\),\\\\n\\\\t\\\\t\\\\t\\\\t\\\\tvec4\\(position, 1\\.0\\)\\\\n\\\\t\\\\t\\\\t\\\\t\\);\\\\n\\\\t\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\tvec2 unity_gradientNoise_dir\\(vec2 p\\)\\\\n\\\\t\\\\t\\{\\\\n\\\\t\\\\t\\\\tp = mod\\(p,289\\.0\\);\\\\n\\\\t\\\\t\\\\tfloat x = \\(34\\.0 \\* p\\.x \\+ 1\\.0\\) \\* mod\\(p\\.x, 289\\.0\\) \\+ p\\.y;\\\\n\\\\t\\\\t\\\\tx = \\(34\\.0 \\* x \\+ 1\\.0\\) \\* mod\\(x, 289\\.0\\);\\\\n\\\\t\\\\t\\\\tx = fract\\(x / 41\\.0\\) \\* 2\\.0 - 1\\.0;\\\\n\\\\t\\\\t\\\\treturn normalize\\(vec2\\(x - floor\\(x \\+ 0\\.5\\), abs\\(x\\) - 0\\.5\\)\\);\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat unity_gradientNoise\\(vec2 p\\)\\\\n\\\\t\\\\t\\{\\\\n\\\\t\\\\t\\\\tvec2 ip = floor\\(p\\);\\\\n\\\\t\\\\t\\\\tvec2 fp = fract\\(p\\);\\\\n\\\\t\\\\t\\\\tfloat d00 = dot\\(unity_gradientNoise_dir\\(ip\\), fp\\);\\\\n\\\\t\\\\t\\\\tfloat d01 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(0, 1\\)\\), fp - vec2\\(0, 1\\)\\);\\\\n\\\\t\\\\t\\\\tfloat d10 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(1, 0\\)\\), fp - vec2\\(1, 0\\)\\);\\\\n\\\\t\\\\t\\\\tfloat d11 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(1, 1\\)\\), fp - vec2\\(1, 1\\)\\);\\\\n\\\\t\\\\t\\\\tfp = fp \\* fp \\* fp \\* \\(fp \\* \\(fp \\* 6\\.0 - 15\\.0\\) \\+ 10\\.0\\);\\\\n\\\\t\\\\t\\\\treturn mix\\(mix\\(d00, d01, fp\\.y\\), mix\\(d10, d11, fp\\.y\\), fp\\.x\\);\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat gradientNoise\\(vec2 UV, float Scale\\)\\\\n\\\\t\\\\t\\{\\\\n\\\\t\\\\t\\\\treturn unity_gradientNoise\\(UV \\* Scale\\) \\+ 0\\.5;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\n\\\\t\\\\t\\\\t#define WIND_SPEED 0\\.3\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tvec4 getPositionModifiedByWind\\(vec4 position, float time, float windStrength\\) \\{\\\\n\\\\t\\\\t\\\\t\\\\tfloat noise = gradientNoise\\(position\\.xy \\+ time, WIND_SPEED\\);\\\\n\\\\t\\\\t\\\\t\\\\tfloat offset = \\(2\\. \\* noise - 1\\.\\) \\* windStrength;\\\\n\\\\t\\\\t\\\\t\\\\treturn position \\+ vec4\\(offset, offset, 0\\., 0\\.\\);\\\\n\\\\t\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\n\\\\t\\\\tvoid main\\(void\\) \\{\\\\n\\\\t\\\\t\\\\tv_uv = uv;\\\\n\\\\t\\\\t\\\\t#if USE_ALPHA_DITHERING\\\\n\\\\t\\\\t\\\\tv_alpha = instanceAlpha;\\\\n\\\\t\\\\t\\\\t#endif\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tmat4 modelMatrix = makeModelMatrix\\(\\\\n\\\\t\\\\t\\\\t\\\\tinstanceScaleRotation\\.x,\\\\n\\\\t\\\\t\\\\t\\\\tinstanceScaleRotation\\.y,\\\\n\\\\t\\\\t\\\\t\\\\tinstanceScaleRotation\\.z,\\\\n\\\\t\\\\t\\\\t\\\\tinstancePosition\\\\n\\\\t\\\\t\\\\t\\);\\\\n\\\\t\\\\t\\\\tvec4 vertexWorldPosition = modelMatrix \\* vec4\\(position, 1\\.0\\);\\\\n\\\\t\\\\t\\\\tfloat time = timeAndWindStrength\\.x;\\\\n\\\\t\\\\t\\\\tfloat windStrength = timeAndWindStrength\\.y;\\\\n\\\\t\\\\t\\\\tvertexWorldPosition = getPositionModifiedByWind\\(vertexWorldPosition, time, windStrength\\);\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\t// lighting\\\\n\\\\t\\\\t\\\\tmat3 normalToWorldMatrix = transpose\\(inverse\\(mat3\\(modelMatrix\\)\\)\\);\\\\n\\\\t\\\\t\\\\tvec3 normalWorldSpace = normalize\\(normalToWorldMatrix \\* normal\\);\\\\n\\\\t\\\\t\\\\tv_illumination = max\\(0\\.0, dot\\(normalWorldSpace, -mainLightDirection\\)\\);\\\\n\\\\t\\\\t\\\\tv_illumination = 0\\.25 \\+ v_illumination \\* 0\\.75;\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\t#if USE_SHADOW_MAP\\\\n\\\\t\\\\t\\\\tSetOutputShadowMapCoordinate\\(\\\\n\\\\t\\\\t\\\\t\\\\tvertexWorldPosition\\.xyz,\\\\n\\\\t\\\\t\\\\t\\\\tnormalWorldSpace,\\\\n\\\\t\\\\t\\\\t\\\\tnormalWorldSpace,\\\\n\\\\t\\\\t\\\\t\\\\tmainLightDirection,\\\\n\\\\t\\\\t\\\\t\\\\tshadowViewProjectionMatrix\\\\n\\\\t\\\\t\\\\t\\);\\\\n\\\\t\\\\t\\\\t#endif\\\\n\\\\n\\\\t\\\\t\\\\t#if USE_FOG\\\\n\\\\t\\\\t\\\\tv_viewPosition = \\(viewMatrix \\* vertexWorldPosition\\)\\.xyz;\\\\n\\\\t\\\\t\\\\t#endif\\\\n\\\\n\\\\t\\\\t\\\\tgl_Position = viewProjectionMatrix \\* vertexWorldPosition;\\\\n\\\\t\\\\t\\}\\\\n\\\\t"|'\\\\n		#if USE_FOG\\\\n		out vec3 v_viewPosition;\\\\n		#endif\\\\n		\\\\n		\\\\n			mat4 makeModelMatrix\\(in float scale, in float cosRotationZ, in float sinRotationZ, in vec3 position\\) \\{\\\\n				float c = scale \\* cosRotationZ;\\\\n				float s = scale \\* sinRotationZ;\\\\n				return mat4\\(\\\\n					vec4\\(c, s, 0\\., 0\\.\\),\\\\n					vec4\\(-s, c, 0\\., 0\\.\\),\\\\n					vec4\\(0\\., 0\\., scale, 0\\.\\),\\\\n					vec4\\(position, 1\\.0\\)\\\\n				\\);\\\\n			\\}\\\\n			\\\\n			\\\\n		vec2 unity_gradientNoise_dir\\(vec2 p\\)\\\\n		\\{\\\\n			p = mod\\(p,289\\.0\\);\\\\n			float x = \\(34\\.0 \\* p\\.x \\+ 1\\.0\\) \\* mod\\(p\\.x, 289\\.0\\) \\+ p\\.y;\\\\n			x = \\(34\\.0 \\* x \\+ 1\\.0\\) \\* mod\\(x, 289\\.0\\);\\\\n			x = fract\\(x / 41\\.0\\) \\* 2\\.0 - 1\\.0;\\\\n			return normalize\\(vec2\\(x - floor\\(x \\+ 0\\.5\\), abs\\(x\\) - 0\\.5\\)\\);\\\\n		\\}\\\\n		\\\\n		float unity_gradientNoise\\(vec2 p\\)\\\\n		\\{\\\\n			vec2 ip = floor\\(p\\);\\\\n			vec2 fp = fract\\(p\\);\\\\n			float d00 = dot\\(unity_gradientNoise_dir\\(ip\\), fp\\);\\\\n			float d01 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(0, 1\\)\\), fp - vec2\\(0, 1\\)\\);\\\\n			float d10 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(1, 0\\)\\), fp - vec2\\(1, 0\\)\\);\\\\n			float d11 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(1, 1\\)\\), fp - vec2\\(1, 1\\)\\);\\\\n			fp = fp \\* fp \\* fp \\* \\(fp \\* \\(fp \\* 6\\.0 - 15\\.0\\) \\+ 10\\.0\\);\\\\n			return mix\\(mix\\(d00, d01, fp\\.y\\), mix\\(d10, d11, fp\\.y\\), fp\\.x\\);\\\\n		\\}\\\\n		\\\\n		float gradientNoise\\(vec2 UV, float Scale\\)\\\\n		\\{\\\\n			return unity_gradientNoise\\(UV \\* Scale\\) \\+ 0\\.5;\\\\n		\\}\\\\n	\\\\n			#define WIND_SPEED 0\\.3\\\\n			\\\\n			vec4 getPositionModifiedByWind\\(vec4 position, float time, float windStrength\\) \\{\\\\n				float noise = gradientNoise\\(position\\.xy \\+ time, WIND_SPEED\\);\\\\n				float offset = \\(2\\. \\* noise - 1\\.\\) \\* windStrength;\\\\n				return position \\+ vec4\\(offset, offset, 0\\., 0\\.\\);\\\\n			\\}\\\\n		\\\\n	\\\\n		void main\\(void\\) \\{\\\\n			v_uv = uv;\\\\n			#if USE_ALPHA_DITHERING\\\\n			v_alpha = instanceAlpha;\\\\n			#endif\\\\n			\\\\n			mat4 modelMatrix = makeModelMatrix\\(\\\\n				instanceScaleRotation\\.x,\\\\n				instanceScaleRotation\\.y,\\\\n				instanceScaleRotation\\.z,\\\\n				instancePosition\\\\n			\\);\\\\n			vec4 vertexWorldPosition = modelMatrix \\* vec4\\(position, 1\\.0\\);\\\\n			float time = timeAndWindStrength\\.x;\\\\n			float windStrength = timeAndWindStrength\\.y;\\\\n			vertexWorldPosition = getPositionModifiedByWind\\(vertexWorldPosition, time, windStrength\\);\\\\n			\\\\n			// lighting\\\\n			mat3 normalToWorldMatrix = transpose\\(inverse\\(mat3\\(modelMatrix\\)\\)\\);\\\\n			vec3 normalWorldSpace = normalize\\(normalToWorldMatrix \\* normal\\);\\\\n			v_illumination = max\\(0\\.0, dot\\(normalWorldSpace, -mainLightDirection\\)\\);\\\\n			v_illumination = 0\\.25 \\+ v_illumination \\* 0\\.75;\\\\n			\\\\n			#if USE_SHADOW_MAP\\\\n			SetOutputShadowMapCoordinate\\(\\\\n				vertexWorldPosition\\.xyz,\\\\n				normalWorldSpace,\\\\n				normalWorldSpace,\\\\n				mainLightDirection,\\\\n				shadowViewProjectionMatrix\\\\n			\\);\\\\n			#endif\\\\n\\\\n			#if USE_FOG\\\\n			v_viewPosition = \\(viewMatrix \\* vertexWorldPosition\\)\\.xyz;\\\\n			#endif\\\\n\\\\n			gl_Position = viewProjectionMatrix \\* vertexWorldPosition;\\\\n		\\}\\\\n	')(?<e1start>)(?<e1end>)`,
+                roles: {},
+                count: 1,
+                search: {
+                  margin: 56736
+                },
+                edits: [
+                  {
+                    start: "e0start",
+                    end: "e0end",
+                    parts: [
+                      "((_kiShader)=>{try{return window.__kaspRain?.treeShader(_kiShader,true)??_kiShader;}catch(_kiTreeError){return _kiShader;}})("
+                    ]
+                  },
+                  {
+                    start: "e1start",
+                    end: "e1end",
+                    parts: [
+                      ")"
+                    ]
+                  }
+                ]
+              },
+              {
+                pattern: `(?<![$\\w])\\s*return(?![$\\w])\\s*(?<e0start>)(?<e0end>)(?:"\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t#ifndef LIGHTING_UNIFORM_BLOCK\\\\n\\\\t\\\\t#define LIGHTING_UNIFORM_BLOCK\\\\n\\\\t\\\\tlayout\\(std140\\) uniform LightingBlock \\{\\\\n\\\\t\\\\t\\\\tvec3 ambientLightColor;\\\\n\\\\t\\\\t\\\\tvec3 mainLightColor;\\\\n\\\\t\\\\t\\\\tvec3 mainLightDirection;\\\\n\\\\t\\\\t\\};\\\\n\\\\t\\\\t#endif\\\\n\\\\t\\\\n\\\\t\\\\tuniform mat4 mvp;\\\\n\\\\t\\\\tuniform mat3 normalToWorldMatrix;\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tlayout\\(location=0\\)\\\\n\\\\t\\\\tin vec3 position;\\\\n\\\\t\\\\tlayout\\(location=1\\)\\\\n\\\\t\\\\tin vec2 uv;\\\\n\\\\t\\\\tlayout\\(location=2\\)\\\\n\\\\t\\\\tin vec3 normal;\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tout vec2 v_uv;\\\\n\\\\t\\\\tout float v_illuminationFront;\\\\n\\\\t\\\\tout float v_illuminationBack;\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t#define USE_SHADOW "|'\\\\n		\\\\n		#ifndef LIGHTING_UNIFORM_BLOCK\\\\n		#define LIGHTING_UNIFORM_BLOCK\\\\n		layout\\(std140\\) uniform LightingBlock \\{\\\\n			vec3 ambientLightColor;\\\\n			vec3 mainLightColor;\\\\n			vec3 mainLightDirection;\\\\n		\\};\\\\n		#endif\\\\n	\\\\n		uniform mat4 mvp;\\\\n		uniform mat3 normalToWorldMatrix;\\\\n		\\\\n		layout\\(location=0\\)\\\\n		in vec3 position;\\\\n		layout\\(location=1\\)\\\\n		in vec2 uv;\\\\n		layout\\(location=2\\)\\\\n		in vec3 normal;\\\\n		\\\\n		out vec2 v_uv;\\\\n		out float v_illuminationFront;\\\\n		out float v_illuminationBack;\\\\n		\\\\n		#define USE_SHADOW ')\\s*\\+\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\?\\s*1\\s*:\\s*0\\s*\\)\\s*\\+\\s*(?:"\\\\n\\\\t\\\\t#if USE_SHADOW\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tlayout\\(std140\\) uniform ShadowParams \\{\\\\n\\\\t\\\\t\\\\t// x -- depth bias, y -- normal bias, z -- slope bias, w -- view bias\\\\n\\\\t\\\\t\\\\tvec4 shadowMapBias;\\\\n\\\\t\\\\t\\\\t// x -- strength, y -- full distance, z -- fade distance, w -- blur size\\\\n\\\\t\\\\t\\\\tvec4 shadowParams;\\\\n\\\\t\\\\t\\};\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat ShadowMapDepthBias\\(\\) \\{\\\\n\\\\t\\\\t\\\\treturn shadowMapBias\\.x;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat ShadowMapNormalBias\\(\\) \\{\\\\n\\\\t\\\\t\\\\treturn max\\(shadowMapBias\\.y, 0\\.0001\\);\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat ShadowMapSlopeBias\\(\\) \\{\\\\n\\\\t\\\\t\\\\treturn shadowMapBias\\.z;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat ShadowMapViewBias\\(\\) \\{\\\\n\\\\t\\\\t\\\\treturn shadowMapBias\\.w;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat GetShadowStrength\\(\\) \\{\\\\n\\\\t\\\\t\\\\treturn shadowParams\\.x;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat GetShadowFullDistance\\(\\) \\{\\\\n\\\\t\\\\t\\\\treturn shadowParams\\.y;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat GetShadowFadeDistance\\(\\) \\{\\\\n\\\\t\\\\t\\\\treturn shadowParams\\.z;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat GetBlurSize\\(\\) \\{\\\\n\\\\t\\\\t\\\\treturn shadowParams\\.w;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\n\\\\t\\\\tout vec3 v_shadowCoordinate;\\\\n\\\\t\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tvec3 GetShadowMapCoordinate\\(\\\\n\\\\t\\\\t\\\\tin vec3 position,\\\\n\\\\t\\\\t\\\\tin vec3 normal,\\\\n\\\\t\\\\t\\\\tin vec3 worldNormal,\\\\n\\\\t\\\\t\\\\tin vec3 lightDirection,\\\\n\\\\t\\\\t\\\\tin mat4 vertexSpaceToShadowMatrix\\\\n\\\\t\\\\t\\) \\{\\\\n\\\\t\\\\t\\\\tfloat cosAlpha = max\\(dot\\(worldNormal, -lightDirection\\), 0\\.0\\);\\\\n\\\\t\\\\t\\\\tfloat normalBiasScale = sqrt\\(1\\.0 - cosAlpha \\* cosAlpha\\); // sin\\(acos\\(L\u0412\xB7N\\)\\)\\\\n\\\\t\\\\t\\\\tfloat slopeBiasScale = min\\(normalBiasScale / cosAlpha, 2\\.0\\); // tan\\(acos\\(L\u0412\xB7N\\)\\)\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tfloat normalBias = ShadowMapNormalBias\\(\\) \\* normalBiasScale;\\\\n\\\\t\\\\t\\\\tvec3 positionWithOffset = position \\+ normal \\* normalBias;\\\\n\\\\t\\\\t\\\\tvec3 result = \\(vertexSpaceToShadowMatrix \\* vec4\\(positionWithOffset, 1\\.0\\)\\)\\.xyz;\\\\n\\\\t\\\\t\\\\t// remap \\[-1, 1\\] => \\[0, 1\\]\\.\\\\n\\\\t\\\\t\\\\tresult = \\(result \\+ vec3\\(1\\.0\\)\\) \\* 0\\.5;\\\\n\\\\t\\\\t\\\\t// todo\\(fominykh\\): \u0421\u0402\u0420\xB0\u0420\xB7\u0420\u0455\u0420\xB1\u0421\u0402\u0420\xB0\u0421\u201A\u0421\u040A\u0421\u0403\u0421\u040F, \u0420\u0405\u0420\xB0\u0421\u0403\u0420\u0454\u0420\u0455\u0420\xBB\u0421\u040A\u0420\u0454\u0420\u0455 \u0421\u040C\u0421\u201A\u0420\u0455 \u0420\xB0\u0420\u0491\u0420\xB5\u0420\u0454\u0420\u0406\u0420\xB0\u0421\u201A\u0420\u0405\u0421\u2039\u0420\u2116 \u0420\u0454\u0420\u0455\u0420\u0491\\. \u0420\u0459\u0420\xB0\u0420\xB6\u0420\xB5\u0421\u201A\u0421\u0403\u0421\u040F \u0421\u0403\u0421\u201A\u0421\u0402\u0420\xB0\u0420\u0405\u0420\u0405\u0421\u2039\u0420\u0458, \u0421\u2021\u0421\u201A\u0420\u0455 \u0420\u0458\u0421\u2039 \u0420\u0458\u0420\xB5\u0420\u0405\u0421\u040F\u0420\xB5\u0420\u0458 \u0420\u0454\u0420\u0455\u0420\u0455\u0421\u0402\u0420\u0491\u0420\u0451\u0420\u0405\u0420\xB0\u0421\u201A\u0421\u2039 \u0420\u0406\\\\n\\\\t\\\\t\\\\t// \u0420\u0405\u0420\u0455\u0421\u0402\u0420\u0458\u0420\xB0\u0420\xBB\u0420\u0451\u0420\xB7\u0420\u0455\u0420\u0406\u0420\xB0\u0420\u0405\u0420\u0405\u0420\u0455\u0420\u0458 \u0420\u0457\u0421\u0402\u0420\u0455\u0421\u0403\u0421\u201A\u0421\u0402\u0420\xB0\u0420\u0405\u0421\u0403\u0421\u201A\u0420\u0406\u0420\xB5\\. \u0420\u2019\u0420\u0455\u0420\xB7\u0420\u0458\u0420\u0455\u0420\xB6\u0420\u0405\u0420\u0455, \u0421\u040C\u0421\u201A\u0420\u0455 \u0420\u0457\u0421\u0402\u0420\xB0\u0420\u0406\u0420\u0451\u0420\xBB\u0421\u040A\u0420\u0405\u0420\u0455, \u0420\u0405\u0420\u0455 \u0420\u0405\u0420\xB5\u0420\u0455\u0421\u2021\u0420\xB5\u0420\u0406\u0420\u0451\u0420\u0491\u0420\u0405\u0420\u0455 \u0420\u0457\u0420\u0455\u0420\u0454\u0420\xB0\\.\\\\n\\\\t\\\\t\\\\tresult\\.z \\+= ShadowMapSlopeBias\\(\\) \\* slopeBiasScale;\\\\n\\\\t\\\\t\\\\tresult\\.z \\+= ShadowMapViewBias\\(\\);\\\\n\\\\t\\\\t\\\\treturn result;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tvoid SetOutputShadowMapCoordinate\\(\\\\n\\\\t\\\\t\\\\tin vec3 position,\\\\n\\\\t\\\\t\\\\tin vec3 normal,\\\\n\\\\t\\\\t\\\\tin vec3 worldNormal,\\\\n\\\\t\\\\t\\\\tin vec3 lightDirection,\\\\n\\\\t\\\\t\\\\tin mat4 vertexSpaceToShadowMatrix\\\\n\\\\t\\\\t\\) \\{\\\\n\\\\t\\\\t\\\\tv_shadowCoordinate = GetShadowMapCoordinate\\(position, normal, worldNormal, lightDirection, vertexSpaceToShadowMatrix\\);\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\n\\\\t\\\\tuniform mat4 shadowMVP;\\\\n\\\\t\\\\t#endif\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t#define USE_WIND "|'\\\\n		#if USE_SHADOW\\\\n		\\\\n		\\\\n		layout\\(std140\\) uniform ShadowParams \\{\\\\n			// x -- depth bias, y -- normal bias, z -- slope bias, w -- view bias\\\\n			vec4 shadowMapBias;\\\\n			// x -- strength, y -- full distance, z -- fade distance, w -- blur size\\\\n			vec4 shadowParams;\\\\n		\\};\\\\n		\\\\n		float ShadowMapDepthBias\\(\\) \\{\\\\n			return shadowMapBias\\.x;\\\\n		\\}\\\\n		\\\\n		float ShadowMapNormalBias\\(\\) \\{\\\\n			return max\\(shadowMapBias\\.y, 0\\.0001\\);\\\\n		\\}\\\\n		\\\\n		float ShadowMapSlopeBias\\(\\) \\{\\\\n			return shadowMapBias\\.z;\\\\n		\\}\\\\n		\\\\n		float ShadowMapViewBias\\(\\) \\{\\\\n			return shadowMapBias\\.w;\\\\n		\\}\\\\n		\\\\n		float GetShadowStrength\\(\\) \\{\\\\n			return shadowParams\\.x;\\\\n		\\}\\\\n		\\\\n		float GetShadowFullDistance\\(\\) \\{\\\\n			return shadowParams\\.y;\\\\n		\\}\\\\n		\\\\n		float GetShadowFadeDistance\\(\\) \\{\\\\n			return shadowParams\\.z;\\\\n		\\}\\\\n		\\\\n		float GetBlurSize\\(\\) \\{\\\\n			return shadowParams\\.w;\\\\n		\\}\\\\n	\\\\n		out vec3 v_shadowCoordinate;\\\\n	\\\\n		\\\\n		vec3 GetShadowMapCoordinate\\(\\\\n			in vec3 position,\\\\n			in vec3 normal,\\\\n			in vec3 worldNormal,\\\\n			in vec3 lightDirection,\\\\n			in mat4 vertexSpaceToShadowMatrix\\\\n		\\) \\{\\\\n			float cosAlpha = max\\(dot\\(worldNormal, -lightDirection\\), 0\\.0\\);\\\\n			float normalBiasScale = sqrt\\(1\\.0 - cosAlpha \\* cosAlpha\\); // sin\\(acos\\(L\u0412\xB7N\\)\\)\\\\n			float slopeBiasScale = min\\(normalBiasScale / cosAlpha, 2\\.0\\); // tan\\(acos\\(L\u0412\xB7N\\)\\)\\\\n			\\\\n			float normalBias = ShadowMapNormalBias\\(\\) \\* normalBiasScale;\\\\n			vec3 positionWithOffset = position \\+ normal \\* normalBias;\\\\n			vec3 result = \\(vertexSpaceToShadowMatrix \\* vec4\\(positionWithOffset, 1\\.0\\)\\)\\.xyz;\\\\n			// remap \\[-1, 1\\] => \\[0, 1\\]\\.\\\\n			result = \\(result \\+ vec3\\(1\\.0\\)\\) \\* 0\\.5;\\\\n			// todo\\(fominykh\\): \u0421\u0402\u0420\xB0\u0420\xB7\u0420\u0455\u0420\xB1\u0421\u0402\u0420\xB0\u0421\u201A\u0421\u040A\u0421\u0403\u0421\u040F, \u0420\u0405\u0420\xB0\u0421\u0403\u0420\u0454\u0420\u0455\u0420\xBB\u0421\u040A\u0420\u0454\u0420\u0455 \u0421\u040C\u0421\u201A\u0420\u0455 \u0420\xB0\u0420\u0491\u0420\xB5\u0420\u0454\u0420\u0406\u0420\xB0\u0421\u201A\u0420\u0405\u0421\u2039\u0420\u2116 \u0420\u0454\u0420\u0455\u0420\u0491\\. \u0420\u0459\u0420\xB0\u0420\xB6\u0420\xB5\u0421\u201A\u0421\u0403\u0421\u040F \u0421\u0403\u0421\u201A\u0421\u0402\u0420\xB0\u0420\u0405\u0420\u0405\u0421\u2039\u0420\u0458, \u0421\u2021\u0421\u201A\u0420\u0455 \u0420\u0458\u0421\u2039 \u0420\u0458\u0420\xB5\u0420\u0405\u0421\u040F\u0420\xB5\u0420\u0458 \u0420\u0454\u0420\u0455\u0420\u0455\u0421\u0402\u0420\u0491\u0420\u0451\u0420\u0405\u0420\xB0\u0421\u201A\u0421\u2039 \u0420\u0406\\\\n			// \u0420\u0405\u0420\u0455\u0421\u0402\u0420\u0458\u0420\xB0\u0420\xBB\u0420\u0451\u0420\xB7\u0420\u0455\u0420\u0406\u0420\xB0\u0420\u0405\u0420\u0405\u0420\u0455\u0420\u0458 \u0420\u0457\u0421\u0402\u0420\u0455\u0421\u0403\u0421\u201A\u0421\u0402\u0420\xB0\u0420\u0405\u0421\u0403\u0421\u201A\u0420\u0406\u0420\xB5\\. \u0420\u2019\u0420\u0455\u0420\xB7\u0420\u0458\u0420\u0455\u0420\xB6\u0420\u0405\u0420\u0455, \u0421\u040C\u0421\u201A\u0420\u0455 \u0420\u0457\u0421\u0402\u0420\xB0\u0420\u0406\u0420\u0451\u0420\xBB\u0421\u040A\u0420\u0405\u0420\u0455, \u0420\u0405\u0420\u0455 \u0420\u0405\u0420\xB5\u0420\u0455\u0421\u2021\u0420\xB5\u0420\u0406\u0420\u0451\u0420\u0491\u0420\u0405\u0420\u0455 \u0420\u0457\u0420\u0455\u0420\u0454\u0420\xB0\\.\\\\n			result\\.z \\+= ShadowMapSlopeBias\\(\\) \\* slopeBiasScale;\\\\n			result\\.z \\+= ShadowMapViewBias\\(\\);\\\\n			return result;\\\\n		\\}\\\\n	\\\\n		\\\\n		void SetOutputShadowMapCoordinate\\(\\\\n			in vec3 position,\\\\n			in vec3 normal,\\\\n			in vec3 worldNormal,\\\\n			in vec3 lightDirection,\\\\n			in mat4 vertexSpaceToShadowMatrix\\\\n		\\) \\{\\\\n			v_shadowCoordinate = GetShadowMapCoordinate\\(position, normal, worldNormal, lightDirection, vertexSpaceToShadowMatrix\\);\\\\n		\\}\\\\n	\\\\n		uniform mat4 shadowMVP;\\\\n		#endif\\\\n		\\\\n		#define USE_WIND ')\\s*\\+\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\?\\s*1\\s*:\\s*0\\s*\\)\\s*\\+\\s*(?:"\\\\n\\\\t\\\\t#if USE_WIND\\\\n        uniform float time;\\\\n        uniform highp sampler2D noiseTexture;\\\\n\\\\t\\\\t#endif\\\\n\\\\t\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t"|'\\\\n		#if USE_WIND\\\\n        uniform float time;\\\\n        uniform highp sampler2D noiseTexture;\\\\n		#endif\\\\n				\\\\n		')\\s*\\+\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*!\\s*0\\s*\\)\\s*\\+\\s*(?:"\\\\n        "|'\\\\n        ')\\s*\\+\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\+\\s*(?:"\\\\n\\\\t\\\\t\\\\t\\\\t\\\\t\\\\n\\\\t\\\\tvoid main\\(void\\) \\{\\\\t\\\\n\\\\t\\\\t\\\\tv_uv = uv;\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tvec3 worldNormal = normalize\\(normalToWorldMatrix \\* normal\\);\\\\n\\\\t\\\\t\\\\tv_illuminationFront = max\\(dot\\(worldNormal, -mainLightDirection\\), 0\\.\\);\\\\n\\\\t\\\\t\\\\tv_illuminationBack = max\\(dot\\(worldNormal, mainLightDirection\\), 0\\.\\);\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\t#if USE_WIND\\\\n\\\\t\\\\t\\\\tconst float windSpeed = 0\\.1;\\\\n\\\\t\\\\t\\\\tconst float windStrength = 10\\.;\\\\n            float noise = texture\\(noiseTexture, \\(position\\.xy \\+ time\\) \\* windSpeed\\)\\.a;\\\\n\\\\t\\\\t\\\\tvec3 positionOffset = noise \\* vec3\\(windStrength, windStrength, 0\\.\\);\\\\n\\\\t\\\\t\\\\t#else\\\\n\\\\t\\\\t\\\\tvec3 positionOffset = vec3\\(0\\.\\);\\\\n\\\\t\\\\t\\\\t#endif\\\\n\\\\n\\\\t\\\\t\\\\tvec3 localPosition = position \\+ positionOffset;\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\t#if USE_SHADOW\\\\n\\\\t\\\\t\\\\tSetOutputShadowMapCoordinate\\(\\\\n\\\\t\\\\t\\\\t\\\\tlocalPosition,\\\\n\\\\t\\\\t\\\\t\\\\tnormal,\\\\n\\\\t\\\\t\\\\t\\\\tworldNormal,\\\\n\\\\t\\\\t\\\\t\\\\tmainLightDirection,\\\\n\\\\t\\\\t\\\\t\\\\tshadowMVP\\\\n\\\\t\\\\t\\\\t\\);\\\\n\\\\t\\\\t\\\\t#endif\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tgl_Position = mvp \\* vec4\\(localPosition, 1\\.0\\);\\\\n\\\\n\\\\t\\\\t\\\\t"|'\\\\n					\\\\n		void main\\(void\\) \\{	\\\\n			v_uv = uv;\\\\n			\\\\n			vec3 worldNormal = normalize\\(normalToWorldMatrix \\* normal\\);\\\\n			v_illuminationFront = max\\(dot\\(worldNormal, -mainLightDirection\\), 0\\.\\);\\\\n			v_illuminationBack = max\\(dot\\(worldNormal, mainLightDirection\\), 0\\.\\);\\\\n			\\\\n			#if USE_WIND\\\\n			const float windSpeed = 0\\.1;\\\\n			const float windStrength = 10\\.;\\\\n            float noise = texture\\(noiseTexture, \\(position\\.xy \\+ time\\) \\* windSpeed\\)\\.a;\\\\n			vec3 positionOffset = noise \\* vec3\\(windStrength, windStrength, 0\\.\\);\\\\n			#else\\\\n			vec3 positionOffset = vec3\\(0\\.\\);\\\\n			#endif\\\\n\\\\n			vec3 localPosition = position \\+ positionOffset;\\\\n			\\\\n			#if USE_SHADOW\\\\n			SetOutputShadowMapCoordinate\\(\\\\n				localPosition,\\\\n				normal,\\\\n				worldNormal,\\\\n				mainLightDirection,\\\\n				shadowMVP\\\\n			\\);\\\\n			#endif\\\\n			\\\\n			gl_Position = mvp \\* vec4\\(localPosition, 1\\.0\\);\\\\n\\\\n			')\\s*\\+\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"position"|'position')\\s*\\)\\s*\\+\\s*(?:"\\\\n            "|'\\\\n            ')\\s*\\+\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*(?:"localPosition"|'localPosition')\\s*\\)\\s*\\+\\s*(?:"\\\\n\\\\t\\\\t\\}\\\\n\\\\t"|'\\\\n		\\}\\\\n	')(?<e1start>)(?<e1end>)`,
+                roles: {},
+                count: 1,
+                search: {
+                  literal: "localPosition",
+                  margin: 35712
+                },
+                edits: [
+                  {
+                    start: "e0start",
+                    end: "e0end",
+                    parts: [
+                      "((_kiShader)=>{try{return window.__kaspRain?.treeShader(_kiShader,false)??_kiShader;}catch(_kiTreeError){return _kiShader;}})("
+                    ]
+                  },
+                  {
+                    start: "e1start",
+                    end: "e1end",
+                    parts: [
+                      ")"
+                    ]
+                  }
+                ]
+              },
+              {
+                pattern: `(?<![$\\w])\\s*return(?![$\\w])\\s*(?<e0start>)(?<e0end>)(?:"\\\\n\\\\t\\\\t"|'\\\\n		')\\s*\\+\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"USE_FOG"|'USE_FOG')\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\+\\s*(?:"\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t#if USE_FOG\\\\n\\\\t\\\\tuniform vec4 uFogColor;\\\\n\\\\t\\\\t#endif\\\\n\\\\n\\\\t\\\\tuniform samplerCube skyboxTexture;\\\\n\\\\t\\\\tin vec3 texCoord;\\\\n\\\\n\\\\t\\\\tvoid main\\(\\) \\{\\\\n\\\\t\\\\t\\\\tvec4 color = texture\\(skyboxTexture, texCoord\\);\\\\n\\\\t\\\\t\\\\t#if USE_FOG\\\\n\\\\t\\\\t\\\\tcolor\\.rgb = mix\\(color\\.rgb, uFogColor\\.rgb, uFogColor\\.a\\);\\\\n\\\\t\\\\t\\\\t#endif\\\\n\\\\t\\\\t\\\\toutColor0 = color;\\\\n\\\\t\\\\t\\}\\\\n\\\\t"|'\\\\n		\\\\n		#if USE_FOG\\\\n		uniform vec4 uFogColor;\\\\n		#endif\\\\n\\\\n		uniform samplerCube skyboxTexture;\\\\n		in vec3 texCoord;\\\\n\\\\n		void main\\(\\) \\{\\\\n			vec4 color = texture\\(skyboxTexture, texCoord\\);\\\\n			#if USE_FOG\\\\n			color\\.rgb = mix\\(color\\.rgb, uFogColor\\.rgb, uFogColor\\.a\\);\\\\n			#endif\\\\n			outColor0 = color;\\\\n		\\}\\\\n	')(?<e1start>)(?<e1end>)`,
+                roles: {},
+                count: 1,
+                search: {
+                  literal: "USE_FOG",
+                  margin: 3336
+                },
+                edits: [
+                  {
+                    start: "e0start",
+                    end: "e0end",
+                    parts: [
+                      "((_kiSky)=>{try{return window.__kaspRain?.skyShader(_kiSky)??_kiSky;}catch(_kiSkyError){return _kiSky;}})("
+                    ]
+                  },
+                  {
+                    start: "e1start",
+                    end: "e1end",
+                    parts: [
+                      ")"
+                    ]
+                  }
+                ]
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*\\(?\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"mvp"|'mvp')\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\(\\s*(?:"skyboxTexture"|'skyboxTexture')\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\(\\s*(?:"uFogColor"|'uFogColor')\\s*\\)\\s*\\)\\s*\\)?\\s*;?\\s*\\}`,
+                roles: {
+                  scene_skySampler: "s6"
+                },
+                count: 1,
+                search: {
+                  literal: "skyboxTexture",
+                  margin: 1824
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\(?\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*!\\s*1\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\*\\s*this(?![$\\w])\\s*\\.\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*34067\\s*\\)\\s*\\)?\\s*;?\\s*(?<e1start>)(?<e1end>)\\}",
+                roles: {
+                  gl: "s10",
+                  scene_skySampler: "s24"
+                },
+                count: 1,
+                search: {
+                  margin: 2736
+                },
+                edits: [
+                  {
+                    start: "e1start",
+                    end: "e1end",
+                    parts: [
+                      ";try{window.__kaspRain?.skyUniform(",
+                      {
+                        capture: "s3",
+                        quoted: false
+                      },
+                      ".",
+                      {
+                        role: "gl",
+                        quoted: false
+                      },
+                      ".",
+                      {
+                        role: "context",
+                        quoted: false
+                      },
+                      ");}catch(_kiSkyError){}"
+                    ]
+                  }
+                ]
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*(?:"\\\\n        "|'\\\\n        ')\\s*\\+\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"USE_FOG"|'USE_FOG')\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\+\\s*(?:"\\\\n        #if USE_FOG\\\\n\\\\t\\\\t\\\\tuniform vec4 uFogColor;\\\\n\\\\t\\\\t\\\\tuniform vec3 uFogParams;\\\\n\\\\t\\\\t\\\\tin vec3 v_viewPosition;\\\\n\\\\t\\\\t#endif        \\\\n    "|'\\\\n        #if USE_FOG\\\\n			uniform vec4 uFogColor;\\\\n			uniform vec3 uFogParams;\\\\n			in vec3 v_viewPosition;\\\\n		#endif        \\\\n    ')\\s*;?\\s*\\}`,
+                roles: {
+                  scene_nativeFogClass: "s1"
+                },
+                count: 1,
+                search: {
+                  literal: "\n        ",
+                  margin: 2336
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*\\(?\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*,\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\)\\s*,\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<e1start>)(?<e1end>)\\k<s9>(?![$\\w])(?<e2start>)(?<e2end>)\\s*\\)\\s*\\)?\\s*;?\\s*\\}",
+                roles: {
+                  gl: "s11",
+                  scene_nativeFogClass: "s1",
+                  scene_nativeFogBinder7: "s2"
+                },
+                count: 1,
+                search: {
+                  margin: 1592
+                },
+                edits: [
+                  {
+                    start: "e1start",
+                    end: "e1end",
+                    parts: [
+                      "((_kiFog)=>{try{return window.__kaspRain?.nativeFogStrength(_kiFog)??_kiFog;}catch(_kiFogError){return _kiFog;}})("
+                    ]
+                  },
+                  {
+                    start: "e2start",
+                    end: "e2end",
+                    parts: [
+                      ")"
+                    ]
+                  }
+                ]
+              },
+              {
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*\\(?\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*,\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<e1start>)(?<e1end>)\\k<s7>(?![$\\w])(?<e2start>)(?<e2end>)\\s*\\)\\s*\\)?\\s*;?\\s*\\}",
+                roles: {
+                  gl: "s9",
+                  scene_nativeFogClass: "s1",
+                  scene_nativeFogBinder5: "s2"
+                },
+                count: 1,
+                search: {
+                  margin: 1392
+                },
+                edits: [
+                  {
+                    start: "e1start",
+                    end: "e1end",
+                    parts: [
+                      "((_kiFog)=>{try{return window.__kaspRain?.nativeFogStrength(_kiFog)??_kiFog;}catch(_kiFogError){return _kiFog;}})("
+                    ]
+                  },
+                  {
+                    start: "e2start",
+                    end: "e2end",
+                    parts: [
+                      ")"
+                    ]
+                  }
+                ]
+              },
+              {
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\(?\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*!\\s*1\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<e1start>)(?<e1end>)\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\*\\s*this(?![$\\w])\\s*\\.\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])(?<e2start>)(?<e2end>)\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*34067\\s*\\)\\s*\\)?\\s*;?\\s*\\}",
+                roles: {
+                  gl: "s10",
+                  red: "s17",
+                  green: "s18",
+                  blue: "s19"
+                },
+                count: 1,
+                search: {
+                  margin: 2736
+                },
+                edits: [
+                  {
+                    start: "e1start",
+                    end: "e1end",
+                    parts: [
+                      "((_kiFog)=>{try{return window.__kaspRain?.nativeFogStrength(_kiFog)??_kiFog;}catch(_kiFogError){return _kiFog;}})("
+                    ]
+                  },
+                  {
+                    start: "e2start",
+                    end: "e2end",
+                    parts: [
+                      ")"
+                    ]
+                  }
+                ]
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*new(?![$\\w])\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"DropZones"|'DropZones')\\s*,\\s*8\\s*\\)`,
+                roles: {
+                  scene_dropZoneEnum: "s0"
+                },
+                count: 1,
+                search: {
+                  literal: "DropZones",
+                  margin: 464
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\(?\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)?\\s*;?\\s*\\}",
+                roles: {
+                  scene_dropZoneEnum: "s2",
+                  scene_dropZoneLayer: "s0"
+                },
+                count: 1,
+                search: {
+                  literal: "DropZones",
+                  margin: 4128
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*\\(?\\s*this(?![$\\w])\\s*\\.\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<e1start>)(?<e1end>)(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)(?<e2start>)(?<e2end>)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*32926\\s*\\)\\s*\\)?",
+                roles: {
+                  gl: "s6",
+                  scene_dropZoneLayer: "s2"
+                },
+                count: 1,
+                search: {
+                  margin: 880
+                },
+                edits: [
+                  {
+                    start: "e1start",
+                    end: "e1end",
+                    parts: [
+                      "(()=>{let _kiDropRestore;try{_kiDropRestore=window.__kaspRain?.dropZones(this.",
+                      {
+                        role: "gl",
+                        quoted: false
+                      },
+                      ".",
+                      {
+                        role: "context",
+                        quoted: false
+                      },
+                      ");}catch(_kiDropError){}try{return "
+                    ]
+                  },
+                  {
+                    start: "e2start",
+                    end: "e2end",
+                    parts: [
+                      ";}finally{try{_kiDropRestore?.();}catch(_kiDropError){}}})()"
+                    ]
+                  }
+                ]
               }
             ],
             schema: {
@@ -18423,6 +21169,1594 @@ o=vec4(vec3(.72,.81,.87)*a,a);
               green: "m2r_1",
               blue: "n2r_1",
               alpha: "o2r_1"
+            },
+            scene: {
+              capabilities: {
+                map: true,
+                lighting: true,
+                tanks: true,
+                environment: true,
+                treeWind: true,
+                skyTone: true,
+                fogSuppression: true,
+                dropZones: true
+              },
+              issues: []
+            }
+          },
+          {
+            format: "ki-rain-v2",
+            sourceLength: 10071113,
+            sha256: "bac40d5419885cafe832afc8968fd2c4e570f232fdce8dad25e1fc852df41e6d",
+            status: {
+              ready: true,
+              issues: []
+            },
+            edits: [
+              {
+                start: 1310503,
+                end: 1310503,
+                expected: "",
+                before: "t().k7k().x57(),t.shj_1,",
+                after: "t.l2a(),n.dhj_1))},nt(dE",
+                text: "((_kiParams)=>{try{window.__kaspRain?.environment(String(ot().k7k().x57()),String(_kiParams.vbz_1));}catch(_kiEnvironmentError){}return _kiParams;})("
+              },
+              {
+                start: 1310510,
+                end: 1310510,
+                expected: "",
+                before: "().x57(),t.shj_1,t.l2a()",
+                after: ",n.dhj_1))},nt(dE).d7k=f",
+                text: ")"
+              },
+              {
+                start: 7982502,
+                end: 7982502,
+                expected: "",
+                before: "r=n.q8f(),e=i8(i.s7w());",
+                after: "t.y102_1&&e.v2a(i8(i.t7w",
+                text: ';try{window.__kaspRain?.map(i.s7w(),{"boxes":"g7x_1","planes":"h7x_1","triangles":"i7x_1","boxPosition":"z7w_1","boxRotation":"a7x_1","size":"b7x_1","planePosition":"p7x_1","planeRotation":"q7x_1","trianglePosition":"y7x_1","triangleRotation":"z7x_1","v0":"a7y_1","v1":"b7y_1","v2":"c7y_1","width":"r7x_1","length":"o7x_1","count":"e1","get":"g1","x":"a81_1","y":"b81_1","z":"c81_1"});}catch(_kiMapError){}'
+              },
+              {
+                start: 8294337,
+                end: 8294337,
+                expected: "",
+                before: ".rbk().w9j(p)}while(c<l)",
+                after: "},Zq(ejt).az4=function(t",
+                text: ';try{window.__kaspRain?.hull(this,n.e14g_1,n.f14g_1,Object.assign({"position":"dzr_1","size":"zzq_1","active":"xzq_1","matrix":"fzr_1","m0":"g22_1","m1":"h22_1","m2":"i22_1","m4":"j22_1","m5":"k22_1","m6":"l22_1","m8":"m22_1","m9":"n22_1","m10":"o22_1","m12":"y23_1","m13":"z23_1","m14":"a24_1","halfSize":"o14g_1","boxMatrix":"p14g_1","count":"e1","get":"g1"},{"gl":"y39_1","context":"f75_1","vp":"g37_1","camera":"t35_1","x":"f20_1","y":"g20_1","z":"h20_1","settings":"y38_1","fogEnabled":"n3o_1","mapFog":"o3o_1","fogStart":"c3a_1","fogEnd":"b3a_1","fogColor":"d3a_1","red":"l2r_1","green":"m2r_1","blue":"n2r_1","alpha":"o2r_1"}));}catch(_kiHullError){}'
+              },
+              {
+                start: 8297715,
+                end: 8297715,
+                expected: "",
+                before: ".g1(e).tyz(t)}while(i<r)",
+                after: "},Zq(ejt).t9q=function(t",
+                text: ';try{window.__kaspRain?.tank(this,Object.assign({"position":"dzr_1","size":"zzq_1","active":"xzq_1","matrix":"fzr_1","m0":"g22_1","m1":"h22_1","m2":"i22_1","m4":"j22_1","m5":"k22_1","m6":"l22_1","m8":"m22_1","m9":"n22_1","m10":"o22_1","m12":"y23_1","m13":"z23_1","m14":"a24_1","halfSize":"o14g_1","boxMatrix":"p14g_1","count":"e1","get":"g1"},{"gl":"y39_1","context":"f75_1","vp":"g37_1","camera":"t35_1","x":"f20_1","y":"g20_1","z":"h20_1","settings":"y38_1","fogEnabled":"n3o_1","mapFog":"o3o_1","fogStart":"c3a_1","fogEnd":"b3a_1","fogColor":"d3a_1","red":"l2r_1","green":"m2r_1","blue":"n2r_1","alpha":"o2r_1"}));}catch(_kiTankError){}'
+              },
+              {
+                start: 9620130,
+                end: 9620130,
+                expected: "",
+                before: "]=o.g20_1,_[10]=o.h20_1,",
+                after: "this.q3b_1.l3q(this.y39_",
+                text: "(()=>{let _kiLightRestore;try{_kiLightRestore=window.__kaspRain?.lighting(this.q3b_1.h3q_1);}catch(_kiLightError){}try{return "
+              },
+              {
+                start: 9620156,
+                end: 9620156,
+                expected: "",
+                before: "is.q3b_1.l3q(this.y39_1)",
+                after: ",t.i3l(n,this),this.r3r(",
+                text: "}finally{try{_kiLightRestore?.();}catch(_kiLightError){}}})()"
+              },
+              {
+                start: 9622455,
+                end: 9622455,
+                expected: "",
+                before: "),this.u3r()}this.v3r(),",
+                after: "ef(this,Rl(),n),this.w3r",
+                text: "(()=>{let _kiDropRestore;try{_kiDropRestore=window.__kaspRain?.dropZones(this.y39_1.f75_1);}catch(_kiDropError){}try{return "
+              },
+              {
+                start: 9622470,
+                end: 9622470,
+                expected: "",
+                before: "is.v3r(),ef(this,Rl(),n)",
+                after: ",this.w3r(),this.a3a_1&&",
+                text: ";}finally{try{_kiDropRestore?.();}catch(_kiDropError){}}})()"
+              },
+              {
+                start: 9622774,
+                end: 9622774,
+                expected: "",
+                before: "3j(this,n)}while(ut<st);",
+                after: "this.v3r(),this.b3p(),th",
+                text: ';try{window.__kaspRain?.frame(this,arguments[0],arguments[1],{"gl":"y39_1","context":"f75_1","vp":"g37_1","camera":"t35_1","x":"f20_1","y":"g20_1","z":"h20_1","settings":"y38_1","fogEnabled":"n3o_1","mapFog":"o3o_1","fogStart":"c3a_1","fogEnd":"b3a_1","fogColor":"d3a_1","red":"l2r_1","green":"m2r_1","blue":"n2r_1","alpha":"o2r_1"},"sky");}catch(_kiRainError){}'
+              },
+              {
+                start: 9623529,
+                end: 9623529,
+                expected: "",
+                before: ".s3r(),of(this,770,771);",
+                after: "var lt=this.g39_1[Gl().k",
+                text: ';try{window.__kaspRain?.frame(this,arguments[0],arguments[1],{"gl":"y39_1","context":"f75_1","vp":"g37_1","camera":"t35_1","x":"f20_1","y":"g20_1","z":"h20_1","settings":"y38_1","fogEnabled":"n3o_1","mapFog":"o3o_1","fogStart":"c3a_1","fogEnd":"b3a_1","fogColor":"d3a_1","red":"l2r_1","green":"m2r_1","blue":"n2r_1","alpha":"o2r_1"},"weather");}catch(_kiRainError){}'
+              },
+              {
+                start: 9773803,
+                end: 9773803,
+                expected: "",
+                before: "q).p3h=function(){return",
+                after: '"\\n\\t\\t"+b$("USE_FOG",th',
+                text: "((_kiSky)=>{try{return window.__kaspRain?.skyShader(_kiSky)??_kiSky;}catch(_kiSkyError){return _kiSky;}})("
+              },
+              {
+                start: 9774176,
+                end: 9774176,
+                expected: "",
+                before: 'or0 = color;\\n\\t\\t}\\n\\t"',
+                after: "},Is(qq).v62=function(t,",
+                text: ")"
+              },
+              {
+                start: 9774327,
+                end: 9774327,
+                expected: "",
+                before: "a_1.m2r_1,t.d3a_1.n2r_1,",
+                after: "t.d3a_1.o2r_1*this.u62_1",
+                text: "((_kiFog)=>{try{return window.__kaspRain?.nativeFogStrength(_kiFog)??_kiFog;}catch(_kiFogError){return _kiFog;}})("
+              },
+              {
+                start: 9774351,
+                end: 9774351,
+                expected: "",
+                before: "t.d3a_1.o2r_1*this.u62_1",
+                after: "),t.d3w(xf(),e.n62_1,thi",
+                text: ")"
+              },
+              {
+                start: 9774389,
+                end: 9774389,
+                expected: "",
+                before: ".n62_1,this.t62_1,34067)",
+                after: "},Is(jq).h40=function(t,",
+                text: ";try{window.__kaspRain?.skyUniform(t.y39_1.f75_1);}catch(_kiSkyError){}"
+              },
+              {
+                start: 9784894,
+                end: 9784894,
+                expected: "",
+                before: "$).o3h=function(){return",
+                after: '"\\n\\t\\tuniform mat4 view',
+                text: "((_kiShader)=>{try{return window.__kaspRain?.treeShader(_kiShader,true)??_kiShader;}catch(_kiTreeError){return _kiShader;}})("
+              },
+              {
+                start: 9787498,
+                end: 9787498,
+                expected: "",
+                before: 'rldPosition;\\n\\t\\t}\\n\\t"',
+                after: "},Is(h$).p3h=function(){",
+                text: ")"
+              },
+              {
+                start: 9787946,
+                end: 9787946,
+                expected: "",
+                before: "$).o3h=function(){return",
+                after: '"\\n\\t\\t\\n\\t\\t\\t#ifndef C',
+                text: "((_kiShader)=>{try{return window.__kaspRain?.treeShader(_kiShader,true)??_kiShader;}catch(_kiTreeError){return _kiShader;}})("
+              },
+              {
+                start: 9791433,
+                end: 9791433,
+                expected: "",
+                before: 'rldPosition;\\n\\t\\t}\\n\\t"',
+                after: "},Is(c$).p3h=function(){",
+                text: ")"
+              },
+              {
+                start: 9792644,
+                end: 9792644,
+                expected: "",
+                before: "$).o3h=function(){return",
+                after: '"\\n\\t\\t\\n\\t\\t\\t#ifndef C',
+                text: "((_kiShader)=>{try{return window.__kaspRain?.treeShader(_kiShader,true)??_kiShader;}catch(_kiTreeError){return _kiShader;}})("
+              },
+              {
+                start: 9799535,
+                end: 9799535,
+                expected: "",
+                before: 'rldPosition;\\n\\t\\t}\\n\\t"',
+                after: "},Is(p$).p3h=function(){",
+                text: ")"
+              },
+              {
+                start: 9808765,
+                end: 9808765,
+                expected: "",
+                before: "$).o3h=function(){return",
+                after: '"\\n\\t\\t\\n\\t\\t#ifndef LIG',
+                text: "((_kiShader)=>{try{return window.__kaspRain?.treeShader(_kiShader,false)??_kiShader;}catch(_kiTreeError){return _kiShader;}})("
+              },
+              {
+                start: 9813020,
+                end: 9813020,
+                expected: "",
+                before: 'Position")+"\\n\\t\\t}\\n\\t"',
+                after: "},Is(m$).p3h=function(){",
+                text: ")"
+              },
+              {
+                start: 9822082,
+                end: 9822082,
+                expected: "",
+                before: "t.y39_1,t.e3a_1,t.f3a_1,",
+                after: "s)},Is(B$).s5m=function(",
+                text: "((_kiFog)=>{try{return window.__kaspRain?.nativeFogStrength(_kiFog)??_kiFog;}catch(_kiFogError){return _kiFog;}})("
+              },
+              {
+                start: 9822083,
+                end: 9822083,
+                expected: "",
+                before: ".y39_1,t.e3a_1,t.f3a_1,s",
+                after: ")},Is(B$).s5m=function(t",
+                text: ")"
+              },
+              {
+                start: 9822318,
+                end: 9822318,
+                expected: "",
+                before: "t.y39_1,t.e3a_1,t.f3a_1,",
+                after: "e)},Is(B$).e41=function(",
+                text: "((_kiFog)=>{try{return window.__kaspRain?.nativeFogStrength(_kiFog)??_kiFog;}catch(_kiFogError){return _kiFog;}})("
+              },
+              {
+                start: 9822319,
+                end: 9822319,
+                expected: "",
+                before: ".y39_1,t.e3a_1,t.f3a_1,e",
+                after: ")},Is(B$).e41=function(t",
+                text: ")"
+              }
+            ],
+            templates: [
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*new(?![$\\w])\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"SkyBox"|'SkyBox')\\s*,\\s*5\\s*\\)`,
+                roles: {
+                  skyEnum: "s0"
+                },
+                count: 1,
+                search: {
+                  literal: "SkyBox",
+                  margin: 416
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\(?\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])",
+                roles: {
+                  skyEnum: "s2",
+                  skyLayer: "s0"
+                },
+                count: 1,
+                search: {
+                  literal: "SkyBox",
+                  margin: 2526
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*var(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\[\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\]\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*0\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*<\\s*\\k<s5>(?![$\\w])\\s*\\)\\s*do(?![$\\w])\\s*\\{\\s*var(?![$\\w])\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*;\\(?\\s*\\s*\\k<s4>(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\+\\s*1\\s*\\|\\s*0\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)?\\s*;?\\s*\\}\\s*while(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*<\\s*\\k<s5>(?![$\\w])\\s*\\)\\s*;(?<e1start>)(?<e1end>)",
+                roles: {
+                  skyLayer: "s2"
+                },
+                count: 1,
+                search: {
+                  margin: 1152
+                },
+                edits: [
+                  {
+                    start: "e1start",
+                    end: "e1end",
+                    parts: [
+                      ';try{window.__kaspRain?.frame(this,arguments[0],arguments[1],__KI_RAIN_SCHEMA__,"sky");}catch(_kiRainError){}'
+                    ]
+                  }
+                ]
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*new(?![$\\w])\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"SpritesOnTop"|'SpritesOnTop')\\s*,\\s*18\\s*\\)`,
+                roles: {
+                  spriteEnum: "s0"
+                },
+                count: 1,
+                search: {
+                  literal: "SpritesOnTop",
+                  margin: 472
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\(?\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])",
+                roles: {
+                  spriteEnum: "s2",
+                  spriteLayer: "s0"
+                },
+                count: 1,
+                search: {
+                  literal: "SpritesOnTop",
+                  margin: 2510
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*0\\s*\\)\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*,\\s*16\\s*\\)\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*,\\s*32\\s*\\)\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*,\\s*48\\s*\\)\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*,\\s*64\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*68\\s*\\]\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*69\\s*\\]\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])",
+                roles: {
+                  gl: "s12",
+                  vp: "s5",
+                  settings: "s13"
+                },
+                count: 1,
+                search: {
+                  margin: 1496
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*this(?![$\\w])\\s*\\.\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*1\\s*/\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*-\\s*this(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)",
+                roles: {
+                  fogStart: "s2",
+                  fogEnd: "s1"
+                },
+                count: 1,
+                search: {
+                  margin: 544
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*\\)\\s*,\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*,\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s9>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s11>(?![$\\w])\\s*\\)\\s*,\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s9>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*\\k<s14>(?![$\\w])\\s*\\)\\s*,\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s15>(?![$\\w])\\s*,\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s9>(?![$\\w])\\s*\\.\\s*\\k<s13>(?![$\\w])\\s*\\(\\s*\\k<s17>(?![$\\w])\\s*\\)\\s*,\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s9>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\(\\s*\\k<s19>(?![$\\w])\\s*\\)\\s*,\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s6>(?![$\\w])\\s*\\.\\s*\\k<s20>(?![$\\w])\\s*,\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s9>(?![$\\w])\\s*\\.\\s*\\k<s13>(?![$\\w])\\s*\\(\\s*\\k<s22>(?![$\\w])\\s*\\)\\s*,\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s18>(?![$\\w])\\s*\\*\\s*\\k<s21>(?![$\\w])\\s*,\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s18>(?![$\\w])\\s*\\*\\s*\\k<s23>(?![$\\w])\\s*,\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\(?\\s*\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*0\\s*\\]\\s*=\\s*\\k<s16>(?![$\\w])\\s*\\*\\s*\\k<s21>(?![$\\w])\\s*,\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*1\\s*\\]\\s*=\\s*\\k<s12>(?![$\\w])\\s*\\*\\s*\\k<s24>(?![$\\w])\\s*-\\s*\\k<s8>(?![$\\w])\\s*\\*\\s*\\k<s23>(?![$\\w])\\s*,\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*2\\s*\\]\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\*\\s*\\k<s24>(?![$\\w])\\s*\\+\\s*\\k<s12>(?![$\\w])\\s*\\*\\s*\\k<s23>(?![$\\w])\\s*,\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*3\\s*\\]\\s*=\\s*0\\s*,\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*4\\s*\\]\\s*=\\s*\\k<s16>(?![$\\w])\\s*\\*\\s*\\k<s23>(?![$\\w])\\s*,\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*5\\s*\\]\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\*\\s*\\k<s21>(?![$\\w])\\s*\\+\\s*\\k<s12>(?![$\\w])\\s*\\*\\s*\\k<s25>(?![$\\w])\\s*,\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*6\\s*\\]\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\*\\s*\\k<s25>(?![$\\w])\\s*-\\s*\\k<s12>(?![$\\w])\\s*\\*\\s*\\k<s21>(?![$\\w])\\s*,\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*7\\s*\\]\\s*=\\s*0\\s*,\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*8\\s*\\]\\s*=\\s*-\\s*\\k<s18>(?![$\\w])\\s*,\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*9\\s*\\]\\s*=\\s*\\k<s12>(?![$\\w])\\s*\\*\\s*\\k<s16>(?![$\\w])\\s*,\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*10\\s*\\]\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\*\\s*\\k<s16>(?![$\\w])\\s*,\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*11\\s*\\]\\s*=\\s*0\\s*,\\s*\\k<s4>(?![$\\w])\\s*=\\s*\\k<s26>(?![$\\w])\\s*,\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s28>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\[\\s*0\\s*\\]\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*\\k<s15>(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\[\\s*4\\s*\\]\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*\\k<s20>(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\[\\s*8\\s*\\]\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*(?<s29>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s30>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\[\\s*2\\s*\\]\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s30>(?![$\\w])\\s*\\.\\s*\\k<s15>(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\[\\s*6\\s*\\]\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s30>(?![$\\w])\\s*\\.\\s*\\k<s20>(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\[\\s*10\\s*\\]\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s30>(?![$\\w])\\s*\\.\\s*\\k<s29>(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s31>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\[\\s*1\\s*\\]\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s31>(?![$\\w])\\s*\\.\\s*\\k<s15>(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\[\\s*5\\s*\\]\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s31>(?![$\\w])\\s*\\.\\s*\\k<s20>(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\[\\s*9\\s*\\]\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s31>(?![$\\w])\\s*\\.\\s*\\k<s29>(?![$\\w])\\s*\\(\\s*\\)\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s32>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s33>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*,\\s*(?<s34>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s33>(?![$\\w])\\s*\\.\\s*\\k<s15>(?![$\\w])\\s*,\\s*(?<s35>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s33>(?![$\\w])\\s*\\.\\s*\\k<s20>(?![$\\w])\\s*;\\(?\\s*\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*12\\s*\\]\\s*=\\s*-\\s*\\(\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*0\\s*\\]\\s*\\*\\s*\\k<s32>(?![$\\w])\\s*\\+\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*4\\s*\\]\\s*\\*\\s*\\k<s34>(?![$\\w])\\s*\\+\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*8\\s*\\]\\s*\\*\\s*\\k<s35>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*13\\s*\\]\\s*=\\s*-\\s*\\(\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*1\\s*\\]\\s*\\*\\s*\\k<s32>(?![$\\w])\\s*\\+\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*5\\s*\\]\\s*\\*\\s*\\k<s34>(?![$\\w])\\s*\\+\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*9\\s*\\]\\s*\\*\\s*\\k<s35>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*14\\s*\\]\\s*=\\s*-\\s*\\(\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*2\\s*\\]\\s*\\*\\s*\\k<s32>(?![$\\w])\\s*\\+\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*6\\s*\\]\\s*\\*\\s*\\k<s34>(?![$\\w])\\s*\\+\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*10\\s*\\]\\s*\\*\\s*\\k<s35>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s26>(?![$\\w])\\s*\\[\\s*15\\s*\\]\\s*=\\s*1\\s*,\\s*(?<s36>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s26>(?![$\\w])\\s*,\\s*1\\s*,\\s*2\\s*\\)\\s*,\\s*\\k<s36>(?![$\\w])\\s*\\(\\s*\\k<s26>(?![$\\w])\\s*,\\s*5\\s*,\\s*6\\s*\\)\\s*,\\s*\\k<s36>(?![$\\w])\\s*\\(\\s*\\k<s26>(?![$\\w])\\s*,\\s*9\\s*,\\s*10\\s*\\)\\s*,\\s*\\k<s36>(?![$\\w])\\s*\\(\\s*\\k<s26>(?![$\\w])\\s*,\\s*13\\s*,\\s*14\\s*\\)\\s*,\\s*(?<s37>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*\\k<s27>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s38>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)?\\s*;?\\s*\\}",
+                roles: {
+                  camera: "s33",
+                  x: "s7",
+                  y: "s15",
+                  z: "s20"
+                },
+                count: 1,
+                search: {
+                  margin: 6864
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s6>depthRange)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*;?\\s*\\}",
+                roles: {
+                  context: "s5",
+                  depthRangeMethod: "s6"
+                },
+                count: 1,
+                search: {
+                  margin: 728
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\(?\\s*\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*!\\s*1\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\*\\s*this(?![$\\w])\\s*\\.\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*34067\\s*\\)\\s*\\)?\\s*;?\\s*\\}",
+                roles: {
+                  gl: "s10",
+                  fogColor: "s16",
+                  red: "s17",
+                  green: "s18",
+                  blue: "s19",
+                  alpha: "s20"
+                },
+                count: 1,
+                search: {
+                  margin: 1952
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*return(?![$\\w])\\s*new(?![$\\w])\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*;?\\s*\\}",
+                roles: {
+                  settings: "s5",
+                  fogEnabled: "s8",
+                  mapFog: "s7"
+                },
+                count: 1,
+                search: {
+                  margin: 1640
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*(?<e0start>)(?<e0end>)var(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\[\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\]\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*0\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;",
+                roles: {
+                  spriteLayer: "s2"
+                },
+                count: 1,
+                search: {
+                  margin: 616
+                },
+                edits: [
+                  {
+                    start: "e0start",
+                    end: "e0end",
+                    parts: [
+                      ';try{window.__kaspRain?.frame(this,arguments[0],arguments[1],__KI_RAIN_SCHEMA__,"weather");}catch(_kiRainError){}'
+                    ]
+                  }
+                ]
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*toString\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?:"CollisionGeometry \\["|'CollisionGeometry \\[')\\s*;\\s*return(?![$\\w])\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\k<s2>(?![$\\w])\\s*\\+\\s*(?:"boxes = "|'boxes = ')\\s*\\+\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"planes = "|'planes = ')\\s*\\+\\s*\\k<s3>(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"triangles = "|'triangles = ')\\s*\\+\\s*\\k<s3>(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"\\]"|'\\]')\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_geometry: "s1"
+                },
+                count: 1,
+                search: {
+                  literal: "CollisionGeometry [",
+                  margin: 1616
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*toString\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?:"CollisionBox \\["|'CollisionBox \\[')\\s*;\\s*return(?![$\\w])\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\k<s2>(?![$\\w])\\s*\\+\\s*(?:"position = "|'position = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"rotation = "|'rotation = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"size = "|'size = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"\\]"|'\\]')\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_box: "s1",
+                  scene_count: "s5"
+                },
+                count: 1,
+                search: {
+                  literal: "CollisionBox [",
+                  margin: 1760
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*toString\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?:"CollisionPlane \\["|'CollisionPlane \\[')\\s*;\\s*return(?![$\\w])\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\k<s2>(?![$\\w])\\s*\\+\\s*(?:"length = "|'length = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"position = "|'position = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"rotation = "|'rotation = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"width = "|'width = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"\\]"|'\\]')\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_plane: "s1",
+                  scene_width: "s6",
+                  scene_length: "s3"
+                },
+                count: 1,
+                search: {
+                  literal: "CollisionPlane [",
+                  margin: 1952
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*toString\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?:"CollisionTriangle \\["|'CollisionTriangle \\[')\\s*;\\s*return(?![$\\w])\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\k<s2>(?![$\\w])\\s*\\+\\s*(?:"length = "|'length = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"position = "|'position = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"rotation = "|'rotation = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"v0 = "|'v0 = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"v1 = "|'v1 = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"v2 = "|'v2 = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"\\]"|'\\]')\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_triangle: "s1"
+                },
+                count: 1,
+                search: {
+                  literal: "CollisionTriangle [",
+                  margin: 2648
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"boxes"|'boxes')\\s*\\)\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_geometry: "s1",
+                  scene_boxes: "s4"
+                },
+                count: 1,
+                search: {
+                  literal: "boxes",
+                  margin: 808
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"planes"|'planes')\\s*\\)\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_geometry: "s1",
+                  scene_planes: "s4"
+                },
+                count: 1,
+                search: {
+                  literal: "planes",
+                  margin: 816
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"triangles"|'triangles')\\s*\\)\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_geometry: "s1",
+                  scene_triangles: "s4"
+                },
+                count: 1,
+                search: {
+                  literal: "triangles",
+                  margin: 840
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"position"|'position')\\s*\\)\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_box: "s1",
+                  scene_boxPosition: "s4"
+                },
+                count: 1,
+                search: {
+                  literal: "position",
+                  margin: 832
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"rotation"|'rotation')\\s*\\)\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_box: "s1",
+                  scene_boxRotation: "s4"
+                },
+                count: 1,
+                search: {
+                  literal: "rotation",
+                  margin: 832
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"size"|'size')\\s*\\)\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_box: "s1",
+                  scene_size: "s4",
+                  scene_count: "s2"
+                },
+                count: 1,
+                search: {
+                  margin: 792
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"position"|'position')\\s*\\)\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_plane: "s1",
+                  scene_planePosition: "s4"
+                },
+                count: 1,
+                search: {
+                  literal: "position",
+                  margin: 832
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"rotation"|'rotation')\\s*\\)\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_plane: "s1",
+                  scene_planeRotation: "s4"
+                },
+                count: 1,
+                search: {
+                  literal: "rotation",
+                  margin: 832
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"position"|'position')\\s*\\)\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_triangle: "s1",
+                  scene_trianglePosition: "s4"
+                },
+                count: 1,
+                search: {
+                  literal: "position",
+                  margin: 832
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"rotation"|'rotation')\\s*\\)\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_triangle: "s1",
+                  scene_triangleRotation: "s4"
+                },
+                count: 1,
+                search: {
+                  literal: "rotation",
+                  margin: 832
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"v0"|'v0')\\s*\\)\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_triangle: "s1",
+                  scene_v0: "s4"
+                },
+                count: 1,
+                search: {
+                  margin: 784
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"v1"|'v1')\\s*\\)\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_triangle: "s1",
+                  scene_v1: "s4"
+                },
+                count: 1,
+                search: {
+                  margin: 784
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"v2"|'v2')\\s*\\)\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapClass_triangle: "s1",
+                  scene_v2: "s4"
+                },
+                count: 1,
+                search: {
+                  margin: 784
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*for(?![$\\w])\\s*\\(\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*new(?![$\\w])\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])(?:\\s*\\(\\s*\\))?\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*,\\s*10\\s*\\)\\s*\\)\\s*,\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s13>(?![$\\w])\\s*\\)\\s*;?\\s*\\}\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*;\\s*for(?![$\\w])\\s*\\(\\s*var(?![$\\w])\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\k<s18>(?![$\\w])\\s*,\\s*10\\s*\\)\\s*\\)\\s*,\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s18>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s21>(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s21>(?![$\\w])\\s*\\.\\s*\\k<s15>(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*\\k<s20>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\(\\s*\\k<s22>(?![$\\w])\\s*\\)\\s*;?\\s*\\}\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s17>(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*\\)\\s*;\\s*for(?![$\\w])\\s*\\(\\s*var(?![$\\w])\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s28>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s24>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s29>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s30>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*\\k<s15>(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*null(?![$\\w])\\s*==\\s*\\k<s29>(?![$\\w])\\s*\\|\\|\\s*\\k<s26>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\(\\s*\\k<s29>(?![$\\w])\\s*\\)\\s*;?\\s*\\}\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s17>(?![$\\w])\\s*\\(\\s*\\k<s26>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s31>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*0\\s*,\\s*(?<s32>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s33>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\k<s31>(?![$\\w])\\s*<\\s*\\k<s32>(?![$\\w])\\s*\\)\\s*do(?![$\\w])\\s*\\{\\s*var(?![$\\w])\\s*(?<s34>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s31>(?![$\\w])\\s*;\\(?\\s*\\s*\\k<s31>(?![$\\w])\\s*=\\s*\\k<s31>(?![$\\w])\\s*\\+\\s*1\\s*\\|\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s35>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s34>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s36>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)?\\s*;?\\s*\\}\\s*while(?![$\\w])\\s*\\(\\s*\\k<s31>(?![$\\w])\\s*<\\s*\\k<s32>(?![$\\w])\\s*\\)\\s*;\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;?\\s*\\}",
+                roles: {
+                  scene_count: "s33",
+                  scene_get: "s35"
+                },
+                count: 1,
+                search: {
+                  margin: 3056
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\(?\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s2>(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s2>(?![$\\w])\\s*\\)?\\s*;?\\s*\\}",
+                roles: {
+                  scene_mapx: "s5",
+                  scene_mapy: "s6",
+                  scene_mapz: "s7"
+                },
+                count: 1,
+                search: {
+                  margin: 752
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*var(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;(?<e0start>)(?<e0end>)",
+                roles: {},
+                count: 1,
+                search: {
+                  margin: 560
+                },
+                edits: [
+                  {
+                    start: "e0start",
+                    end: "e0end",
+                    parts: [
+                      ";try{window.__kaspRain?.map(",
+                      {
+                        capture: "s0",
+                        quoted: false
+                      },
+                      ".",
+                      {
+                        capture: "s7",
+                        quoted: false
+                      },
+                      '(),{"boxes":',
+                      {
+                        role: "scene_boxes",
+                        quoted: true
+                      },
+                      ',"planes":',
+                      {
+                        role: "scene_planes",
+                        quoted: true
+                      },
+                      ',"triangles":',
+                      {
+                        role: "scene_triangles",
+                        quoted: true
+                      },
+                      ',"boxPosition":',
+                      {
+                        role: "scene_boxPosition",
+                        quoted: true
+                      },
+                      ',"boxRotation":',
+                      {
+                        role: "scene_boxRotation",
+                        quoted: true
+                      },
+                      ',"size":',
+                      {
+                        role: "scene_size",
+                        quoted: true
+                      },
+                      ',"planePosition":',
+                      {
+                        role: "scene_planePosition",
+                        quoted: true
+                      },
+                      ',"planeRotation":',
+                      {
+                        role: "scene_planeRotation",
+                        quoted: true
+                      },
+                      ',"trianglePosition":',
+                      {
+                        role: "scene_trianglePosition",
+                        quoted: true
+                      },
+                      ',"triangleRotation":',
+                      {
+                        role: "scene_triangleRotation",
+                        quoted: true
+                      },
+                      ',"v0":',
+                      {
+                        role: "scene_v0",
+                        quoted: true
+                      },
+                      ',"v1":',
+                      {
+                        role: "scene_v1",
+                        quoted: true
+                      },
+                      ',"v2":',
+                      {
+                        role: "scene_v2",
+                        quoted: true
+                      },
+                      ',"width":',
+                      {
+                        role: "scene_width",
+                        quoted: true
+                      },
+                      ',"length":',
+                      {
+                        role: "scene_length",
+                        quoted: true
+                      },
+                      ',"count":',
+                      {
+                        role: "scene_count",
+                        quoted: true
+                      },
+                      ',"get":',
+                      {
+                        role: "scene_get",
+                        quoted: true
+                      },
+                      ',"x":',
+                      {
+                        role: "scene_mapx",
+                        quoted: true
+                      },
+                      ',"y":',
+                      {
+                        role: "scene_mapy",
+                        quoted: true
+                      },
+                      ',"z":',
+                      {
+                        role: "scene_mapz",
+                        quoted: true
+                      },
+                      "});}catch(_kiMapError){}"
+                    ]
+                  }
+                ]
+              },
+              {
+                pattern: "(?<![$\\w])\\s*\\(?\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*0\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*0\\s*\\)\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\(\\s*0\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*,\\s*4\\s*\\)\\s*,\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\(\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*\\[\\s*8\\s*\\]\\s*=\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s9>(?![$\\w])\\s*\\[\\s*9\\s*\\]\\s*=\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s9>(?![$\\w])\\s*\\[\\s*10\\s*\\]\\s*=\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)?",
+                roles: {
+                  scene_lightingData: "s4",
+                  scene_lightingBuffer: "s3"
+                },
+                count: 1,
+                search: {
+                  margin: 1640
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*(?<e0start>)(?<e0end>)this(?![$\\w])\\s*\\.\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)(?<e1start>)(?<e1end>)",
+                roles: {
+                  scene_lightingBuffer: "s0"
+                },
+                count: 1,
+                search: {
+                  margin: 464
+                },
+                edits: [
+                  {
+                    start: "e0start",
+                    end: "e0end",
+                    parts: [
+                      "(()=>{let _kiLightRestore;try{_kiLightRestore=window.__kaspRain?.lighting(this.",
+                      {
+                        role: "scene_lightingBuffer",
+                        quoted: false
+                      },
+                      ".",
+                      {
+                        role: "scene_lightingData",
+                        quoted: false
+                      },
+                      ");}catch(_kiLightError){}try{return "
+                    ]
+                  },
+                  {
+                    start: "e1start",
+                    end: "e1end",
+                    parts: [
+                      "}finally{try{_kiLightRestore?.();}catch(_kiLightError){}}})()"
+                    ]
+                  }
+                ]
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\(?\\s*\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*new(?![$\\w])\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*new(?![$\\w])\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])(?:\\s*\\(\\s*\\))?\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\(?\\s*\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\.5\\s*\\)\\s*,\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s16>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\(?\\s*\\s*\\k<s24>(?![$\\w])\\s*\\.\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?:"hull-main"|'hull-main')\\s*,\\s*\\k<s24>(?![$\\w])\\s*\\.\\s*(?<s28>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*1\\s*,\\s*\\k<s24>(?![$\\w])\\s*\\.\\s*(?<s29>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*!\\s*0\\s*,\\s*\\k<s24>(?![$\\w])\\s*\\.\\s*(?<s30>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s31>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s32>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s33>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s24>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s34>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*\\k<s33>(?![$\\w])\\s*\\)\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s35>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s36>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s37>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*0\\s*,\\s*(?<s38>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s35>(?![$\\w])\\s*\\.\\s*(?<s39>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\k<s37>(?![$\\w])\\s*<\\s*\\k<s38>(?![$\\w])\\s*\\)\\s*do(?![$\\w])\\s*\\{\\s*var(?![$\\w])\\s*(?<s40>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s37>(?![$\\w])\\s*;\\s*\\k<s37>(?![$\\w])\\s*=\\s*\\k<s37>(?![$\\w])\\s*\\+\\s*1\\s*\\|\\s*0\\s*;\\s*var(?![$\\w])\\s*(?<s41>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s35>(?![$\\w])\\s*\\.\\s*(?<s42>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s40>(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s26>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\(?\\s*\\s*\\k<s41>(?![$\\w])\\s*\\.\\s*\\k<s28>(?![$\\w])\\s*=\\s*1\\s*,\\s*\\k<s41>(?![$\\w])\\s*\\.\\s*(?<s43>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*16\\s*,\\s*\\k<s41>(?![$\\w])\\s*\\.\\s*\\k<s30>(?![$\\w])\\s*=\\s*(?:"hull-static-top"|'hull-static-top')\\s*===\\s*\\k<s41>(?![$\\w])\\s*\\.\\s*\\k<s27>(?![$\\w])\\s*\\?\\s*\\k<s31>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s44>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*:\\s*\\k<s31>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s32>(?![$\\w])\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s45>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s41>(?![$\\w])\\s*;\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s34>(?![$\\w])\\s*\\(\\s*\\k<s45>(?![$\\w])\\s*\\)\\s*;?\\s*\\}\\s*while(?![$\\w])\\s*\\(\\s*\\k<s37>(?![$\\w])\\s*<\\s*\\k<s38>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s46>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s47>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s48>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*0\\s*,\\s*(?<s49>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s46>(?![$\\w])\\s*\\.\\s*\\k<s39>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\k<s48>(?![$\\w])\\s*<\\s*\\k<s49>(?![$\\w])\\s*\\)\\s*do(?![$\\w])\\s*\\{\\s*var(?![$\\w])\\s*(?<s50>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s48>(?![$\\w])\\s*;\\s*\\k<s48>(?![$\\w])\\s*=\\s*\\k<s48>(?![$\\w])\\s*\\+\\s*1\\s*\\|\\s*0\\s*;\\s*var(?![$\\w])\\s*(?<s51>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s46>(?![$\\w])\\s*\\.\\s*\\k<s42>(?![$\\w])\\s*\\(\\s*\\k<s50>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s52>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\(?\\s*\\s*\\k<s51>(?![$\\w])\\s*\\.\\s*\\k<s28>(?![$\\w])\\s*=\\s*1\\s*,\\s*\\k<s51>(?![$\\w])\\s*\\.\\s*\\k<s43>(?![$\\w])\\s*=\\s*16\\s*,\\s*\\k<s51>(?![$\\w])\\s*\\.\\s*\\k<s30>(?![$\\w])\\s*=\\s*(?:"hull-static-top"|'hull-static-top')\\s*===\\s*\\k<s51>(?![$\\w])\\s*\\.\\s*\\k<s27>(?![$\\w])\\s*\\?\\s*\\k<s31>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s44>(?![$\\w])\\s*:\\s*\\k<s31>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s32>(?![$\\w])\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s53>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s51>(?![$\\w])\\s*;\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s34>(?![$\\w])\\s*\\(\\s*\\k<s53>(?![$\\w])\\s*\\)\\s*;?\\s*\\}\\s*while(?![$\\w])\\s*\\(\\s*\\k<s48>(?![$\\w])\\s*<\\s*\\k<s49>(?![$\\w])\\s*\\)(?<e6start>)(?<e6end>)\\s*;?\\s*\\}`,
+                roles: {
+                  scene_tankSize: "s5",
+                  scene_count: "s39",
+                  scene_get: "s42"
+                },
+                count: 1,
+                search: {
+                  literal: "hull-static-top",
+                  margin: 6168
+                },
+                edits: [
+                  {
+                    start: "e6start",
+                    end: "e6end",
+                    parts: [
+                      ";try{window.__kaspRain?.hull(this,",
+                      {
+                        capture: "s4",
+                        quoted: false
+                      },
+                      ".",
+                      {
+                        capture: "s25",
+                        quoted: false
+                      },
+                      ",",
+                      {
+                        capture: "s4",
+                        quoted: false
+                      },
+                      ".",
+                      {
+                        capture: "s36",
+                        quoted: false
+                      },
+                      ',Object.assign({"position":',
+                      {
+                        role: "scene_tankPosition",
+                        quoted: true
+                      },
+                      ',"size":',
+                      {
+                        role: "scene_tankSize",
+                        quoted: true
+                      },
+                      ',"active":',
+                      {
+                        role: "scene_tankActive",
+                        quoted: true
+                      },
+                      ',"matrix":',
+                      {
+                        role: "scene_tankMatrix",
+                        quoted: true
+                      },
+                      ',"m0":',
+                      {
+                        role: "scene_matrix0",
+                        quoted: true
+                      },
+                      ',"m1":',
+                      {
+                        role: "scene_matrix1",
+                        quoted: true
+                      },
+                      ',"m2":',
+                      {
+                        role: "scene_matrix2",
+                        quoted: true
+                      },
+                      ',"m4":',
+                      {
+                        role: "scene_matrix4",
+                        quoted: true
+                      },
+                      ',"m5":',
+                      {
+                        role: "scene_matrix5",
+                        quoted: true
+                      },
+                      ',"m6":',
+                      {
+                        role: "scene_matrix6",
+                        quoted: true
+                      },
+                      ',"m8":',
+                      {
+                        role: "scene_matrix8",
+                        quoted: true
+                      },
+                      ',"m9":',
+                      {
+                        role: "scene_matrix9",
+                        quoted: true
+                      },
+                      ',"m10":',
+                      {
+                        role: "scene_matrix10",
+                        quoted: true
+                      },
+                      ',"m12":',
+                      {
+                        role: "scene_matrix12",
+                        quoted: true
+                      },
+                      ',"m13":',
+                      {
+                        role: "scene_matrix13",
+                        quoted: true
+                      },
+                      ',"m14":',
+                      {
+                        role: "scene_matrix14",
+                        quoted: true
+                      },
+                      ',"halfSize":',
+                      {
+                        role: "scene_hullHalfSize",
+                        quoted: true
+                      },
+                      ',"boxMatrix":',
+                      {
+                        role: "scene_hullLocalMatrix",
+                        quoted: true
+                      },
+                      ',"count":',
+                      {
+                        role: "scene_count",
+                        quoted: true
+                      },
+                      ',"get":',
+                      {
+                        role: "scene_get",
+                        quoted: true
+                      },
+                      "},__KI_RAIN_SCHEMA__));}catch(_kiHullError){}"
+                    ]
+                  }
+                ]
+              },
+              {
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*if(?![$\\w])\\s*\\(\\s*!\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*0\\s*,\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*<\\s*\\k<s10>(?![$\\w])\\s*\\)\\s*do(?![$\\w])\\s*\\{\\s*var(?![$\\w])\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s9>(?![$\\w])\\s*;\\(?\\s*\\s*\\k<s9>(?![$\\w])\\s*=\\s*\\k<s9>(?![$\\w])\\s*\\+\\s*1\\s*\\|\\s*0\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s12>(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s2>(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\)?\\s*;?\\s*\\}\\s*while(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*<\\s*\\k<s10>(?![$\\w])\\s*\\)(?<e1start>)(?<e1end>)\\s*;?\\s*\\}",
+                roles: {
+                  scene_tankActive: "s4",
+                  scene_count: "s11",
+                  scene_get: "s13"
+                },
+                count: 1,
+                search: {
+                  margin: 1400
+                },
+                edits: [
+                  {
+                    start: "e1start",
+                    end: "e1end",
+                    parts: [
+                      ';try{window.__kaspRain?.tank(this,Object.assign({"position":',
+                      {
+                        role: "scene_tankPosition",
+                        quoted: true
+                      },
+                      ',"size":',
+                      {
+                        role: "scene_tankSize",
+                        quoted: true
+                      },
+                      ',"active":',
+                      {
+                        role: "scene_tankActive",
+                        quoted: true
+                      },
+                      ',"matrix":',
+                      {
+                        role: "scene_tankMatrix",
+                        quoted: true
+                      },
+                      ',"m0":',
+                      {
+                        role: "scene_matrix0",
+                        quoted: true
+                      },
+                      ',"m1":',
+                      {
+                        role: "scene_matrix1",
+                        quoted: true
+                      },
+                      ',"m2":',
+                      {
+                        role: "scene_matrix2",
+                        quoted: true
+                      },
+                      ',"m4":',
+                      {
+                        role: "scene_matrix4",
+                        quoted: true
+                      },
+                      ',"m5":',
+                      {
+                        role: "scene_matrix5",
+                        quoted: true
+                      },
+                      ',"m6":',
+                      {
+                        role: "scene_matrix6",
+                        quoted: true
+                      },
+                      ',"m8":',
+                      {
+                        role: "scene_matrix8",
+                        quoted: true
+                      },
+                      ',"m9":',
+                      {
+                        role: "scene_matrix9",
+                        quoted: true
+                      },
+                      ',"m10":',
+                      {
+                        role: "scene_matrix10",
+                        quoted: true
+                      },
+                      ',"m12":',
+                      {
+                        role: "scene_matrix12",
+                        quoted: true
+                      },
+                      ',"m13":',
+                      {
+                        role: "scene_matrix13",
+                        quoted: true
+                      },
+                      ',"m14":',
+                      {
+                        role: "scene_matrix14",
+                        quoted: true
+                      },
+                      ',"halfSize":',
+                      {
+                        role: "scene_hullHalfSize",
+                        quoted: true
+                      },
+                      ',"boxMatrix":',
+                      {
+                        role: "scene_hullLocalMatrix",
+                        quoted: true
+                      },
+                      ',"count":',
+                      {
+                        role: "scene_count",
+                        quoted: true
+                      },
+                      ',"get":',
+                      {
+                        role: "scene_get",
+                        quoted: true
+                      },
+                      "},__KI_RAIN_SCHEMA__));}catch(_kiTankError){}"
+                    ]
+                  }
+                ]
+              },
+              {
+                pattern: "(?<![$\\w])\\s*\\(?\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*\\k<s1>(?![$\\w])\\s*\\)\\s*\\)?",
+                roles: {
+                  scene_tankPosition: "s1",
+                  scene_tankMatrix: "s10"
+                },
+                count: 1,
+                search: {
+                  margin: 976
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\(?\\s*\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*0\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*1\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*2\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*3\\s*\\]\\s*=\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*4\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*5\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*6\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*7\\s*\\]\\s*=\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*8\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*9\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*10\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*11\\s*\\]\\s*=\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*12\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*13\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*14\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*15\\s*\\]\\s*=\\s*1\\s*\\)?\\s*;?\\s*\\}",
+                roles: {
+                  scene_matrix0: "s4",
+                  scene_matrix1: "s5",
+                  scene_matrix2: "s6",
+                  scene_matrix4: "s7",
+                  scene_matrix5: "s8",
+                  scene_matrix6: "s9",
+                  scene_matrix8: "s10",
+                  scene_matrix9: "s11",
+                  scene_matrix10: "s12",
+                  scene_matrix12: "s13",
+                  scene_matrix13: "s14",
+                  scene_matrix14: "s15"
+                },
+                count: 1,
+                search: {
+                  margin: 2240
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*;\\s*return(?![$\\w])\\s*\\(?\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\)?\\s*;?\\s*\\}",
+                roles: {
+                  scene_hullHalfSize: "s5",
+                  scene_hullLocalMatrix: "s10"
+                },
+                count: 1,
+                search: {
+                  margin: 1056
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*toString\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?:"BattleCreateParameters \\["|'BattleCreateParameters \\[')\\s*;\\s*return(?![$\\w])\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\k<s2>(?![$\\w])\\s*\\+\\s*(?:"battleMode = "|'battleMode = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"battleModeForMatchmaking = "|'battleModeForMatchmaking = ')\\s*\\+\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"battleOptions = "|'battleOptions = ')\\s*\\+\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"crossPlayMode = "|'crossPlayMode = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"formatMode = "|'formatMode = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"limits = "|'limits = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"mapId = "|'mapId = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"maxPeopleCount = "|'maxPeopleCount = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"name = "|'name = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"proBattle = "|'proBattle = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"rankRange = "|'rankRange = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"theme = "|'theme = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"\\]"|'\\]')\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapTheme: "s16"
+                },
+                count: 1,
+                search: {
+                  literal: "battleModeForMatchmaking = ",
+                  margin: 4800
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*toString\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?:"BattleParamInfoCC \\["|'BattleParamInfoCC \\[')\\s*;\\s*return(?![$\\w])\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\(\\s*\\k<s2>(?![$\\w])\\s*=\\s*\\k<s2>(?![$\\w])\\s*\\+\\s*(?:"creatorId = "|'creatorId = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"map = "|'map = ')\\s*\\+\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"parameters = "|'parameters = ')\\s*\\+\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*toString\\s*\\(\\s*\\)\\s*\\+\\s*(?:" "|' ')\\s*\\)\\s*\\+\\s*(?:"\\]"|'\\]')\\s*;?\\s*\\}`,
+                roles: {
+                  scene_battleParamInfoType: "s1",
+                  scene_parametersGetter: "s6"
+                },
+                count: 1,
+                search: {
+                  literal: "BattleParamInfoCC [",
+                  margin: 1760
+                },
+                edits: []
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*if(?![$\\w])\\s*\\(\\s*null(?![$\\w])\\s*!=\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"parameters"|'parameters')\\s*\\)\\s*;?\\s*\\}`,
+                roles: {
+                  scene_battleParamInfoType: "s1",
+                  scene_parametersGetter: "s2"
+                },
+                count: 1,
+                search: {
+                  literal: "parameters",
+                  margin: 848
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*new(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,(?<e0start>)(?<e0end>)\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)(?<e1start>)(?<e1end>)\\s*,\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)",
+                roles: {
+                  scene_parametersGetter: "s6"
+                },
+                count: 1,
+                search: {
+                  margin: 640
+                },
+                edits: [
+                  {
+                    start: "e0start",
+                    end: "e0end",
+                    parts: [
+                      "((_kiParams)=>{try{window.__kaspRain?.environment(String(",
+                      {
+                        capture: "s1",
+                        quoted: false
+                      },
+                      "().",
+                      {
+                        capture: "s2",
+                        quoted: false
+                      },
+                      "().",
+                      {
+                        capture: "s3",
+                        quoted: false
+                      },
+                      "()),String(_kiParams.",
+                      {
+                        role: "scene_mapTheme",
+                        quoted: false
+                      },
+                      "));}catch(_kiEnvironmentError){}return _kiParams;})("
+                    ]
+                  },
+                  {
+                    start: "e1start",
+                    end: "e1end",
+                    parts: [
+                      ")"
+                    ]
+                  }
+                ]
+              },
+              {
+                pattern: `(?<![$\\w])\\s*return(?![$\\w])(?<e0start>)(?<e0end>)\\s*(?:"\\\\n\\\\t\\\\tuniform mat4 viewProjectionMatrix;\\\\n\\\\t\\\\tuniform vec2 timeAndWindStrength;\\\\n\\\\n\\\\t\\\\tlayout\\(location=0\\)\\\\n\\\\t\\\\tin vec3 position;\\\\n\\\\t\\\\tlayout\\(location=1\\)\\\\n\\\\t\\\\tin vec2 uv;\\\\n\\\\t\\\\tlayout\\(location=3\\)\\\\n\\\\t\\\\tin vec3 instancePosition;\\\\n\\\\t\\\\t// x = scale, y = cos\\(alpha\\), z = sin\\(alpha\\)\\\\n\\\\t\\\\tlayout\\(location=4\\)\\\\n\\\\t\\\\tin vec3 instanceScaleRotation;\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tout vec2 vUV;\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tmat4 makeModelMatrix\\(in float scale, in float cosRotationZ, in float sinRotationZ, in vec3 position\\) \\{\\\\n\\\\t\\\\t\\\\t\\\\tfloat c = scale \\* cosRotationZ;\\\\n\\\\t\\\\t\\\\t\\\\tfloat s = scale \\* sinRotationZ;\\\\n\\\\t\\\\t\\\\t\\\\treturn mat4\\(\\\\n\\\\t\\\\t\\\\t\\\\t\\\\tvec4\\(c, s, 0\\., 0\\.\\),\\\\n\\\\t\\\\t\\\\t\\\\t\\\\tvec4\\(-s, c, 0\\., 0\\.\\),\\\\n\\\\t\\\\t\\\\t\\\\t\\\\tvec4\\(0\\., 0\\., scale, 0\\.\\),\\\\n\\\\t\\\\t\\\\t\\\\t\\\\tvec4\\(position, 1\\.0\\)\\\\n\\\\t\\\\t\\\\t\\\\t\\);\\\\n\\\\t\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\tvec2 unity_gradientNoise_dir\\(vec2 p\\)\\\\n\\\\t\\\\t\\{\\\\n\\\\t\\\\t\\\\tp = mod\\(p,289\\.0\\);\\\\n\\\\t\\\\t\\\\tfloat x = \\(34\\.0 \\* p\\.x \\+ 1\\.0\\) \\* mod\\(p\\.x, 289\\.0\\) \\+ p\\.y;\\\\n\\\\t\\\\t\\\\tx = \\(34\\.0 \\* x \\+ 1\\.0\\) \\* mod\\(x, 289\\.0\\);\\\\n\\\\t\\\\t\\\\tx = fract\\(x / 41\\.0\\) \\* 2\\.0 - 1\\.0;\\\\n\\\\t\\\\t\\\\treturn normalize\\(vec2\\(x - floor\\(x \\+ 0\\.5\\), abs\\(x\\) - 0\\.5\\)\\);\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat unity_gradientNoise\\(vec2 p\\)\\\\n\\\\t\\\\t\\{\\\\n\\\\t\\\\t\\\\tvec2 ip = floor\\(p\\);\\\\n\\\\t\\\\t\\\\tvec2 fp = fract\\(p\\);\\\\n\\\\t\\\\t\\\\tfloat d00 = dot\\(unity_gradientNoise_dir\\(ip\\), fp\\);\\\\n\\\\t\\\\t\\\\tfloat d01 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(0, 1\\)\\), fp - vec2\\(0, 1\\)\\);\\\\n\\\\t\\\\t\\\\tfloat d10 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(1, 0\\)\\), fp - vec2\\(1, 0\\)\\);\\\\n\\\\t\\\\t\\\\tfloat d11 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(1, 1\\)\\), fp - vec2\\(1, 1\\)\\);\\\\n\\\\t\\\\t\\\\tfp = fp \\* fp \\* fp \\* \\(fp \\* \\(fp \\* 6\\.0 - 15\\.0\\) \\+ 10\\.0\\);\\\\n\\\\t\\\\t\\\\treturn mix\\(mix\\(d00, d01, fp\\.y\\), mix\\(d10, d11, fp\\.y\\), fp\\.x\\);\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat gradientNoise\\(vec2 UV, float Scale\\)\\\\n\\\\t\\\\t\\{\\\\n\\\\t\\\\t\\\\treturn unity_gradientNoise\\(UV \\* Scale\\) \\+ 0\\.5;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\n\\\\t\\\\t\\\\t#define WIND_SPEED 0\\.3\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tvec4 getPositionModifiedByWind\\(vec4 position, float time, float windStrength\\) \\{\\\\n\\\\t\\\\t\\\\t\\\\tfloat noise = gradientNoise\\(position\\.xy \\+ time, WIND_SPEED\\);\\\\n\\\\t\\\\t\\\\t\\\\tfloat offset = \\(2\\. \\* noise - 1\\.\\) \\* windStrength;\\\\n\\\\t\\\\t\\\\t\\\\treturn position \\+ vec4\\(offset, offset, 0\\., 0\\.\\);\\\\n\\\\t\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\n\\\\t\\\\tvoid main\\(\\) \\{\\\\n\\\\t\\\\t\\\\tvUV = uv;\\\\n\\\\t\\\\t\\\\tmat4 modelMatrix = makeModelMatrix\\(\\\\n\\\\t\\\\t\\\\t\\\\tinstanceScaleRotation\\.x,\\\\n\\\\t\\\\t\\\\t\\\\tinstanceScaleRotation\\.y,\\\\n\\\\t\\\\t\\\\t\\\\tinstanceScaleRotation\\.z,\\\\n\\\\t\\\\t\\\\t\\\\tinstancePosition\\\\n\\\\t\\\\t\\\\t\\);\\\\n\\\\t\\\\t\\\\tvec4 vertexWorldPosition = modelMatrix \\* vec4\\(position, 1\\.0\\);\\\\n\\\\t\\\\t\\\\tfloat time = timeAndWindStrength\\.x;\\\\n\\\\t\\\\t\\\\tfloat windStrength = timeAndWindStrength\\.y;\\\\n\\\\t\\\\t\\\\tvertexWorldPosition = getPositionModifiedByWind\\(vertexWorldPosition, time, windStrength\\);\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tgl_Position = viewProjectionMatrix \\* vertexWorldPosition;\\\\n\\\\t\\\\t\\}\\\\n\\\\t"|'\\\\n		uniform mat4 viewProjectionMatrix;\\\\n		uniform vec2 timeAndWindStrength;\\\\n\\\\n		layout\\(location=0\\)\\\\n		in vec3 position;\\\\n		layout\\(location=1\\)\\\\n		in vec2 uv;\\\\n		layout\\(location=3\\)\\\\n		in vec3 instancePosition;\\\\n		// x = scale, y = cos\\(alpha\\), z = sin\\(alpha\\)\\\\n		layout\\(location=4\\)\\\\n		in vec3 instanceScaleRotation;\\\\n		\\\\n		out vec2 vUV;\\\\n		\\\\n		\\\\n			mat4 makeModelMatrix\\(in float scale, in float cosRotationZ, in float sinRotationZ, in vec3 position\\) \\{\\\\n				float c = scale \\* cosRotationZ;\\\\n				float s = scale \\* sinRotationZ;\\\\n				return mat4\\(\\\\n					vec4\\(c, s, 0\\., 0\\.\\),\\\\n					vec4\\(-s, c, 0\\., 0\\.\\),\\\\n					vec4\\(0\\., 0\\., scale, 0\\.\\),\\\\n					vec4\\(position, 1\\.0\\)\\\\n				\\);\\\\n			\\}\\\\n			\\\\n			\\\\n		vec2 unity_gradientNoise_dir\\(vec2 p\\)\\\\n		\\{\\\\n			p = mod\\(p,289\\.0\\);\\\\n			float x = \\(34\\.0 \\* p\\.x \\+ 1\\.0\\) \\* mod\\(p\\.x, 289\\.0\\) \\+ p\\.y;\\\\n			x = \\(34\\.0 \\* x \\+ 1\\.0\\) \\* mod\\(x, 289\\.0\\);\\\\n			x = fract\\(x / 41\\.0\\) \\* 2\\.0 - 1\\.0;\\\\n			return normalize\\(vec2\\(x - floor\\(x \\+ 0\\.5\\), abs\\(x\\) - 0\\.5\\)\\);\\\\n		\\}\\\\n		\\\\n		float unity_gradientNoise\\(vec2 p\\)\\\\n		\\{\\\\n			vec2 ip = floor\\(p\\);\\\\n			vec2 fp = fract\\(p\\);\\\\n			float d00 = dot\\(unity_gradientNoise_dir\\(ip\\), fp\\);\\\\n			float d01 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(0, 1\\)\\), fp - vec2\\(0, 1\\)\\);\\\\n			float d10 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(1, 0\\)\\), fp - vec2\\(1, 0\\)\\);\\\\n			float d11 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(1, 1\\)\\), fp - vec2\\(1, 1\\)\\);\\\\n			fp = fp \\* fp \\* fp \\* \\(fp \\* \\(fp \\* 6\\.0 - 15\\.0\\) \\+ 10\\.0\\);\\\\n			return mix\\(mix\\(d00, d01, fp\\.y\\), mix\\(d10, d11, fp\\.y\\), fp\\.x\\);\\\\n		\\}\\\\n		\\\\n		float gradientNoise\\(vec2 UV, float Scale\\)\\\\n		\\{\\\\n			return unity_gradientNoise\\(UV \\* Scale\\) \\+ 0\\.5;\\\\n		\\}\\\\n	\\\\n			#define WIND_SPEED 0\\.3\\\\n			\\\\n			vec4 getPositionModifiedByWind\\(vec4 position, float time, float windStrength\\) \\{\\\\n				float noise = gradientNoise\\(position\\.xy \\+ time, WIND_SPEED\\);\\\\n				float offset = \\(2\\. \\* noise - 1\\.\\) \\* windStrength;\\\\n				return position \\+ vec4\\(offset, offset, 0\\., 0\\.\\);\\\\n			\\}\\\\n		\\\\n	\\\\n		void main\\(\\) \\{\\\\n			vUV = uv;\\\\n			mat4 modelMatrix = makeModelMatrix\\(\\\\n				instanceScaleRotation\\.x,\\\\n				instanceScaleRotation\\.y,\\\\n				instanceScaleRotation\\.z,\\\\n				instancePosition\\\\n			\\);\\\\n			vec4 vertexWorldPosition = modelMatrix \\* vec4\\(position, 1\\.0\\);\\\\n			float time = timeAndWindStrength\\.x;\\\\n			float windStrength = timeAndWindStrength\\.y;\\\\n			vertexWorldPosition = getPositionModifiedByWind\\(vertexWorldPosition, time, windStrength\\);\\\\n		\\\\n			gl_Position = viewProjectionMatrix \\* vertexWorldPosition;\\\\n		\\}\\\\n	')(?<e1start>)(?<e1end>)`,
+                roles: {},
+                count: 1,
+                search: {
+                  margin: 21136
+                },
+                edits: [
+                  {
+                    start: "e0start",
+                    end: "e0end",
+                    parts: [
+                      "((_kiShader)=>{try{return window.__kaspRain?.treeShader(_kiShader,true)??_kiShader;}catch(_kiTreeError){return _kiShader;}})("
+                    ]
+                  },
+                  {
+                    start: "e1start",
+                    end: "e1end",
+                    parts: [
+                      ")"
+                    ]
+                  }
+                ]
+              },
+              {
+                pattern: `(?<![$\\w])\\s*return(?![$\\w])(?<e0start>)(?<e0end>)\\s*(?:"\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t\\\\t#ifndef CAMERA_PARAMS_BLOCK\\\\n\\\\t\\\\t\\\\t#define CAMERA_PARAMS_BLOCK\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\tlayout\\(std140\\) uniform CameraParams \\{\\\\n\\\\t\\\\t\\\\tmat4 viewMatrix;\\\\n\\\\t\\\\t\\\\tmat4 projectionMatrix;\\\\n\\\\t\\\\t\\\\tmat4 viewProjectionMatrix;\\\\n\\\\t\\\\t\\\\tmat4 viewToWorldMatrix;\\\\n\\\\t\\\\t\\\\tvec4 sceneDepthParams;\\\\n\\\\t\\\\t\\\\tvec2 screenSize;\\\\n\\\\t\\\\t\\};\\\\n\\\\t\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tfloat GetSceneDepth\\(float zBufferDepth\\) \\{\\\\t\\\\t\\\\n\\\\t\\\\t\\\\t\\\\treturn 1\\.0 / \\(sceneDepthParams\\.z \\* zBufferDepth \\+ sceneDepthParams\\.w\\);\\\\n\\\\t\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\t#endif\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tuniform vec2 timeAndWindStrength;\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tlayout\\(location=0\\)\\\\n\\\\t\\\\tin vec3 position;\\\\n\\\\t\\\\tlayout\\(location=2\\)\\\\n\\\\t\\\\tin vec3 normal;\\\\n\\\\t\\\\tlayout\\(location=1\\)\\\\n\\\\t\\\\tin vec2 uv;\\\\n\\\\t\\\\tlayout\\(location=3\\)\\\\n\\\\t\\\\tin vec3 instancePosition;\\\\n\\\\t\\\\t// x = scale, y = cos\\(alpha\\), z = sin\\(alpha\\)\\\\n\\\\t\\\\tlayout\\(location=4\\)\\\\n\\\\t\\\\tin vec3 instanceScaleRotation;\\\\n\\\\n\\\\t\\\\tout vec2 v_uv;\\\\n\\\\t\\\\tout vec3 v_viewNormal;\\\\n\\\\t\\\\tout float v_viewZ;\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tmat4 makeModelMatrix\\(in float scale, in float cosRotationZ, in float sinRotationZ, in vec3 position\\) \\{\\\\n\\\\t\\\\t\\\\t\\\\tfloat c = scale \\* cosRotationZ;\\\\n\\\\t\\\\t\\\\t\\\\tfloat s = scale \\* sinRotationZ;\\\\n\\\\t\\\\t\\\\t\\\\treturn mat4\\(\\\\n\\\\t\\\\t\\\\t\\\\t\\\\tvec4\\(c, s, 0\\., 0\\.\\),\\\\n\\\\t\\\\t\\\\t\\\\t\\\\tvec4\\(-s, c, 0\\., 0\\.\\),\\\\n\\\\t\\\\t\\\\t\\\\t\\\\tvec4\\(0\\., 0\\., scale, 0\\.\\),\\\\n\\\\t\\\\t\\\\t\\\\t\\\\tvec4\\(position, 1\\.0\\)\\\\n\\\\t\\\\t\\\\t\\\\t\\);\\\\n\\\\t\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\tvec2 unity_gradientNoise_dir\\(vec2 p\\)\\\\n\\\\t\\\\t\\{\\\\n\\\\t\\\\t\\\\tp = mod\\(p,289\\.0\\);\\\\n\\\\t\\\\t\\\\tfloat x = \\(34\\.0 \\* p\\.x \\+ 1\\.0\\) \\* mod\\(p\\.x, 289\\.0\\) \\+ p\\.y;\\\\n\\\\t\\\\t\\\\tx = \\(34\\.0 \\* x \\+ 1\\.0\\) \\* mod\\(x, 289\\.0\\);\\\\n\\\\t\\\\t\\\\tx = fract\\(x / 41\\.0\\) \\* 2\\.0 - 1\\.0;\\\\n\\\\t\\\\t\\\\treturn normalize\\(vec2\\(x - floor\\(x \\+ 0\\.5\\), abs\\(x\\) - 0\\.5\\)\\);\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat unity_gradientNoise\\(vec2 p\\)\\\\n\\\\t\\\\t\\{\\\\n\\\\t\\\\t\\\\tvec2 ip = floor\\(p\\);\\\\n\\\\t\\\\t\\\\tvec2 fp = fract\\(p\\);\\\\n\\\\t\\\\t\\\\tfloat d00 = dot\\(unity_gradientNoise_dir\\(ip\\), fp\\);\\\\n\\\\t\\\\t\\\\tfloat d01 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(0, 1\\)\\), fp - vec2\\(0, 1\\)\\);\\\\n\\\\t\\\\t\\\\tfloat d10 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(1, 0\\)\\), fp - vec2\\(1, 0\\)\\);\\\\n\\\\t\\\\t\\\\tfloat d11 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(1, 1\\)\\), fp - vec2\\(1, 1\\)\\);\\\\n\\\\t\\\\t\\\\tfp = fp \\* fp \\* fp \\* \\(fp \\* \\(fp \\* 6\\.0 - 15\\.0\\) \\+ 10\\.0\\);\\\\n\\\\t\\\\t\\\\treturn mix\\(mix\\(d00, d01, fp\\.y\\), mix\\(d10, d11, fp\\.y\\), fp\\.x\\);\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat gradientNoise\\(vec2 UV, float Scale\\)\\\\n\\\\t\\\\t\\{\\\\n\\\\t\\\\t\\\\treturn unity_gradientNoise\\(UV \\* Scale\\) \\+ 0\\.5;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\n\\\\t\\\\t\\\\t#define WIND_SPEED 0\\.3\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tvec4 getPositionModifiedByWind\\(vec4 position, float time, float windStrength\\) \\{\\\\n\\\\t\\\\t\\\\t\\\\tfloat noise = gradientNoise\\(position\\.xy \\+ time, WIND_SPEED\\);\\\\n\\\\t\\\\t\\\\t\\\\tfloat offset = \\(2\\. \\* noise - 1\\.\\) \\* windStrength;\\\\n\\\\t\\\\t\\\\t\\\\treturn position \\+ vec4\\(offset, offset, 0\\., 0\\.\\);\\\\n\\\\t\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t\\\\t\\\\t\\\\n\\\\t\\\\tvoid main\\(\\) \\{\\\\n\\\\t\\\\t\\\\tv_uv = uv;\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tmat4 modelMatrix = makeModelMatrix\\(\\\\n\\\\t\\\\t\\\\t\\\\tinstanceScaleRotation\\.x,\\\\n\\\\t\\\\t\\\\t\\\\tinstanceScaleRotation\\.y,\\\\n\\\\t\\\\t\\\\t\\\\tinstanceScaleRotation\\.z,\\\\n\\\\t\\\\t\\\\t\\\\tinstancePosition\\\\n\\\\t\\\\t\\\\t\\);\\\\n\\\\t\\\\t\\\\tvec4 vertexWorldPosition = modelMatrix \\* vec4\\(position, 1\\.0\\);\\\\n\\\\t\\\\t\\\\tfloat time = timeAndWindStrength\\.x;\\\\n\\\\t\\\\t\\\\tfloat windStrength = timeAndWindStrength\\.y;\\\\n\\\\t\\\\t\\\\tvertexWorldPosition = getPositionModifiedByWind\\(vertexWorldPosition, time, windStrength\\);\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tvec4 vertexViewPosition = viewMatrix \\* vertexWorldPosition;\\\\n\\\\t\\\\t\\\\tv_viewZ = vertexViewPosition\\.z;\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tmat3 normalToWorldMatrix = transpose\\(inverse\\(mat3\\(modelMatrix\\)\\)\\);\\\\n\\\\t\\\\t\\\\tvec3 normalWorldSpace = normalize\\(normalToWorldMatrix \\* normal\\);\\\\n\\\\t\\\\t\\\\tv_viewNormal = mat3\\(viewMatrix\\) \\* normalWorldSpace;\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tgl_Position = viewProjectionMatrix \\* vertexWorldPosition;\\\\n\\\\t\\\\t\\}\\\\n\\\\t"|'\\\\n		\\\\n			#ifndef CAMERA_PARAMS_BLOCK\\\\n			#define CAMERA_PARAMS_BLOCK\\\\n			\\\\n		layout\\(std140\\) uniform CameraParams \\{\\\\n			mat4 viewMatrix;\\\\n			mat4 projectionMatrix;\\\\n			mat4 viewProjectionMatrix;\\\\n			mat4 viewToWorldMatrix;\\\\n			vec4 sceneDepthParams;\\\\n			vec2 screenSize;\\\\n		\\};\\\\n	\\\\n			\\\\n			float GetSceneDepth\\(float zBufferDepth\\) \\{		\\\\n				return 1\\.0 / \\(sceneDepthParams\\.z \\* zBufferDepth \\+ sceneDepthParams\\.w\\);\\\\n			\\}\\\\n			#endif\\\\n		\\\\n		uniform vec2 timeAndWindStrength;\\\\n		\\\\n		layout\\(location=0\\)\\\\n		in vec3 position;\\\\n		layout\\(location=2\\)\\\\n		in vec3 normal;\\\\n		layout\\(location=1\\)\\\\n		in vec2 uv;\\\\n		layout\\(location=3\\)\\\\n		in vec3 instancePosition;\\\\n		// x = scale, y = cos\\(alpha\\), z = sin\\(alpha\\)\\\\n		layout\\(location=4\\)\\\\n		in vec3 instanceScaleRotation;\\\\n\\\\n		out vec2 v_uv;\\\\n		out vec3 v_viewNormal;\\\\n		out float v_viewZ;\\\\n		\\\\n		\\\\n			mat4 makeModelMatrix\\(in float scale, in float cosRotationZ, in float sinRotationZ, in vec3 position\\) \\{\\\\n				float c = scale \\* cosRotationZ;\\\\n				float s = scale \\* sinRotationZ;\\\\n				return mat4\\(\\\\n					vec4\\(c, s, 0\\., 0\\.\\),\\\\n					vec4\\(-s, c, 0\\., 0\\.\\),\\\\n					vec4\\(0\\., 0\\., scale, 0\\.\\),\\\\n					vec4\\(position, 1\\.0\\)\\\\n				\\);\\\\n			\\}\\\\n			\\\\n			\\\\n		vec2 unity_gradientNoise_dir\\(vec2 p\\)\\\\n		\\{\\\\n			p = mod\\(p,289\\.0\\);\\\\n			float x = \\(34\\.0 \\* p\\.x \\+ 1\\.0\\) \\* mod\\(p\\.x, 289\\.0\\) \\+ p\\.y;\\\\n			x = \\(34\\.0 \\* x \\+ 1\\.0\\) \\* mod\\(x, 289\\.0\\);\\\\n			x = fract\\(x / 41\\.0\\) \\* 2\\.0 - 1\\.0;\\\\n			return normalize\\(vec2\\(x - floor\\(x \\+ 0\\.5\\), abs\\(x\\) - 0\\.5\\)\\);\\\\n		\\}\\\\n		\\\\n		float unity_gradientNoise\\(vec2 p\\)\\\\n		\\{\\\\n			vec2 ip = floor\\(p\\);\\\\n			vec2 fp = fract\\(p\\);\\\\n			float d00 = dot\\(unity_gradientNoise_dir\\(ip\\), fp\\);\\\\n			float d01 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(0, 1\\)\\), fp - vec2\\(0, 1\\)\\);\\\\n			float d10 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(1, 0\\)\\), fp - vec2\\(1, 0\\)\\);\\\\n			float d11 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(1, 1\\)\\), fp - vec2\\(1, 1\\)\\);\\\\n			fp = fp \\* fp \\* fp \\* \\(fp \\* \\(fp \\* 6\\.0 - 15\\.0\\) \\+ 10\\.0\\);\\\\n			return mix\\(mix\\(d00, d01, fp\\.y\\), mix\\(d10, d11, fp\\.y\\), fp\\.x\\);\\\\n		\\}\\\\n		\\\\n		float gradientNoise\\(vec2 UV, float Scale\\)\\\\n		\\{\\\\n			return unity_gradientNoise\\(UV \\* Scale\\) \\+ 0\\.5;\\\\n		\\}\\\\n	\\\\n			#define WIND_SPEED 0\\.3\\\\n			\\\\n			vec4 getPositionModifiedByWind\\(vec4 position, float time, float windStrength\\) \\{\\\\n				float noise = gradientNoise\\(position\\.xy \\+ time, WIND_SPEED\\);\\\\n				float offset = \\(2\\. \\* noise - 1\\.\\) \\* windStrength;\\\\n				return position \\+ vec4\\(offset, offset, 0\\., 0\\.\\);\\\\n			\\}\\\\n		\\\\n				\\\\n		void main\\(\\) \\{\\\\n			v_uv = uv;\\\\n			\\\\n			mat4 modelMatrix = makeModelMatrix\\(\\\\n				instanceScaleRotation\\.x,\\\\n				instanceScaleRotation\\.y,\\\\n				instanceScaleRotation\\.z,\\\\n				instancePosition\\\\n			\\);\\\\n			vec4 vertexWorldPosition = modelMatrix \\* vec4\\(position, 1\\.0\\);\\\\n			float time = timeAndWindStrength\\.x;\\\\n			float windStrength = timeAndWindStrength\\.y;\\\\n			vertexWorldPosition = getPositionModifiedByWind\\(vertexWorldPosition, time, windStrength\\);\\\\n			\\\\n			vec4 vertexViewPosition = viewMatrix \\* vertexWorldPosition;\\\\n			v_viewZ = vertexViewPosition\\.z;\\\\n			\\\\n			mat3 normalToWorldMatrix = transpose\\(inverse\\(mat3\\(modelMatrix\\)\\)\\);\\\\n			vec3 normalWorldSpace = normalize\\(normalToWorldMatrix \\* normal\\);\\\\n			v_viewNormal = mat3\\(viewMatrix\\) \\* normalWorldSpace;\\\\n			\\\\n			gl_Position = viewProjectionMatrix \\* vertexWorldPosition;\\\\n		\\}\\\\n	')(?<e1start>)(?<e1end>)`,
+                roles: {},
+                count: 1,
+                search: {
+                  margin: 28200
+                },
+                edits: [
+                  {
+                    start: "e0start",
+                    end: "e0end",
+                    parts: [
+                      "((_kiShader)=>{try{return window.__kaspRain?.treeShader(_kiShader,true)??_kiShader;}catch(_kiTreeError){return _kiShader;}})("
+                    ]
+                  },
+                  {
+                    start: "e1start",
+                    end: "e1end",
+                    parts: [
+                      ")"
+                    ]
+                  }
+                ]
+              },
+              {
+                pattern: `(?<![$\\w])\\s*return(?![$\\w])(?<e0start>)(?<e0end>)\\s*(?:"\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t\\\\t#ifndef CAMERA_PARAMS_BLOCK\\\\n\\\\t\\\\t\\\\t#define CAMERA_PARAMS_BLOCK\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\tlayout\\(std140\\) uniform CameraParams \\{\\\\n\\\\t\\\\t\\\\tmat4 viewMatrix;\\\\n\\\\t\\\\t\\\\tmat4 projectionMatrix;\\\\n\\\\t\\\\t\\\\tmat4 viewProjectionMatrix;\\\\n\\\\t\\\\t\\\\tmat4 viewToWorldMatrix;\\\\n\\\\t\\\\t\\\\tvec4 sceneDepthParams;\\\\n\\\\t\\\\t\\\\tvec2 screenSize;\\\\n\\\\t\\\\t\\};\\\\n\\\\t\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tfloat GetSceneDepth\\(float zBufferDepth\\) \\{\\\\t\\\\t\\\\n\\\\t\\\\t\\\\t\\\\treturn 1\\.0 / \\(sceneDepthParams\\.z \\* zBufferDepth \\+ sceneDepthParams\\.w\\);\\\\n\\\\t\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\t#endif\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t#ifndef LIGHTING_UNIFORM_BLOCK\\\\n\\\\t\\\\t#define LIGHTING_UNIFORM_BLOCK\\\\n\\\\t\\\\tlayout\\(std140\\) uniform LightingBlock \\{\\\\n\\\\t\\\\t\\\\tvec3 ambientLightColor;\\\\n\\\\t\\\\t\\\\tvec3 mainLightColor;\\\\n\\\\t\\\\t\\\\tvec3 mainLightDirection;\\\\n\\\\t\\\\t\\};\\\\n\\\\t\\\\t#endif\\\\n\\\\t\\\\n\\\\t\\\\tuniform vec2 timeAndWindStrength;\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tlayout\\(location=0\\)\\\\n\\\\t\\\\tin vec3 position;\\\\n\\\\t\\\\tlayout\\(location=2\\)\\\\n\\\\t\\\\tin vec3 normal;\\\\n\\\\t\\\\tlayout\\(location=1\\)\\\\n\\\\t\\\\tin vec2 uv;\\\\n\\\\t\\\\tlayout\\(location=3\\)\\\\n\\\\t\\\\tin vec3 instancePosition;\\\\n\\\\t\\\\t// x = scale, y = cos\\(alpha\\), z = sin\\(alpha\\)\\\\n\\\\t\\\\tlayout\\(location=4\\)\\\\n\\\\t\\\\tin vec3 instanceScaleRotation;\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tout vec2 v_uv;\\\\n\\\\t\\\\tout float v_illumination;\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t#define USE_SHADOW_MAP "|'\\\\n		\\\\n			#ifndef CAMERA_PARAMS_BLOCK\\\\n			#define CAMERA_PARAMS_BLOCK\\\\n			\\\\n		layout\\(std140\\) uniform CameraParams \\{\\\\n			mat4 viewMatrix;\\\\n			mat4 projectionMatrix;\\\\n			mat4 viewProjectionMatrix;\\\\n			mat4 viewToWorldMatrix;\\\\n			vec4 sceneDepthParams;\\\\n			vec2 screenSize;\\\\n		\\};\\\\n	\\\\n			\\\\n			float GetSceneDepth\\(float zBufferDepth\\) \\{		\\\\n				return 1\\.0 / \\(sceneDepthParams\\.z \\* zBufferDepth \\+ sceneDepthParams\\.w\\);\\\\n			\\}\\\\n			#endif\\\\n		\\\\n		\\\\n		#ifndef LIGHTING_UNIFORM_BLOCK\\\\n		#define LIGHTING_UNIFORM_BLOCK\\\\n		layout\\(std140\\) uniform LightingBlock \\{\\\\n			vec3 ambientLightColor;\\\\n			vec3 mainLightColor;\\\\n			vec3 mainLightDirection;\\\\n		\\};\\\\n		#endif\\\\n	\\\\n		uniform vec2 timeAndWindStrength;\\\\n		\\\\n		layout\\(location=0\\)\\\\n		in vec3 position;\\\\n		layout\\(location=2\\)\\\\n		in vec3 normal;\\\\n		layout\\(location=1\\)\\\\n		in vec2 uv;\\\\n		layout\\(location=3\\)\\\\n		in vec3 instancePosition;\\\\n		// x = scale, y = cos\\(alpha\\), z = sin\\(alpha\\)\\\\n		layout\\(location=4\\)\\\\n		in vec3 instanceScaleRotation;\\\\n		\\\\n		out vec2 v_uv;\\\\n		out float v_illumination;\\\\n		\\\\n		#define USE_SHADOW_MAP ')\\s*\\+\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\?\\s*1\\s*:\\s*0\\s*\\)\\s*\\+\\s*(?:"\\\\n\\\\t\\\\t#if USE_SHADOW_MAP\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tlayout\\(std140\\) uniform ShadowParams \\{\\\\n\\\\t\\\\t\\\\t// x -- depth bias, y -- normal bias, z -- slope bias, w -- view bias\\\\n\\\\t\\\\t\\\\tvec4 shadowMapBias;\\\\n\\\\t\\\\t\\\\t// x -- strength, y -- full distance, z -- fade distance, w -- blur size\\\\n\\\\t\\\\t\\\\tvec4 shadowParams;\\\\n\\\\t\\\\t\\};\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat ShadowMapDepthBias\\(\\) \\{\\\\n\\\\t\\\\t\\\\treturn shadowMapBias\\.x;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat ShadowMapNormalBias\\(\\) \\{\\\\n\\\\t\\\\t\\\\treturn max\\(shadowMapBias\\.y, 0\\.0001\\);\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat ShadowMapSlopeBias\\(\\) \\{\\\\n\\\\t\\\\t\\\\treturn shadowMapBias\\.z;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat ShadowMapViewBias\\(\\) \\{\\\\n\\\\t\\\\t\\\\treturn shadowMapBias\\.w;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat GetShadowStrength\\(\\) \\{\\\\n\\\\t\\\\t\\\\treturn shadowParams\\.x;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat GetShadowFullDistance\\(\\) \\{\\\\n\\\\t\\\\t\\\\treturn shadowParams\\.y;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat GetShadowFadeDistance\\(\\) \\{\\\\n\\\\t\\\\t\\\\treturn shadowParams\\.z;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat GetBlurSize\\(\\) \\{\\\\n\\\\t\\\\t\\\\treturn shadowParams\\.w;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\n\\\\t\\\\tout vec3 v_shadowCoordinate;\\\\n\\\\t\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tvec3 GetShadowMapCoordinate\\(\\\\n\\\\t\\\\t\\\\tin vec3 position,\\\\n\\\\t\\\\t\\\\tin vec3 normal,\\\\n\\\\t\\\\t\\\\tin vec3 worldNormal,\\\\n\\\\t\\\\t\\\\tin vec3 lightDirection,\\\\n\\\\t\\\\t\\\\tin mat4 vertexSpaceToShadowMatrix\\\\n\\\\t\\\\t\\) \\{\\\\n\\\\t\\\\t\\\\tfloat cosAlpha = max\\(dot\\(worldNormal, -lightDirection\\), 0\\.0\\);\\\\n\\\\t\\\\t\\\\tfloat normalBiasScale = sqrt\\(1\\.0 - cosAlpha \\* cosAlpha\\); // sin\\(acos\\(L\xB7N\\)\\)\\\\n\\\\t\\\\t\\\\tfloat slopeBiasScale = min\\(normalBiasScale / cosAlpha, 2\\.0\\); // tan\\(acos\\(L\xB7N\\)\\)\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tfloat normalBias = ShadowMapNormalBias\\(\\) \\* normalBiasScale;\\\\n\\\\t\\\\t\\\\tvec3 positionWithOffset = position \\+ normal \\* normalBias;\\\\n\\\\t\\\\t\\\\tvec3 result = \\(vertexSpaceToShadowMatrix \\* vec4\\(positionWithOffset, 1\\.0\\)\\)\\.xyz;\\\\n\\\\t\\\\t\\\\t// remap \\[-1, 1\\] => \\[0, 1\\]\\.\\\\n\\\\t\\\\t\\\\tresult = \\(result \\+ vec3\\(1\\.0\\)\\) \\* 0\\.5;\\\\n\\\\t\\\\t\\\\t// todo\\(fominykh\\): \u0440\u0430\u0437\u043E\u0431\u0440\u0430\u0442\u044C\u0441\u044F, \u043D\u0430\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u044D\u0442\u043E \u0430\u0434\u0435\u043A\u0432\u0430\u0442\u043D\u044B\u0439 \u043A\u043E\u0434\\. \u041A\u0430\u0436\u0435\u0442\u0441\u044F \u0441\u0442\u0440\u0430\u043D\u043D\u044B\u043C, \u0447\u0442\u043E \u043C\u044B \u043C\u0435\u043D\u044F\u0435\u043C \u043A\u043E\u043E\u0440\u0434\u0438\u043D\u0430\u0442\u044B \u0432\\\\n\\\\t\\\\t\\\\t// \u043D\u043E\u0440\u043C\u0430\u043B\u0438\u0437\u043E\u0432\u0430\u043D\u043D\u043E\u043C \u043F\u0440\u043E\u0441\u0442\u0440\u0430\u043D\u0441\u0442\u0432\u0435\\. \u0412\u043E\u0437\u043C\u043E\u0436\u043D\u043E, \u044D\u0442\u043E \u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u043E, \u043D\u043E \u043D\u0435\u043E\u0447\u0435\u0432\u0438\u0434\u043D\u043E \u043F\u043E\u043A\u0430\\.\\\\n\\\\t\\\\t\\\\tresult\\.z \\+= ShadowMapSlopeBias\\(\\) \\* slopeBiasScale;\\\\n\\\\t\\\\t\\\\tresult\\.z \\+= ShadowMapViewBias\\(\\);\\\\n\\\\t\\\\t\\\\treturn result;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tvoid SetOutputShadowMapCoordinate\\(\\\\n\\\\t\\\\t\\\\tin vec3 position,\\\\n\\\\t\\\\t\\\\tin vec3 normal,\\\\n\\\\t\\\\t\\\\tin vec3 worldNormal,\\\\n\\\\t\\\\t\\\\tin vec3 lightDirection,\\\\n\\\\t\\\\t\\\\tin mat4 vertexSpaceToShadowMatrix\\\\n\\\\t\\\\t\\) \\{\\\\n\\\\t\\\\t\\\\tv_shadowCoordinate = GetShadowMapCoordinate\\(position, normal, worldNormal, lightDirection, vertexSpaceToShadowMatrix\\);\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\n\\\\t\\\\tuniform mat4 shadowViewProjectionMatrix;\\\\n\\\\t\\\\t#endif\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t#define USE_ALPHA_DITHERING "|'\\\\n		#if USE_SHADOW_MAP\\\\n		\\\\n		\\\\n		layout\\(std140\\) uniform ShadowParams \\{\\\\n			// x -- depth bias, y -- normal bias, z -- slope bias, w -- view bias\\\\n			vec4 shadowMapBias;\\\\n			// x -- strength, y -- full distance, z -- fade distance, w -- blur size\\\\n			vec4 shadowParams;\\\\n		\\};\\\\n		\\\\n		float ShadowMapDepthBias\\(\\) \\{\\\\n			return shadowMapBias\\.x;\\\\n		\\}\\\\n		\\\\n		float ShadowMapNormalBias\\(\\) \\{\\\\n			return max\\(shadowMapBias\\.y, 0\\.0001\\);\\\\n		\\}\\\\n		\\\\n		float ShadowMapSlopeBias\\(\\) \\{\\\\n			return shadowMapBias\\.z;\\\\n		\\}\\\\n		\\\\n		float ShadowMapViewBias\\(\\) \\{\\\\n			return shadowMapBias\\.w;\\\\n		\\}\\\\n		\\\\n		float GetShadowStrength\\(\\) \\{\\\\n			return shadowParams\\.x;\\\\n		\\}\\\\n		\\\\n		float GetShadowFullDistance\\(\\) \\{\\\\n			return shadowParams\\.y;\\\\n		\\}\\\\n		\\\\n		float GetShadowFadeDistance\\(\\) \\{\\\\n			return shadowParams\\.z;\\\\n		\\}\\\\n		\\\\n		float GetBlurSize\\(\\) \\{\\\\n			return shadowParams\\.w;\\\\n		\\}\\\\n	\\\\n		out vec3 v_shadowCoordinate;\\\\n	\\\\n		\\\\n		vec3 GetShadowMapCoordinate\\(\\\\n			in vec3 position,\\\\n			in vec3 normal,\\\\n			in vec3 worldNormal,\\\\n			in vec3 lightDirection,\\\\n			in mat4 vertexSpaceToShadowMatrix\\\\n		\\) \\{\\\\n			float cosAlpha = max\\(dot\\(worldNormal, -lightDirection\\), 0\\.0\\);\\\\n			float normalBiasScale = sqrt\\(1\\.0 - cosAlpha \\* cosAlpha\\); // sin\\(acos\\(L\xB7N\\)\\)\\\\n			float slopeBiasScale = min\\(normalBiasScale / cosAlpha, 2\\.0\\); // tan\\(acos\\(L\xB7N\\)\\)\\\\n			\\\\n			float normalBias = ShadowMapNormalBias\\(\\) \\* normalBiasScale;\\\\n			vec3 positionWithOffset = position \\+ normal \\* normalBias;\\\\n			vec3 result = \\(vertexSpaceToShadowMatrix \\* vec4\\(positionWithOffset, 1\\.0\\)\\)\\.xyz;\\\\n			// remap \\[-1, 1\\] => \\[0, 1\\]\\.\\\\n			result = \\(result \\+ vec3\\(1\\.0\\)\\) \\* 0\\.5;\\\\n			// todo\\(fominykh\\): \u0440\u0430\u0437\u043E\u0431\u0440\u0430\u0442\u044C\u0441\u044F, \u043D\u0430\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u044D\u0442\u043E \u0430\u0434\u0435\u043A\u0432\u0430\u0442\u043D\u044B\u0439 \u043A\u043E\u0434\\. \u041A\u0430\u0436\u0435\u0442\u0441\u044F \u0441\u0442\u0440\u0430\u043D\u043D\u044B\u043C, \u0447\u0442\u043E \u043C\u044B \u043C\u0435\u043D\u044F\u0435\u043C \u043A\u043E\u043E\u0440\u0434\u0438\u043D\u0430\u0442\u044B \u0432\\\\n			// \u043D\u043E\u0440\u043C\u0430\u043B\u0438\u0437\u043E\u0432\u0430\u043D\u043D\u043E\u043C \u043F\u0440\u043E\u0441\u0442\u0440\u0430\u043D\u0441\u0442\u0432\u0435\\. \u0412\u043E\u0437\u043C\u043E\u0436\u043D\u043E, \u044D\u0442\u043E \u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u043E, \u043D\u043E \u043D\u0435\u043E\u0447\u0435\u0432\u0438\u0434\u043D\u043E \u043F\u043E\u043A\u0430\\.\\\\n			result\\.z \\+= ShadowMapSlopeBias\\(\\) \\* slopeBiasScale;\\\\n			result\\.z \\+= ShadowMapViewBias\\(\\);\\\\n			return result;\\\\n		\\}\\\\n	\\\\n		\\\\n		void SetOutputShadowMapCoordinate\\(\\\\n			in vec3 position,\\\\n			in vec3 normal,\\\\n			in vec3 worldNormal,\\\\n			in vec3 lightDirection,\\\\n			in mat4 vertexSpaceToShadowMatrix\\\\n		\\) \\{\\\\n			v_shadowCoordinate = GetShadowMapCoordinate\\(position, normal, worldNormal, lightDirection, vertexSpaceToShadowMatrix\\);\\\\n		\\}\\\\n	\\\\n		uniform mat4 shadowViewProjectionMatrix;\\\\n		#endif\\\\n		\\\\n		#define USE_ALPHA_DITHERING ')\\s*\\+\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\?\\s*1\\s*:\\s*0\\s*\\)\\s*\\+\\s*(?:"\\\\n\\\\t\\\\t#if USE_ALPHA_DITHERING\\\\n\\\\t\\\\tlayout\\(location=6\\) in float instanceAlpha;\\\\n\\\\t\\\\tout float v_alpha;\\\\n\\\\t\\\\t#endif\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t#define USE_FOG "|'\\\\n		#if USE_ALPHA_DITHERING\\\\n		layout\\(location=6\\) in float instanceAlpha;\\\\n		out float v_alpha;\\\\n		#endif\\\\n		\\\\n		#define USE_FOG ')\\s*\\+\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\?\\s*1\\s*:\\s*0\\s*\\)\\s*\\+\\s*(?:"\\\\n\\\\t\\\\t#if USE_FOG\\\\n\\\\t\\\\tout vec3 v_viewPosition;\\\\n\\\\t\\\\t#endif\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tmat4 makeModelMatrix\\(in float scale, in float cosRotationZ, in float sinRotationZ, in vec3 position\\) \\{\\\\n\\\\t\\\\t\\\\t\\\\tfloat c = scale \\* cosRotationZ;\\\\n\\\\t\\\\t\\\\t\\\\tfloat s = scale \\* sinRotationZ;\\\\n\\\\t\\\\t\\\\t\\\\treturn mat4\\(\\\\n\\\\t\\\\t\\\\t\\\\t\\\\tvec4\\(c, s, 0\\., 0\\.\\),\\\\n\\\\t\\\\t\\\\t\\\\t\\\\tvec4\\(-s, c, 0\\., 0\\.\\),\\\\n\\\\t\\\\t\\\\t\\\\t\\\\tvec4\\(0\\., 0\\., scale, 0\\.\\),\\\\n\\\\t\\\\t\\\\t\\\\t\\\\tvec4\\(position, 1\\.0\\)\\\\n\\\\t\\\\t\\\\t\\\\t\\);\\\\n\\\\t\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\tvec2 unity_gradientNoise_dir\\(vec2 p\\)\\\\n\\\\t\\\\t\\{\\\\n\\\\t\\\\t\\\\tp = mod\\(p,289\\.0\\);\\\\n\\\\t\\\\t\\\\tfloat x = \\(34\\.0 \\* p\\.x \\+ 1\\.0\\) \\* mod\\(p\\.x, 289\\.0\\) \\+ p\\.y;\\\\n\\\\t\\\\t\\\\tx = \\(34\\.0 \\* x \\+ 1\\.0\\) \\* mod\\(x, 289\\.0\\);\\\\n\\\\t\\\\t\\\\tx = fract\\(x / 41\\.0\\) \\* 2\\.0 - 1\\.0;\\\\n\\\\t\\\\t\\\\treturn normalize\\(vec2\\(x - floor\\(x \\+ 0\\.5\\), abs\\(x\\) - 0\\.5\\)\\);\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat unity_gradientNoise\\(vec2 p\\)\\\\n\\\\t\\\\t\\{\\\\n\\\\t\\\\t\\\\tvec2 ip = floor\\(p\\);\\\\n\\\\t\\\\t\\\\tvec2 fp = fract\\(p\\);\\\\n\\\\t\\\\t\\\\tfloat d00 = dot\\(unity_gradientNoise_dir\\(ip\\), fp\\);\\\\n\\\\t\\\\t\\\\tfloat d01 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(0, 1\\)\\), fp - vec2\\(0, 1\\)\\);\\\\n\\\\t\\\\t\\\\tfloat d10 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(1, 0\\)\\), fp - vec2\\(1, 0\\)\\);\\\\n\\\\t\\\\t\\\\tfloat d11 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(1, 1\\)\\), fp - vec2\\(1, 1\\)\\);\\\\n\\\\t\\\\t\\\\tfp = fp \\* fp \\* fp \\* \\(fp \\* \\(fp \\* 6\\.0 - 15\\.0\\) \\+ 10\\.0\\);\\\\n\\\\t\\\\t\\\\treturn mix\\(mix\\(d00, d01, fp\\.y\\), mix\\(d10, d11, fp\\.y\\), fp\\.x\\);\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat gradientNoise\\(vec2 UV, float Scale\\)\\\\n\\\\t\\\\t\\{\\\\n\\\\t\\\\t\\\\treturn unity_gradientNoise\\(UV \\* Scale\\) \\+ 0\\.5;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\n\\\\t\\\\t\\\\t#define WIND_SPEED 0\\.3\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tvec4 getPositionModifiedByWind\\(vec4 position, float time, float windStrength\\) \\{\\\\n\\\\t\\\\t\\\\t\\\\tfloat noise = gradientNoise\\(position\\.xy \\+ time, WIND_SPEED\\);\\\\n\\\\t\\\\t\\\\t\\\\tfloat offset = \\(2\\. \\* noise - 1\\.\\) \\* windStrength;\\\\n\\\\t\\\\t\\\\t\\\\treturn position \\+ vec4\\(offset, offset, 0\\., 0\\.\\);\\\\n\\\\t\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\n\\\\t\\\\tvoid main\\(void\\) \\{\\\\n\\\\t\\\\t\\\\tv_uv = uv;\\\\n\\\\t\\\\t\\\\t#if USE_ALPHA_DITHERING\\\\n\\\\t\\\\t\\\\tv_alpha = instanceAlpha;\\\\n\\\\t\\\\t\\\\t#endif\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tmat4 modelMatrix = makeModelMatrix\\(\\\\n\\\\t\\\\t\\\\t\\\\tinstanceScaleRotation\\.x,\\\\n\\\\t\\\\t\\\\t\\\\tinstanceScaleRotation\\.y,\\\\n\\\\t\\\\t\\\\t\\\\tinstanceScaleRotation\\.z,\\\\n\\\\t\\\\t\\\\t\\\\tinstancePosition\\\\n\\\\t\\\\t\\\\t\\);\\\\n\\\\t\\\\t\\\\tvec4 vertexWorldPosition = modelMatrix \\* vec4\\(position, 1\\.0\\);\\\\n\\\\t\\\\t\\\\tfloat time = timeAndWindStrength\\.x;\\\\n\\\\t\\\\t\\\\tfloat windStrength = timeAndWindStrength\\.y;\\\\n\\\\t\\\\t\\\\tvertexWorldPosition = getPositionModifiedByWind\\(vertexWorldPosition, time, windStrength\\);\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\t// lighting\\\\n\\\\t\\\\t\\\\tmat3 normalToWorldMatrix = transpose\\(inverse\\(mat3\\(modelMatrix\\)\\)\\);\\\\n\\\\t\\\\t\\\\tvec3 normalWorldSpace = normalize\\(normalToWorldMatrix \\* normal\\);\\\\n\\\\t\\\\t\\\\tv_illumination = max\\(0\\.0, dot\\(normalWorldSpace, -mainLightDirection\\)\\);\\\\n\\\\t\\\\t\\\\tv_illumination = 0\\.25 \\+ v_illumination \\* 0\\.75;\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\t#if USE_SHADOW_MAP\\\\n\\\\t\\\\t\\\\tSetOutputShadowMapCoordinate\\(\\\\n\\\\t\\\\t\\\\t\\\\tvertexWorldPosition\\.xyz,\\\\n\\\\t\\\\t\\\\t\\\\tnormalWorldSpace,\\\\n\\\\t\\\\t\\\\t\\\\tnormalWorldSpace,\\\\n\\\\t\\\\t\\\\t\\\\tmainLightDirection,\\\\n\\\\t\\\\t\\\\t\\\\tshadowViewProjectionMatrix\\\\n\\\\t\\\\t\\\\t\\);\\\\n\\\\t\\\\t\\\\t#endif\\\\n\\\\n\\\\t\\\\t\\\\t#if USE_FOG\\\\n\\\\t\\\\t\\\\tv_viewPosition = \\(viewMatrix \\* vertexWorldPosition\\)\\.xyz;\\\\n\\\\t\\\\t\\\\t#endif\\\\n\\\\n\\\\t\\\\t\\\\tgl_Position = viewProjectionMatrix \\* vertexWorldPosition;\\\\n\\\\t\\\\t\\}\\\\n\\\\t"|'\\\\n		#if USE_FOG\\\\n		out vec3 v_viewPosition;\\\\n		#endif\\\\n		\\\\n		\\\\n			mat4 makeModelMatrix\\(in float scale, in float cosRotationZ, in float sinRotationZ, in vec3 position\\) \\{\\\\n				float c = scale \\* cosRotationZ;\\\\n				float s = scale \\* sinRotationZ;\\\\n				return mat4\\(\\\\n					vec4\\(c, s, 0\\., 0\\.\\),\\\\n					vec4\\(-s, c, 0\\., 0\\.\\),\\\\n					vec4\\(0\\., 0\\., scale, 0\\.\\),\\\\n					vec4\\(position, 1\\.0\\)\\\\n				\\);\\\\n			\\}\\\\n			\\\\n			\\\\n		vec2 unity_gradientNoise_dir\\(vec2 p\\)\\\\n		\\{\\\\n			p = mod\\(p,289\\.0\\);\\\\n			float x = \\(34\\.0 \\* p\\.x \\+ 1\\.0\\) \\* mod\\(p\\.x, 289\\.0\\) \\+ p\\.y;\\\\n			x = \\(34\\.0 \\* x \\+ 1\\.0\\) \\* mod\\(x, 289\\.0\\);\\\\n			x = fract\\(x / 41\\.0\\) \\* 2\\.0 - 1\\.0;\\\\n			return normalize\\(vec2\\(x - floor\\(x \\+ 0\\.5\\), abs\\(x\\) - 0\\.5\\)\\);\\\\n		\\}\\\\n		\\\\n		float unity_gradientNoise\\(vec2 p\\)\\\\n		\\{\\\\n			vec2 ip = floor\\(p\\);\\\\n			vec2 fp = fract\\(p\\);\\\\n			float d00 = dot\\(unity_gradientNoise_dir\\(ip\\), fp\\);\\\\n			float d01 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(0, 1\\)\\), fp - vec2\\(0, 1\\)\\);\\\\n			float d10 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(1, 0\\)\\), fp - vec2\\(1, 0\\)\\);\\\\n			float d11 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(1, 1\\)\\), fp - vec2\\(1, 1\\)\\);\\\\n			fp = fp \\* fp \\* fp \\* \\(fp \\* \\(fp \\* 6\\.0 - 15\\.0\\) \\+ 10\\.0\\);\\\\n			return mix\\(mix\\(d00, d01, fp\\.y\\), mix\\(d10, d11, fp\\.y\\), fp\\.x\\);\\\\n		\\}\\\\n		\\\\n		float gradientNoise\\(vec2 UV, float Scale\\)\\\\n		\\{\\\\n			return unity_gradientNoise\\(UV \\* Scale\\) \\+ 0\\.5;\\\\n		\\}\\\\n	\\\\n			#define WIND_SPEED 0\\.3\\\\n			\\\\n			vec4 getPositionModifiedByWind\\(vec4 position, float time, float windStrength\\) \\{\\\\n				float noise = gradientNoise\\(position\\.xy \\+ time, WIND_SPEED\\);\\\\n				float offset = \\(2\\. \\* noise - 1\\.\\) \\* windStrength;\\\\n				return position \\+ vec4\\(offset, offset, 0\\., 0\\.\\);\\\\n			\\}\\\\n		\\\\n	\\\\n		void main\\(void\\) \\{\\\\n			v_uv = uv;\\\\n			#if USE_ALPHA_DITHERING\\\\n			v_alpha = instanceAlpha;\\\\n			#endif\\\\n			\\\\n			mat4 modelMatrix = makeModelMatrix\\(\\\\n				instanceScaleRotation\\.x,\\\\n				instanceScaleRotation\\.y,\\\\n				instanceScaleRotation\\.z,\\\\n				instancePosition\\\\n			\\);\\\\n			vec4 vertexWorldPosition = modelMatrix \\* vec4\\(position, 1\\.0\\);\\\\n			float time = timeAndWindStrength\\.x;\\\\n			float windStrength = timeAndWindStrength\\.y;\\\\n			vertexWorldPosition = getPositionModifiedByWind\\(vertexWorldPosition, time, windStrength\\);\\\\n			\\\\n			// lighting\\\\n			mat3 normalToWorldMatrix = transpose\\(inverse\\(mat3\\(modelMatrix\\)\\)\\);\\\\n			vec3 normalWorldSpace = normalize\\(normalToWorldMatrix \\* normal\\);\\\\n			v_illumination = max\\(0\\.0, dot\\(normalWorldSpace, -mainLightDirection\\)\\);\\\\n			v_illumination = 0\\.25 \\+ v_illumination \\* 0\\.75;\\\\n			\\\\n			#if USE_SHADOW_MAP\\\\n			SetOutputShadowMapCoordinate\\(\\\\n				vertexWorldPosition\\.xyz,\\\\n				normalWorldSpace,\\\\n				normalWorldSpace,\\\\n				mainLightDirection,\\\\n				shadowViewProjectionMatrix\\\\n			\\);\\\\n			#endif\\\\n\\\\n			#if USE_FOG\\\\n			v_viewPosition = \\(viewMatrix \\* vertexWorldPosition\\)\\.xyz;\\\\n			#endif\\\\n\\\\n			gl_Position = viewProjectionMatrix \\* vertexWorldPosition;\\\\n		\\}\\\\n	')(?<e1start>)(?<e1end>)`,
+                roles: {},
+                count: 1,
+                search: {
+                  margin: 55432
+                },
+                edits: [
+                  {
+                    start: "e0start",
+                    end: "e0end",
+                    parts: [
+                      "((_kiShader)=>{try{return window.__kaspRain?.treeShader(_kiShader,true)??_kiShader;}catch(_kiTreeError){return _kiShader;}})("
+                    ]
+                  },
+                  {
+                    start: "e1start",
+                    end: "e1end",
+                    parts: [
+                      ")"
+                    ]
+                  }
+                ]
+              },
+              {
+                pattern: `(?<![$\\w])\\s*return(?![$\\w])(?<e0start>)(?<e0end>)\\s*(?:"\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t#ifndef LIGHTING_UNIFORM_BLOCK\\\\n\\\\t\\\\t#define LIGHTING_UNIFORM_BLOCK\\\\n\\\\t\\\\tlayout\\(std140\\) uniform LightingBlock \\{\\\\n\\\\t\\\\t\\\\tvec3 ambientLightColor;\\\\n\\\\t\\\\t\\\\tvec3 mainLightColor;\\\\n\\\\t\\\\t\\\\tvec3 mainLightDirection;\\\\n\\\\t\\\\t\\};\\\\n\\\\t\\\\t#endif\\\\n\\\\t\\\\n\\\\t\\\\tuniform mat4 mvp;\\\\n\\\\t\\\\tuniform mat3 normalToWorldMatrix;\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tlayout\\(location=0\\)\\\\n\\\\t\\\\tin vec3 position;\\\\n\\\\t\\\\tlayout\\(location=1\\)\\\\n\\\\t\\\\tin vec2 uv;\\\\n\\\\t\\\\tlayout\\(location=2\\)\\\\n\\\\t\\\\tin vec3 normal;\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tout vec2 v_uv;\\\\n\\\\t\\\\tout float v_illuminationFront;\\\\n\\\\t\\\\tout float v_illuminationBack;\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t#define USE_SHADOW "|'\\\\n		\\\\n		#ifndef LIGHTING_UNIFORM_BLOCK\\\\n		#define LIGHTING_UNIFORM_BLOCK\\\\n		layout\\(std140\\) uniform LightingBlock \\{\\\\n			vec3 ambientLightColor;\\\\n			vec3 mainLightColor;\\\\n			vec3 mainLightDirection;\\\\n		\\};\\\\n		#endif\\\\n	\\\\n		uniform mat4 mvp;\\\\n		uniform mat3 normalToWorldMatrix;\\\\n		\\\\n		layout\\(location=0\\)\\\\n		in vec3 position;\\\\n		layout\\(location=1\\)\\\\n		in vec2 uv;\\\\n		layout\\(location=2\\)\\\\n		in vec3 normal;\\\\n		\\\\n		out vec2 v_uv;\\\\n		out float v_illuminationFront;\\\\n		out float v_illuminationBack;\\\\n		\\\\n		#define USE_SHADOW ')\\s*\\+\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\?\\s*1\\s*:\\s*0\\s*\\)\\s*\\+\\s*(?:"\\\\n\\\\t\\\\t#if USE_SHADOW\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tlayout\\(std140\\) uniform ShadowParams \\{\\\\n\\\\t\\\\t\\\\t// x -- depth bias, y -- normal bias, z -- slope bias, w -- view bias\\\\n\\\\t\\\\t\\\\tvec4 shadowMapBias;\\\\n\\\\t\\\\t\\\\t// x -- strength, y -- full distance, z -- fade distance, w -- blur size\\\\n\\\\t\\\\t\\\\tvec4 shadowParams;\\\\n\\\\t\\\\t\\};\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat ShadowMapDepthBias\\(\\) \\{\\\\n\\\\t\\\\t\\\\treturn shadowMapBias\\.x;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat ShadowMapNormalBias\\(\\) \\{\\\\n\\\\t\\\\t\\\\treturn max\\(shadowMapBias\\.y, 0\\.0001\\);\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat ShadowMapSlopeBias\\(\\) \\{\\\\n\\\\t\\\\t\\\\treturn shadowMapBias\\.z;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat ShadowMapViewBias\\(\\) \\{\\\\n\\\\t\\\\t\\\\treturn shadowMapBias\\.w;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat GetShadowStrength\\(\\) \\{\\\\n\\\\t\\\\t\\\\treturn shadowParams\\.x;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat GetShadowFullDistance\\(\\) \\{\\\\n\\\\t\\\\t\\\\treturn shadowParams\\.y;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat GetShadowFadeDistance\\(\\) \\{\\\\n\\\\t\\\\t\\\\treturn shadowParams\\.z;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat GetBlurSize\\(\\) \\{\\\\n\\\\t\\\\t\\\\treturn shadowParams\\.w;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\n\\\\t\\\\tout vec3 v_shadowCoordinate;\\\\n\\\\t\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tvec3 GetShadowMapCoordinate\\(\\\\n\\\\t\\\\t\\\\tin vec3 position,\\\\n\\\\t\\\\t\\\\tin vec3 normal,\\\\n\\\\t\\\\t\\\\tin vec3 worldNormal,\\\\n\\\\t\\\\t\\\\tin vec3 lightDirection,\\\\n\\\\t\\\\t\\\\tin mat4 vertexSpaceToShadowMatrix\\\\n\\\\t\\\\t\\) \\{\\\\n\\\\t\\\\t\\\\tfloat cosAlpha = max\\(dot\\(worldNormal, -lightDirection\\), 0\\.0\\);\\\\n\\\\t\\\\t\\\\tfloat normalBiasScale = sqrt\\(1\\.0 - cosAlpha \\* cosAlpha\\); // sin\\(acos\\(L\xB7N\\)\\)\\\\n\\\\t\\\\t\\\\tfloat slopeBiasScale = min\\(normalBiasScale / cosAlpha, 2\\.0\\); // tan\\(acos\\(L\xB7N\\)\\)\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tfloat normalBias = ShadowMapNormalBias\\(\\) \\* normalBiasScale;\\\\n\\\\t\\\\t\\\\tvec3 positionWithOffset = position \\+ normal \\* normalBias;\\\\n\\\\t\\\\t\\\\tvec3 result = \\(vertexSpaceToShadowMatrix \\* vec4\\(positionWithOffset, 1\\.0\\)\\)\\.xyz;\\\\n\\\\t\\\\t\\\\t// remap \\[-1, 1\\] => \\[0, 1\\]\\.\\\\n\\\\t\\\\t\\\\tresult = \\(result \\+ vec3\\(1\\.0\\)\\) \\* 0\\.5;\\\\n\\\\t\\\\t\\\\t// todo\\(fominykh\\): \u0440\u0430\u0437\u043E\u0431\u0440\u0430\u0442\u044C\u0441\u044F, \u043D\u0430\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u044D\u0442\u043E \u0430\u0434\u0435\u043A\u0432\u0430\u0442\u043D\u044B\u0439 \u043A\u043E\u0434\\. \u041A\u0430\u0436\u0435\u0442\u0441\u044F \u0441\u0442\u0440\u0430\u043D\u043D\u044B\u043C, \u0447\u0442\u043E \u043C\u044B \u043C\u0435\u043D\u044F\u0435\u043C \u043A\u043E\u043E\u0440\u0434\u0438\u043D\u0430\u0442\u044B \u0432\\\\n\\\\t\\\\t\\\\t// \u043D\u043E\u0440\u043C\u0430\u043B\u0438\u0437\u043E\u0432\u0430\u043D\u043D\u043E\u043C \u043F\u0440\u043E\u0441\u0442\u0440\u0430\u043D\u0441\u0442\u0432\u0435\\. \u0412\u043E\u0437\u043C\u043E\u0436\u043D\u043E, \u044D\u0442\u043E \u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u043E, \u043D\u043E \u043D\u0435\u043E\u0447\u0435\u0432\u0438\u0434\u043D\u043E \u043F\u043E\u043A\u0430\\.\\\\n\\\\t\\\\t\\\\tresult\\.z \\+= ShadowMapSlopeBias\\(\\) \\* slopeBiasScale;\\\\n\\\\t\\\\t\\\\tresult\\.z \\+= ShadowMapViewBias\\(\\);\\\\n\\\\t\\\\t\\\\treturn result;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tvoid SetOutputShadowMapCoordinate\\(\\\\n\\\\t\\\\t\\\\tin vec3 position,\\\\n\\\\t\\\\t\\\\tin vec3 normal,\\\\n\\\\t\\\\t\\\\tin vec3 worldNormal,\\\\n\\\\t\\\\t\\\\tin vec3 lightDirection,\\\\n\\\\t\\\\t\\\\tin mat4 vertexSpaceToShadowMatrix\\\\n\\\\t\\\\t\\) \\{\\\\n\\\\t\\\\t\\\\tv_shadowCoordinate = GetShadowMapCoordinate\\(position, normal, worldNormal, lightDirection, vertexSpaceToShadowMatrix\\);\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\n\\\\t\\\\tuniform mat4 shadowMVP;\\\\n\\\\t\\\\t#endif\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t#define USE_WIND "|'\\\\n		#if USE_SHADOW\\\\n		\\\\n		\\\\n		layout\\(std140\\) uniform ShadowParams \\{\\\\n			// x -- depth bias, y -- normal bias, z -- slope bias, w -- view bias\\\\n			vec4 shadowMapBias;\\\\n			// x -- strength, y -- full distance, z -- fade distance, w -- blur size\\\\n			vec4 shadowParams;\\\\n		\\};\\\\n		\\\\n		float ShadowMapDepthBias\\(\\) \\{\\\\n			return shadowMapBias\\.x;\\\\n		\\}\\\\n		\\\\n		float ShadowMapNormalBias\\(\\) \\{\\\\n			return max\\(shadowMapBias\\.y, 0\\.0001\\);\\\\n		\\}\\\\n		\\\\n		float ShadowMapSlopeBias\\(\\) \\{\\\\n			return shadowMapBias\\.z;\\\\n		\\}\\\\n		\\\\n		float ShadowMapViewBias\\(\\) \\{\\\\n			return shadowMapBias\\.w;\\\\n		\\}\\\\n		\\\\n		float GetShadowStrength\\(\\) \\{\\\\n			return shadowParams\\.x;\\\\n		\\}\\\\n		\\\\n		float GetShadowFullDistance\\(\\) \\{\\\\n			return shadowParams\\.y;\\\\n		\\}\\\\n		\\\\n		float GetShadowFadeDistance\\(\\) \\{\\\\n			return shadowParams\\.z;\\\\n		\\}\\\\n		\\\\n		float GetBlurSize\\(\\) \\{\\\\n			return shadowParams\\.w;\\\\n		\\}\\\\n	\\\\n		out vec3 v_shadowCoordinate;\\\\n	\\\\n		\\\\n		vec3 GetShadowMapCoordinate\\(\\\\n			in vec3 position,\\\\n			in vec3 normal,\\\\n			in vec3 worldNormal,\\\\n			in vec3 lightDirection,\\\\n			in mat4 vertexSpaceToShadowMatrix\\\\n		\\) \\{\\\\n			float cosAlpha = max\\(dot\\(worldNormal, -lightDirection\\), 0\\.0\\);\\\\n			float normalBiasScale = sqrt\\(1\\.0 - cosAlpha \\* cosAlpha\\); // sin\\(acos\\(L\xB7N\\)\\)\\\\n			float slopeBiasScale = min\\(normalBiasScale / cosAlpha, 2\\.0\\); // tan\\(acos\\(L\xB7N\\)\\)\\\\n			\\\\n			float normalBias = ShadowMapNormalBias\\(\\) \\* normalBiasScale;\\\\n			vec3 positionWithOffset = position \\+ normal \\* normalBias;\\\\n			vec3 result = \\(vertexSpaceToShadowMatrix \\* vec4\\(positionWithOffset, 1\\.0\\)\\)\\.xyz;\\\\n			// remap \\[-1, 1\\] => \\[0, 1\\]\\.\\\\n			result = \\(result \\+ vec3\\(1\\.0\\)\\) \\* 0\\.5;\\\\n			// todo\\(fominykh\\): \u0440\u0430\u0437\u043E\u0431\u0440\u0430\u0442\u044C\u0441\u044F, \u043D\u0430\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u044D\u0442\u043E \u0430\u0434\u0435\u043A\u0432\u0430\u0442\u043D\u044B\u0439 \u043A\u043E\u0434\\. \u041A\u0430\u0436\u0435\u0442\u0441\u044F \u0441\u0442\u0440\u0430\u043D\u043D\u044B\u043C, \u0447\u0442\u043E \u043C\u044B \u043C\u0435\u043D\u044F\u0435\u043C \u043A\u043E\u043E\u0440\u0434\u0438\u043D\u0430\u0442\u044B \u0432\\\\n			// \u043D\u043E\u0440\u043C\u0430\u043B\u0438\u0437\u043E\u0432\u0430\u043D\u043D\u043E\u043C \u043F\u0440\u043E\u0441\u0442\u0440\u0430\u043D\u0441\u0442\u0432\u0435\\. \u0412\u043E\u0437\u043C\u043E\u0436\u043D\u043E, \u044D\u0442\u043E \u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u043E, \u043D\u043E \u043D\u0435\u043E\u0447\u0435\u0432\u0438\u0434\u043D\u043E \u043F\u043E\u043A\u0430\\.\\\\n			result\\.z \\+= ShadowMapSlopeBias\\(\\) \\* slopeBiasScale;\\\\n			result\\.z \\+= ShadowMapViewBias\\(\\);\\\\n			return result;\\\\n		\\}\\\\n	\\\\n		\\\\n		void SetOutputShadowMapCoordinate\\(\\\\n			in vec3 position,\\\\n			in vec3 normal,\\\\n			in vec3 worldNormal,\\\\n			in vec3 lightDirection,\\\\n			in mat4 vertexSpaceToShadowMatrix\\\\n		\\) \\{\\\\n			v_shadowCoordinate = GetShadowMapCoordinate\\(position, normal, worldNormal, lightDirection, vertexSpaceToShadowMatrix\\);\\\\n		\\}\\\\n	\\\\n		uniform mat4 shadowMVP;\\\\n		#endif\\\\n		\\\\n		#define USE_WIND ')\\s*\\+\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\?\\s*1\\s*:\\s*0\\s*\\)\\s*\\+\\s*(?:"\\\\n\\\\t\\\\t#if USE_WIND\\\\n        uniform float time;\\\\n        uniform highp sampler2D noiseTexture;\\\\n\\\\t\\\\t#endif\\\\n\\\\t\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t"|'\\\\n		#if USE_WIND\\\\n        uniform float time;\\\\n        uniform highp sampler2D noiseTexture;\\\\n		#endif\\\\n				\\\\n		')\\s*\\+\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*!\\s*0\\s*\\)\\s*\\+\\s*(?:"\\\\n        "|'\\\\n        ')\\s*\\+\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\+\\s*(?:"\\\\n\\\\t\\\\t\\\\t\\\\t\\\\t\\\\n\\\\t\\\\tvoid main\\(void\\) \\{\\\\t\\\\n\\\\t\\\\t\\\\tv_uv = uv;\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tvec3 worldNormal = normalize\\(normalToWorldMatrix \\* normal\\);\\\\n\\\\t\\\\t\\\\tv_illuminationFront = max\\(dot\\(worldNormal, -mainLightDirection\\), 0\\.\\);\\\\n\\\\t\\\\t\\\\tv_illuminationBack = max\\(dot\\(worldNormal, mainLightDirection\\), 0\\.\\);\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\t#if USE_WIND\\\\n\\\\t\\\\t\\\\tconst float windSpeed = 0\\.1;\\\\n\\\\t\\\\t\\\\tconst float windStrength = 10\\.;\\\\n            float noise = texture\\(noiseTexture, \\(position\\.xy \\+ time\\) \\* windSpeed\\)\\.a;\\\\n\\\\t\\\\t\\\\tvec3 positionOffset = noise \\* vec3\\(windStrength, windStrength, 0\\.\\);\\\\n\\\\t\\\\t\\\\t#else\\\\n\\\\t\\\\t\\\\tvec3 positionOffset = vec3\\(0\\.\\);\\\\n\\\\t\\\\t\\\\t#endif\\\\n\\\\n\\\\t\\\\t\\\\tvec3 localPosition = position \\+ positionOffset;\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\t#if USE_SHADOW\\\\n\\\\t\\\\t\\\\tSetOutputShadowMapCoordinate\\(\\\\n\\\\t\\\\t\\\\t\\\\tlocalPosition,\\\\n\\\\t\\\\t\\\\t\\\\tnormal,\\\\n\\\\t\\\\t\\\\t\\\\tworldNormal,\\\\n\\\\t\\\\t\\\\t\\\\tmainLightDirection,\\\\n\\\\t\\\\t\\\\t\\\\tshadowMVP\\\\n\\\\t\\\\t\\\\t\\);\\\\n\\\\t\\\\t\\\\t#endif\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tgl_Position = mvp \\* vec4\\(localPosition, 1\\.0\\);\\\\n\\\\n\\\\t\\\\t\\\\t"|'\\\\n					\\\\n		void main\\(void\\) \\{	\\\\n			v_uv = uv;\\\\n			\\\\n			vec3 worldNormal = normalize\\(normalToWorldMatrix \\* normal\\);\\\\n			v_illuminationFront = max\\(dot\\(worldNormal, -mainLightDirection\\), 0\\.\\);\\\\n			v_illuminationBack = max\\(dot\\(worldNormal, mainLightDirection\\), 0\\.\\);\\\\n			\\\\n			#if USE_WIND\\\\n			const float windSpeed = 0\\.1;\\\\n			const float windStrength = 10\\.;\\\\n            float noise = texture\\(noiseTexture, \\(position\\.xy \\+ time\\) \\* windSpeed\\)\\.a;\\\\n			vec3 positionOffset = noise \\* vec3\\(windStrength, windStrength, 0\\.\\);\\\\n			#else\\\\n			vec3 positionOffset = vec3\\(0\\.\\);\\\\n			#endif\\\\n\\\\n			vec3 localPosition = position \\+ positionOffset;\\\\n			\\\\n			#if USE_SHADOW\\\\n			SetOutputShadowMapCoordinate\\(\\\\n				localPosition,\\\\n				normal,\\\\n				worldNormal,\\\\n				mainLightDirection,\\\\n				shadowMVP\\\\n			\\);\\\\n			#endif\\\\n			\\\\n			gl_Position = mvp \\* vec4\\(localPosition, 1\\.0\\);\\\\n\\\\n			')\\s*\\+\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"position"|'position')\\s*\\)\\s*\\+\\s*(?:"\\\\n            "|'\\\\n            ')\\s*\\+\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*\\(\\s*(?:"localPosition"|'localPosition')\\s*\\)\\s*\\+\\s*(?:"\\\\n\\\\t\\\\t\\}\\\\n\\\\t"|'\\\\n		\\}\\\\n	')(?<e1start>)(?<e1end>)`,
+                roles: {},
+                count: 1,
+                search: {
+                  literal: "localPosition",
+                  margin: 34344
+                },
+                edits: [
+                  {
+                    start: "e0start",
+                    end: "e0end",
+                    parts: [
+                      "((_kiShader)=>{try{return window.__kaspRain?.treeShader(_kiShader,false)??_kiShader;}catch(_kiTreeError){return _kiShader;}})("
+                    ]
+                  },
+                  {
+                    start: "e1start",
+                    end: "e1end",
+                    parts: [
+                      ")"
+                    ]
+                  }
+                ]
+              },
+              {
+                pattern: `(?<![$\\w])\\s*return(?![$\\w])(?<e0start>)(?<e0end>)\\s*(?:"\\\\n\\\\t\\\\t"|'\\\\n		')\\s*\\+\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"USE_FOG"|'USE_FOG')\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\+\\s*(?:"\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t#if USE_FOG\\\\n\\\\t\\\\tuniform vec4 uFogColor;\\\\n\\\\t\\\\t#endif\\\\n\\\\n\\\\t\\\\tuniform samplerCube skyboxTexture;\\\\n\\\\t\\\\tin vec3 texCoord;\\\\n\\\\n\\\\t\\\\tvoid main\\(\\) \\{\\\\n\\\\t\\\\t\\\\tvec4 color = texture\\(skyboxTexture, texCoord\\);\\\\n\\\\t\\\\t\\\\t#if USE_FOG\\\\n\\\\t\\\\t\\\\tcolor\\.rgb = mix\\(color\\.rgb, uFogColor\\.rgb, uFogColor\\.a\\);\\\\n\\\\t\\\\t\\\\t#endif\\\\n\\\\t\\\\t\\\\toutColor0 = color;\\\\n\\\\t\\\\t\\}\\\\n\\\\t"|'\\\\n		\\\\n		#if USE_FOG\\\\n		uniform vec4 uFogColor;\\\\n		#endif\\\\n\\\\n		uniform samplerCube skyboxTexture;\\\\n		in vec3 texCoord;\\\\n\\\\n		void main\\(\\) \\{\\\\n			vec4 color = texture\\(skyboxTexture, texCoord\\);\\\\n			#if USE_FOG\\\\n			color\\.rgb = mix\\(color\\.rgb, uFogColor\\.rgb, uFogColor\\.a\\);\\\\n			#endif\\\\n			outColor0 = color;\\\\n		\\}\\\\n	')(?<e1start>)(?<e1end>)`,
+                roles: {},
+                count: 1,
+                search: {
+                  literal: "USE_FOG",
+                  margin: 3288
+                },
+                edits: [
+                  {
+                    start: "e0start",
+                    end: "e0end",
+                    parts: [
+                      "((_kiSky)=>{try{return window.__kaspRain?.skyShader(_kiSky)??_kiSky;}catch(_kiSkyError){return _kiSky;}})("
+                    ]
+                  },
+                  {
+                    start: "e1start",
+                    end: "e1end",
+                    parts: [
+                      ")"
+                    ]
+                  }
+                ]
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\(?\\s*\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"mvp"|'mvp')\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\(\\s*(?:"skyboxTexture"|'skyboxTexture')\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\(\\s*(?:"uFogColor"|'uFogColor')\\s*\\)\\s*\\)\\s*\\)?\\s*;?\\s*\\}`,
+                roles: {
+                  scene_skySampler: "s6"
+                },
+                count: 1,
+                search: {
+                  literal: "skyboxTexture",
+                  margin: 1328
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\(?\\s*\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*!\\s*1\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\*\\s*this(?![$\\w])\\s*\\.\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*34067\\s*\\)\\s*\\)?(?<e1start>)(?<e1end>)\\s*;?\\s*\\}",
+                roles: {
+                  gl: "s10",
+                  scene_skySampler: "s24"
+                },
+                count: 1,
+                search: {
+                  margin: 1952
+                },
+                edits: [
+                  {
+                    start: "e1start",
+                    end: "e1end",
+                    parts: [
+                      ";try{window.__kaspRain?.skyUniform(",
+                      {
+                        capture: "s3",
+                        quoted: false
+                      },
+                      ".",
+                      {
+                        role: "gl",
+                        quoted: false
+                      },
+                      ".",
+                      {
+                        role: "context",
+                        quoted: false
+                      },
+                      ");}catch(_kiSkyError){}"
+                    ]
+                  }
+                ]
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*(?:"\\\\n        "|'\\\\n        ')\\s*\\+\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"USE_FOG"|'USE_FOG')\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\+\\s*(?:"\\\\n        #if USE_FOG\\\\n\\\\t\\\\t\\\\tuniform vec4 uFogColor;\\\\n\\\\t\\\\t\\\\tuniform vec3 uFogParams;\\\\n\\\\t\\\\t\\\\tin vec3 v_viewPosition;\\\\n\\\\t\\\\t#endif        \\\\n    "|'\\\\n        #if USE_FOG\\\\n			uniform vec4 uFogColor;\\\\n			uniform vec3 uFogParams;\\\\n			in vec3 v_viewPosition;\\\\n		#endif        \\\\n    ')\\s*;?\\s*\\}`,
+                roles: {
+                  scene_nativeFogClass: "s1"
+                },
+                count: 1,
+                search: {
+                  literal: "USE_FOG",
+                  margin: 1872
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\(?\\s*\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*,\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\)\\s*,\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,(?<e1start>)(?<e1end>)\\s*\\k<s9>(?![$\\w])(?<e2start>)(?<e2end>)\\s*\\)\\s*\\)?\\s*;?\\s*\\}",
+                roles: {
+                  gl: "s11",
+                  scene_nativeFogClass: "s1",
+                  scene_nativeFogBinder7: "s2"
+                },
+                count: 1,
+                search: {
+                  margin: 1048
+                },
+                edits: [
+                  {
+                    start: "e1start",
+                    end: "e1end",
+                    parts: [
+                      "((_kiFog)=>{try{return window.__kaspRain?.nativeFogStrength(_kiFog)??_kiFog;}catch(_kiFogError){return _kiFog;}})("
+                    ]
+                  },
+                  {
+                    start: "e2start",
+                    end: "e2end",
+                    parts: [
+                      ")"
+                    ]
+                  }
+                ]
+              },
+              {
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\(?\\s*\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*,\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,(?<e1start>)(?<e1end>)\\s*\\k<s7>(?![$\\w])(?<e2start>)(?<e2end>)\\s*\\)\\s*\\)?\\s*;?\\s*\\}",
+                roles: {
+                  gl: "s9",
+                  scene_nativeFogClass: "s1",
+                  scene_nativeFogBinder5: "s2"
+                },
+                count: 1,
+                search: {
+                  margin: 888
+                },
+                edits: [
+                  {
+                    start: "e1start",
+                    end: "e1end",
+                    parts: [
+                      "((_kiFog)=>{try{return window.__kaspRain?.nativeFogStrength(_kiFog)??_kiFog;}catch(_kiFogError){return _kiFog;}})("
+                    ]
+                  },
+                  {
+                    start: "e2start",
+                    end: "e2end",
+                    parts: [
+                      ")"
+                    ]
+                  }
+                ]
+              },
+              {
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\(?\\s*\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*!\\s*1\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,(?<e1start>)(?<e1end>)\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\*\\s*this(?![$\\w])\\s*\\.\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])(?<e2start>)(?<e2end>)\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*34067\\s*\\)\\s*\\)?\\s*;?\\s*\\}",
+                roles: {
+                  gl: "s10",
+                  red: "s17",
+                  green: "s18",
+                  blue: "s19"
+                },
+                count: 1,
+                search: {
+                  margin: 1952
+                },
+                edits: [
+                  {
+                    start: "e1start",
+                    end: "e1end",
+                    parts: [
+                      "((_kiFog)=>{try{return window.__kaspRain?.nativeFogStrength(_kiFog)??_kiFog;}catch(_kiFogError){return _kiFog;}})("
+                    ]
+                  },
+                  {
+                    start: "e2start",
+                    end: "e2end",
+                    parts: [
+                      ")"
+                    ]
+                  }
+                ]
+              },
+              {
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*new(?![$\\w])\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"DropZones"|'DropZones')\\s*,\\s*8\\s*\\)`,
+                roles: {
+                  scene_dropZoneEnum: "s0"
+                },
+                count: 1,
+                search: {
+                  literal: "DropZones",
+                  margin: 440
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\(?\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)?\\s*;?\\s*\\}",
+                roles: {
+                  scene_dropZoneEnum: "s2",
+                  scene_dropZoneLayer: "s0"
+                },
+                count: 1,
+                search: {
+                  literal: "DropZones",
+                  margin: 2558
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*\\(?\\s*this(?![$\\w])\\s*\\.\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,(?<e1start>)(?<e1end>)\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)(?<e2start>)(?<e2end>)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*32926\\s*\\)\\s*\\)?",
+                roles: {
+                  gl: "s6",
+                  scene_dropZoneLayer: "s2"
+                },
+                count: 1,
+                search: {
+                  margin: 824
+                },
+                edits: [
+                  {
+                    start: "e1start",
+                    end: "e1end",
+                    parts: [
+                      "(()=>{let _kiDropRestore;try{_kiDropRestore=window.__kaspRain?.dropZones(this.",
+                      {
+                        role: "gl",
+                        quoted: false
+                      },
+                      ".",
+                      {
+                        role: "context",
+                        quoted: false
+                      },
+                      ");}catch(_kiDropError){}try{return "
+                    ]
+                  },
+                  {
+                    start: "e2start",
+                    end: "e2end",
+                    parts: [
+                      ";}finally{try{_kiDropRestore?.();}catch(_kiDropError){}}})()"
+                    ]
+                  }
+                ]
+              }
+            ],
+            schema: {
+              gl: "y39_1",
+              context: "f75_1",
+              vp: "g37_1",
+              camera: "t35_1",
+              x: "f20_1",
+              y: "g20_1",
+              z: "h20_1",
+              settings: "y38_1",
+              fogEnabled: "n3o_1",
+              mapFog: "o3o_1",
+              fogStart: "c3a_1",
+              fogEnd: "b3a_1",
+              fogColor: "d3a_1",
+              red: "l2r_1",
+              green: "m2r_1",
+              blue: "n2r_1",
+              alpha: "o2r_1"
+            },
+            scene: {
+              capabilities: {
+                map: true,
+                lighting: true,
+                tanks: true,
+                environment: true,
+                treeWind: true,
+                skyTone: true,
+                fogSuppression: true,
+                dropZones: true
+              },
+              issues: []
             }
           }
         ]
@@ -18572,6 +22906,7 @@ o=vec4(vec3(.72,.81,.87)*a,a);
             for (const node of Array.from(m.addedNodes)) {
               if (!bundleIntercepted && node instanceof HTMLScriptElement && node.src.includes("/static/js/main.")) {
                 bundleIntercepted = true;
+                window.__kaspRain?.patch?.("loading");
                 const originalScript = document.createElement("script");
                 for (const attribute of Array.from(node.attributes)) {
                   originalScript.setAttribute(attribute.name, attribute.value);
@@ -18748,12 +23083,22 @@ o=vec4(vec3(.72,.81,.87)*a,a);
                   try {
                     rainPlan = await selectRainPlan(originalCode, rain_weather_default.plans);
                     if (rainPlan) prepared.push(rainPlan);
+                    else {
+                      window.__kaspRain?.patch?.("unsupported");
+                      console.warn("[KI Weather] Render mapping unavailable; native weather is unchanged");
+                    }
                   } catch {
+                    window.__kaspRain?.patch?.("error");
                     console.warn("[KI Weather] Render mapping unavailable; native weather is unchanged");
                   }
                   const merged = mergeClientPatchPlans(originalCode, prepared);
                   code = merged.code;
-                  if (rainPlan && merged.rejected.includes(rainPlan)) console.warn("[KI Weather] Render patch conflict; weather disabled");
+                  if (rainPlan) {
+                    if (merged.rejected.includes(rainPlan)) {
+                      window.__kaspRain?.patch?.("conflict");
+                      console.warn("[KI Weather] Render patch conflict; weather disabled");
+                    } else window.__kaspRain?.patch?.("installed");
+                  }
                   if (killFeedPrivacyPlan && merged.rejected.includes(killFeedPrivacyPlan)) console.warn("[KI Kill feed privacy] Text patch conflict");
                   if (boxPickupPlan && merged.rejected.includes(boxPickupPlan)) console.warn("[KI Box pickup] Animation patch conflict; using the original animation");
                   if (supplyPrivacyPlan && merged.rejected.includes(supplyPrivacyPlan)) console.warn("[KI Supply privacy] Count label patch conflict");
@@ -18774,6 +23119,7 @@ o=vec4(vec3(.72,.81,.87)*a,a);
                   script.textContent = code;
                   (document.head || document.documentElement).appendChild(script);
                 }).catch((error) => {
+                  window.__kaspRain?.patch?.("error");
                   console.error("[Kaspersky Inventions] Bundle injection failed; loading the original game script:", error);
                   originalScript.addEventListener("error", () => {
                     console.error("[Kaspersky Inventions] The original game script also failed to load:", originalScript.src);

@@ -3,26 +3,41 @@ import { gameDOM } from './gameDOM';
 import { utils } from './utils';
 import { setupNicknamePrivacy } from '../modules/hideNickname';
 import { getVerifiedAccount } from './accountIdentity';
-import { readWeatherVolumes, WEATHER_VOLUME_KEYS } from './rainWeather/preferences';
+import { readWeatherGeneration, readWeatherVolumes, WEATHER_GENERATION_KEYS, WEATHER_VOLUME_KEYS } from './rainWeather/preferences';
+
 
 export const coreSettings = (() => {
     let needsReload = false;
     let active = false;
     let stopArt: (() => void) | null = null;
-    const liveSettings = new Set(['k_arcade_reload', 'k_critical_indicator', 'k_hideSupplies', 'k_box_pickup', 'k_rain_weather']);
+    const liveSettings = new Set(['k_arcade_reload', 'k_critical_indicator', 'k_hideSupplies', 'k_box_pickup', 'k_rain_weather', 'k_rain_puddles']);
     let initialSettingsState: Record<string, boolean> = {};
     const t = {
         RU: {
             tooltip: 'Требуется перезагрузка', information: 'Информация',
             rainVolume: 'Громкость дождя', thunderVolume: 'Громкость грома',
+            rainChance: 'Шанс генерации дождя', rainPreset: 'Желаемый пресет',
+            rainDuration: 'Продолжительность дождя', rainDurationHint: 'Доля оставшегося времени боя. 100% — до конца боя, меньше — случайный промежуток.',
+            rainNextBattle: 'Шанс, продолжительность и пресет применяются со следующей битвы.',
+            rainRandomHint: 'Случайный выбор — один из дождливых пресетов. Ясно и облачно — без дождя.',
+            presets: { random: 'Случайный', sunny: 'Ясно (без дождя)', overcast: 'Облачно (без дождя)',
+                drizzle: 'Морось', sunshower: 'Солнечный дождь', storm: 'Шторм' },
             accountNotice: 'ID аккаунта пока недоступен. История и личное избранное временно недоступны; сохранённые данные остаются на месте.'
         },
         EN: {
             tooltip: 'Requires reload', information: 'Information',
             rainVolume: 'Rain volume', thunderVolume: 'Thunder volume',
+            rainChance: 'Rain chance', rainPreset: 'Preferred preset',
+            rainDuration: 'Rain duration', rainDurationHint: 'Share of the remaining battle time. 100% lasts until the battle ends; lower values use a random interval.',
+            rainNextBattle: 'Chance, duration and preset apply from the next battle.',
+            rainRandomHint: 'Random selects a rainy preset. Sunny and overcast have no rain.',
+            presets: { random: 'Random', sunny: 'Sunny (no rain)', overcast: 'Overcast (no rain)',
+                drizzle: 'Drizzle', sunshower: 'Sunshower', storm: 'Storm' },
             accountNotice: 'Account ID is unavailable. History and personal favorites are temporarily unavailable; saved data is preserved.'
         }
     };
+    const puddleSetting = { id: 'k_rain_puddles', label: { RU: 'Экспериментальные лужи', EN: 'Experimental puddles' },
+        description: { RU: 'Отражения видимых объектов во время дождя', EN: 'Reflections of visible objects during rain' }, default: false };
     const groups = [
         {
             id: 'normal', title: { RU: 'Функции обычной серьёзности', EN: 'Standard features' },
@@ -66,11 +81,11 @@ export const coreSettings = (() => {
                 { id: 'k_box_pickup', label: { RU: 'Изменённое поведение коробок в битве при подборе', EN: 'Modified box pickup animation in battle' },
                     description: { RU: 'Вспышка и разлетающиеся осколки', EN: 'A flash and scattering fragments' }, default: false },
                 { id: 'k_rain_weather', label: { RU: 'Случайная погода в битве', EN: 'Random battle weather' },
-                    description: { RU: 'Редкий дождь и гроза с плавной сменой облаков', EN: 'Occasional rain and storms with gradual cloud transitions' }, default: false }
+                    description: { RU: 'Редкий дождь и гроза с плавной сменой облаков', EN: 'Occasional rain and storms with gradual cloud transitions' }, default: false },
             ]
         }
     ];
-    const settings = groups.flatMap(group => group.settings);
+    const settings = [...groups.flatMap(group => group.settings), puddleSetting];
     const informationLinks = [
         { label: { RU: 'Страница в Chrome Web Store', EN: 'Chrome Web Store' },
             href: 'https://chromewebstore.google.com/detail/tanki-online-kasperskys-i/eemohhfjcdlhmdpflloipmdeeggmofio?authuser=0&hl=ru' },
@@ -96,14 +111,41 @@ export const coreSettings = (() => {
             const lang = state.lang;
             const dict = t[lang] || t.EN;
             const volumes = readWeatherVolumes(localStorage);
+            const generation = readWeatherGeneration(localStorage);
+            const settingRow = (setting: typeof settings[number], enabled = true) => {
+                const checked = utils.getSetting(setting.id, setting.default);
+                // Preserve the baseline if the language changes while settings are open.
+                if (!(setting.id in initialSettingsState)) initialSettingsState[setting.id] = checked;
+                const description = 'description' in setting ? setting.description : undefined;
+                return `<label class="kasp-toggle-row ${checked ? 'kasp-active' : ''}" data-id="${setting.id}">
+                    <span class="kasp-toggle-text"><span class="kasp-toggle-label">${setting.label[lang]}</span>
+                        ${description ? `<span class="kasp-toggle-description">${description[lang]}</span>` : ''}
+                    </span>
+                    <input type="checkbox" role="switch" class="kasp-toggle-switch" ${checked ? 'checked' : ''} ${enabled ? '' : 'disabled'} aria-label="${setting.label[lang]}">
+                </label>`;
+            };
             const weatherControls = (enabled: boolean) => `<div class="kasp-weather-options ${enabled ? 'kasp-expanded' : ''}" id="kasp-weather-options" ${enabled ? '' : 'inert'}>
-                <div class="kasp-weather-options-inner">${(['thunder', 'rain'] as const).map(kind => {
+                <div class="kasp-weather-options-inner">
+                <label class="kasp-weather-volume"><span class="kasp-weather-volume-heading"><span>${dict.rainChance}</span><output>${Math.round(generation.chance * 100)}%</output></span>
+                    <input type="range" min="0" max="100" step="1" value="${Math.round(generation.chance * 100)}" data-weather-chance aria-label="${dict.rainChance}" ${enabled ? '' : 'disabled'}>
+                </label>
+                <label class="kasp-weather-volume"><span class="kasp-weather-volume-heading"><span>${dict.rainDuration}</span><output>${Math.round(generation.duration * 100)}%</output></span>
+                    <input type="range" min="0" max="100" step="1" value="${Math.round(generation.duration * 100)}" data-weather-duration aria-label="${dict.rainDuration}" ${enabled ? '' : 'disabled'}>
+                </label>
+                <p class="kasp-weather-hint">${dict.rainDurationHint}</p>
+                <label class="kasp-weather-volume"><span class="kasp-weather-volume-heading"><span>${dict.rainPreset}</span></span>
+                    <select class="kasp-weather-preset" data-weather-preset aria-label="${dict.rainPreset}" ${enabled ? '' : 'disabled'}>${(Object.keys(dict.presets) as Array<keyof typeof dict.presets>).map(preset =>
+                        `<option value="${preset}" ${generation.preset === preset ? 'selected' : ''}>${dict.presets[preset]}</option>`).join('')}</select>
+                </label>
+                <p class="kasp-weather-hint">${dict.rainNextBattle}<br>${dict.rainRandomHint}</p>
+                ${(['thunder', 'rain'] as const).map(kind => {
                     const label = kind === 'rain' ? dict.rainVolume : dict.thunderVolume;
                     const value = Math.round(volumes[kind] * 100);
                     return `<label class="kasp-weather-volume"><span class="kasp-weather-volume-heading"><span>${label}</span><output>${value}%</output></span>
                         <input type="range" min="0" max="100" step="1" value="${value}" data-weather-volume="${kind}" aria-label="${label}" ${enabled ? '' : 'disabled'}>
                     </label>`;
-                }).join('')}</div></div>`;
+                }).join('')}${settingRow(puddleSetting, enabled)}
+                </div></div>`;
             let tooltip = document.getElementById('kaspersky-reload-tooltip');
             if (!tooltip) {
                 tooltip = document.createElement('div');
@@ -133,15 +175,7 @@ export const coreSettings = (() => {
                         </header>
                         <div class="kasp-settings-rows">${group.settings.map(setting => {
                             const checked = utils.getSetting(setting.id, setting.default);
-                            // Preserve the baseline if the language changes while settings are open.
-                            if (!(setting.id in initialSettingsState)) initialSettingsState[setting.id] = checked;
-                            const description = 'description' in setting ? setting.description : undefined;
-                            return `<label class="kasp-toggle-row ${checked ? 'kasp-active' : ''}" data-id="${setting.id}">
-                                <span class="kasp-toggle-text"><span class="kasp-toggle-label">${setting.label[lang]}</span>
-                                    ${description ? `<span class="kasp-toggle-description">${description[lang]}</span>` : ''}
-                                </span>
-                                <input type="checkbox" role="switch" class="kasp-toggle-switch" ${checked ? 'checked' : ''} aria-label="${setting.label[lang]}">
-                            </label>${setting.id === 'k_rain_weather' ? weatherControls(checked) : ''}`;
+                            return `${settingRow(setting)}${setting.id === 'k_rain_weather' ? weatherControls(checked) : ''}`;
                         }).join('')}</div>
                     </section>`).join('')}
                     <section class="kasp-settings-panel kasp-settings-information" aria-labelledby="kasp-settings-information-title">
@@ -231,11 +265,12 @@ export const coreSettings = (() => {
                 row.addEventListener('mouseleave', () => tooltip?.classList.add('kasp-hidden'));
                 switchBtn.addEventListener('change', () => {
                     const checked = switchBtn.checked;
-                    if (id === 'k_rain_weather') {
+                    if (id === 'k_rain_weather' || id === 'k_rain_puddles') {
                         const options = kContent.querySelector<HTMLElement>('#kasp-weather-options')!;
-                        options.classList.toggle('kasp-expanded', checked);
-                        options.inert = !checked;
-                        options.querySelectorAll<HTMLInputElement>('input').forEach(input => { input.disabled = !checked; });
+                        const weatherEnabled = kContent.querySelector<HTMLInputElement>('[data-id="k_rain_weather"] input')!.checked;
+                        options.classList.toggle('kasp-expanded', weatherEnabled);
+                        options.inert = !weatherEnabled;
+                        options.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input, select').forEach(input => { input.disabled = !weatherEnabled; });
                     }
                     row.classList.toggle('kasp-active', checked);
                     utils.setSetting(id, checked);
@@ -255,6 +290,26 @@ export const coreSettings = (() => {
                     try { localStorage.setItem(WEATHER_VOLUME_KEYS[kind], String(percent / 100)); } catch {}
                     window.dispatchEvent(new Event('kasp:settings-changed'));
                 });
+            });
+            const rainChance = kContent.querySelector<HTMLInputElement>('[data-weather-chance]')!;
+            rainChance.addEventListener('input', () => {
+                const percent = Math.max(0, Math.min(100, Number(rainChance.value)));
+                rainChance.closest('label')!.querySelector('output')!.textContent = `${percent}%`;
+                try { localStorage.setItem(WEATHER_GENERATION_KEYS.chance, String(percent / 100)); } catch {}
+                window.dispatchEvent(new Event('kasp:settings-changed'));
+            });
+            const rainPreset = kContent.querySelector<HTMLSelectElement>('[data-weather-preset]')!;
+            rainPreset.addEventListener('change', () => {
+                if (!Object.prototype.hasOwnProperty.call(dict.presets, rainPreset.value)) return;
+                try { localStorage.setItem(WEATHER_GENERATION_KEYS.preset, rainPreset.value); } catch {}
+                window.dispatchEvent(new Event('kasp:settings-changed'));
+            });
+            const rainDuration = kContent.querySelector<HTMLInputElement>('[data-weather-duration]')!;
+            rainDuration.addEventListener('input', () => {
+                const percent = Math.max(0, Math.min(100, Number(rainDuration.value)));
+                rainDuration.closest('label')!.querySelector('output')!.textContent = `${percent}%`;
+                try { localStorage.setItem(WEATHER_GENERATION_KEYS.duration, String(percent / 100)); } catch {}
+                window.dispatchEvent(new Event('kasp:settings-changed'));
             });
 
             const show = () => {

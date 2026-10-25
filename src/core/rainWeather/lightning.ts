@@ -1,7 +1,7 @@
 import { WEATHER } from './schedule';
 import type { RainEpisode } from './schedule';
 
-export const LIGHTNING=Object.freeze({firstMin:20,firstMax:42,gapMin:48,gapMax:78,duration:.75,
+export const LIGHTNING=Object.freeze({firstMin:8,firstMax:18,gapMin:20,gapMax:35,maxStrikes:7,duration:.75,
     radiusMin:85000,radiusMax:125000,unitsPerMetre:100,soundSpeed:343,maxSegments:256});
 export type Point=[number,number,number];
 export interface Strike {id:number;at:number;seed:number;azimuth:number;radius:number;delay:number;}
@@ -11,7 +11,7 @@ export function stormStrikes(plan:RainEpisode):Strike[]{
     if(plan.preset!=='storm')return[];
     const random=seeded(plan.seed^0x71e64ad9),out:Strike[]=[];
     let seconds=plan.fadeIn+LIGHTNING.firstMin+random()*(LIGHTNING.firstMax-LIGHTNING.firstMin);
-    while(seconds<plan.fadeIn+plan.hold-8&&out.length<3){
+    while(seconds<plan.fadeIn+plan.hold-8&&out.length<LIGHTNING.maxStrikes){
         const radius=LIGHTNING.radiusMin+random()*(LIGHTNING.radiusMax-LIGHTNING.radiusMin);
         out.push({id:out.length,at:plan.start+seconds*1000,seed:Math.floor(random()*0xffffff),
             azimuth:random()*Math.PI*2,radius,delay:radius/LIGHTNING.unitsPerMetre/LIGHTNING.soundSpeed});

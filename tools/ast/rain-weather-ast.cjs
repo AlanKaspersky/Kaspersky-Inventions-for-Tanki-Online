@@ -1,5 +1,6 @@
 const {parse}=require('acorn'),walk=require('acorn-walk'),{createHash}=require('node:crypto');
 const {compileTemplates}=require('./overdrive-templates.cjs');
+const {weatherScene}=require('./weather-scene-ast.cjs');
 const prop=n=>n?.type==='MemberExpression'?(n.computed?n.property.value:n.property.name):null;
 const nodes=(root,type)=>{const out=[];walk.full(root,n=>{if(n.type===type)out.push(n);});return out;};
 function analyzeRain(source){
@@ -93,6 +94,12 @@ function analyzeRain(source){
     }
   }
   if(!plan.templates.length)throw Error('rain-templates');
+  if(nodes(ast,'Literal').some(n=>n.value==='CollisionGeometry [')){
+   const scene=weatherScene(source,{methods,functions,scopes,renderer:fn,schema});
+   plan.scene={capabilities:scene.capabilities,issues:scene.issues};
+   plan.edits.push(...scene.edits.map(e=>({...e,text:e.text.replaceAll('__KI_RAIN_SCHEMA__',JSON.stringify(schema))})));
+   plan.edits.sort((a,b)=>a.start-b.start||a.end-b.end);plan.templates.push(...scene.templates);
+  }
   plan.schema=schema;plan.status.ready=true;
  }catch(e){plan.status.issues.push(e.message);plan.edits=[];plan.templates=[];}
  return plan;

@@ -1,6 +1,6 @@
 {
   "name": "Kaspersky's Inventions",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "Interface tools for Tanki Online: battle history, augment stats, quick upgrades, privacy controls and lobby customization.",
   "private": true,
   "scripts": {

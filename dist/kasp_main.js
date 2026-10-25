@@ -121,7 +121,8 @@
         "k_arcade_reload",
         "k_critical_indicator",
         "k_box_pickup",
-        "k_rain_weather"
+        "k_rain_weather",
+        "k_rain_puddles"
       ];
       settingsCache = /* @__PURE__ */ new Map();
       for (const key of SETTINGS_KEYS) {
@@ -966,7 +967,62 @@
     }
   });
 
+  // src/core/rainWeather/schedule.ts
+  var WEATHER, RAIN_PRESETS, DEFAULT_WEATHER_GENERATION, rainyPresets;
+  var init_schedule = __esm({
+    "src/core/rainWeather/schedule.ts"() {
+      "use strict";
+      WEATHER = Object.freeze({
+        chance: 0.24,
+        // Actual rain probability in random mode, preserving the previous ~24% default.
+        fadeIn: 24,
+        fadeOut: 30,
+        cloudLead: 12,
+        unknownBattleSeconds: 600,
+        maxBattleSeconds: 86400,
+        maxDrops: 25e3,
+        cloudWidth: 1024,
+        cloudHeight: 256,
+        cloudHz: 10,
+        cloudBase: 11e3,
+        cloudThickness: 4200,
+        fogDistanceScale: 0.18
+        // Bring cloud lightening much closer than native map fog.
+      });
+      RAIN_PRESETS = Object.freeze({
+        sunshower: { rain: 0.45, clouds: 0.45, wind: 0.25, storm: 0, sound: 0.25 },
+        drizzle: { rain: 0.22, clouds: 0.65, wind: 0.15, storm: 0, sound: 0.2 },
+        storm: { rain: 1, clouds: 1, wind: 1, storm: 1, sound: 0.45 },
+        overcast: { rain: 0, clouds: 0.85, wind: 0.3, storm: 0, sound: 0 },
+        sunny: { rain: 0, clouds: 0.2, wind: 0.2, storm: 0, sound: 0 }
+      });
+      DEFAULT_WEATHER_GENERATION = Object.freeze({ chance: WEATHER.chance, preset: "random", duration: 0.3 });
+      rainyPresets = Object.keys(RAIN_PRESETS).filter((name) => RAIN_PRESETS[name].rain > 0);
+    }
+  });
+
   // src/core/rainWeather/preferences.ts
+  function readWeatherGeneration(storage) {
+    let chance = DEFAULT_WEATHER_GENERATION.chance, preset = DEFAULT_WEATHER_GENERATION.preset, duration = DEFAULT_WEATHER_GENERATION.duration;
+    try {
+      const raw = storage.getItem(WEATHER_GENERATION_KEYS.chance);
+      const value = raw === null || raw.trim() === "" ? NaN : Number(raw);
+      if (Number.isFinite(value)) chance = Math.max(0, Math.min(1, value));
+    } catch {
+    }
+    try {
+      const value = storage.getItem(WEATHER_GENERATION_KEYS.preset);
+      if (value === "random" || value !== null && Object.prototype.hasOwnProperty.call(RAIN_PRESETS, value)) preset = value;
+    } catch {
+    }
+    try {
+      const raw = storage.getItem(WEATHER_GENERATION_KEYS.duration);
+      const value = raw === null || raw.trim() === "" ? NaN : Number(raw);
+      if (Number.isFinite(value)) duration = Math.max(0, Math.min(1, value));
+    } catch {
+    }
+    return { chance, preset, duration };
+  }
   function readWeatherVolumes(storage) {
     const read = (key) => {
       try {
@@ -980,11 +1036,13 @@
     };
     return { rain: read(WEATHER_VOLUME_KEYS.rain), thunder: read(WEATHER_VOLUME_KEYS.thunder) };
   }
-  var WEATHER_VOLUME_KEYS;
+  var WEATHER_VOLUME_KEYS, WEATHER_GENERATION_KEYS;
   var init_preferences = __esm({
     "src/core/rainWeather/preferences.ts"() {
       "use strict";
+      init_schedule();
       WEATHER_VOLUME_KEYS = { rain: "k_rain_volume", thunder: "k_thunder_volume" };
+      WEATHER_GENERATION_KEYS = { chance: "k_rain_chance", preset: "k_rain_preset", duration: "k_rain_duration" };
     }
   });
 
@@ -1003,7 +1061,7 @@
         let needsReload = false;
         let active = false;
         let stopArt = null;
-        const liveSettings = /* @__PURE__ */ new Set(["k_arcade_reload", "k_critical_indicator", "k_hideSupplies", "k_box_pickup", "k_rain_weather"]);
+        const liveSettings = /* @__PURE__ */ new Set(["k_arcade_reload", "k_critical_indicator", "k_hideSupplies", "k_box_pickup", "k_rain_weather", "k_rain_puddles"]);
         let initialSettingsState = {};
         const t = {
           RU: {
@@ -1011,6 +1069,20 @@
             information: "\u0418\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044F",
             rainVolume: "\u0413\u0440\u043E\u043C\u043A\u043E\u0441\u0442\u044C \u0434\u043E\u0436\u0434\u044F",
             thunderVolume: "\u0413\u0440\u043E\u043C\u043A\u043E\u0441\u0442\u044C \u0433\u0440\u043E\u043C\u0430",
+            rainChance: "\u0428\u0430\u043D\u0441 \u0433\u0435\u043D\u0435\u0440\u0430\u0446\u0438\u0438 \u0434\u043E\u0436\u0434\u044F",
+            rainPreset: "\u0416\u0435\u043B\u0430\u0435\u043C\u044B\u0439 \u043F\u0440\u0435\u0441\u0435\u0442",
+            rainDuration: "\u041F\u0440\u043E\u0434\u043E\u043B\u0436\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u044C \u0434\u043E\u0436\u0434\u044F",
+            rainDurationHint: "\u0414\u043E\u043B\u044F \u043E\u0441\u0442\u0430\u0432\u0448\u0435\u0433\u043E\u0441\u044F \u0432\u0440\u0435\u043C\u0435\u043D\u0438 \u0431\u043E\u044F. 100% \u2014 \u0434\u043E \u043A\u043E\u043D\u0446\u0430 \u0431\u043E\u044F, \u043C\u0435\u043D\u044C\u0448\u0435 \u2014 \u0441\u043B\u0443\u0447\u0430\u0439\u043D\u044B\u0439 \u043F\u0440\u043E\u043C\u0435\u0436\u0443\u0442\u043E\u043A.",
+            rainNextBattle: "\u0428\u0430\u043D\u0441, \u043F\u0440\u043E\u0434\u043E\u043B\u0436\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u044C \u0438 \u043F\u0440\u0435\u0441\u0435\u0442 \u043F\u0440\u0438\u043C\u0435\u043D\u044F\u044E\u0442\u0441\u044F \u0441\u043E \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0435\u0439 \u0431\u0438\u0442\u0432\u044B.",
+            rainRandomHint: "\u0421\u043B\u0443\u0447\u0430\u0439\u043D\u044B\u0439 \u0432\u044B\u0431\u043E\u0440 \u2014 \u043E\u0434\u0438\u043D \u0438\u0437 \u0434\u043E\u0436\u0434\u043B\u0438\u0432\u044B\u0445 \u043F\u0440\u0435\u0441\u0435\u0442\u043E\u0432. \u042F\u0441\u043D\u043E \u0438 \u043E\u0431\u043B\u0430\u0447\u043D\u043E \u2014 \u0431\u0435\u0437 \u0434\u043E\u0436\u0434\u044F.",
+            presets: {
+              random: "\u0421\u043B\u0443\u0447\u0430\u0439\u043D\u044B\u0439",
+              sunny: "\u042F\u0441\u043D\u043E (\u0431\u0435\u0437 \u0434\u043E\u0436\u0434\u044F)",
+              overcast: "\u041E\u0431\u043B\u0430\u0447\u043D\u043E (\u0431\u0435\u0437 \u0434\u043E\u0436\u0434\u044F)",
+              drizzle: "\u041C\u043E\u0440\u043E\u0441\u044C",
+              sunshower: "\u0421\u043E\u043B\u043D\u0435\u0447\u043D\u044B\u0439 \u0434\u043E\u0436\u0434\u044C",
+              storm: "\u0428\u0442\u043E\u0440\u043C"
+            },
             accountNotice: "ID \u0430\u043A\u043A\u0430\u0443\u043D\u0442\u0430 \u043F\u043E\u043A\u0430 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D. \u0418\u0441\u0442\u043E\u0440\u0438\u044F \u0438 \u043B\u0438\u0447\u043D\u043E\u0435 \u0438\u0437\u0431\u0440\u0430\u043D\u043D\u043E\u0435 \u0432\u0440\u0435\u043C\u0435\u043D\u043D\u043E \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u044B; \u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u0435 \u0434\u0430\u043D\u043D\u044B\u0435 \u043E\u0441\u0442\u0430\u044E\u0442\u0441\u044F \u043D\u0430 \u043C\u0435\u0441\u0442\u0435."
           },
           EN: {
@@ -1018,8 +1090,28 @@
             information: "Information",
             rainVolume: "Rain volume",
             thunderVolume: "Thunder volume",
+            rainChance: "Rain chance",
+            rainPreset: "Preferred preset",
+            rainDuration: "Rain duration",
+            rainDurationHint: "Share of the remaining battle time. 100% lasts until the battle ends; lower values use a random interval.",
+            rainNextBattle: "Chance, duration and preset apply from the next battle.",
+            rainRandomHint: "Random selects a rainy preset. Sunny and overcast have no rain.",
+            presets: {
+              random: "Random",
+              sunny: "Sunny (no rain)",
+              overcast: "Overcast (no rain)",
+              drizzle: "Drizzle",
+              sunshower: "Sunshower",
+              storm: "Storm"
+            },
             accountNotice: "Account ID is unavailable. History and personal favorites are temporarily unavailable; saved data is preserved."
           }
+        };
+        const puddleSetting = {
+          id: "k_rain_puddles",
+          label: { RU: "\u042D\u043A\u0441\u043F\u0435\u0440\u0438\u043C\u0435\u043D\u0442\u0430\u043B\u044C\u043D\u044B\u0435 \u043B\u0443\u0436\u0438", EN: "Experimental puddles" },
+          description: { RU: "\u041E\u0442\u0440\u0430\u0436\u0435\u043D\u0438\u044F \u0432\u0438\u0434\u0438\u043C\u044B\u0445 \u043E\u0431\u044A\u0435\u043A\u0442\u043E\u0432 \u0432\u043E \u0432\u0440\u0435\u043C\u044F \u0434\u043E\u0436\u0434\u044F", EN: "Reflections of visible objects during rain" },
+          default: false
         };
         const groups = [
           {
@@ -1100,7 +1192,7 @@
             ]
           }
         ];
-        const settings = groups.flatMap((group) => group.settings);
+        const settings = [...groups.flatMap((group) => group.settings), puddleSetting];
         const informationLinks = [
           {
             label: { RU: "\u0421\u0442\u0440\u0430\u043D\u0438\u0446\u0430 \u0432 Chrome Web Store", EN: "Chrome Web Store" },
@@ -1135,14 +1227,39 @@
             const lang = state.lang;
             const dict = t[lang] || t.EN;
             const volumes = readWeatherVolumes(localStorage);
+            const generation = readWeatherGeneration(localStorage);
+            const settingRow = (setting, enabled = true) => {
+              const checked = utils.getSetting(setting.id, setting.default);
+              if (!(setting.id in initialSettingsState)) initialSettingsState[setting.id] = checked;
+              const description = "description" in setting ? setting.description : void 0;
+              return `<label class="kasp-toggle-row ${checked ? "kasp-active" : ""}" data-id="${setting.id}">
+                    <span class="kasp-toggle-text"><span class="kasp-toggle-label">${setting.label[lang]}</span>
+                        ${description ? `<span class="kasp-toggle-description">${description[lang]}</span>` : ""}
+                    </span>
+                    <input type="checkbox" role="switch" class="kasp-toggle-switch" ${checked ? "checked" : ""} ${enabled ? "" : "disabled"} aria-label="${setting.label[lang]}">
+                </label>`;
+            };
             const weatherControls = (enabled) => `<div class="kasp-weather-options ${enabled ? "kasp-expanded" : ""}" id="kasp-weather-options" ${enabled ? "" : "inert"}>
-                <div class="kasp-weather-options-inner">${["thunder", "rain"].map((kind) => {
+                <div class="kasp-weather-options-inner">
+                <label class="kasp-weather-volume"><span class="kasp-weather-volume-heading"><span>${dict.rainChance}</span><output>${Math.round(generation.chance * 100)}%</output></span>
+                    <input type="range" min="0" max="100" step="1" value="${Math.round(generation.chance * 100)}" data-weather-chance aria-label="${dict.rainChance}" ${enabled ? "" : "disabled"}>
+                </label>
+                <label class="kasp-weather-volume"><span class="kasp-weather-volume-heading"><span>${dict.rainDuration}</span><output>${Math.round(generation.duration * 100)}%</output></span>
+                    <input type="range" min="0" max="100" step="1" value="${Math.round(generation.duration * 100)}" data-weather-duration aria-label="${dict.rainDuration}" ${enabled ? "" : "disabled"}>
+                </label>
+                <p class="kasp-weather-hint">${dict.rainDurationHint}</p>
+                <label class="kasp-weather-volume"><span class="kasp-weather-volume-heading"><span>${dict.rainPreset}</span></span>
+                    <select class="kasp-weather-preset" data-weather-preset aria-label="${dict.rainPreset}" ${enabled ? "" : "disabled"}>${Object.keys(dict.presets).map((preset) => `<option value="${preset}" ${generation.preset === preset ? "selected" : ""}>${dict.presets[preset]}</option>`).join("")}</select>
+                </label>
+                <p class="kasp-weather-hint">${dict.rainNextBattle}<br>${dict.rainRandomHint}</p>
+                ${["thunder", "rain"].map((kind) => {
               const label = kind === "rain" ? dict.rainVolume : dict.thunderVolume;
               const value = Math.round(volumes[kind] * 100);
               return `<label class="kasp-weather-volume"><span class="kasp-weather-volume-heading"><span>${label}</span><output>${value}%</output></span>
                         <input type="range" min="0" max="100" step="1" value="${value}" data-weather-volume="${kind}" aria-label="${label}" ${enabled ? "" : "disabled"}>
                     </label>`;
-            }).join("")}</div></div>`;
+            }).join("")}${settingRow(puddleSetting, enabled)}
+                </div></div>`;
             let tooltip = document.getElementById("kaspersky-reload-tooltip");
             if (!tooltip) {
               tooltip = document.createElement("div");
@@ -1170,14 +1287,7 @@
                         </header>
                         <div class="kasp-settings-rows">${group.settings.map((setting) => {
               const checked = utils.getSetting(setting.id, setting.default);
-              if (!(setting.id in initialSettingsState)) initialSettingsState[setting.id] = checked;
-              const description = "description" in setting ? setting.description : void 0;
-              return `<label class="kasp-toggle-row ${checked ? "kasp-active" : ""}" data-id="${setting.id}">
-                                <span class="kasp-toggle-text"><span class="kasp-toggle-label">${setting.label[lang]}</span>
-                                    ${description ? `<span class="kasp-toggle-description">${description[lang]}</span>` : ""}
-                                </span>
-                                <input type="checkbox" role="switch" class="kasp-toggle-switch" ${checked ? "checked" : ""} aria-label="${setting.label[lang]}">
-                            </label>${setting.id === "k_rain_weather" ? weatherControls(checked) : ""}`;
+              return `${settingRow(setting)}${setting.id === "k_rain_weather" ? weatherControls(checked) : ""}`;
             }).join("")}</div>
                     </section>`).join("")}
                     <section class="kasp-settings-panel kasp-settings-information" aria-labelledby="kasp-settings-information-title">
@@ -1262,12 +1372,13 @@
               row.addEventListener("mouseleave", () => tooltip?.classList.add("kasp-hidden"));
               switchBtn.addEventListener("change", () => {
                 const checked = switchBtn.checked;
-                if (id === "k_rain_weather") {
+                if (id === "k_rain_weather" || id === "k_rain_puddles") {
                   const options = kContent.querySelector("#kasp-weather-options");
-                  options.classList.toggle("kasp-expanded", checked);
-                  options.inert = !checked;
-                  options.querySelectorAll("input").forEach((input) => {
-                    input.disabled = !checked;
+                  const weatherEnabled = kContent.querySelector('[data-id="k_rain_weather"] input').checked;
+                  options.classList.toggle("kasp-expanded", weatherEnabled);
+                  options.inert = !weatherEnabled;
+                  options.querySelectorAll("input, select").forEach((input) => {
+                    input.disabled = !weatherEnabled;
                   });
                 }
                 row.classList.toggle("kasp-active", checked);
@@ -1290,6 +1401,35 @@
                 }
                 window.dispatchEvent(new Event("kasp:settings-changed"));
               });
+            });
+            const rainChance = kContent.querySelector("[data-weather-chance]");
+            rainChance.addEventListener("input", () => {
+              const percent = Math.max(0, Math.min(100, Number(rainChance.value)));
+              rainChance.closest("label").querySelector("output").textContent = `${percent}%`;
+              try {
+                localStorage.setItem(WEATHER_GENERATION_KEYS.chance, String(percent / 100));
+              } catch {
+              }
+              window.dispatchEvent(new Event("kasp:settings-changed"));
+            });
+            const rainPreset = kContent.querySelector("[data-weather-preset]");
+            rainPreset.addEventListener("change", () => {
+              if (!Object.prototype.hasOwnProperty.call(dict.presets, rainPreset.value)) return;
+              try {
+                localStorage.setItem(WEATHER_GENERATION_KEYS.preset, rainPreset.value);
+              } catch {
+              }
+              window.dispatchEvent(new Event("kasp:settings-changed"));
+            });
+            const rainDuration = kContent.querySelector("[data-weather-duration]");
+            rainDuration.addEventListener("input", () => {
+              const percent = Math.max(0, Math.min(100, Number(rainDuration.value)));
+              rainDuration.closest("label").querySelector("output").textContent = `${percent}%`;
+              try {
+                localStorage.setItem(WEATHER_GENERATION_KEYS.duration, String(percent / 100));
+              } catch {
+              }
+              window.dispatchEvent(new Event("kasp:settings-changed"));
             });
             const show = () => {
               active = true;
@@ -9120,6 +9260,24 @@
     let lastFullRefresh = 0;
     let refreshScheduled = false;
     const REFRESH_INTERVAL_MS = 150;
+    let lobbyPresentationActive = false;
+    const lobbyPresentationRoots = [
+      gameDOM.lobbyNavigation.root,
+      gameDOM.play.mainMenu,
+      gameDOM.lobbyPasses.challenge
+    ].join(", ");
+    const syncLobbyPresentation = () => {
+      const present = !!document.querySelector(lobbyPresentationRoots);
+      if (present) {
+        modules.customPlayButton();
+        modules.lobbyNavigation();
+        modules.lobbyPasses();
+      } else if (lobbyPresentationActive) {
+        modules.lobbyNavigation();
+        modules.lobbyPasses();
+      }
+      lobbyPresentationActive = present;
+    };
     const runHeavyModules = () => {
       lastFullRefresh = performance.now();
       refreshScheduled = false;
@@ -9133,13 +9291,8 @@
       modules.tankoinBalance();
       modules.accountSearchNotice();
       modules.hideCurrency();
-      modules.lobbyPasses();
       modules.customGarageSkins();
       modules.cybersport();
-      if (state.currentScreen === "lobby" || state.currentScreen === "loading") {
-        modules.customPlayButton();
-      }
-      modules.lobbyNavigation();
       if (state.friendsMenuOpen) {
         modules.customFriends();
       }
@@ -9195,6 +9348,7 @@
       const screenChanged = newScreen !== state.currentScreen;
       state.currentScreen = newScreen;
       if (screenChanged) {
+        syncLobbyPresentation();
         if (newScreen === "loading" || newScreen === "battle") {
           const specsTooltip = document.getElementById("kasp-specs-tooltip");
           if (specsTooltip) specsTooltip.style.display = "none";
@@ -9252,6 +9406,7 @@
     };
     const masterObserver = new MutationObserver((records = []) => {
       if (records.length && records.every(isOwnStatisticsMutation)) return;
+      syncLobbyPresentation();
       if (document.querySelector(gameDOM.statistics.container)) {
         modules.changeCounter.sync();
         modules.zeroResists.sync();
@@ -9271,6 +9426,7 @@
       if (newLang === state.lang)
         return;
       state.lang = newLang;
+      syncLobbyPresentation();
       lastFullRefresh = 0;
       if (refreshScheduled)
         refreshScheduled = false;
@@ -9295,6 +9451,7 @@
       state.lang = utils.getLang();
       modules.overdriveTimer.setup();
       masterObserver.observe(document.documentElement, { childList: true, subtree: true });
+      syncLobbyPresentation();
       window.setInterval(() => modules.customGarageSkins(), 250);
       const langObserver = new MutationObserver(() => {
         applyLanguageChange();

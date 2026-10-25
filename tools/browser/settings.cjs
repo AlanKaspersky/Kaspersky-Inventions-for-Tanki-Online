@@ -20,7 +20,7 @@ const sheet=fs.readFileSync(path.join(root,'styles/settings.css'),'utf8');
    await page.evaluate(({code,gameDOM,art,lang})=>{
     window.module={exports:{}};
     window.chrome={runtime:{getURL:()=>art}};
-    window.require=name=>name==='./state'?{state:{lang}}:name==='./gameDOM'?{gameDOM}:name==='./utils'?{utils:{getSetting:(key,def)=>def,setSetting(){}}}:name==='./accountIdentity'?{getVerifiedAccount:()=>({userId:'1'})}:name==='./rainWeather/preferences'?{readWeatherVolumes:()=>({rain:1,thunder:1}),WEATHER_VOLUME_KEYS:{rain:'k_rain_volume',thunder:'k_thunder_volume'}}:{setupNicknamePrivacy(){}};
+    window.require=name=>name==='./state'?{state:{lang}}:name==='./gameDOM'?{gameDOM}:name==='./utils'?{utils:{getSetting:(key,def)=>def,setSetting(){}}}:name==='./accountIdentity'?{getVerifiedAccount:()=>({userId:'1'})}:name==='./rainWeather/preferences'?{readPuddleDetail:()=> 'low',PUDDLE_DETAIL_KEY:'k_rain_puddle_detail',readWeatherGeneration:()=>({chance:.24,preset:'random'}),WEATHER_GENERATION_KEYS:{chance:'k_rain_chance',preset:'k_rain_preset'},readWeatherVolumes:()=>({rain:1,thunder:1}),WEATHER_VOLUME_KEYS:{rain:'k_rain_volume',thunder:'k_thunder_volume'}}:{setupNicknamePrivacy(){}};
     (0,eval)(code);window.module.exports.coreSettings.inject();document.getElementById('kaspersky-tab').click();
    },{code,gameDOM:gameModule.exports.gameDOM,art,lang});
    const measure=await page.evaluate(()=>{
@@ -45,6 +45,12 @@ const sheet=fs.readFileSync(path.join(root,'styles/settings.css'),'utf8');
    await page.screenshot({path:path.join(out,`${lang}-${width}.png`),fullPage:true});
    await page.evaluate(()=>{document.getElementById('kaspersky-settings-content').scrollTop=10000;});
    await page.screenshot({path:path.join(out,`${lang}-${width}-bottom.png`),fullPage:true});
+   await page.locator('[data-id="k_rain_weather"] input').check();
+   const weather=await page.locator('#kasp-weather-options').evaluate(options=>({
+    clipped:options.firstElementChild.scrollHeight>options.clientHeight+1,
+    overflow:[...options.querySelectorAll('input,select')].some(el=>el.getBoundingClientRect().right>options.getBoundingClientRect().right+.5)}));
+   if(weather.clipped||weather.overflow)throw Error('Weather options overflow: '+JSON.stringify(weather));
+   await page.locator('.kasp-settings-graphics').screenshot({path:path.join(out,`${lang}-${width}-weather.png`)});
   }
  }finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

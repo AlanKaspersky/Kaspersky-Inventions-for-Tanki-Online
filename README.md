@@ -2,7 +2,7 @@
 
 ## Complete Documentation
 
-**Extension version:** 3.0.1 (`manifest.json`)
+**Extension version:** 3.0.2 (`manifest.json`)
 
 **Documentation updated:** October 24, 2026
 
@@ -71,7 +71,7 @@ For implementation details, module logic, and workflows, see
 
 ## Start Here
 
-This repository documents extension **3.0.1**, reviewed against source on **October 24, 2026**. A feature described as implemented below has a corresponding runtime module; experimental console reports are not treated as shipped features.
+This repository documents extension **3.0.2**, reviewed against source on **October 24, 2026**. A feature described as implemented below has a corresponding runtime module; experimental console reports are not treated as shipped features.
 
 | Document | Audience and contents |
 | --- | --- |
@@ -89,7 +89,7 @@ The implementation consists of TypeScript modules, CSS files, HTML templates, an
 
 There are two categories of functionality:
 
-- **Configurable features:** fourteen options exposed through the in-game KASPERSKY settings tab. Twelve default to disabled; arcade reload and critical indicators default to enabled.
+- **Configurable features:** fifteen options exposed through the in-game KASPERSKY settings tab. Thirteen default to disabled; arcade reload and critical indicators default to enabled.
 - **Automatically integrated features:** garage button styling, trophy favorites, garage skin image handling, equipment tracking, resistance presentation, equipment-change indicators, the version welcome window, and Discord presence in a compatible Electron client. Arcade reload and critical indicators have their own live switches. The remaining automatic integrations have no individual switches in the current settings panel.
 
 Most features affect presentation or maintain local records. The enhanced Play interface and Auto-Upgrade module also initiate ordinary game-interface actions. Auto-Upgrade can perform actual equipment purchases through the game's confirmation controls; its initial confirmation is therefore part of the workflow.
@@ -242,6 +242,7 @@ Nickname privacy also updates its root CSS state immediately when switched on or
 | `k_critical_indicator` | Critical shot indicator | Enabled | Native reload-bar coloring; live switch |
 | `k_box_pickup` | Modified box pickup animation in battle | Disabled | Visual changes category; flash and fading fragments for observed pickups by any player; live switch |
 | `k_rain_weather` | Random battle weather | Disabled | Rare finite rain/cloud episodes; live switch and independent rain/thunder volume sliders |
+| `k_rain_puddles` | Experimental puddles | Disabled | Live; screen-space reflections during active rain; requires battle weather |
 
 The Russian label for `k_augments` is **«Характеристики устройств»**, with the description **«Включая недоступные предметы»**. The English interface currently uses **Augment specifications**. Both labels control the same setting and storage key.
 
@@ -256,11 +257,11 @@ The tab has four feature categories and an Information panel. History belongs to
 | Standard features / Функции обычной серьёзности | Friend tags; Augment specifications; Quick upgrades; Enhanced Play button; Smart paint search; Battle history |
 | Streamer mode / Режим стримера | Hide nickname and XP; Hide currency; Hide supplies |
 | Advanced features / Функции повышенной серьёзности | Overdrive box timer; Arcade reload indicator; Critical shot indicator |
-| Visual changes / Графические изменения | Modified box pickup animation in battle; Random battle weather |
+| Visual changes / Графические изменения | Modified box pickup animation in battle; Random battle weather (Experimental puddles inside its controls) |
 
-There are **14 switches**: only arcade reload and critical indication default to enabled. These labels organize the interface; they do not describe official approval or promise a particular performance cost.
+There are **15 switches**: only arcade reload and critical indication default to enabled. These labels organize the interface; they do not describe official approval or promise a particular performance cost.
 
-Random weather enables immediately and reveals full-width rain and thunder volume sliders beneath its switch. Both apply live and retain their values. Eligible battles have about a 24% chance of rain, with at most one finite episode and one preset per known battle ID. Storms use up to 14,000 rain streaks, continuous darkening, clouds and low storm ambience; onset and clearing are gradual. The cloud sky is world-aligned, independent of camera height, and reprojected for the current view each frame. Rare world-space branched lightning and delayed rolling thunder occur only during full-strength storms; rain audio has a stable, slightly quieter background level. Puddles, waves, track spray, rainbow and birds are removed. Disable the old Tampermonkey weather script. See [weather behavior and limitations](DOCUMENTATION.md#weather-reference).
+Random weather enables immediately and reveals full-width rain and thunder volume sliders beneath its switch. Both apply live and retain their values. Rain chance (0–100%, default 24%), Rain duration (0–100%, default 30%) and Preferred preset (Random, Sunny, Overcast, Drizzle, Sunshower, Storm) are also saved. Generation changes apply to the next newly planned battle; existing battle plans are retained. Random chooses only rainy presets, while Sunny and Overcast are explicit dry choices. By default, eligible battles have a 24% chance of rain, with at most one episode and one preset per known battle ID. Storms use up to 25,000 instanced rain streaks, native ambient/sun darkening, clouds and low storm ambience; onset and clearing are gradual. The cloud sky is world-aligned, independent of camera height, and reprojected for the current view each frame. World-space branched lightning and delayed rolling thunder occur only during full-strength storms: first after 8–18 seconds, then every 20–35 seconds (at most seven strikes per episode); rain audio has a stable, slightly quieter background level. Experimental puddles are available as a default-off switch inside the expanded weather controls during rain, using reflections of visible opaque objects. Puddles remain visible up to 300 metres, fading gradually between 195 and 300 metres. Puddles are limited to visible, horizontal collision faces from the map. Inclines, noncolliding scenery and moving tank/supply-box surfaces are excluded by a separate collision-depth mask. Puddles always request High detail: organic shores, rain rings, wind waves and refracted/absorbed ground colour. The quality slider is removed and old Low preferences are ignored; Low remains only as a shader-compatibility fallback. Shallow water preserves the ground colour with limited absorption and bounded reflections, reducing opaque black patches on dark maps. The supplied tuning export is now the default surface profile: rings 15 times smaller, wind wavelengths 16 times smaller, both animated eight times faster. Drop-zone markers temporarily stop writing depth while puddles are visible, preserving terrain/tank depth and the native marker colour; this avoids square dry holes and angle-dependent seams. Clouds use a dark default storm palette, with lighter colours for Drizzle, Overcast, Sunshower and Sunny. The adjustable open-edge inset defaults to 2 metres beside drops/lower levels; raised banks and same-height neighbours preserve water contact. Different levels have separate water surfaces. Puddles are disabled on Бойня (Massacre), while rain remains available. Tree and bush animation is disabled in every validated foliage path, including the native breeze; the native skybox darkens with weather and native fog fades out during rain; direct distance-based grading of remastered materials has been removed, clouds use captured seasonal/day/evening/night themes, and known Space battles exclude weather. The developer panel, opening hotkey and tuning/export commands have been removed. Existing saved surface values remain compatible. Rain rings require High detail. Off-screen objects cannot be reflected; bounded rain-impact spray off tank hulls is included, while fluid simulation is absent. Fluid wakes, rainbow and birds remain removed; rain hits on stationary or moving tank hulls can produce ballistic droplets independently of puddles; high-detail puddles include small wind waves and rain rings. Disable the old Tampermonkey weather script. See [weather behavior and limitations](DOCUMENTATION.md#weather-reference).
 
 The standard panel occupies the left column; streamer and advanced panels share the right column. Visual changes and Information span the content width. Narrow content uses one column. Each column's artwork uses a shared image origin rather than restarting the same picture on every card. The left navigation likewise shows successive slices of one image across all nine buttons, including KASPERSKY.
 
@@ -722,6 +723,7 @@ An origin includes scheme, hostname, and port. Different game origins, browser p
 | `k_hideSupplies` | Hide supply counts | Shared across accounts |
 | `k_box_pickup` | Modified box pickup presentation | Shared across accounts |
 | `k_rain_weather` | Random battle weather; defaults to disabled | Shared across accounts |
+| `k_rain_puddles` | Experimental puddles; defaults to disabled | Shared across accounts |
 | `k_rain_volume`, `k_thunder_volume` | Independent 0–1 sound levels; 0 mutes, default 1 | Shared across accounts; apply live |
 | `k_history` | Battle History setting | Shared across accounts |
 | `k_overdrive_timer` | Overdrive box timer setting | Shared across accounts |
@@ -1029,7 +1031,7 @@ After rebuilding, reload the unpacked extension and then reload the game page. A
 
 ### Version metadata
 
-The current manifest, package, and lockfile package versions are **3.0.1**. The browser, welcome window, and release-folder naming use the manifest version. Keep these metadata values aligned when preparing another version.
+The current manifest, package, and lockfile package versions are **3.0.2**. The browser, welcome window, and release-folder naming use the manifest version. Keep these metadata values aligned when preparing another version.
 
 ### Release output
 
@@ -1039,14 +1041,14 @@ For the current manifest version, output is:
 
 ```text
 release/
-├── Kaspersky's Inventions 3.0.1/
+├── Kaspersky's Inventions 3.0.2/
 │   ├── manifest.json
 │   ├── LICENSE.txt
 │   ├── README.md
 │   ├── DOCUMENTATION.md
 │   └── ... runtime directories
-├── Kaspersky's Inventions 3.0.1.zip
-└── Kaspersky's Inventions 3.0.1-firefox.zip
+├── Kaspersky's Inventions 3.0.2.zip
+└── Kaspersky's Inventions 3.0.2-firefox.zip
 ```
 
 The ordinary archive contains the versioned outer folder. The `-firefox.zip` archive instead contains `manifest.json` at its root; it is a packaging layout for submission/testing, not a Mozilla signature or an automatically signed XPI. Extract it and select the folder containing `manifest.json` when loading the extension. Source files, tests, `node_modules`, the local game bundle, and raw generated-plan JSON are not separately included. Only the three root Markdown guides are included; Electron integration instructions are sections of these guides, while the bridge source under `tools/` remains source-only.
@@ -1128,7 +1130,7 @@ Repeat the affected checks in Chromium and Firefox. Manifest support does not su
 - Ordinary critical-cycle indication supports the three specified weapon/augment pairs. Post-Supercharge phase assumptions require verification if the game changes its mechanics.
 - Device tooltips use mouse hover. Equivalent keyboard, gamepad, and mobile tooltip interaction is not implemented.
 - AST compatibility templates reduce dependence on symbol names but still depend on native structure. A runtime exception is not automatically rolled back by the injector's preparation guards.
-- An intermittent missing local tank after entering a loaded map has been reported. Its cause and relationship to the extension remain unconfirmed; it is not listed as fixed in 3.0.1.
+- An intermittent missing local tank after entering a loaded map has been reported. Its cause and relationship to the extension remain unconfirmed; it is not listed as fixed in 3.0.2.
 - Auto Upgrade depends on recognized native dialogs and stops on an unknown confirmation. Its local confirmation count is not an independently verified purchase ledger.
 - Third-party UI modifications can alter the same elements and introduce selector, style, or event conflicts.
 
@@ -1198,7 +1200,7 @@ Kaspersky's Inventions is an independent extension for the Tanki Online interfac
 
 ## Documentation Revision
 
-Reviewed against the **3.0.1** source and manifest on **October 24, 2026**. Build/fixture checks are distinct from live-game verification. Public full descriptions are maintained in the English/Russian publication sections of README.md; browser manifest descriptions remain short because they are separate metadata fields.
+Reviewed against the **3.0.2** source and manifest on **October 24, 2026**. Build/fixture checks are distinct from live-game verification. Public full descriptions are maintained in the English/Russian publication sections of README.md; browser manifest descriptions remain short because they are separate metadata fields.
 
 ## Consolidated Reader References
 
@@ -1212,7 +1214,7 @@ Reviewed against the **3.0.1** source and manifest on **October 24, 2026**. Buil
 
 ## Руководство пользователя (RU)
 
-Версия расширения **3.0.1**. Сверено с исходниками **24 октября 2026 года**.
+Версия расширения **3.0.2**. Сверено с исходниками **24 октября 2026 года**.
 
 Это руководство описывает локальную сборку проекта. Подробные технические контракты находятся в [DOCUMENTATION.md](DOCUMENTATION.md), ответы на 74 вопроса — в [FAQ](#faq). Условия использования изложены в английской [лицензии](LICENSE.txt).
 
@@ -1270,9 +1272,9 @@ Reviewed against the **3.0.1** source and manifest on **October 24, 2026**. Buil
 
 #### Случайная погода
 
-Включение сразу активирует функцию и плавно раскрывает под ней два ползунка на всю ширину: «Громкость грома» и «Громкость дождя». Громкость регулируется независимо от 0% (без звука) до 100% исходного уровня, сохраняется после перезапуска и применяется без перезагрузки. При выключении погоды ползунки сворачиваются, а их значения сохраняются. За один бой выбирается не более одного эпизода с одним пресетом. Дождь бывает примерно в 24% подходящих боёв и может начаться позднее; его начало и завершение плавные. Шторм значительно темнее обычного дождя, с ветром, до 14 000 капель, редкими далёкими молниями и запаздывающим громом. Фон дождя стал немного тише и ровнее. Настройка игры «Туман» влияет на осветление облаков вдали.
+Включение сразу активирует функцию и плавно раскрывает настройки: «Шанс генерации дождя» от 0 до 100% (по умолчанию 24%), «Желаемый пресет», «Громкость грома» и «Громкость дождя». Доступны случайный выбор, ясно, облачно, морось, солнечный дождь и шторм. Случайный режим выбирает только дождливые пресеты; ясно и облачно — без дождя. Шанс и пресет сохраняются и применяются со следующей новой битвы, не меняя уже выбранный эпизод. Громкость регулируется независимо от 0% (без звука) до 100% исходного уровня, сохраняется после перезапуска и применяется без перезагрузки. При выключении погоды ползунки сворачиваются, а их значения сохраняются. За один бой выбирается не более одного эпизода с одним пресетом. По умолчанию дождь бывает примерно в 24% подходящих боёв и может начаться позднее; его начало и завершение плавные. Шторм значительно темнее обычного дождя, с ветром, до 30 000 капель, редкими далёкими молниями и запаздывающим громом. Фон дождя стал немного тише и ровнее. Настройка игры «Туман» влияет на осветление облаков вдали.
 
-Лужи, волны, брызги гусениц, радуга и птицы удалены. Звук прекращается при выходе из боя. Отключите прежний погодный скрипт Tampermonkey перед использованием функции в расширении. Если FPS снижается, выключите погоду — её ресурсы освобождаются без перезагрузки. [Подробности на английском](DOCUMENTATION.md#weather-reference).
+Экспериментальные лужи включаются внутри настроек дождя. Дальность видимости — до 300 м с плавным затуханием; лужи остаются на горизонтальных коллизиях карты. На спусках, танках, ящиках припасов и декорациях без коллизий луж нет. Ползунок «Детализация луж» выбирает низкий (прежний вид) или высокий уровень (неровные берега, кольца от капель, ветровая рябь и преломление дна). Движение танка по луже создаёт капли с баллистическими траекториями; количество и сила зависят от скорости. Радуга, птицы и симуляция течений не включены. Звук прекращается при выходе из боя. Отключите прежний погодный скрипт Tampermonkey перед использованием функции в расширении. Если FPS снижается, выключите погоду — её ресурсы освобождаются без перезагрузки. [Подробности на английском](DOCUMENTATION.md#weather-reference).
 
 Названия групп помогают организовать меню. Они не являются оценкой разрешённости функций со стороны администрации игры или гарантией одинаковой нагрузки на компьютер.
 
@@ -1508,7 +1510,7 @@ Rich Presence работает только в совместимом Electron-�
 
 ## FAQ
 
-Source-reviewed edition for **3.0.1**, **October 24, 2026**. This local FAQ describes implemented behavior. The published Drive FAQ is a separately maintained publication; editing this file does not update it automatically.
+Source-reviewed edition for **3.0.2**, **October 24, 2026**. This local FAQ describes implemented behavior. The published Drive FAQ is a separately maintained publication; editing this file does not update it automatically.
 
 For installation and a complete feature reference, see [README](README.md). For Russian instructions, see [Руководство пользователя](#russian-user-guide). The governing English terms are in [LICENSE.txt](LICENSE.txt).
 
@@ -1590,7 +1592,7 @@ Standard features: friends, augment specifications, quick upgrades, Enhanced Pla
 
 #### 12. Which features are enabled by default?
 
-Only **Arcade reload indicator** and **Critical shot indicator**. There are 14 switches; the other 12 default to disabled. Automatic integrations such as the version window or lobby artwork do not each have an individual switch.
+Only **Arcade reload indicator** and **Critical shot indicator**. There are 15 switches; the other 13 default to disabled. Automatic integrations such as the version window or lobby artwork do not each have an individual switch.
 
 <a id="faq-13-which-switches-apply-without-a-reload"></a>
 
@@ -1982,7 +1984,7 @@ Enable Random battle weather to reveal full-width Thunder volume and Rain volume
 
 #### 72. Why has it not rained in several battles?
 
-Rain is deliberately rare: approximately 24% of eligible battles receive one finite rainy episode. Two of the five presets are dry; many battles get no episode. An episode can begin late. Short remaining times can skip it. These are independent probabilities, not a guaranteed rotation.
+Rain defaults to a 24% chance per eligible battle. Adjust Rain chance from 0% to 100% and choose a preferred preset in weather settings. Random selects among drizzle, sunshower and storm; sunny and overcast remain explicit dry choices. Rain duration controls a single randomly placed interval: 0% is dry, 1–99% occupies that share of the remaining time, and 100% starts on entry and lasts until the battle ends. Chance is separate. Duration defaults to 30%; transitions are included. Changes apply to the next newly planned battle. These are independent probabilities, not a guaranteed rotation.
 
 <a id="faq-73-can-weather-restart-if-i-re-enter-a-battle"></a>
 
@@ -1994,7 +1996,7 @@ The plan is reused for the same observed battle ID within the tab's bounded sess
 
 #### 74. Are puddles and birds still included?
 
-No. The integrated version has rain, short surface impacts, clouds and storm atmosphere/audio. Puddles, waves, track spray, rainbow and birds were removed. Native Fog controls cloud distance lightening, with a much closer onset. The [weather reference](DOCUMENTATION.md#weather-reference) explains rendering limits and validation; real-game FPS still needs measurement on the player's hardware.
+Experimental puddles have returned as a separate default-off option, requiring battle weather and an active rainy episode. They reflect visible opaque objects using the current scene depth/colour and fall back to procedural sky/cloud colours for misses. Off-screen/hidden objects and later transparent effects are not reflected. Eligible geometry comes from the map collision DTOs and is matched against the current visible depth. Puddles exclude tank/supply-box tops, noncolliding props and inclines. Collision material is not classified, so a flat colliding map roof can still qualify. There is bounded rain-impact spray from tank hull collision surfaces, without fluid simulation. Fluid wakes, rainbow and birds remain removed; rain hits on stationary or moving tank hulls can produce ballistic droplets independently of puddles; high-detail puddles include small wind waves and rain rings. The integrated version also has rain, short surface impacts, clouds and storm atmosphere/audio. Native Fog controls cloud distance lightening, with a much closer onset. The [weather reference](DOCUMENTATION.md#weather-reference) explains rendering limits and validation; real-game FPS still needs measurement on the player's hardware.
 
 <a id="faq-official-project-links-and-credits"></a>
 
@@ -2012,7 +2014,7 @@ The full English and Russian publication descriptions reproduce the complete cur
 
 ## Full English Publication Description
 
-Full English publication description for extension **3.0.1**. Updated **October 24, 2026**.
+Full English publication description for extension **3.0.2**. Updated **October 24, 2026**.
 
 Kaspersky's Inventions brings equipment information, a redesigned lobby, local battle history and streamer controls into Tanki Online. It builds on the game's familiar interface: original navigation, game icons, account data and native actions remain the basis of the experience.
 
@@ -2082,7 +2084,7 @@ Enable **Modified box pickup animation in battle** for a short flash and scatter
 
 The effect can be switched off immediately. Performance depends on the computer, graphics settings and current battle.
 
-**Random battle weather.** Rare, finite episodes use one randomly chosen preset per known battle: sunshower, drizzle, storm, overcast or sunny. Rain is expected in about 24% of eligible battles, with gradual cloud build-up and clearing. Storms bring dense rain, a dark cold-grey atmosphere, wind, rare distant branched lightning and delayed rolling thunder. Native Fog affects cloud lightening at a closer distance. Rain has detailed streaks and brief ground impacts; puddles, waves, track spray, rainbow and birds are removed. Enabling this default-off feature reveals full-width rain and thunder volume sliders; their values persist and apply live. Weather can be disabled live; sound stops on battle exit. Disable the old Tampermonkey weather script before using it.
+**Random battle weather.** One episode per known battle uses the selected duration and preset: sunshower, drizzle, storm, overcast or sunny. Rain is expected in about 24% of eligible battles, with gradual cloud build-up and clearing. Storms bring dense rain, a dark cold-grey atmosphere, wind, rare distant branched lightning and delayed rolling thunder. Native fog fades out during rain and returns afterwards. Rain has detailed streaks and brief ground impacts; experimental puddles can be enabled separately during rain; fluid wakes, rainbow and birds remain removed; rain striking tank surfaces produces bounded splash droplets independently of puddles. Enabling this default-off feature reveals full-width rain/thunder volume, chance and duration sliders plus a preset choice; their values persist and apply live. Weather can be disabled live; sound stops on battle exit. Disable the old Tampermonkey weather script before using it.
 
 <a id="english-publication-description-other-integrated-improvements"></a>
 
@@ -2102,7 +2104,7 @@ The ordinary browser extension does not install a desktop client or a Discord pr
 
 ### Settings Built into the Game
 
-The KASPERSKY tab groups its 14 switches into **Standard features**, **Streamer mode**, **Advanced features** and **Visual changes**. History is in Standard features. The Information panel provides links to the store, source repositories, License and Terms of Use, and FAQ.
+The KASPERSKY tab groups its 15 switches into **Standard features**, **Streamer mode**, **Advanced features** and **Visual changes**. History is in Standard features. The Information panel provides links to the store, source repositories, License and Terms of Use, and FAQ.
 
 Settings use matching panels, one continuous image across each artwork group, sharp text, smooth entrance transitions and scrolling without a visible scrollbar. Supply privacy, box pickup visuals, arcade reload and critical indication apply live. Other changed settings can reload the game when the settings window closes.
 
@@ -2141,7 +2143,7 @@ The following names and roles reproduce the current welcome window. AI names are
 | Co-creation credits | ChatGPT 6 Luna, ChatGPT 6.1 Sol, DeepSeek V4, Claude Sonnet 5.5, Claude Haiku 4.5, Gemini 3.5 Flash-Lite, Gemini 3.8 Flash, Gemini 3.1 Pro, Grok 4.6 |
 | Quality review credits | Claude Fable 5.1, Claude Opus 5.5, Gemini 4 Argon, ChatGPT 6 Astra |
 | Design | Lukas |
-| Testing | safwan, Tenobyte, KOCMOHABTUK |
+| Testing | safwan, Tenobyte, KOCMOHABTUK, ItzBoddish, Master |
 | Coding | safwan, Tenobyte, Shiya |
 | Assistants | Niced, Master |
 
@@ -2149,7 +2151,7 @@ The following names and roles reproduce the current welcome window. AI names are
 
 ## Полное описание для публикации (RU)
 
-Полное русское описание для публикации. Версия расширения **3.0.1**, обновлено **24 октября 2026 года**.
+Полное русское описание для публикации. Версия расширения **3.0.2**, обновлено **24 октября 2026 года**.
 
 Kaspersky's Inventions дополняет «Танки Онлайн» информацией о вооружении, новым оформлением лобби, локальной историей битв и настройками для стримов. Расширение использует привычные разделы, оригинальные иконки и действия игры.
 
@@ -2219,7 +2221,7 @@ Kaspersky's Inventions дополняет «Танки Онлайн» инфор
 
 Меняется только анимация: награды, количество припасов, места появления и игровая логика подбора остаются прежними. Переключатель действует без перезагрузки. Влияние на производительность зависит от компьютера, настроек графики и происходящего в бою.
 
-**Случайная погода в битве.** Редкие конечные эпизоды с одним случайным пресетом за бой: солнечный дождь, морось, шторм, пасмурно или солнечно. Дождь ожидается примерно в 24% подходящих боёв; облака сгущаются и рассеиваются плавно. Шторм приносит густой ливень, мрачную холодную атмосферу, ветер, редкие далёкие разветвлённые молнии и запаздывающий раскатистый гром. Игровой «Туман» влияет на осветление облаков на более близком расстоянии. Детализированы капли и короткие удары о поверхность; лужи, волны, брызги гусениц, радуга и птицы удалены. При включении выключенной по умолчанию функции плавно раскрываются ползунки громкости дождя и грома на всю ширину панели. Значения сохраняются и применяются сразу. Выключение применяется сразу, звук прекращается при выходе из боя. Старый погодный скрипт Tampermonkey нужно отключить.
+**Случайная погода в битве.** Редкие конечные эпизоды с одним случайным пресетом за бой: солнечный дождь, морось, шторм, пасмурно или солнечно. Дождь ожидается примерно в 24% подходящих боёв; облака сгущаются и рассеиваются плавно. Шторм приносит густой ливень, мрачную холодную атмосферу, ветер, редкие далёкие разветвлённые молнии и запаздывающий раскатистый гром. Игровой «Туман» управляет дальностью дымки. В шторме она тёмная; облака используют отдельную палитру погоды и не белеют от дневного тумана карты. Детализированы капли и короткие удары о поверхность; экспериментальные лужи с отражениями видимых объектов включаются отдельной настройкой во время дождя. Волны от танка, радуга и птицы остаются удалены. Добавлены капли от земли и движения танка по луже. Для луж есть ползунок «Детализация луж»: низкая сохраняет прежний вид, высокая добавляет неровные берега, кольца от капель, ветровую рябь и преломление дна; выбор сохраняется и применяется сразу. При включении выключенной по умолчанию функции плавно раскрываются ползунки громкости дождя и грома на всю ширину панели. Значения сохраняются и применяются сразу. Выключение применяется сразу, звук прекращается при выходе из боя. Старый погодный скрипт Tampermonkey нужно отключить.
 
 <a id="russian-publication-description-дополнительные-улучшения"></a>
 
@@ -2278,7 +2280,7 @@ Kaspersky's Inventions — независимый проект. Использо
 | Участвовали в создании | ChatGPT 6 Luna, ChatGPT 6.1 Sol, DeepSeek V4, Claude Sonnet 5.5, Claude Haiku 4.5, Gemini 3.5 Flash-Lite, Gemini 3.8 Flash, Gemini 3.1 Pro, Grok 4.6 |
 | Оценивали качество | Claude Fable 5.1, Claude Opus 5.5, Gemini 4 Argon, ChatGPT 6 Astra |
 | Дизайн | Lukas |
-| Тестирование | safwan, Tenobyte, KOCMOHABTUK |
+| Тестирование | safwan, Tenobyte, KOCMOHABTUK, ItzBoddish, Master |
 | Код | safwan, Tenobyte, Shiya |
 | Ассистенты | Niced, Master |
 
@@ -2288,7 +2290,11 @@ Kaspersky's Inventions — независимый проект. Использо
 
 The standalone prototype has been replaced by **Settings → KASPERSKY → Visual changes → Random battle weather** in the extension. Disable any previously installed Tampermonkey weather script before enabling it.
 
-The integrated version contains rain, clouds and storm effects. Puddles, waves, track spray, rainbow and birds have been removed. See [weather behavior and maintenance](DOCUMENTATION.md#weather-reference).
+The integrated version contains rain, clouds and storm effects. Experimental puddles are separately selectable, default off, and require active rain. Fluid wakes, rainbow and birds remain removed; rain hits on stationary or moving tank hulls can produce ballistic droplets independently of puddles; high-detail puddles include small wind waves and rain rings. See [weather behavior and maintenance](DOCUMENTATION.md#weather-reference).
+
+Погода: анимация кустов и деревьев отключена полностью, включая штатное колебание. Нативный скайбокс плавно темнеет вместе с погодой. Отдельное затемнение дальних материалов отменено: во время дождя нативный туман плавно отключается. Гром в шторме звучит чаще. На «Бойне» лужи отключены; дождь сохраняется. Лужи разделяются по уровням: у более высокой поверхности вода подходит к стенке, перед нижним уровнем/пропастью выдерживается заданный минимальный отступ (по умолчанию 2 м). Край этого отступа неровный, с крупными изгибами и мелкими выемками; он закреплён на карте. Отражения и преломление проверяют глубину каждого цветового образца, чтобы уменьшить следы силуэта пушки. Новые параметры поверхности взяты из последнего экспорта; ранее сохранённые пользовательские значения сохраняются.
+
+During rainy weather, the original game fog fades out using native fog-uniform strength, including skybox fog, and automatically returns afterwards. The game graphics preference is never changed. Ambient/sun darkening is stronger (up to 78% attenuation), with up to 82% skybox darkening; native dynamic and emissive lights retain their original behavior. Standalone fog and enhanced-light options, their sliders and the volumetric render pass have been removed. The storm budget is restored to 25,000 streaks.
 
 ## Acknowledgements
 
@@ -2300,6 +2306,6 @@ The roles and spelling below reproduce `templates/welcome-modal.html`, interpret
 | Co-creation credits | ChatGPT 6 Luna, ChatGPT 6.1 Sol, DeepSeek V4, Claude Sonnet 5.5, Claude Haiku 4.5, Gemini 3.5 Flash-Lite, Gemini 3.8 Flash, Gemini 3.1 Pro, Grok 4.6 |
 | Quality review credits | Claude Fable 5.1, Claude Opus 5.5, Gemini 4 Argon, ChatGPT 6 Astra |
 | Design | Lukas |
-| Testing | safwan, Tenobyte, KOCMOHABTUK |
+| Testing | safwan, Tenobyte, KOCMOHABTUK, ItzBoddish, Master |
 | Coding | safwan, Tenobyte, Shiya |
 | Assistants | Niced, Master |

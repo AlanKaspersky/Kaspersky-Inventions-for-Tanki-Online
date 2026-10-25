@@ -7,6 +7,7 @@ function load(file){const m=new Module(path.join(root,file),module);m.filename=p
  const source=fs.readFileSync(process.argv[2] ? path.resolve(process.argv[2]) : path.join(root,'main.js'),'utf8').replace(/^\uFEFF/,'');
  const rainPlans=require("../../src/generated/rain-weather.json").plans;
  const rain=await selectRainPlan(source,rainPlans);assert.ok(rain);
+ assert.deepEqual(rain.scene?.capabilities,{map:true,lighting:true,tanks:true,environment:true,treeWind:true,skyTone:true,fogSuppression:true,dropZones:true},'Current native weather contracts are incomplete');
  const plans=[];
  for(const file of fs.readdirSync(path.join(root,'src/generated')).filter(n=>n.endsWith('.json')&&n!=='rain-weather.json')){
   const entries=JSON.parse(fs.readFileSync(path.join(root,'src/generated',file),'utf8')).plans;

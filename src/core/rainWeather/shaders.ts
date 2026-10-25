@@ -3,11 +3,12 @@ precision highp float;
 uniform float uSky;
 out vec2 uv;
 void main(){vec2 p=vec2(gl_VertexID==1?3.:-1.,gl_VertexID==2?3.:-1.);uv=p*.5+.5;gl_Position=vec4(p,uSky,1.);}`;
-const COMMON = `
+export const COMMON = `
 precision highp float;precision highp int;
 uniform mat4 uInvVP;
 uniform vec3 uCam;
 uniform float uTime,uRain,uCloud,uSeed,uFade;
+uniform float uSkyDarkness;
 uniform vec4 uFogColor;
 uniform vec3 uFog; // enabled, near, far
 out vec4 o;
@@ -24,6 +25,7 @@ export const CLOUD_FRAGMENT = `#version 300 es
 ${COMMON}
 in vec2 uv;
 uniform float uCloudBase,uThickness;
+uniform vec3 uCloudTone,uCloudLow,uCloudHigh,uCloudHaze;
 float fbm(vec3 p){float v=0.,a=.52;for(int i=0;i<4;i++){v+=a*noise3(p);p=p*2.03+vec3(11.1,3.7,9.2);a*=.48;}return v;}
 float density(vec3 p){
  float height=(p.z-uCloudBase)/uThickness;
@@ -53,15 +55,11 @@ void main(){
    if(d>.004){
      float shadow=density(p+vec3(-900.,500.,1100.));
      float height=clamp((p.z-uCloudBase)/uThickness,0.,1.);
-     vec3 ambient=mix(vec3(.24,.28,.34),vec3(.72,.76,.81),height*.65+.2)*mix(1.,.30,uRain);
-     vec3 light=vec3(.78,.79,.78)*exp(-shadow*3.5)*mix(.7,.04,uRain);
-     vec3 shade=ambient+light;
-     // Native fog option and map colour; much nearer horizontal whitening keeps
-     // overhead structure while distant cloud masses merge with the horizon.
+     vec3 shade=mix(uCloudLow,uCloudHigh,clamp(height*.75+.15-shadow*.5,0.,1.));
+     // The map fog controls haze distance/opacity, never the weather palette.
+     // In particular a bright/pink daytime fog cannot whiten a storm cloud.
      float haze=min(.88,fogAt(length(p.xy)));
-     float fogLight=clamp(dot(uFogColor.rgb,vec3(.2126,.7152,.0722)),.65,.8);
-     vec3 hazeColor=vec3(fogLight-.02,fogLight,fogLight+.025);
-     shade=mix(shade,hazeColor,haze);
+     shade=mix(shade,uCloudHaze,haze)*uCloudTone;
      float alpha=1.-exp(-d*min(step_/uThickness,1.5)*4.);
      color+=transmission*alpha*shade;transmission*=1.-alpha;
      if(transmission<.025)break;
@@ -153,22 +151,3 @@ float core=exp(-q.x*q.x*5.);float a=opacity*edge*pow(1.-q.y,1.5)*(.25+.75*core)*
 vec3 color=mix(vec3(.57,.70,.79),vec3(.94,.97,1.),core);
 float fog=uFog.x*smoothstep(uFog.y,uFog.z,distance_)*uFogColor.a;
 o=vec4(mix(color,uFogColor.rgb,fog)*a,a);}`;
-export const IMPACT_FRAGMENT = `#version 300 es
-${COMMON}
-in vec2 uv;uniform sampler2D uDepth;
-void main(){
-float depth=texture(uDepth,uv).r;if(depth>.999999)discard;
-vec3 p=worldAt(uv,depth);vec3 normal=cross(dFdx(p),dFdy(p));
-float flatness=abs(normal.z)/max(length(normal),.00001);if(flatness<.65)discard;
-vec2 cell=floor(p.xy/110.);uint key=uint(int(cell.x))+pcg(uint(int(cell.y))+uint(uSeed));
-float period=.45+hash(key)*.5,age=fract(uTime/period+hash(key+1u))*period;
-if(age>.16||hash(key+2u)>uRain*.65)discard;
-vec2 center=(cell+.4+.2*vec2(hash(key+3u),hash(key+4u)))*110.;
-vec2 delta=(p.xy-center)/(4.+age*130.);float r=length(delta);if(r>1.)discard;
-float spokes=pow(max(0.,cos(atan(delta.y,delta.x)*7.+hash(key+5u)*6.28)),8.);
-float crown=spokes*smoothstep(.1,.3,r)*(1.-smoothstep(.55,1.,r));
-float contact=exp(-r*r*30.)*(1.-smoothstep(.01,.06,age));
-float a=(crown*.5+contact*.35)*smoothstep(0.,.012,age)*(1.-smoothstep(.05,.16,age))*flatness*uFade;
-a*=1.-smoothstep(3500.,8500.,distance(p,uCam));
-o=vec4(vec3(.72,.81,.87)*a,a);
-}`;
