@@ -71,8 +71,8 @@ The source implementation is authoritative. `dist/` contains generated browser e
 17. [Weather Rendering and Audio Reference](#weather-reference)
 18. [Киллфид: исследование рендера](#kill-feed-rendering-investigation)
 19. [Discord Companion Client Integration](#electron-client-integration)
-   - [Box Pickup Visuals](#box-pickup-visuals)
-   - [Supported Features versus Diagnostics](#supported-features-versus-diagnostics)
+    - [Box Pickup Visuals](#box-pickup-visuals)
+    - [Supported Features versus Diagnostics](#supported-features-versus-diagnostics)
 17. [Implementation Limits and Project Terms](#implementation-limits-and-project-terms)
 
 ## Repository and Execution Model
