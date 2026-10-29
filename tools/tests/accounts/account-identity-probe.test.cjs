@@ -265,6 +265,26 @@ test('secondary discovery follows later friend data and clears a replaced native
     assert.deepEqual(harness.latest().players, [{ userId: '43', nickname: 'Other' }]);
 });
 
+test('opening a friend menu requests fresh player IDs before five seconds, at most once per second', () => {
+    const h = nativeHarness();
+    const values = [new Remote('42', 'Friend')];
+    h.probe.capture({ local: new User(), users: new RemoteStorage(values) }); h.flush();
+    values.push(new Remote('43', 'NewFriend'));
+    h.tick(100);
+    assert.equal(h.latest().players.length, 1, 'ordinary heartbeat retains the five-second interval');
+    const request = () => h.listeners.get('message')({ source: h.page, origin: h.page.location.origin,
+        data: { type: 'kasp:account-identity:request', refreshPlayers: true } });
+    request(); h.flush();
+    assert.equal(h.latest().players.length, 2, 'menu demand bypasses the ordinary interval');
+    const slices = h.page.__kaspAccountDebug.status().discovery.slices;
+    for (let i = 0; i < 20; i++) request();
+    h.flush();
+    assert.equal(h.page.__kaspAccountDebug.status().discovery.slices, slices, 'repeated requests do not repeat the scan');
+    values.push(new Remote('44', 'LateFriend'));
+    h.advance(1000); request(); h.flush();
+    assert.equal(h.latest().players.length, 3);
+});
+
 test('cleanup cancels pending discovery, heartbeat and message listener, and clears the published account', () => {
     const harness = nativeHarness(1);
     harness.api.runtime.installFeatureDiagnostics(harness.page, 'page');

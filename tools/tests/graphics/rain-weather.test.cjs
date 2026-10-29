@@ -76,14 +76,14 @@ test('rain and queued thunder have independent live volume buses without resetti
 });
 test('weather generation preferences preserve zero, bound chance and reject unknown presets',()=>{
  const values=new Map(),storage={getItem:key=>values.get(key)??null};
- assert.deepEqual({...preferences.readWeatherGeneration(storage)},{chance:.24,preset:'random',duration:.3});
+ assert.deepEqual({...preferences.readWeatherGeneration(storage)},{chance:.24,preset:'random',duration:.3,precipitation:'rain'});
  values.set('k_rain_chance','0');values.set('k_rain_preset','storm');
- assert.deepEqual({...preferences.readWeatherGeneration(storage)},{chance:0,preset:'storm',duration:.3});
+ assert.deepEqual({...preferences.readWeatherGeneration(storage)},{chance:0,preset:'storm',duration:.3,precipitation:'rain'});
  values.set('k_rain_chance','3');assert.equal(preferences.readWeatherGeneration(storage).chance,1);
  values.set('k_rain_chance','-1');assert.equal(preferences.readWeatherGeneration(storage).chance,0);
  for(const value of ['','NaN','undefined','Infinity']){values.set('k_rain_chance',value);assert.equal(preferences.readWeatherGeneration(storage).chance,.24);}
  values.set('k_rain_preset','__proto__');assert.equal(preferences.readWeatherGeneration(storage).preset,'random');
- assert.deepEqual({...preferences.readWeatherGeneration({getItem(){throw Error('blocked');}})},{chance:.24,preset:'random',duration:.3});
+ assert.deepEqual({...preferences.readWeatherGeneration({getItem(){throw Error('blocked');}})},{chance:.24,preset:'random',duration:.3,precipitation:'rain'});
  for(const preset of Object.keys(schedule.RAIN_PRESETS)){values.set('k_rain_preset',preset);assert.equal(preferences.readWeatherGeneration(storage).preset,preset);}
 });
 
@@ -98,7 +98,7 @@ test('default random rain stays rare and chooses rainy presets; short episodes s
 test('0% never creates an episode, 100% random always rains, and every explicit preset is respected',()=>{
  const random=rng(77);
  for(let i=0;i<1000;i++){
-  assert.equal(schedule.planRain(0,900,random,{chance:0,preset:'storm',duration:.3}).preset,null);
+  assert.equal(schedule.planRain(0,900,random,{chance:0,preset:'storm',duration:.3,precipitation:'rain'}).preset,null);
   const plan=schedule.planRain(0,900,random,{chance:1,preset:'random'});
   assert.ok(schedule.RAIN_PRESETS[plan.preset].rain>0);
  }
@@ -159,17 +159,20 @@ test('fog honours both native flags and starts much closer than map fog',()=>{
  const on=rainFog(native,s);assert.equal(on.fog[0],1);assert.ok(on.fog[1]<2000);assert.ok(on.fog[2]<=6000);assert.deepEqual([...on.color],[.5,.6,.7,.8]);
  native.config.enabled=false;assert.equal(rainFog(native,s).fog[0],0);native.config.enabled=true;native.config.map=false;assert.equal(rainFog(native,s).fog[0],0);
 });
-function runtime(){
- let now=100000,present=true,enabled=true,puddles=false,detail='low';const timers=new Map(),memory=new Map(),prefs=new Map(),page=new EventTarget();let next=0;
+function runtime({metadata=true,cache=[]}={}){
+ let now=100000,present=true,garage=false,enabled=true,puddles=false,detail='low';const timers=new Map(),memory=new Map([['ki.rain-episodes.v1',JSON.stringify(cache)]]),prefs=new Map(),page=new EventTarget();let next=0;
  page.setInterval=cb=>{timers.set(++next,cb);return next;};page.clearInterval=id=>timers.delete(id);page.setTimeout=()=>0;page.clearTimeout=()=>{};
- const document={querySelector:selector=>selector.includes('battleTimer')?{textContent:'10:00'}:present?{}:null};
+ const document={querySelector:selector=>selector.includes('battleTimer')?{textContent:'10:00'}:selector.includes('GarageCommonStyle-garageContainer')?(garage?{}:null):present?{}:null};
  const api=load('index',{window:page,EventTarget,Event,document,performance:{now:()=>now},Date:{now:()=>now},
   localStorage:{getItem:key=>key==='k_rain_weather'?String(enabled):key==='k_rain_puddles'?String(puddles):key==='k_rain_puddle_detail'?detail:prefs.get(key)??null,setItem:(key,value)=>prefs.set(key,value)},sessionStorage:{getItem:key=>memory.get(key)??null,setItem:(key,value)=>memory.set(key,value)},
   crypto:{getRandomValues:data=>{data[0]=0xffffffff;return data;}}}).installRainWeather(page);
+ const battle=api.battle,environment=api.environment,knownThemes=new Set();
+ api.environment=(id,value)=>{knownThemes.add(id);environment(id,value);};
+ api.battle=(value,schema)=>{if(metadata&&value?.[schema.battleId]){const id=String(value[schema.battleId]);if(!knownThemes.has(id))api.environment(id,'SUMMER_DAY');value={_fixtureMap:'Rio',...value};schema={mapName:'_fixtureMap',...schema};}return battle(value,schema);};
  const schema={gl:'gl',context:'ctx',vp:'vp',camera:'pos',x:'x',y:'y',z:'z'};
  const renderer={gl:{ctx:{isContextLost:()=>false,drawArraysInstanced(){}}}},camera={vp:new Float32Array(16),pos:{x:0,y:0,z:2000}};
  return {api,page,memory,prefs,frame:scene=>api.frame(renderer,scene,camera,schema),poll:()=>{for(const cb of timers.values())cb();},
-  present:value=>{present=value;},enabled:value=>{enabled=value;},puddles:value=>{puddles=value;},detail:value=>{detail=value;},advance:value=>{now+=value;}};
+  present:value=>{present=value;},garage:value=>{garage=value;},enabled:value=>{enabled=value;},puddles:value=>{puddles=value;},detail:value=>{detail=value;},advance:value=>{now+=value;}};
 }
 
 test('weather developer panel and its authoring API are absent',()=>{
@@ -179,13 +182,30 @@ test('weather developer panel and its authoring API are absent',()=>{
  f.page.dispatchEvent(key);assert.equal(key.defaultPrevented,false);
 });
 
-test('100% weather has one episode across native scenes before statistics identify the battle',()=>{
- const f=runtime();f.prefs.set('k_rain_chance','1');f.prefs.set('k_rain_duration','1');f.prefs.set('k_rain_preset','storm');
- const primary={},secondary={};f.frame(primary);const original=JSON.stringify(f.api.status().episode);
- assert.equal(f.api.status().battleId,null);f.advance(700000);assert.equal(f.api.status().weather.rain,1);
- f.frame(secondary);assert.equal(JSON.stringify(f.api.status().episode),original);assert.equal(f.api.status().weather.rain,1);
- f.api.battle({loaded:true,id:'late-statistics'},{battleLoaded:'loaded',battleId:'id'});
- assert.equal(JSON.stringify(f.api.status().episode),original);assert.equal(f.api.status().weather.rain,1);
+test('garage suspends weather immediately with a stale battle HUD and preserves the battle episode',()=>{
+ const f=runtime(),scene={};f.api.battle({loaded:true,id:'garage-return'},{battleLoaded:'loaded',battleId:'id'});f.frame(scene);f.api.force('storm');f.advance(25000);
+ const episode=JSON.stringify(f.api.status().episode),preview=JSON.stringify(f.api.status().override),buffer=new Float32Array(12).fill(1);
+ assert.ok(f.api.nativeFogStrength(1)<1);
+ f.garage(true);assert.equal(f.api.nativeFogStrength(1),1);assert.equal(f.api.lighting(buffer),undefined);f.frame({});
+ f.api.tank({active:true,pos:{x:0,y:0,z:70},size:{x:220,y:400,z:120}},{active:'active',position:'pos',size:'size',x:'x',y:'y',z:'z'});assert.equal(f.api.status().tanks,0,'garage preview hulls must not stamp battle snow');
+ assert.equal(f.api.status().suspended,true);assert.equal(f.api.status().audio,'off');assert.equal(f.api.force('storm').code,'battle-not-visible');
+ f.advance(20000);f.poll();assert.equal(JSON.stringify(f.api.status().episode),episode);assert.equal(JSON.stringify(f.api.status().override),preview);
+ f.garage(false);f.frame(scene);assert.equal(f.api.status().suspended,false);assert.equal(JSON.stringify(f.api.status().episode),episode);
+});
+
+test('a stale loaded flag cannot authorize an unrelated scene in native-only HUD mode',()=>{
+ const f=runtime(),scene={};f.present(false);f.poll();f.api.map({},{});f.api.battle({loaded:true,id:'scene-owner'},{battleLoaded:'loaded',battleId:'id'});f.frame(scene);assert.equal(f.api.status().nativeBattle,true);
+ f.advance(1500);f.frame({});assert.equal(f.api.status().nativeBattle,false,'an unrelated preview must not refresh battle-render evidence');
+ f.frame(scene);assert.equal(f.api.status().nativeBattle,true);
+});
+
+test('weather starts from the native map title without an optional lobby theme event',()=>{
+ const f=runtime({metadata:false});f.prefs.set('k_rain_chance','1');f.prefs.set('k_rain_duration','1');f.prefs.set('k_rain_preset','storm');
+ f.frame({});assert.equal(f.api.status().episode,null);assert.equal(f.api.status().environment.weatherAllowed,false);
+ f.api.battle({loaded:true,id:'late',map:'Year 2042 RGB'},{battleLoaded:'loaded',battleId:'id',mapName:'map'});f.frame({});
+ const original=JSON.stringify(f.api.status().episode);assert.ok(f.api.status().episode.continuous);assert.equal(f.api.status().precipitation,'rain');assert.equal(f.api.status().environment.theme,null);
+ f.api.environment('late','SUMMER_DAY');assert.equal(JSON.stringify(f.api.status().episode),original);
+ f.advance(700000);f.frame({});assert.equal(JSON.stringify(f.api.status().episode),original);assert.equal(f.api.status().weather.rain,1);
 });
 
 test('duration changes affect only a new battle and full-battle plans survive re-entry',()=>{
@@ -223,7 +243,7 @@ test('feature is off by default and invalid native contracts cannot break game r
  f.enabled(true);f.poll();assert.doesNotThrow(()=>f.api.frame({},null,null,{}));assert.equal(f.api.status().renderers.length,0);
 });
 test('manual preview explains a missing render hook separately from battle loading',()=>{
- const f=runtime();f.api.patch('unsupported');assert.equal(f.api.status().patch,'unsupported');assert.equal(f.api.force('storm').code,'render-hook-missing');
+ const f=runtime();f.api.battle({loaded:true,id:'hook-test'},{battleLoaded:'loaded',battleId:'id'});f.api.patch('unsupported');assert.equal(f.api.status().patch,'unsupported');assert.equal(f.api.force('storm').code,'render-hook-missing');
  f.api.battle({loaded:false,id:'loading'},{battleLoaded:'loaded',battleId:'id'});f.frame({});assert.equal(f.api.force('storm').code,'battle-loading');
  assert.equal(f.api.status().nativeLoaded,false);assert.equal(f.api.status().runtime.failures,0);
 });
@@ -238,24 +258,31 @@ test('WebGL-only battle presence requires native map plus render and loaded/tank
  f.api.battle({loaded:false},{battleLoaded:'loaded'});f.poll();f.frame({});assert.equal(f.api.status().present,false,'native unload stops fallback immediately');
 });
 test('environment belongs to the actual battle ID; space forbids automatic weather, preview and light changes',()=>{
- const f=runtime(),schema={battleLoaded:'loaded',battleId:'id'};
+ const f=runtime({metadata:false}),schema={battleLoaded:'loaded',battleId:'id',mapName:'map'};
  f.api.environment('other-battle','SPACE');f.api.environment('battle-1','WINTER_NIGHT');f.api.battle({loaded:true,id:'battle-1'},schema);f.frame({});
  assert.equal(f.api.status().environment.theme,'WINTER_NIGHT');assert.equal(f.api.status().environment.weatherAllowed,true);
  f.api.environment('battle-1','SPACE');assert.equal(f.api.status().environment.weatherAllowed,false);assert.equal(f.api.force('storm').ok,false);
  const buffer=new Float32Array(12).fill(1);assert.equal(f.api.lighting(buffer),undefined);
  f.frame({});assert.equal(f.api.status().draws,0);assert.equal(f.api.status().audio,'off');
- f.api.battle({loaded:true,id:'battle-2'},schema);f.frame({});assert.equal(f.api.status().environment.theme,null);assert.equal(f.api.status().environment.weatherAllowed,true);
+ f.api.battle({loaded:true,id:'battle-2'},schema);f.frame({});assert.equal(f.api.status().environment.theme,null);assert.equal(f.api.status().environment.weatherAllowed,false);
  f.api.environment('battle-2','SUMMER_DAY');assert.equal(f.api.status().environment.theme,'SUMMER_DAY');
 });
-test('Massacre suppresses only puddles, keeps rain preview and the saved switch, then allows other maps',()=>{
+test('Massacre blocks rain and previews while preserving the puddle preference',()=>{
  const f=runtime(),s={battleLoaded:'loaded',battleId:'id',mapName:'map'};f.puddles(true);f.poll();
  f.api.battle({loaded:true,id:'massacre',map:'Бойня CTF'},s);f.frame({});f.advance(200);f.frame({});
- assert.equal(f.api.status().puddles,true);assert.equal(f.api.status().puddlesAllowed,false);assert.equal(f.api.status().puddleAmount,0);assert.equal(f.api.status().puddleBlockedReason,'map-massacre');
- assert.equal(f.api.force('storm').ok,true);f.advance(25000);assert.equal(f.api.status().weather.rain,1);f.api.clearOverride();
+ assert.equal(f.api.status().puddles,true);assert.equal(f.api.status().puddlesAllowed,false);assert.equal(f.api.status().puddleAmount,0);assert.equal(f.api.status().episode,null);
+ assert.equal(f.api.force('storm').ok,false);assert.equal(f.api.status().audio,'off');
  f.api.battle({loaded:true,id:'rio',map:'Rio TDM'},s);f.frame({});assert.equal(f.api.status().puddlesAllowed,true);assert.equal(f.api.status().puddles,true);
 });
 
-
+test('winter maps force snow and suppress puddles, sound and liquid resources despite old preferences',()=>{
+ const f=runtime(),s={battleLoaded:'loaded',battleId:'id',mapName:'map'};
+ f.puddles(true);f.prefs.set('k_rain_chance','1');f.prefs.set('k_rain_duration','1');f.prefs.set('k_rain_preset','storm');f.prefs.set('k_weather_precipitation','rain');f.prefs.set('k_snow_drifts','true');f.poll();
+ f.api.environment('winter','WINTER_DAY');f.api.battle({loaded:true,id:'winter',map:'Rio'},s);f.frame({});f.advance(60000);f.frame({});
+ const state=f.api.status();assert.equal(state.precipitation,'snow');assert.equal(state.episode.precipitation,'snow');assert.equal(state.puddlesAllowed,false);assert.equal(state.puddleBlockedReason,'snowfall');assert.equal(state.puddleAmount,0);assert.equal(state.splashes.particles,0);assert.equal(state.audio,'off');assert.equal(state.snowDrifts,undefined);
+ f.api.force('storm',120,'rain');assert.equal(f.api.status().override.precipitation,'snow');assert.equal(f.api.dropZones({}),undefined);
+ f.api.environment('winter','SPACE');assert.equal(f.api.status().episode,null);assert.equal(f.api.status().override,null);
+});
 
 test('forced storm respects the setting and preserves the random episode and session cache',()=>{
  const f=runtime();assert.equal(f.api.force('storm').ok,false);
@@ -342,7 +369,7 @@ test('removed unrelated weather systems and global rendering hooks stay absent',
 
 test('rain budget is restored to 25000 and scales with precipitation in one instanced draw',()=>{
  assert.equal(schedule.WEATHER.maxDrops,25000);
- const renderer=fs.readFileSync('src/core/rainWeather/renderer.ts','utf8');assert.match(renderer,/Math.round\(WEATHER.maxDrops\*f.rain\)/);
+ const renderer=fs.readFileSync('src/core/rainWeather/renderer.ts','utf8');assert.ok(renderer.includes('SNOW.maxFlakes:WEATHER.maxDrops'),'snow and rain retain separate particle budgets');
 });
 
 
@@ -365,4 +392,25 @@ test('all rainy presets suppress native fog fully, while dry, disabled, zero int
  f.api.environment('fog-off','SPACE');assert.equal(f.api.nativeFogStrength(.7),.7);f.api.environment('fog-off','SUMMER_DAY');f.api.force('storm');f.advance(25000);
  f.present(false);f.poll();assert.equal(f.api.nativeFogStrength(.7),.7);
  assert.equal(f.api.dynamicShader,undefined);assert.equal(f.api.setAtmosphereTuning,undefined);
+});
+
+
+test('cached precipitation is validated against map theme before it can render or modify lighting',()=>{
+ const schema={battleLoaded:'loaded',battleId:'id',mapName:'map'};
+ for(const [theme,oldMode,newMode]of [['WINTER_DAY','rain','snow'],['SUMMER_DAY','snow','rain']]){
+  const stale={version:1,preset:'storm',start:50000,hold:600,seed:13,fadeIn:24,fadeOut:30,continuous:true,precipitation:oldMode};
+  const f=runtime({metadata:false,cache:[['migrated',stale]]});f.prefs.set('k_rain_chance','1');f.prefs.set('k_rain_duration','1');f.prefs.set('k_rain_preset','storm');
+  f.api.battle({loaded:true,id:'migrated'},schema);assert.equal(f.api.status().episode,null);assert.equal(f.api.nativeFogStrength(1),1);
+  f.api.battle({loaded:true,id:'migrated',map:'Rio'},schema);
+  f.api.environment('migrated',theme);f.frame({});assert.equal(f.api.status().episode.precipitation,newMode);assert.notEqual(f.api.status().episode.seed,13);
+  const correct=JSON.stringify(f.api.status().episode);f.present(false);f.poll();f.present(true);f.poll();f.api.battle({loaded:true,id:'migrated',map:'Rio'},schema);f.frame({});assert.equal(JSON.stringify(f.api.status().episode),correct);
+ }
+});
+
+
+test('title-based space and winter maps never inherit rain or puddles when the theme event is absent',()=>{
+ for(const [name,mode]of [['Космос CTF',null],['Space REMASTER RGB',null],['Sandbox Winter CTF','snow'],['Песочница (Зима) CTF','snow'],['Бойня RGB',null],['Year 2042 RGB','rain']]){
+  const f=runtime({metadata:false});f.puddles(true);f.poll();f.api.battle({loaded:true,id:'title-policy',map:name},{battleLoaded:'loaded',battleId:'id',mapName:'map'});f.frame({});
+  assert.equal(f.api.status().precipitation,mode,name);assert.equal(f.api.status().puddlesAllowed,mode==='rain',name);if(mode!=='rain')assert.equal(f.api.status().puddleAmount,0);
+ }
 });

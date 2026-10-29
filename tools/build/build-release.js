@@ -7,7 +7,7 @@ const {
 const ROOT = path.resolve(__dirname, "../..");
 const OUT_DIR = path.resolve(ROOT, 'release');
 
-const DIRS = ['dist', 'styles', 'assets', 'database', '_locales', 'templates'];
+const DIRS = ['dist', 'styles', 'assets', 'database', '_locales', 'templates', 'rules'];
 const FILES = ['manifest.json', 'LICENSE.txt', 'README.md', 'DOCUMENTATION.md', 'MAINTENANCE.md'];
 
 function log(msg) {

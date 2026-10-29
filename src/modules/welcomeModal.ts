@@ -24,13 +24,13 @@ export const welcomeModal = lifecycle.initialize(() => {
         EN: {
             version: `VERSION ${CURRENT_VERSION}`,
             intro: `Thank you so much for using Kaspersky's Inventions! We appreciate your support and will continue to delight you with new features in every update.`,
-            role1: `Idea Created By`,
+            role1: `Founded By`,
             role2: `Co-created By`,
             role3: `Quality Assessed By`,
-            role4: `Designers By`,
-            role5: `Testers By`,
-            role6: `Coders By`,
-            role7: 'Assistants By',
+            role4: `Designed By`,
+            role5: `Tested By`,
+            role6: `Coded By`,
+            role7: 'Assisted By',
             outro: `The project expresses huge gratitude to them!`,
             close: `CLOSE`
         }

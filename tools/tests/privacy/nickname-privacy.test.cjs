@@ -91,7 +91,7 @@ function fixture() {
         },
     });
     const moduleContext = {
-        document, localStorage, URL,
+        document, localStorage, URL, window: identityWindow,
         chrome: { runtime: { getURL: file => file } },
         require: name => {
             if (name === '../core/accountIdentity') return identity;
@@ -208,7 +208,9 @@ test('friend labels use IDs, retain legacy data separately, and isolate accounts
 });
 
 function friendElement(tag = 'div', className = '', text = '') {
-    const element = { tag, className, text, dataset: {}, style: {}, children: [], parent: null,
+    const attributes = new Map();
+    const element = { tag, className, text, dataset: {}, style: { setProperty(key, value) { this[key] = value; } }, children: [], parent: null,
+        setAttribute(key, value) { attributes.set(key, value); }, getAttribute(key) { return attributes.get(key); },
         get textContent() { return this.text + this.children.map(child => child.textContent).join(''); },
         get innerText() { return this.textContent; },
         appendChild(child) { this.children.push(child); child.parent = this; return child; },
@@ -294,7 +296,9 @@ test('a reused friend menu rechecks its current header and account before writin
 test('friend menu does not create nickname-keyed labels when the native player ID is unavailable', () => {
     const f = friendsMenuFixture('[EIite] Unknown');
     f.api.injectCategoriesMenu(f.menu);
-    assert.equal(f.row(), null);
+    assert.equal(f.row().children.length, 3, 'show controls immediately while waiting for identity');
+    assert.ok(f.row().children.every(button => button.getAttribute('aria-disabled') === 'true'));
+    f.row().children[0].onclick({ stopPropagation() {} });
     assert.equal(f.storage.size, 0);
 });
 

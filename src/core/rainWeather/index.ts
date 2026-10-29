@@ -1,8 +1,9 @@
+import { SNOW_PALETTES } from '../snowWeather/config';
 import { featureScope } from '../featureRuntime';
 import { gameDOM } from '../gameDOM';
 import { createRainRenderer } from './renderer';
 import type { RainStage } from './renderer';
-import { planRain, RAIN_PRESETS, rainTiming, sampleRain, smooth, validEpisode, WEATHER } from './schedule';
+import { planRain, RAIN_PRESETS, weatherProfile, rainTiming, sampleRain, smooth, validEpisode, WEATHER } from './schedule';
 import type { RainEpisode, RainPreset } from './schedule';
 import type { RainSchema } from './patch';
 import { createWeatherAudio, rainSoundLevel } from './audio';
@@ -17,7 +18,7 @@ import type { CollisionSurface,MapSchema,V3 } from './mapSurface';
 import { createSplashEmitter } from './splashes';
 import type { WetTank } from './splashes';
 import { lightAttenuation,attenuateLighting } from './lighting';
-import { cloudTone,mapTheme,mapAllowsPuddles } from './environment';
+import { cloudTone,mapTheme,mapWeather } from './environment';
 import type { MapTheme } from './environment';
 import { treeWindShader } from './treeWind';
 import { hullSurface,nativeMatrix } from './tankSurface';
@@ -52,6 +53,8 @@ export function installRainWeather(page:Window){
     let draws=0;
     let nativeFrameAt=-Infinity,nativeMapCaptured=false;
     let nativeCanvas:HTMLCanvasElement|OffscreenCanvas|undefined;
+    let battleScenes=new WeakSet<object>(),sceneCount=0,suspended=false;
+    const excluded=()=>!!document.querySelector(gameDOM.screens.weatherExcluded);
     let patchState:'pending'|'loading'|'installed'|'unsupported'|'conflict'|'error'='pending';
     let puddles=false,puddleAmount=0,puddleAt=performance.now();
     const puddleDetail:PuddleDetail='high';
@@ -60,6 +63,8 @@ export function installRainWeather(page:Window){
     const tanks=new Map<object,WetTank>(),splashes=createSplashEmitter();
     const hulls=new WeakMap<object,Float32Array>(),themes=new Map<string,MapTheme>();
     const theme=()=>battleId?themes.get(battleId):undefined;
+    const precipitation=()=>mapWeather(theme(),mapName);
+    const permits=(plan:RainEpisode|undefined):plan is RainEpisode=>!!plan&&!!precipitation()&&(plan.precipitation??'rain')===precipitation();
     const skyUniforms=createSkyboxUniforms();
     let sunDirection:V3=[0,0,1];
     let audio:ReturnType<typeof createWeatherAudio>|null=null;
@@ -68,15 +73,22 @@ export function installRainWeather(page:Window){
     try{const data=JSON.parse(sessionStorage.getItem(STORE)||'[]');if(Array.isArray(data))for(const [id,p]of data.slice(-24))
         if(typeof id==='string'&&id.length<150&&validEpisode(p)&&Date.now()-p.start<86400000)episodes.set(id,p);}catch{}
     const save=()=>{try{sessionStorage.setItem(STORE,JSON.stringify([...episodes].slice(-24)));}catch{}};
-    const prepareMap=()=>{if(!pendingMap)return;const capture=pendingMap;pendingMap=undefined;try{mapSurface=buildMapSurface(capture.raw,capture.schema);}catch(cause){mapError=String(cause);}};
+    const prepareMap=()=>{if(!pendingMap||precipitation()!=='rain')return;const capture=pendingMap;pendingMap=undefined;try{mapSurface=buildMapSurface(capture.raw,capture.schema);}catch(cause){mapError=String(cause);}};
     const stopSound=()=>{
         const old=audio;audio=null;if(!old)return;
         try{old.stop();
             page.setTimeout(()=>{old.ctx.close().catch(()=>{});},130);}catch{old.ctx.close().catch(()=>{});}
     };
     const dropContexts=()=>{for(const r of contexts.values())r.dispose();contexts.clear();};
-    const leave=()=>{present=false;entryAt=0;lastFrame=0;nativeFrameAt=-Infinity;nativeMapCaptured=false;current=undefined;override=undefined;battleId=undefined;mapName=undefined;nativeLoaded=undefined;strikePlan=undefined;strikeOrigin=undefined;strikes=[];heard.clear();puddleAmount=0;pendingMap=undefined;mapSurface=undefined;tanks.clear();splashes.clear();for(const r of contexts.values())r.clearReflections();stopSound();};
-    const nativeBattle=()=>nativeLoaded!==false&&performance.now()-nativeFrameAt<1000&&(!nativeCanvas||!('isConnected' in nativeCanvas)||nativeCanvas.isConnected);
+    const leave=()=>{present=false;suspended=false;battleScenes=new WeakSet();sceneCount=0;entryAt=0;lastFrame=0;nativeFrameAt=-Infinity;nativeMapCaptured=false;current=undefined;override=undefined;battleId=undefined;mapName=undefined;nativeLoaded=undefined;strikePlan=undefined;strikeOrigin=undefined;strikes=[];heard.clear();puddleAmount=0;pendingMap=undefined;mapSurface=undefined;tanks.clear();splashes.clear();for(const r of contexts.values())r.clearReflections();stopSound();};
+    // A mode change must never leave liquid resources or the previous weather active.
+    function reconcileMap(){
+        if(permits(current)&&(!override||permits(override)))return;
+        current=undefined;override=undefined;puddleAmount=0;strikePlan=undefined;strikes=[];
+        splashes.clear();dropContexts();stopSound();
+        if(precipitation()!=='rain')mapSurface=undefined;
+    }
+    const nativeBattle=()=>!excluded()&&nativeLoaded!==false&&performance.now()-nativeFrameAt<1000&&(!nativeCanvas||!('isConnected' in nativeCanvas)||nativeCanvas.isConnected);
     const sync=()=>{
         let next=false;try{next=localStorage.getItem('k_rain_weather')==='true';}catch{}
         if(enabled&&!next){override=undefined;stopSound();dropContexts();}enabled=next;
@@ -84,8 +96,9 @@ export function installRainWeather(page:Window){
         surfaceTuning=readSurfaceTuning(localStorage);
         if(enabled&&pendingMap)scope.timeout(prepareMap,0);
         audio?.volumes(readWeatherVolumes(localStorage));
+        if(excluded()){if(!suspended){suspended=true;tanks.clear();splashes.clear();for(const r of contexts.values())r.clearReflections();}stopSound();return;}
         const visible=!!document.querySelector(gameDOM.screens.battleHud)||nativeBattle();
-        if(!visible&&present)leave();
+        if(!visible&&present&&(!suspended||nativeLoaded===false))leave();
         if(visible&&!present){present=true;entryAt=Date.now();}
     };
     scope.listen(page,'kasp:settings-changed',sync);scope.listen(page,'storage',sync);
@@ -103,41 +116,42 @@ export function installRainWeather(page:Window){
     }
     scope.listen(page,'pointerdown',()=>{if(enabled&&present&&audio?.ctx.state==='suspended')audio.ctx.resume().catch(()=>{});},{passive:true});
     scope.listen(page,'keydown',()=>{if(enabled&&present&&audio?.ctx.state==='suspended')audio.ctx.resume().catch(()=>{});},{passive:true});
-    const weather=(plan:RainEpisode,now:number)=>{const value=sampleRain(plan,now);value.rain*=surfaceTuning.rainIntensity;value.sound=rainSoundLevel(value.rain);return value;};
+    const weather=(plan:RainEpisode,now:number)=>{const value=sampleRain(plan,now);value.rain*=surfaceTuning.rainIntensity;value.sound=plan.precipitation==='snow'?0:rainSoundLevel(value.rain);return value;};
     // Normalize by the selected preset: drizzle and downpour both remove native
     // fog completely at their full strength. Zero visible precipitation restores it.
     const rainEnvelope=()=>{
-        const plan=override||current;if(!enabled||scope.disabled||!present||nativeLoaded===false||theme()==='SPACE'||!plan?.preset||surfaceTuning.rainIntensity<=0)return 0;
-        const profile=RAIN_PRESETS[plan.preset];if(profile.rain<=0)return 0;
+        const plan=override||current;if(!enabled||scope.disabled||!present||excluded()||nativeLoaded===false||!permits(plan)||!plan?.preset||surfaceTuning.rainIntensity<=0)return 0;
+        const profile=weatherProfile(plan.preset,plan.precipitation);if(profile.rain<=0)return 0;
         return Math.max(0,Math.min(1,sampleRain(plan,Date.now()).rain/profile.rain))*smooth((Date.now()-entryAt)/1800);
     };
     const api={
         skyShader:skyboxShader,
         skyUniform(gl:WebGL2RenderingContext){
             const plan=override||current,now=Date.now();
-            const darkness=enabled&&!scope.disabled&&present&&nativeLoaded!==false&&theme()!=='SPACE'&&plan?skyboxDarkness(weather(plan,now),smooth((now-entryAt)/1800),theme()):0;
+            const darkness=enabled&&!scope.disabled&&present&&!excluded()&&nativeLoaded!==false&&permits(plan)&&plan?skyboxDarkness(weather(plan,now),smooth((now-entryAt)/1800),theme()):0;
             skyUniforms(gl,darkness);
         },
         patch(state:typeof patchState){patchState=state;},
         environment(id:string,value:unknown){
             const next=mapTheme(value);if(!next||typeof id!=='string'||!/^[\w:-]{1,140}$/.test(id))return;
             themes.set(id,next);while(themes.size>64)themes.delete(themes.keys().next().value!);
-            if(id===battleId&&next==='SPACE'){override=undefined;splashes.clear();dropContexts();stopSound();}
+            if(id===battleId)reconcileMap();
         },
         treeShader:treeWindShader,
         nativeFogStrength(value:number){return suppressNativeFog(value,rainEnvelope());},
         dropZones(gl:WebGL2RenderingContext){
-            const plan=override||current;if(!enabled||!puddles||scope.disabled||!present||nativeLoaded===false||theme()==='SPACE'||!plan?.preset||!mapAllowsPuddles(mapName))return;
-            if(weather(plan,Date.now()).rain*puddleAmount<.002)return;
-            return suppressOverlayDepth(gl);
+            const plan=override||current;if(!enabled||scope.disabled||!present||excluded()||nativeLoaded===false||!permits(plan)||!plan?.preset)return;
+            const sample=weather(plan,Date.now());
+            const water=precipitation()==='rain'&&puddles&&sample.rain*puddleAmount>=.002;
+            if(water)return suppressOverlayDepth(gl);
         },
         hull(value:unknown,main:unknown,boxes:unknown,schema:MapSchema){
             if(scope.disabled||!value||typeof value!=='object')return;
             try{hulls.set(value,hullSurface(main,boxes,schema));}catch{hulls.delete(value);}
         },
-        map(raw:unknown,schema:MapSchema){if(scope.disabled)return;nativeMapCaptured=true;pendingMap={raw,schema};mapSurface=undefined;mapError=null;splashes.clear();if(enabled)scope.timeout(prepareMap,0);},
+        map(raw:unknown,schema:MapSchema){if(scope.disabled)return;nativeMapCaptured=true;battleScenes=new WeakSet();sceneCount=0;pendingMap={raw,schema};mapSurface=undefined;mapError=null;splashes.clear();if(enabled)scope.timeout(prepareMap,0);},
         tank(value:unknown,schema:MapSchema){
-            if(!enabled||scope.disabled||!value||typeof value!=='object')return;
+            if(!enabled||scope.disabled||excluded()||!value||typeof value!=='object')return;
             const get=(v:unknown,key:string)=>v&&typeof v==='object'?Object.getOwnPropertyDescriptor(v,key)?.value:undefined;
             if(get(value,schema.active)!==true){tanks.delete(value);return;}
             const read=(v:unknown):V3=>[get(v,schema.x),get(v,schema.y),get(v,schema.z)];
@@ -152,7 +166,7 @@ export function installRainWeather(page:Window){
         lighting(buffer:unknown){
             nativeLightingReady=true;
             if(buffer instanceof Float32Array&&buffer.length>=11&&[buffer[8],buffer[9],buffer[10]].every(Number.isFinite))sunDirection=[-buffer[8],-buffer[9],-buffer[10]];
-            if(!enabled||scope.disabled||!present||nativeLoaded===false||theme()==='SPACE')return;
+            if(!enabled||scope.disabled||!present||excluded()||nativeLoaded===false||!permits(override||current))return;
             const plan=override||current;if(!plan)return;const now=Date.now(),sample=weather(plan,now),fade=smooth((now-entryAt)/1800);
             const strike=strikes.find(s=>now>=s.at&&now<s.at+LIGHTNING.duration*1000),flash=strike?strikeLight((now-strike.at)/1000).flash:0;
             return attenuateLighting(buffer,lightAttenuation(sample.storm,sample.rain,fade,flash));
@@ -161,13 +175,15 @@ export function installRainWeather(page:Window){
         force(preset:RainPreset='storm',hold=120){
             sync();
             if(!enabled)return {ok:false,reason:'Enable Random battle weather in settings first'};
-            if(theme()==='SPACE')return {ok:false,reason:'Weather is disabled on space maps'};
+            if(excluded())return {ok:false,code:'battle-not-visible',reason:'Return to the battle scene first'};
             if(scope.disabled)return {ok:false,reason:'Weather stopped after an error; reload the game'};
             if(!hookReady)return {ok:false,code:'render-hook-missing',reason:'Weather render hook has not run. Reload the game after updating the extension; check status().patch if it persists'};
             if(!present)return {ok:false,code:'battle-not-present',reason:'No active battle detected'};
-            if(nativeLoaded===false||!current)return {ok:false,code:'battle-loading',reason:'Battle loading has not finished; wait for a valid battle render frame'};
+            if(nativeLoaded===false)return {ok:false,code:'battle-loading',reason:'Battle loading has not finished'};
+            if(!precipitation())return {ok:false,code:'map-weather-unavailable',reason:precipitation()===null?'Weather is disabled on this map':'Wait for native map metadata'};
+            if(!current)return {ok:false,code:'battle-loading',reason:'Battle loading has not finished; wait for a valid battle render frame'};
             if(!Object.prototype.hasOwnProperty.call(RAIN_PRESETS,preset)||!Number.isFinite(hold))return {ok:false,reason:'Invalid preset or duration'};
-            override={version:1,preset,start:Date.now(),hold:Math.max(15,Math.min(180,hold)),seed:Math.floor(random()*0xffffff),fadeIn:WEATHER.fadeIn,fadeOut:WEATHER.fadeOut};
+            override={version:1,preset,start:Date.now(),hold:Math.max(15,Math.min(180,hold)),seed:Math.floor(random()*0xffffff),fadeIn:WEATHER.fadeIn,fadeOut:WEATHER.fadeOut,precipitation:precipitation()!};
             stopSound();
             return {ok:true,preset,hold:override.hold,fadeIn:override.fadeIn,fadeOut:override.fadeOut};
         },
@@ -183,24 +199,33 @@ export function installRainWeather(page:Window){
             }}catch{}
             const name=v[schema.mapNameWithoutMode||schema.mapName];
             if(typeof name==='string'&&name.trim()&&name.length<=200){
-                const allowed=mapAllowsPuddles(mapName);mapName=name.trim();
-                if(allowed&&!mapAllowsPuddles(mapName)){puddleAmount=0;for(const r of contexts.values())r.clearReflections();}
+                mapName=name.trim();
             }
+            reconcileMap();
         },
         frame(renderer:unknown,scene:unknown,camera:unknown,s:RainSchema,stage:RainStage='all'){
             hookReady=true;if(!enabled||scope.disabled)return;
             scope.run(()=>{
+                if(excluded()){sync();return;}
                 if(nativeLoaded===false||!scene||typeof scene!=='object')return;
                 const r=nativeObject(renderer),c=nativeObject(camera);if(!r||!c)return;
                 const gl=nativeObject(r[s.gl])?.[s.context] as WebGL2RenderingContext|undefined;
                 const vp=c[s.vp],p=nativeObject(c[s.camera]);if(!gl||typeof gl.drawArraysInstanced!=='function'||gl.isContextLost()||!(vp instanceof Float32Array)||vp.length!==16||!p)return;
                 if(gl.canvas&&'isConnected' in gl.canvas&&!gl.canvas.isConnected)return;
-                nativeCanvas=gl.canvas;
                 // WebGL HUDs need no HTML battle wrapper. Require a captured map
                 // plus native loaded/tank evidence; an arbitrary canvas is insufficient.
-                if(nativeMapCaptured&&(nativeLoaded===true||[...tanks.values()].some(t=>performance.now()/1000-t.at<.5)))nativeFrameAt=performance.now();
+                const hud=!!document.querySelector(gameDOM.screens.battleHud),freshTank=[...tanks.values()].some(t=>performance.now()/1000-t.at<.5);
+                const battleRoot=document.querySelector(gameDOM.screens.battleCanvas);
+                if(battleRoot&&gl.canvas&&'nodeType' in gl.canvas&&typeof battleRoot.contains==='function'&&!battleRoot.contains(gl.canvas as Node))return;
+                if(!battleScenes.has(scene)){
+                    if(!hud&&!(nativeMapCaptured&&(freshTank||nativeLoaded===true&&sceneCount===0)))return;
+                    battleScenes.add(scene);sceneCount++;
+                }
+                nativeCanvas=gl.canvas;
+                if(nativeMapCaptured&&(nativeLoaded===true||freshTank))nativeFrameAt=performance.now();
+                suspended=false;
                 if(!present)sync();if(!present)return;
-                if(theme()==='SPACE')return;
+                const mode=precipitation();if(!mode)return;
                 const cameraPosition=[p[s.x],p[s.y],p[s.z]] as V3;if(!cameraPosition.every(Number.isFinite))return;
                 const getRenderer=()=>{
                     let gpu=contexts.get(gl);if(!gpu){
@@ -216,25 +241,27 @@ export function installRainWeather(page:Window){
                 // arrives. They must neither reroll weather nor reset its fade.
                 if(!current){
                     const remaining=clock(document.querySelector(gameDOM.presence.timer)?.textContent||'');
-                    current=battleId&&episodes.get(battleId)||planRain(now,remaining,random,readWeatherGeneration(localStorage));
+                    const cached=battleId?episodes.get(battleId):undefined;
+                    current=permits(cached)?cached:planRain(now,remaining,random,{...readWeatherGeneration(localStorage),precipitation:mode});
                 }
-                if(battleId&&!episodes.has(battleId)){episodes.set(battleId,current);while(episodes.size>24)episodes.delete(episodes.keys().next().value!);save();}
+                if(battleId&&episodes.get(battleId)!==current){episodes.set(battleId,current);while(episodes.size>24)episodes.delete(episodes.keys().next().value!);save();}
                 if(override&&sampleRain(override,now).finished)override=undefined;
                 const activePlan=override||current,sample=weather(activePlan,now);
                 if(strikePlan!==activePlan){strikePlan=activePlan;strikes=stormStrikes(activePlan);strikeOrigin=undefined;heard.clear();prepared.clear();}
                 lastFrame=performance.now();
                 const elapsed=Math.max(0,Math.min(.25,(lastFrame-puddleAt)/1000));puddleAt=lastFrame;
-                const allowPuddles=mapAllowsPuddles(mapName);
+                const allowPuddles=mode==='rain';
                 if(!allowPuddles)puddleAmount=0;
                 else puddleAmount+=(Number(puddles)-puddleAmount)*(1-Math.exp(-elapsed/PUDDLES.fadeSeconds));
                 if(!activePlan.preset||sample.finished){stopSound();for(const r of contexts.values())r.clearReflections();return;}
                 const gpu=getRenderer();
                 // Compile while an episode is still waiting, rather than stalling at the first drop.
-                gpu.warm(puddles&&allowPuddles,puddleDetail);if(!sample.active)return;
+                gpu.warm(puddles&&allowPuddles,puddleDetail,activePlan.precipitation);
+                for(const [key,tank]of tanks)if(lastFrame/1000-tank.at>.5)tanks.delete(key);
+                prepareMap();
+                if(!sample.active)return;
                 const fog=rainFog(r,s),fade=smooth((now-entryAt)/1800);
                 fog.fog[0]*=1-rainEnvelope();
-                prepareMap();
-                for(const [key,tank]of tanks)if(lastFrame/1000-tank.at>.5)tanks.delete(key);
                 const nearby=[...tanks.values()].sort((a,b)=>Math.hypot(a.position[0]-cameraPosition[0],a.position[1]-cameraPosition[1])-Math.hypot(b.position[0]-cameraPosition[0],b.position[1]-cameraPosition[1])).slice(0,12);
                 if(!strikeOrigin)strikeOrigin=[cameraPosition[0],cameraPosition[1],0];
                 const strike=strikes.find(s=>now>=s.at&&now<s.at+LIGHTNING.duration*1000);
@@ -249,13 +276,14 @@ export function installRainWeather(page:Window){
                         if(audio?.thunder(key,s.seed,s.delay-(now-s.at)/1000))heard.add(key);
                     }
                 }
-                const splashData=stage!=='sky'?splashes.update({time:lastFrame/1000,seed:activePlan.seed,rain:sample.rain,wind:sample.wind,puddles:puddleAmount,camera:cameraPosition,map:mapSurface,tanks:nearby,tuning:surfaceTuning,vp}):undefined;
-                gpu.draw({vp,camera:cameraPosition,time:lastFrame/1000,seed:activePlan.seed,fade,...sample,skyDarkness:skyboxDarkness(sample,fade,theme()),cloudTone:cloudTone(theme()),sunDirection,lightning,puddles:puddleAmount,puddleDetail,surfaceTuning,map:mapSurface,splashData,nativeLighting:true,fog:fog.fog,fogColor:fog.color,cloudPalette:weatherPalette(activePlan.preset)},stage);draws++;
+                if(activePlan.precipitation==='snow')splashes.clear();
+                const splashData=stage!=='sky'&&activePlan.precipitation!=='snow'?splashes.update({time:lastFrame/1000,seed:activePlan.seed,rain:sample.rain,wind:sample.wind,puddles:puddleAmount,camera:cameraPosition,map:mapSurface,tanks:nearby,tuning:surfaceTuning,vp}):undefined;
+                gpu.draw({precipitation:activePlan.precipitation,vp,camera:cameraPosition,time:lastFrame/1000,seed:activePlan.seed,fade,...sample,skyDarkness:skyboxDarkness(sample,fade,theme()),cloudTone:cloudTone(theme()),sunDirection,lightning,puddles:puddleAmount,puddleDetail,surfaceTuning,map:mapSurface,splashData,nativeLighting:true,fog:fog.fog,fogColor:fog.color,cloudPalette:activePlan.precipitation==='snow'?SNOW_PALETTES[activePlan.preset]:weatherPalette(activePlan.preset)},stage);draws++;
             });
         },
-        status:()=>({enabled,nativeFogSuppression:rainEnvelope(),present,hookReady,patch:patchState,nativeLoaded:nativeLoaded??null,nativeBattle:nativeBattle(),environment:{theme:theme()??null,weatherAllowed:theme()!=='SPACE',cloudTone:cloudTone(theme()),palette:(override||current)?.preset??'storm'},surfaceRevision:PUDDLE_SURFACE_REVISION,battleId:battleId??null,episode:current?{...current}:null,override:override?{...override}:null,
+        status:()=>({enabled,suspended:suspended||excluded(),precipitation:precipitation()??null,nativeFogSuppression:rainEnvelope(),present,hookReady,patch:patchState,nativeLoaded:nativeLoaded??null,nativeBattle:nativeBattle(),environment:{theme:theme()??null,weatherAllowed:!!precipitation(),cloudTone:cloudTone(theme()),palette:(override||current)?.preset??'storm'},surfaceRevision:PUDDLE_SURFACE_REVISION,battleId:battleId??null,episode:current?{...current}:null,override:override?{...override}:null,
             timing:override||current?rainTiming((override||current)!,Date.now()):null,
-            weather:override||current?weather((override||current)!,Date.now()):null,puddles,puddlesAllowed:mapAllowsPuddles(mapName),puddleBlockedReason:mapAllowsPuddles(mapName)?null:'map-massacre',mapName:mapName??null,foliageAnimation:false,puddleAmount,puddleDetail,surfaceTuning:{...surfaceTuning},draws,error,audio:audio?.ctx.state??'off',
+            weather:override||current?weather((override||current)!,Date.now()):null,puddles,puddlesAllowed:precipitation()==='rain',puddleBlockedReason:precipitation()==='rain'?null:precipitation()==='snow'?'snowfall':precipitation()===null?'map-excluded':'map-metadata-pending',mapName:mapName??null,foliageAnimation:false,puddleAmount,puddleDetail,surfaceTuning:{...surfaceTuning},draws,error,audio:audio?.ctx.state??'off',
             sound:audio?.status()??null,strikes:strikes.map(s=>({...s})),
             map:{ready:!!mapSurface,triangles:mapSurface?.triangles??0,pending:!!pendingMap,error:mapError},nativeLightingReady,tanks:tanks.size,tankSurfaces:[...tanks.values()].filter(t=>t.hull?.length&&t.matrix).length,splashes:splashes.status(),
             renderers:[...contexts.values()].map(r=>r.status()),runtime:scope.status()}),

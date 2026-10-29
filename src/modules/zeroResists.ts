@@ -225,6 +225,7 @@ export const zeroResists = lifecycle.initialize(() => {
         });
 
         summaryRow.appendChild(btn);
+        lifecycle.ownDOM(btn, element => element.remove());
     }
 
     function sync(): void {

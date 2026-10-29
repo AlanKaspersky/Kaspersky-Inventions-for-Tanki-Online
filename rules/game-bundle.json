@@ -1,0 +1,13 @@
+[
+  {
+    "id": 1,
+    "priority": 1,
+    "action": { "type": "redirect", "redirect": { "extensionPath": "/dist/kasp_game_gate.js" } },
+    "condition": {
+      "regexFilter": "^https?://([A-Za-z0-9-]+\\.)*tankionline\\.com(:[0-9]+)?/(browser-public/)?static/js/main\\.[A-Za-z0-9_-]+\\.js$",
+      "initiatorDomains": ["tankionline.com"],
+      "requestDomains": ["s.eu.tankionline.com", "s.ru.tankionline.com", "test-eu.tankionline.com", "test-ru.tankionline.com"],
+      "resourceTypes": ["script", "xmlhttprequest"]
+    }
+  }
+]

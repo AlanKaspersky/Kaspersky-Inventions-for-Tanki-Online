@@ -40,6 +40,7 @@ export const augmentSpecs = lifecycle.initialize(() => {
             });
             entry = { card, nodes, badge: cosmetic ? undefined : nodes[1], title: nodes[nodes.length - 1], cosmetic };
             emptyCards.set(image, entry);
+            lifecycle.ownDOM(image, restoreEmptyCard);
         }
         const cardClass = `kasp-unavailable-${cosmetic ? 'cosmetic' : 'device'}-card`;
         if (!card.classList.contains(cardClass)) card.classList.add(cardClass);
@@ -200,6 +201,7 @@ export const augmentSpecs = lifecycle.initialize(() => {
                 });
 
                 card.appendChild(btn);
+                lifecycle.ownDOM(btn, element => element.remove());
             }
         };
 
@@ -227,6 +229,7 @@ export const augmentSpecs = lifecycle.initialize(() => {
                 if (preview?.replacement !== data.previewIcon) {
                     const replacement = data.previewIcon;
                     previewImages.set(img, { original, replacement, id, section });
+                    lifecycle.ownDOM(img, restorePreview);
                     lifecycle.listen(img, 'error', () => {
                         if (previewImages.get(img)?.replacement !== replacement || img.src !== replacement) return;
                         failedPreviews.add(replacement); restorePreview(img);
@@ -240,7 +243,7 @@ export const augmentSpecs = lifecycle.initialize(() => {
             if (cosmeticSection) img.parentElement?.querySelector('.custom-card-specs-btn')?.remove();
             else applyButtonToCard(img.parentElement, original);
         });
-        for (const img of previewImages.keys()) if (!img.isConnected) previewImages.delete(img);
+        for (const img of previewImages.keys()) if (!img.isConnected) restorePreview(img);
         for (const img of emptyCards.keys()) if (!img.isConnected) restoreEmptyCard(img);
 
     };
@@ -250,6 +253,14 @@ export const augmentSpecs = lifecycle.initialize(() => {
         value: HTMLSpanElement;
         originalDisplay: string;
     }>();
+    const restoreLiveStat = (original: HTMLElement) => {
+        const entry = liveStats.get(original);
+        if (!entry) return;
+        liveStats.delete(original);
+        entry.replacement.remove();
+        original.classList.remove('hidden-by-script');
+        if (original.style.display === 'none') original.style.display = entry.originalDisplay;
+    };
 
     function updateLiveStats() {
         if (!utils.getSetting('k_augments', false)) return;
@@ -291,6 +302,7 @@ export const augmentSpecs = lifecycle.initialize(() => {
                             replacement.appendChild(value);
                             entry = { replacement, value, originalDisplay: original.style.display };
                             liveStats.set(original, entry);
+                            lifecycle.ownDOM(original, restoreLiveStat);
                         }
                         const className = original.className.split(/\s+/)
                             .filter(name => name && name !== 'hidden-by-script').concat('custom-live-stat').join(' ');
@@ -300,7 +312,10 @@ export const augmentSpecs = lifecycle.initialize(() => {
                         const valueStyle = `color: ${color}; text-shadow: 0 0 5px ${color}40;`;
                         if (entry.value.getAttribute('style') !== valueStyle) entry.value.setAttribute('style', valueStyle);
                         if (!original.classList.contains('hidden-by-script')) original.classList.add('hidden-by-script');
-                        if (original.style.display !== 'none') original.style.display = 'none';
+                        if (original.style.display !== 'none') {
+                            entry.originalDisplay = original.style.display;
+                            original.style.display = 'none';
+                        }
                         if (original.nextSibling !== entry.replacement) {
                             original.parentNode?.insertBefore(entry.replacement, original.nextSibling);
                         }
@@ -309,12 +324,9 @@ export const augmentSpecs = lifecycle.initialize(() => {
             }
         });
 
-        for (const [original, entry] of liveStats) {
+        for (const original of liveStats.keys()) {
             if (activeValues.has(original)) continue;
-            entry.replacement.remove();
-            original.classList.remove('hidden-by-script');
-            original.style.display = entry.originalDisplay;
-            liveStats.delete(original);
+            restoreLiveStat(original);
         }
     }
 
@@ -334,18 +346,13 @@ export const augmentSpecs = lifecycle.initialize(() => {
         });
     };
 
-    lifecycle.onCleanup(() => { for(const img of previewImages.keys()) restorePreview(img); for(const img of emptyCards.keys()) restoreEmptyCard(img); for(const [original,entry] of liveStats){entry.replacement.remove();original.classList.remove('hidden-by-script');original.style.display=entry.originalDisplay;}liveStats.clear();document.querySelectorAll('.custom-card-specs-btn').forEach(node=>node.remove());document.getElementById('kasp-specs-tooltip')?.remove(); });
+    lifecycle.onCleanup(() => { for(const img of previewImages.keys()) restorePreview(img); for(const img of emptyCards.keys()) restoreEmptyCard(img); for(const original of liveStats.keys()) restoreLiveStat(original);document.querySelectorAll('.custom-card-specs-btn').forEach(node=>node.remove());document.getElementById('kasp-specs-tooltip')?.remove(); });
 
     return function sync() {
         if (!utils.getSetting('k_augments', false)) {
             for (const img of previewImages.keys()) restorePreview(img);
             for (const img of emptyCards.keys()) restoreEmptyCard(img);
-            for (const [original, entry] of liveStats) {
-                entry.replacement.remove();
-                original.classList.remove('hidden-by-script');
-                original.style.display = entry.originalDisplay;
-            }
-            liveStats.clear();
+            for (const original of liveStats.keys()) restoreLiveStat(original);
             document.querySelectorAll('.custom-card-specs-btn').forEach(button => button.remove());
             const tooltip = document.getElementById('kasp-specs-tooltip');
             if (tooltip) tooltip.style.display = 'none';

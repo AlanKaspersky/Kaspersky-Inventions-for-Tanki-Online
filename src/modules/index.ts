@@ -2,7 +2,7 @@ import { featureScope } from '../core/featureRuntime';
 import { customPaints } from './customPaints';
 import { augmentSpecs } from './augmentSpecs';
 import { customPlayButton } from './customPlayButton';
-import { customFriends } from './customFriends';
+import { customFriends, friendContextMenu } from './customFriends';
 import { garageButtons } from './garageButtons';
 import { welcomeModal } from './welcomeModal';
 import { hideNickname } from './hideNickname';
@@ -22,12 +22,15 @@ import { equipmentTracker } from './equipmentTracker';
 import { battleHistory } from './battleHistory';
 import { overdriveTimer } from './overdriveTimer';
 import { cybersport } from './cybersport';
+import { clientInfo } from './clientInfo';
 
 const implementations = {
+  clientInfo,
   customPaints,
   augmentSpecs,
   customPlayButton,
   customFriends,
+  friendContextMenu,
   garageButtons,
   welcomeModal,
   hideNickname,

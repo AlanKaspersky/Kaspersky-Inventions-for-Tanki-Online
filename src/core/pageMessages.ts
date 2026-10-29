@@ -6,7 +6,7 @@ import type { OverdrivePose } from './overdriveDirection';
 
 interface PageMessages {
     'kasp:account-identity': { type: 'kasp:account-identity'; snapshot: AccountSnapshot };
-    'kasp:account-identity:request': { type: 'kasp:account-identity:request' };
+    'kasp:account-identity:request': { type: 'kasp:account-identity:request'; refreshPlayers?: boolean };
     'kasp:game-augments': { type: 'kasp:game-augments'; detail: AugmentSnapshot };
     'kasp:game-augments-request': { type: 'kasp:game-augments-request' };
     'kasp:bonus-pickup': { type: 'kasp:bonus-pickup'; detail: BonusPickup | string };
@@ -34,7 +34,7 @@ function identity(value: unknown): boolean {
 function valid(message: RecordValue): boolean {
     const detail = message.detail;
     switch (message.type) {
-        case 'kasp:account-identity:request':
+        case 'kasp:account-identity:request': return message.refreshPlayers === undefined || typeof message.refreshPlayers === 'boolean';
         case 'kasp:game-augments-request': return true;
         case 'kasp:account-identity': {
             const snapshot = message.snapshot;

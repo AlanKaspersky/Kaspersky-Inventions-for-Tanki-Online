@@ -16,27 +16,29 @@ export const coreSettings = (() => {
         RU: {
             tooltip: 'Требуется перезагрузка', information: 'Информация',
             rainVolume: 'Громкость дождя', thunderVolume: 'Громкость грома',
-            rainChance: 'Шанс генерации дождя', rainPreset: 'Желаемый пресет',
-            rainDuration: 'Продолжительность дождя', rainDurationHint: 'Доля оставшегося времени боя. 100% — до конца боя, меньше — случайный промежуток.',
+            rainChance: 'Шанс генерации осадков', rainPreset: 'Желаемый пресет',
+            rainDuration: 'Продолжительность осадков', rainDurationHint: 'Доля оставшегося времени боя. 100% — до конца боя, меньше — случайный промежуток.',
+            mapWeatherHint: 'Дождь — на обычных картах, кроме «Бойни». Снег — только на зимних, без луж. В космосе погоды нет.',
             rainNextBattle: 'Шанс, продолжительность и пресет применяются со следующей битвы.',
-            rainRandomHint: 'Случайный выбор — один из дождливых пресетов. Ясно и облачно — без дождя.',
-            presets: { random: 'Случайный', sunny: 'Ясно (без дождя)', overcast: 'Облачно (без дождя)',
-                drizzle: 'Морось', sunshower: 'Солнечный дождь', storm: 'Шторм' },
+            rainRandomHint: 'Случайный выбор — один из трёх пресетов с осадками. Ясно и облачно — без осадков.',
+            presets: { random: 'Случайный', sunny: 'Ясно (без осадков)', overcast: 'Облачно (без осадков)',
+                drizzle: 'Лёгкие осадки', sunshower: 'Осадки при солнце', storm: 'Шторм / метель' },
             accountNotice: 'ID аккаунта пока недоступен. История и личное избранное временно недоступны; сохранённые данные остаются на месте.'
         },
         EN: {
             tooltip: 'Requires reload', information: 'Information',
             rainVolume: 'Rain volume', thunderVolume: 'Thunder volume',
-            rainChance: 'Rain chance', rainPreset: 'Preferred preset',
-            rainDuration: 'Rain duration', rainDurationHint: 'Share of the remaining battle time. 100% lasts until the battle ends; lower values use a random interval.',
+            rainChance: 'Precipitation chance', rainPreset: 'Preferred preset',
+            rainDuration: 'Precipitation duration', rainDurationHint: 'Share of the remaining battle time. 100% lasts until the battle ends; lower values use a random interval.',
+            mapWeatherHint: 'Rain on nonwinter maps except Massacre. Snow on winter maps, without puddles. No weather in space.',
             rainNextBattle: 'Chance, duration and preset apply from the next battle.',
-            rainRandomHint: 'Random selects a rainy preset. Sunny and overcast have no rain.',
-            presets: { random: 'Random', sunny: 'Sunny (no rain)', overcast: 'Overcast (no rain)',
-                drizzle: 'Drizzle', sunshower: 'Sunshower', storm: 'Storm' },
+            rainRandomHint: 'Random selects one of three precipitation presets. Clear and overcast have no precipitation.',
+            presets: { random: 'Random', sunny: 'Sunny (no precipitation)', overcast: 'Overcast (no precipitation)',
+                drizzle: 'Light precipitation', sunshower: 'Sunlit precipitation', storm: 'Storm / Blizzard' },
             accountNotice: 'Account ID is unavailable. History and personal favorites are temporarily unavailable; saved data is preserved.'
         }
     };
-    const puddleSetting = { id: 'k_rain_puddles', label: { RU: 'Экспериментальные лужи', EN: 'Experimental puddles' },
+    const puddleSetting = { id: 'k_rain_puddles', label: { RU: 'Лужи во время дождя', EN: 'Puddles during rain' },
         description: { RU: 'Отражения видимых объектов во время дождя', EN: 'Reflections of visible objects during rain' }, default: false };
     const groups = [
         {
@@ -81,7 +83,7 @@ export const coreSettings = (() => {
                 { id: 'k_box_pickup', label: { RU: 'Изменённое поведение коробок в битве при подборе', EN: 'Modified box pickup animation in battle' },
                     description: { RU: 'Вспышка и разлетающиеся осколки', EN: 'A flash and scattering fragments' }, default: false },
                 { id: 'k_rain_weather', label: { RU: 'Случайная погода в битве', EN: 'Random battle weather' },
-                    description: { RU: 'Редкий дождь и гроза с плавной сменой облаков', EN: 'Occasional rain and storms with gradual cloud transitions' }, default: false },
+                    description: { RU: 'Дождь или снег с плавной сменой облаков', EN: 'Rain or snow with gradual cloud transitions' }, default: false },
             ]
         }
     ];
@@ -126,6 +128,7 @@ export const coreSettings = (() => {
             };
             const weatherControls = (enabled: boolean) => `<div class="kasp-weather-options ${enabled ? 'kasp-expanded' : ''}" id="kasp-weather-options" ${enabled ? '' : 'inert'}>
                 <div class="kasp-weather-options-inner">
+                <p class="kasp-weather-hint">${dict.mapWeatherHint}</p>
                 <label class="kasp-weather-volume"><span class="kasp-weather-volume-heading"><span>${dict.rainChance}</span><output>${Math.round(generation.chance * 100)}%</output></span>
                     <input type="range" min="0" max="100" step="1" value="${Math.round(generation.chance * 100)}" data-weather-chance aria-label="${dict.rainChance}" ${enabled ? '' : 'disabled'}>
                 </label>

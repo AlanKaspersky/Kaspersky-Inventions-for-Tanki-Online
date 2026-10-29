@@ -283,9 +283,11 @@ export const customPlayButton = lifecycle.initialize(() => {
 
         quickWrapper.appendChild(row2); quickWrapper.appendChild(row3);
         if (playButton.parentElement) playButton.parentElement.appendChild(quickWrapper);
+        lifecycle.ownDOM(quickWrapper, element => element.remove());
     }
 
     function applyStyles(playButton: HTMLElement) {
+        lifecycle.ownDOM(playButton, element => { delete element.dataset.overridden; });
         const container = (playButton.closest(gameDOM.common.flexDiv) || playButton.parentElement?.parentElement) as HTMLElement;
         const mainMenu = document.querySelector(gameDOM.play.mainMenu) as HTMLElement;
         if (container) {

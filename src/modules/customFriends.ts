@@ -4,11 +4,30 @@ import { gameDOM } from '../core/gameDOM';
 import { state } from '../core/state';
 import { utils } from '../core/utils';
 import { getAccountIdentity, getVerifiedAccount, getPlayerUserId, getAccountIdentityRevision, parseAccountIdentity } from '../core/accountIdentity';
+import { ACCOUNT_IDENTITY_MESSAGE, ACCOUNT_IDENTITY_REQUEST } from '../core/accountId';
+import { postPageMessage, readPageMessage } from '../core/pageMessages';
+
+let refreshMenus = () => {};
+export const friendContextMenu = lifecycle.guard(() => refreshMenus());
 
 export const customFriends = lifecycle.initialize(() => {
-    const originalDisplays = new Map<HTMLElement, string>();
+    const originalDisplays = new Map<HTMLElement, { before: string; after: string }>();
+    const activeFilters = new WeakMap<HTMLElement, string>();
+    const restoreDisplay = (element: HTMLElement) => {
+        const value = originalDisplays.get(element);
+        originalDisplays.delete(element);
+        if (value && element.style.display === value.after) element.style.display = value.before;
+    };
+    const display = (element: HTMLElement, value: string) => {
+        const previous = originalDisplays.get(element);
+        const before = previous && element.style.display === previous.after ? previous.before : element.style.display || '';
+        originalDisplays.set(element, { before, after: value }); element.style.display = value;
+        lifecycle.ownDOM(element, restoreDisplay);
+    };
     let filterAccount: string | null = null;
     let filterRevision = -1;
+    let menuEventsReady = false;
+    const menuRequests = new WeakMap<HTMLElement, { nickname: string; owner: string | null; at: number; count: number }>();
 
     const filtersConfig = [
         { url: "https://s.eu.tankionline.com/static/images/allPaints.741c65e1.svg", type: "all" },
@@ -105,7 +124,7 @@ export const customFriends = lifecycle.initialize(() => {
             const el = node as HTMLElement;
             updateCardBadge(el, isFriendsList);
             if (filterType === 'all') {
-                el.style.display = '';
+                restoreDisplay(el);
                 return;
             }
             const cardText = el.innerText || "";
@@ -122,8 +141,7 @@ export const customFriends = lifecycle.initialize(() => {
                 const friendId = getPlayerUserId(nickText);
                 match = !!friendId && cats[friendId] === filterType;
             }
-            if (!originalDisplays.has(el)) originalDisplays.set(el, el.style.display);
-            el.style.display = match ? '' : 'none';
+            display(el, match ? '' : 'none');
         });
     };
 
@@ -132,29 +150,44 @@ export const customFriends = lifecycle.initialize(() => {
         if (!rankItem) return;
         const nickname = getFriendNickname(rankItem);
         const ownerId = getCurrentUserId(), friendId = getPlayerUserId(nickname);
-        const binding = ownerId && friendId ? `${ownerId}:${friendId}` : '';
-        if (binding && menu.dataset.customCategoriesInjected === binding) return;
-        menu.querySelector('.custom-category-row')?.remove();
+        if (!nickname) return;
+        const pending = !ownerId || !friendId;
+        if (pending) {
+            let request = menuRequests.get(menu);
+            if (!request || request.nickname !== nickname || request.owner !== ownerId) {
+                request = { nickname, owner: ownerId, at: -Infinity, count: 0 }; menuRequests.set(menu, request);
+            }
+            if (request.count < 6 && Date.now() - request.at >= 1000) {
+                request.at = Date.now(); request.count++;
+                postPageMessage(window, { type: ACCOUNT_IDENTITY_REQUEST, refreshPlayers: true });
+            }
+        }
+        const binding = pending ? `pending:${ownerId || ''}:${nickname}` : `${ownerId}:${friendId}`;
+        const existingRow = menu.querySelector<HTMLElement>('.custom-category-row');
+        if (menu.dataset.customCategoriesInjected === binding && existingRow) return;
+        if (existingRow) { lifecycle.releaseDOM(existingRow); existingRow.remove(); }
         delete menu.dataset.customCategoriesInjected;
-        if (!ownerId || !friendId) return;
         menu.dataset.customCategoriesInjected = binding;
         const row = document.createElement('div');
-        row.className = 'custom-category-row';
+        row.className = `custom-category-row${pending ? ' custom-category-pending' : ''}`;
         const cats = getCustomCategories();
-        const currentColor = cats[friendId];
+        const currentColor = friendId ? cats[friendId] : undefined;
 
         const customButtons = [
-            { type: 'purple', url: 'https://s.eu.tankionline.com/static/images/iconEpicFiolet.d91b1151.svg' },
-            { type: 'yellow', url: 'https://s.eu.tankionline.com/static/images/iconLegendaryGold.7c76cb29.svg' },
-            { type: 'red', url: 'https://s.eu.tankionline.com/static/images/iconCustomiseRed.2b5c8828.svg' }
+            { type: 'purple', color: '#b278ff' },
+            { type: 'yellow', color: '#ffd600' },
+            { type: 'red', color: '#ff4444' }
         ];
 
         customButtons.forEach(c => {
             const btn = document.createElement('div');
             btn.className = `custom-category-menu-btn ${currentColor === c.type ? 'active' : ''}`;
-            btn.innerHTML = `<img src="${c.url}">`;
+            btn.style.setProperty('--kasp-category-color', c.color);
+            btn.setAttribute('aria-disabled', String(pending));
+            if (pending) btn.title = state.lang === 'RU' ? 'Определяем ID игрока…' : 'Resolving player ID…';
             btn.onclick = lifecycle.guard((e: MouseEvent) => {
                 e.stopPropagation();
+                if (!ownerId || !friendId) return;
                 const currentRank = menu.querySelector<HTMLElement>(gameDOM.friends.contextPlayer);
                 if (ownerId !== getCurrentUserId() || getPlayerUserId(getFriendNickname(currentRank)) !== friendId) return;
                 setCustomCategory(ownerId, friendId, c.type);
@@ -168,6 +201,10 @@ export const customFriends = lifecycle.initialize(() => {
         });
 
         menu.appendChild(row);
+        lifecycle.ownDOM(row, element => {
+            if (menu.querySelector('.custom-category-row') === element) delete menu.dataset.customCategoriesInjected;
+            element.remove();
+        });
         lifecycle.frame(() => {
             const rect = menu.getBoundingClientRect();
             const overflow = rect.bottom - window.innerHeight;
@@ -176,6 +213,20 @@ export const customFriends = lifecycle.initialize(() => {
                 menu.style.top = `${currentTop - overflow - 8}px`;
             }
         });
+    };
+
+    refreshMenus = () => {
+        if (!utils.getSetting('k_friends', false)) return;
+        if (!menuEventsReady) {
+            menuEventsReady = true;
+            lifecycle.listen(window, 'message', event => {
+                if (!readPageMessage(event, window, ACCOUNT_IDENTITY_MESSAGE)) return;
+                // Identity's listener may run later in the same message dispatch.
+                lifecycle.microtask(friendContextMenu);
+            });
+        }
+        if (!document.querySelector(gameDOM.friends.lists)) return;
+        document.querySelectorAll<HTMLElement>(gameDOM.friends.contextMenu).forEach(injectCategoriesMenu);
     };
 
     const setupSidebar = (scrollBlock: HTMLElement) => {
@@ -194,21 +245,27 @@ export const customFriends = lifecycle.initialize(() => {
 
             const sidebar = document.createElement('div');
             sidebar.className = 'custom-friends-sidebar sidebar-friends';
-            filtersConfig.forEach((config, index) => {
+            filtersConfig.forEach(config => {
                 const btn = document.createElement('div');
                 btn.className = 'custom-filter-btn';
-                if (index === 0) btn.classList.add('active');
+                if (config.type === (activeFilters.get(scrollBlock) || 'all')) btn.classList.add('active');
                 const img = document.createElement('img');
                 img.src = config.url;
                 lifecycle.listen(btn, 'click', () => {
                     sidebar.querySelectorAll('.custom-filter-btn').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
+                    activeFilters.set(scrollBlock, config.type);
                     applyFilter(scrollBlock, config.type);
                 });
                 btn.appendChild(img);
                 sidebar.appendChild(btn);
             });
             wrapper.appendChild(sidebar);
+            lifecycle.ownDOM(sidebar, element => {
+                element.remove();
+                delete scrollBlock.dataset.sidebarInjected;
+                wrapper.replaceWith(...Array.from(wrapper.childNodes));
+            });
         } else {
             const parent = scrollBlock.parentNode as HTMLElement;
             if (!parent) return;
@@ -217,28 +274,33 @@ export const customFriends = lifecycle.initialize(() => {
             }
             const sidebar = document.createElement('div');
             sidebar.className = 'custom-friends-sidebar sidebar-invites';
-            filtersConfig.forEach((config, index) => {
+            filtersConfig.forEach(config => {
                 const btn = document.createElement('div');
                 btn.className = 'custom-filter-btn';
-                if (index === 0) btn.classList.add('active');
+                if (config.type === (activeFilters.get(scrollBlock) || 'all')) btn.classList.add('active');
                 const img = document.createElement('img');
                 img.src = config.url;
                 lifecycle.listen(btn, 'click', () => {
                     sidebar.querySelectorAll('.custom-filter-btn').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
+                    activeFilters.set(scrollBlock, config.type);
                     applyFilter(scrollBlock, config.type);
                 });
                 btn.appendChild(img);
                 sidebar.appendChild(btn);
             });
             parent.insertBefore(sidebar, scrollBlock);
+            lifecycle.ownDOM(sidebar, element => {
+                element.remove();
+                delete scrollBlock.dataset.sidebarInjected;
+            });
         }
     };
 
     lifecycle.onCleanup(() => {
+        refreshMenus = () => {};
         document.querySelectorAll('.custom-friends-sidebar, .custom-rarity-badge, .custom-category-row').forEach(node => node.remove());
-        for (const [row, display] of originalDisplays) row.style.display = display;
-        originalDisplays.clear();
+        for (const row of originalDisplays.keys()) restoreDisplay(row);
         document.querySelectorAll('[data-sidebar-injected]').forEach(node => node.removeAttribute('data-sidebar-injected'));
         document.querySelectorAll('.custom-friends-wrapper').forEach(wrapper => wrapper.replaceWith(...Array.from(wrapper.childNodes)));
     });
@@ -260,6 +322,9 @@ export const customFriends = lifecycle.initialize(() => {
             const scrollBlock = node as HTMLElement;
             if (scrollBlock.dataset.sidebarInjected !== 'true') setupSidebar(scrollBlock);
 
+            const filter = activeFilters.get(scrollBlock);
+            if (filter && filter !== 'all') { applyFilter(scrollBlock, filter); return; }
+
             const isFriendsList = scrollBlock.classList.contains(gameDOM.classes.friendList);
             const itemSelector = isFriendsList ? gameDOM.friends.card : gameDOM.friends.invitationCard;
 
@@ -268,10 +333,6 @@ export const customFriends = lifecycle.initialize(() => {
             });
         });
 
-        const contextMenus = document.querySelectorAll(gameDOM.friends.contextMenu);
-        contextMenus.forEach(node => {
-            const menu = node as HTMLElement;
-            injectCategoriesMenu(menu);
-        });
+        friendContextMenu();
     };
 }, () => {});

@@ -6,6 +6,7 @@ import { createCybersportSettings } from './cybersportSettings';
 
 export const cybersport = lifecycle.initialize(() => {
     let row: HTMLElement | null = null;
+    let releaseRowDOM: (() => void) | undefined;
     let sport: HTMLElement | null = null;
     let card: HTMLElement | null = null;
     let observer: MutationObserver | null = null;
@@ -160,6 +161,7 @@ export const cybersport = lifecycle.initialize(() => {
         }
     };
     const cleanup = () => {
+        releaseRowDOM?.(); releaseRowDOM = undefined;
         observer?.disconnect(); observer = null;
         lifecycle.unlisten(row, 'click', onNativeClick, true);
         sport?.removeAttribute('data-kasp-cybersport-source-active');
@@ -211,6 +213,7 @@ export const cybersport = lifecycle.initialize(() => {
             });
             row.insertBefore(card, nativeSport.nextSibling);
             lifecycle.listen(row, 'click', onNativeClick, true);
+            releaseRowDOM = lifecycle.ownDOM(row, element => { if (row === element) cleanup(); });
             observer = lifecycle.observer(schedule);
             observer.observe(row, { childList: true, subtree: true, characterData: true,
                 attributes: true, attributeFilter: ['class'] });

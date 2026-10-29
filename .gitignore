@@ -3,5 +3,6 @@ release/
 *.zip
 /main.js
 artifacts/
-userscripts/
 .vscode/
+archive/
+/_metadata/

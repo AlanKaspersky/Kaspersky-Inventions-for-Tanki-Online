@@ -406,6 +406,7 @@ export const autoUpgrade = lifecycle.initialize(() => {
         });
 
         panel.appendChild(quickButtonsWrapper);
+        lifecycle.ownDOM(quickButtonsWrapper, element => element.remove());
     }
 
     lifecycle.onCleanup(() => { finish(); if(categorySwitchTimeout !== null) lifecycle.cancelTimeout(categorySwitchTimeout); const overlay=document.getElementById('quick-upgrade-overlay') as (HTMLElement & {closeDialogMethod?:()=>void}) | null; overlay?.closeDialogMethod?.(); document.getElementById('quick-buttons')?.remove(); });

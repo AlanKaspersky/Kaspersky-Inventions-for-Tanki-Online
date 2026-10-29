@@ -124,6 +124,7 @@ export function createNativeAccountReader(store: object) {
     let account: VerifiedAccount | null = null, players: AccountSnapshot['players'] = [];
     let nextDiscovery = 0, nextAccountDiscovery = 0, nextPlayers = 0, slices = 0, lastError: string | null = null;
     let invalidPath = false, publishPending = false, direct = false;
+    let lastPlayerDemand = -Infinity;
     const error = (cause: unknown) => { lastError = String(cause); };
     const discover = () => {
         const foundUsers: NativeBinding[] = [], foundRemote: NativeBinding[] = [];
@@ -162,7 +163,10 @@ export function createNativeAccountReader(store: object) {
         account = next;
         return { account, players: account ? players : [] };
     };
-    const refresh = () => {
+    const refresh = (refreshPlayers = false) => {
+        if (refreshPlayers && Date.now() - lastPlayerDemand >= 1000) {
+            lastPlayerDemand = Date.now(); nextPlayers = 0;
+        }
         snapshot();
         if (!localJob && ((invalidPath || !users.length) && Date.now() >= nextAccountDiscovery
             || account && !remote.length && Date.now() >= nextDiscovery)) discover();
@@ -316,9 +320,10 @@ export function installAccountIdentityNative(page: Window): {
             schedule();
         }, delay);
     };
-    const poll = () => { reader?.refresh(); publish(); schedule(); };
+    const poll = (refreshPlayers = false) => { reader?.refresh(refreshPlayers); publish(); schedule(); };
     lifecycle.listen(page, 'message', event => {
-        if (readPageMessage(event, page, ACCOUNT_IDENTITY_REQUEST)) poll();
+        const request = readPageMessage(event, page, ACCOUNT_IDENTITY_REQUEST);
+        if (request) poll(request.refreshPlayers === true);
     });
     lifecycle.interval(poll, 1000);
     lifecycle.onCleanup(() => { currentStore = null; reader = null; work = null;

@@ -21,12 +21,13 @@ function weatherScene(source,{methods,functions,scopes,renderer,schema:rain}){
    for(const [owner,roles]of owners){
     const sequences=nodes(owner,'SequenceExpression');
     const markers=sequences.map(n=>({start:n.start,end:n.end,text:''}));
+    for(const call of nodes(owner,'CallExpression'))if(call.callee.type==='FunctionExpression')markers.push({start:call.callee.start,end:call.callee.end,text:''});
     const wrappers=markers.length;
     for(const n of nodes(owner,'NewExpression'))if(n.arguments.length===0&&n.end===n.callee.end)markers.push({start:n.end,end:n.end,text:''});
     const actual=local.filter(e=>e.start>=owner.start&&e.end<=owner.end);
     const results=compileTemplates(source,[...markers,...actual],new Map([[owner,roles]]),{evidence:true,sharedKeys:shared});
     for(const template of results){
-     for(let i=0;i<markers.length;i++)template.pattern=i<wrappers?template.pattern.replace(`(?<e${i}start>)`,'\\(?\\s*').replace(`(?<e${i}end>)`,'\\s*\\)?')
+     for(let i=0;i<markers.length;i++)template.pattern=i<wrappers?template.pattern.replace(`(?<e${i}start>)`,'\\s*\\(?\\s*').replace(`(?<e${i}end>)`,'\\s*\\)?')
       :template.pattern.replace(`(?<e${i}start>)(?<e${i}end>)`,'(?:\\s*\\(\\s*\\))?');
      for(let i=markers.length;i<markers.length+actual.length;i++)template.pattern=template.pattern.replace(`\\s*(?<e${i}start>)(?<e${i}end>)\\}`,`\\s*;?\\s*(?<e${i}start>)(?<e${i}end>)\\}`);
      if(searches.has(owner))template.search=searches.get(owner);

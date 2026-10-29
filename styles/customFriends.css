@@ -152,8 +152,14 @@
     background-color: rgba(255, 255, 255, 0.15);
 }
 
-.custom-category-menu-btn img {
-    width: 2.5em;
-    height: 2.5em;
+.custom-category-menu-btn::before {
+    content: '';
+    width: .75em;
+    height: .75em;
+    background: var(--kasp-category-color);
+    transform: rotate(45deg);
     pointer-events: none;
 }
+
+.custom-category-pending .custom-category-menu-btn { cursor: progress; opacity: .45; }
+.custom-category-pending .custom-category-menu-btn:hover { box-shadow: none; }

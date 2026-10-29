@@ -384,7 +384,6 @@ div.BattleTabStatisticComponentStyle-containerInsideResults {
     justify-content: center !important;
     padding-top: 0.5em !important;
     margin-top: 0.5em !important;
-    transition: 0.2s ease !important;
 }
 
 .kasp-custom-summary-row {
@@ -392,6 +391,36 @@ div.BattleTabStatisticComponentStyle-containerInsideResults {
     min-height: 2em !important;
     padding: 0.5em 1em !important;
     box-sizing: border-box !important;
+}
+
+/* Reserve real layout space for the absolute TAB controls, including when the
+   resistance list wraps. The divider itself never intercepts pointer events. */
+:is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults) > div:has(> #kasp-tab-toggle-btn) {
+    --kasp-tab-controls-space: 4.75em;
+    --kasp-tab-divider-right: 4.25em;
+    position: relative !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+    min-height: 3em !important;
+    padding-right: var(--kasp-tab-controls-space) !important;
+    flex-wrap: wrap !important;
+}
+
+:is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults) > div:has(> #kasp-tab-toggle-btn):has(> #kasp-enemy-weapons-btn) {
+    --kasp-tab-controls-space: 4em;
+    --kasp-tab-divider-right: 7em;
+}
+
+:is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults) > div:has(> #kasp-tab-toggle-btn)::after {
+    content: '';
+    position: absolute;
+    right: var(--kasp-tab-divider-right);
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1px;
+    height: 1.8em;
+    background: rgba(191, 213, 255, .3);
+    pointer-events: none;
 }
 
 .kasp-change-td {

@@ -7,7 +7,7 @@ export type PuddleDetail = 'low' | 'high';
 export type WeatherVolumes = { rain: number; thunder: number };
 
 export function readWeatherGeneration(storage: Pick<Storage, 'getItem'>): WeatherGeneration {
-    let chance = DEFAULT_WEATHER_GENERATION.chance, preset = DEFAULT_WEATHER_GENERATION.preset, duration = DEFAULT_WEATHER_GENERATION.duration;
+    let chance = DEFAULT_WEATHER_GENERATION.chance, preset = DEFAULT_WEATHER_GENERATION.preset, duration = DEFAULT_WEATHER_GENERATION.duration, precipitation = DEFAULT_WEATHER_GENERATION.precipitation;
     try {
         const raw = storage.getItem(WEATHER_GENERATION_KEYS.chance);
         const value = raw === null || raw.trim() === '' ? NaN : Number(raw);
@@ -22,7 +22,7 @@ export function readWeatherGeneration(storage: Pick<Storage, 'getItem'>): Weathe
         const value = raw === null || raw.trim() === '' ? NaN : Number(raw);
         if (Number.isFinite(value)) duration = Math.max(0, Math.min(1, value));
     } catch { /* Keep the default when storage is unavailable. */ }
-    return { chance, preset, duration };
+    return { chance, preset, duration, precipitation };
 }
 
 export function readWeatherVolumes(storage: Pick<Storage, 'getItem'>): WeatherVolumes {

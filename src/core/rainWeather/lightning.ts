@@ -8,7 +8,7 @@ export interface Strike {id:number;at:number;seed:number;azimuth:number;radius:n
 export interface LightningFrame {strike:Strike;age:number;power:number;flash:number;origin:Point;}
 export function seeded(seed:number){let state=seed>>>0||1;return()=>{state^=state<<13;state^=state>>>17;state^=state<<5;return(state>>>0)/4294967296;};}
 export function stormStrikes(plan:RainEpisode):Strike[]{
-    if(plan.preset!=='storm')return[];
+    if(plan.preset!=='storm'||plan.precipitation==='snow')return[];
     const random=seeded(plan.seed^0x71e64ad9),out:Strike[]=[];
     let seconds=plan.fadeIn+LIGHTNING.firstMin+random()*(LIGHTNING.firstMax-LIGHTNING.firstMin);
     while(seconds<plan.fadeIn+plan.hold-8&&out.length<LIGHTNING.maxStrikes){

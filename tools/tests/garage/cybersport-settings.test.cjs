@@ -96,7 +96,7 @@ function fixture({ language = 'RU', rank = 'Маршал', delayedMenu = false, 
         document: { dispatchEvent() {} },
         HTMLInputElement: Input, Event, MouseEvent: Event, URL,
         location: { href: 'https://tankionline.com/play/' }, Date: { now: () => now },
-        setTimeout: (fn, delay) => { timers.set(++nextTimer, { fn, at: now + delay }); return nextTimer; },
+        setTimeout: (fn, delay) => { timers.set(++nextTimer, { fn, at: now + delay, delay }); return nextTimer; },
         clearTimeout: id => timers.delete(id),
         MutationObserver: class { constructor(fn) { this.fn = fn; observers.push(this); }
             observe(node) { this.node = node; this.active = true; } disconnect() { this.active = false; } },
@@ -118,6 +118,7 @@ function fixture({ language = 'RU', rank = 'Маршал', delayedMenu = false, 
     }
     function flush() { if (scheduled) { scheduled = false; settings.sync(root); } }
     return { settings, root, panel, fields, checkbox, dropdown, maximum, control, values, timers, observers,
+        rankTimers: () => [...timers.values()].filter(timer => timer.delay === 100).length,
         mountMenu, flush, expand, Event, get closeClicks() { return closeClicks; },
         get opens() { return opens; }, get selections() { return selections; },
         get numericChanges() { return numericChanges; },
@@ -190,14 +191,14 @@ test('map/default resets are corrected in native state rather than just the disp
 
 test('a delayed minimum-rank menu is consumed once and its retry is removed when done', () => {
     const f = fixture({ delayedMenu: true }); f.settings.sync(f.root);
-    assert.equal(f.selections, 0); assert.equal(f.timers.size, 1);
+    assert.equal(f.selections, 0); assert.equal(f.rankTimers(), 1);
     f.mountMenu(); f.advance(100); assert.equal(f.selections, 1);
-    f.advance(100); assert.equal(f.timers.size, 0); assert.equal(f.opens, 1);
+    f.advance(100); assert.equal(f.rankTimers(), 0); assert.equal(f.opens, 1);
 });
 
 test('a missing dropdown menu does not trigger an endless stream of attempts', () => {
     const f = fixture({ delayedMenu: true }); f.settings.sync(f.root); f.advance(2001);
-    f.settings.sync(f.root); assert.equal(f.opens, 1); assert.equal(f.timers.size, 0);
+    f.settings.sync(f.root); assert.equal(f.opens, 1); assert.equal(f.rankTimers(), 0);
     // The native control remains usable after a failed attempt.
     const event = new f.Event('mousedown'); f.control.dispatchEvent(event);
     assert.equal(event.defaultPrevented, false);

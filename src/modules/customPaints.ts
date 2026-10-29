@@ -7,10 +7,16 @@ import { DataLoader } from '../core/dataLoader';
 
 export const customPaints = lifecycle.initialize(() => {
     const displays = new Map<HTMLElement, { before: string; after: string }>();
+    const restoreDisplay = (element: HTMLElement) => {
+        const value = displays.get(element);
+        displays.delete(element);
+        if (value && element.style.display === value.after) element.style.display = value.before;
+    };
     const display = (element: HTMLElement, value: string) => {
         const previous = displays.get(element);
         const before = previous && element.style.display === previous.after ? previous.before : element.style.display;
         displays.set(element, { before, after: value }); element.style.display = value;
+        lifecycle.ownDOM(element, restoreDisplay);
     };
 
     function normalizeText(text: string) {
@@ -85,12 +91,12 @@ export const customPaints = lifecycle.initialize(() => {
         searchContainer.appendChild(searchInputDiv);
         searchWrapper.appendChild(searchContainer);
         parentBlock.appendChild(searchWrapper);
+        lifecycle.ownDOM(searchWrapper, element => element.remove());
     }
 
     lifecycle.onCleanup(() => {
         document.querySelectorAll('.kasp-search-wrapper').forEach(node => node.remove());
-        for (const [element, value] of displays) if (element.style.display === value.after) element.style.display = value.before;
-        displays.clear();
+        for (const element of displays.keys()) restoreDisplay(element);
         document.querySelectorAll('.kasp-paints-container').forEach(node => node.classList.remove('kasp-paints-container'));
     });
 

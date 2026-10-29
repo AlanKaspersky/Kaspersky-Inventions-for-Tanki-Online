@@ -2,7 +2,7 @@
 
 ## Complete Documentation
 
-**Extension version:** 3.0.2 (`manifest.json`)
+**Extension version:** 3.0.3 (`manifest.json`)
 
 **Documentation updated:** October 24, 2026
 
@@ -71,7 +71,7 @@ For implementation details, module logic, and workflows, see
 
 ## Start Here
 
-This repository documents extension **3.0.2**, reviewed against source on **October 24, 2026**. A feature described as implemented below has a corresponding runtime module; experimental console reports are not treated as shipped features.
+This repository documents extension **3.0.3**, reviewed against source on **October 24, 2026**. A feature described as implemented below has a corresponding runtime module; experimental console reports are not treated as shipped features.
 
 | Document | Audience and contents |
 | --- | --- |
@@ -132,7 +132,7 @@ The manifest supports Chromium-based desktop browsers with Manifest V3 and decla
 - **Chromium:** install through the browser's unpacked-extension loader; Chrome instructions are provided below.
 - **Firefox:** minimum declared version **128.0**, with add-on ID `kaspersky-inventions@tankionline.local`. Local testing and signed installation use different workflows, described below.
 
-The JavaScript build still targets `chrome100` syntax and produces the same two bundles for both browsers. The manifest declaration is not evidence that every feature has been tested on every browser version. Firefox should be checked in the live game, including page-world injection, packaged resources, settings, and local storage. Mobile-browser installation is not covered by this project.
+The JavaScript build targets `chrome100` syntax and produces main, injector and network-gate bundles for both browsers. The manifest declaration is not evidence that every feature has been tested on every browser version. Firefox should be checked in the live game, including page-world injection, network rules, packaged resources, settings, and local storage. Mobile-browser installation is not covered by this project.
 
 An Electron-specific mouse-navigation adapter is included. Its presence does not provide a standalone desktop installer or guarantee that every Electron client can load this extension.
 
@@ -142,7 +142,7 @@ Discord Rich Presence is available in a compatible Electron client with the KI p
 
 The manifest declares content scripts for `tankionline.com` and its subdomains. Scripts run at `document_start`; the injector runs in the page's `MAIN` execution world, while the main extension logic uses the default content-script world.
 
-Bundled `assets/`, `templates/*.html`, and `database/*.json` resources are exposed to matching game pages. The manifest contains no explicit `permissions` or `host_permissions` arrays. Feature data uses page-origin `localStorage`, `sessionStorage`, and IndexedDB, rather than `chrome.storage`.
+Bundled `assets/`, `templates/*.html`, `database/*.json` and `dist/kasp_game_gate.js` resources are exposed to matching game pages. `declarativeNetRequestWithHostAccess` and host access to Tanki domains support one network rule for the game's main bundle on EU/RU CDNs and test hosts, covering both script requests and the game's service-worker fetch. Other URLs and query-bearing source/recovery requests are excluded. An update can require approval for the added permission. Feature data uses page-origin `localStorage`, `sessionStorage`, and IndexedDB, rather than `chrome.storage`.
 
 Runtime JavaScript has no third-party UI-framework dependency. It does depend on the game DOM, browser APIs, game-provided fonts, packaged resources, and externally loaded game images or scripts.
 
@@ -261,7 +261,7 @@ The tab has four feature categories and an Information panel. History belongs to
 
 There are **15 switches**: only arcade reload and critical indication default to enabled. These labels organize the interface; they do not describe official approval or promise a particular performance cost.
 
-Random weather enables immediately and reveals full-width rain and thunder volume sliders beneath its switch. Both apply live and retain their values. Rain chance (0–100%, default 24%), Rain duration (0–100%, default 30%) and Preferred preset (Random, Sunny, Overcast, Drizzle, Sunshower, Storm) are also saved. Generation changes apply to the next newly planned battle; existing battle plans are retained. Random chooses only rainy presets, while Sunny and Overcast are explicit dry choices. By default, eligible battles have a 24% chance of rain, with at most one episode and one preset per known battle ID. Storms use up to 25,000 instanced rain streaks, native ambient/sun darkening, clouds and low storm ambience; onset and clearing are gradual. The cloud sky is world-aligned, independent of camera height, and reprojected for the current view each frame. World-space branched lightning and delayed rolling thunder occur only during full-strength storms: first after 8–18 seconds, then every 20–35 seconds (at most seven strikes per episode); rain audio has a stable, slightly quieter background level. Experimental puddles are available as a default-off switch inside the expanded weather controls during rain, using reflections of visible opaque objects. Puddles remain visible up to 300 metres, fading gradually between 195 and 300 metres. Puddles are limited to visible, horizontal collision faces from the map. Inclines, noncolliding scenery and moving tank/supply-box surfaces are excluded by a separate collision-depth mask. Puddles always request High detail: organic shores, rain rings, wind waves and refracted/absorbed ground colour. The quality slider is removed and old Low preferences are ignored; Low remains only as a shader-compatibility fallback. Shallow water preserves the ground colour with limited absorption and bounded reflections, reducing opaque black patches on dark maps. The supplied tuning export is now the default surface profile: rings 15 times smaller, wind wavelengths 16 times smaller, both animated eight times faster. Drop-zone markers temporarily stop writing depth while puddles are visible, preserving terrain/tank depth and the native marker colour; this avoids square dry holes and angle-dependent seams. Clouds use a dark default storm palette, with lighter colours for Drizzle, Overcast, Sunshower and Sunny. The adjustable open-edge inset defaults to 2 metres beside drops/lower levels; raised banks and same-height neighbours preserve water contact. Different levels have separate water surfaces. Puddles are disabled on Бойня (Massacre), while rain remains available. Tree and bush animation is disabled in every validated foliage path, including the native breeze; the native skybox darkens with weather and native fog fades out during rain; direct distance-based grading of remastered materials has been removed, clouds use captured seasonal/day/evening/night themes, and known Space battles exclude weather. The developer panel, opening hotkey and tuning/export commands have been removed. Existing saved surface values remain compatible. Rain rings require High detail. Off-screen objects cannot be reflected; bounded rain-impact spray off tank hulls is included, while fluid simulation is absent. Fluid wakes, rainbow and birds remain removed; rain hits on stationary or moving tank hulls can produce ballistic droplets independently of puddles; high-detail puddles include small wind waves and rain rings. Disable the old Tampermonkey weather script. See [weather behavior and limitations](DOCUMENTATION.md#weather-reference).
+Random weather enables immediately and reveals full-width rain and thunder volume sliders beneath its switch. Both apply live and retain their values. Rain chance (0–100%, default 24%), Rain duration (0–100%, default 30%) and Preferred preset (Random, Sunny, Overcast, Drizzle, Sunshower, Storm) are also saved. Generation changes apply to the next newly planned battle; existing battle plans are retained. Random chooses only rainy presets, while Sunny and Overcast are explicit dry choices. By default, eligible battles have a 24% chance of precipitation, with at most one episode and one preset per known battle ID. Storms use up to 25,000 instanced rain streaks, native ambient/sun darkening, clouds and low storm ambience; onset and clearing are gradual. The cloud sky is world-aligned, independent of camera height, and reprojected for the current view each frame. World-space branched lightning and delayed rolling thunder occur only during full-strength storms: first after 8–18 seconds, then every 20–35 seconds (at most seven strikes per episode); rain audio has a stable, slightly quieter background level. Puddles during rain are available as a default-off switch inside the expanded weather controls, using reflections of visible opaque objects. Puddles remain visible up to 300 metres, fading gradually between 195 and 300 metres. Puddles are limited to visible, horizontal collision faces from the map. Inclines, noncolliding scenery and moving tank/supply-box surfaces are excluded by a separate collision-depth mask. Puddles always request High detail: organic shores, rain rings, wind waves and refracted/absorbed ground colour. The quality slider is removed and old Low preferences are ignored; Low remains only as a shader-compatibility fallback. Shallow water preserves the ground colour with limited absorption and bounded reflections, reducing opaque black patches on dark maps. The supplied tuning export is now the default surface profile: rings 15 times smaller, wind wavelengths 16 times smaller, both animated eight times faster. Drop-zone markers temporarily stop writing depth while puddles are visible, preserving terrain/tank depth and the native marker colour; this avoids square dry holes and angle-dependent seams. Clouds use a dark default storm palette, with lighter colours for Drizzle, Overcast, Sunshower and Sunny. The adjustable open-edge inset defaults to 2 metres beside drops/lower levels; raised banks and same-height neighbours preserve water contact. Different levels have separate water surfaces. Rain and puddles are disabled on nonwinter Бойня (Massacre). Tree and bush animation is disabled in every validated foliage path, including the native breeze; the native skybox darkens with weather and native fog fades out during rain; direct distance-based grading of remastered materials has been removed, clouds use captured seasonal/day/evening/night themes, and known Space battles exclude weather. The former rain developer panel, its opening hotkey and tuning/export commands have been removed; the Snow developer panel is also archived. Existing saved surface values remain compatible. Rain rings require High detail. Off-screen objects cannot be reflected; bounded rain-impact spray off tank hulls is included, while fluid simulation is absent. Fluid wakes, rainbow and birds remain removed; rain hits on stationary or moving tank hulls can produce ballistic droplets independently of puddles; high-detail puddles include small wind waves and rain rings. Disable the old Tampermonkey weather script. See [weather behavior and limitations](DOCUMENTATION.md#weather-reference).
 
 The standard panel occupies the left column; streamer and advanced panels share the right column. Visual changes and Information span the content width. Narrow content uses one column. Each column's artwork uses a shared image origin rather than restarting the same picture on every card. The left navigation likewise shows successive slices of one image across all nine buttons, including KASPERSKY.
 
@@ -912,11 +912,11 @@ Kaspersky's Inventions/
 
 ### Runtime entry points
 
-`dist/kasp_injector.js` runs at document start in the page's MAIN world. It observes the game script, fetches its bundle, and applies supported instrumentation before inserting the transformed script.
+`dist/kasp_injector.js` runs at document start in the page's MAIN world. The network rule substitutes `dist/kasp_game_gate.js` before the game bundle executes. The gate hands the original script element to a single-start loader, which fetches and instruments supported classic bundles. No MutationObserver removes a script that may already be prepared for execution.
 
 `dist/kasp_main.js` runs as the main content script. Its entry point guards against frame execution, initializes shared helpers and startup presentation, and schedules feature updates according to the observed game screen.
 
-The extension manifest targets Tanki Online pages. It does not declare a background service worker or an additional `permissions` array. Bundled assets, templates, and databases are exposed through the manifest's web-accessible resource configuration.
+The extension manifest targets Tanki Online pages. It declares the static network-rule permission and Tanki host access, with no background service worker. Bundled assets, templates, databases and the small network gate are exposed through the manifest's web-accessible resource configuration.
 
 ### Update scheduling
 
@@ -926,7 +926,7 @@ Some modules maintain their own observation or timing loops, including skin obse
 
 ### Injector failure handling
 
-The injector checks `res.ok` before reading a fetched game bundle and catches errors in the fetch/transformation/insertion chain. On failure, it logs the error and attempts to restore loading through a native script element carrying the original script attributes. That recovery is attempted once; an additional load failure is logged.
+The loader bounds bundle fetch/body reading and patch preparation to 15 seconds each. Before game execution starts, a failed request, blocked insertion or preparation error requests the original script once with a `ki_native=1` bypass and preserved attributes. Once execution has started, an error is reported without replaying code that may already have caused side effects. Duplicate gate calls are ignored. Inspect `window.__kaspGameLoader.status()` for the selected path and reason.
 
 Recovery can allow the game to load without the instrumentation. Features relying on intercepted game actions or battle identifiers can consequently have incomplete information. A successful HTTP response also does not guarantee that instrumentation patterns still match a changed game bundle or that every runtime/CSP condition is compatible.
 
@@ -972,7 +972,7 @@ The localized browser description is a separate plain-text metadata field limite
 | `npm run parse:client -- <main.js>` | Parses a local game bundle with Acorn; optionally exports its AST with `--ast <output.json>`. |
 | `npm run prepare:<feature> -- <main.js>` | Generates or refreshes that feature's AST plan and templates; see the complete command matrix below. |
 | `npm run build:js` | Bundles both TypeScript entry points into `dist/`. |
-| `npm run build:zip` | Runs local checks, then packages the files currently present into a release archive. |
+| `npm run build:zip` | Runs local checks, rebuilds all three JavaScript entries, then packages the release archive. |
 | `npm run build` | Runs local checks, JavaScript bundling, and packaging in sequence. |
 | `npm run release` | Alias for the complete build command. |
 | `npm run watch` | Watches and rebuilds the JavaScript entry points. |
@@ -1031,24 +1031,24 @@ After rebuilding, reload the unpacked extension and then reload the game page. A
 
 ### Version metadata
 
-The current manifest, package, and lockfile package versions are **3.0.2**. The browser, welcome window, and release-folder naming use the manifest version. Keep these metadata values aligned when preparing another version.
+The current manifest, package, and lockfile package versions are **3.0.3**. The browser, welcome window, and release-folder naming use the manifest version. Keep these metadata values aligned when preparing another version.
 
 ### Release output
 
-The packager copies `dist/`, `styles/`, `assets/`, `database/`, `_locales/` and `templates/`, together with `manifest.json`, `LICENSE.txt`, `README.md`, `DOCUMENTATION.md` and `MAINTENANCE.md`.
+The packager copies `dist/`, `styles/`, `assets/`, `database/`, `_locales/`, `templates/` and `rules/`, together with `manifest.json`, `LICENSE.txt`, `README.md`, `DOCUMENTATION.md` and `MAINTENANCE.md`.
 
 For the current manifest version, output is:
 
 ```text
 release/
-├── Kaspersky's Inventions 3.0.2/
+├── Kaspersky's Inventions 3.0.3/
 │   ├── manifest.json
 │   ├── LICENSE.txt
 │   ├── README.md
 │   ├── DOCUMENTATION.md
 │   └── ... runtime directories
-├── Kaspersky's Inventions 3.0.2.zip
-└── Kaspersky's Inventions 3.0.2-firefox.zip
+├── Kaspersky's Inventions 3.0.3.zip
+└── Kaspersky's Inventions 3.0.3-firefox.zip
 ```
 
 The ordinary archive contains the versioned outer folder. The `-firefox.zip` archive instead contains `manifest.json` at its root; it is a packaging layout for submission/testing, not a Mozilla signature or an automatically signed XPI. Extract it and select the folder containing `manifest.json` when loading the extension. Source files, tests, `node_modules`, the local game bundle, and raw generated-plan JSON are not separately included. Only the three root Markdown guides are included; Electron integration instructions are sections of these guides, while the bridge source under `tools/` remains source-only.
@@ -1057,7 +1057,7 @@ Packaging replaces the existing output folder and ZIP for the same version. Pres
 
 On Windows, packaging invokes `tar -a`; on other platforms it invokes `zip`. The required archiver must be available on the command path.
 
-`build:zip` runs type checking and tests but does not regenerate JavaScript. It also skips missing configured files/directories and only performs broad copy-count checks. Inspect the output contents and packaging log before distributing an archive; a successful archive operation does not prove that every required resource was included.
+`build:zip` runs type checking and tests and rebuilds JavaScript before packaging. The packager includes `rules/` and all three runtime bundles. It skips missing configured files/directories and only performs broad copy-count checks. Inspect the output contents and packaging log before distributing an archive; a successful archive operation does not prove that every required resource was included.
 
 ## Testing and Verification
 
@@ -1130,7 +1130,7 @@ Repeat the affected checks in Chromium and Firefox. Manifest support does not su
 - Ordinary critical-cycle indication supports the three specified weapon/augment pairs. Post-Supercharge phase assumptions require verification if the game changes its mechanics.
 - Device tooltips use mouse hover. Equivalent keyboard, gamepad, and mobile tooltip interaction is not implemented.
 - AST compatibility templates reduce dependence on symbol names but still depend on native structure. A runtime exception is not automatically rolled back by the injector's preparation guards.
-- An intermittent missing local tank after entering a loaded map has been reported. Its cause and relationship to the extension remain unconfirmed; it is not listed as fixed in 3.0.2.
+- An intermittent missing local tank after entering a loaded map has been reported. Its cause and relationship to the extension remain unconfirmed; it is not listed as fixed in 3.0.3.
 - Auto Upgrade depends on recognized native dialogs and stops on an unknown confirmation. Its local confirmation count is not an independently verified purchase ledger.
 - Third-party UI modifications can alter the same elements and introduce selector, style, or event conflicts.
 
@@ -1170,7 +1170,7 @@ When account ID is missing, existing records remain untouched. Complete results 
 | `npm ci` rejects installation | Inspect the specific npm error and ensure dependency edits updated both package files; the checked-in ranges currently agree. |
 | `[client-parser] ENOENT` | Supply an existing game-bundle path, for example `npm run parse:client -- ./main.js`; placeholder paths are not downloaded automatically. |
 | `prepare:<feature>` fails | Keep/review the existing mapping, inspect the reported missing or ambiguous contract, and adapt the offline analyzer to the current game source before rebuilding. |
-| ZIP contains outdated code | Run the full build or rebuild JavaScript before `build:zip`; inspect the extracted contents. |
+| ZIP contains outdated code | Re-run `build:zip`, which includes rebuilding JavaScript; inspect the extracted version and contents. |
 | Packaging command fails | Confirm the platform archiver is installed and on the command path. |
 
 Avoid clearing all game-origin storage as the first troubleshooting step. It can remove extension history and settings as well as unrelated game data. Target the affected cache where appropriate and preserve battle exports first.
@@ -1200,7 +1200,7 @@ Kaspersky's Inventions is an independent extension for the Tanki Online interfac
 
 ## Documentation Revision
 
-Reviewed against the **3.0.2** source and manifest on **October 24, 2026**. Build/fixture checks are distinct from live-game verification. Public full descriptions are maintained in the English/Russian publication sections of README.md; browser manifest descriptions remain short because they are separate metadata fields.
+Reviewed against the **3.0.3** source and manifest on **October 24, 2026**. Build/fixture checks are distinct from live-game verification. Public full descriptions are maintained in the English/Russian publication sections of README.md; browser manifest descriptions remain short because they are separate metadata fields.
 
 ## Consolidated Reader References
 
@@ -1214,7 +1214,7 @@ Reviewed against the **3.0.2** source and manifest on **October 24, 2026**. Buil
 
 ## Руководство пользователя (RU)
 
-Версия расширения **3.0.2**. Сверено с исходниками **24 октября 2026 года**.
+Версия расширения **3.0.3**. Сверено с исходниками **24 октября 2026 года**.
 
 Это руководство описывает локальную сборку проекта. Подробные технические контракты находятся в [DOCUMENTATION.md](DOCUMENTATION.md), ответы на 74 вопроса — в [FAQ](#faq). Условия использования изложены в английской [лицензии](LICENSE.txt).
 
@@ -1510,7 +1510,7 @@ Rich Presence работает только в совместимом Electron-�
 
 ## FAQ
 
-Source-reviewed edition for **3.0.2**, **October 24, 2026**. This local FAQ describes implemented behavior. The published Drive FAQ is a separately maintained publication; editing this file does not update it automatically.
+Source-reviewed edition for **3.0.3**, **October 24, 2026**. This local FAQ describes implemented behavior. The published Drive FAQ is a separately maintained publication; editing this file does not update it automatically.
 
 For installation and a complete feature reference, see [README](README.md). For Russian instructions, see [Руководство пользователя](#russian-user-guide). The governing English terms are in [LICENSE.txt](LICENSE.txt).
 
@@ -2014,7 +2014,7 @@ The full English and Russian publication descriptions reproduce the complete cur
 
 ## Full English Publication Description
 
-Full English publication description for extension **3.0.2**. Updated **October 24, 2026**.
+Full English publication description for extension **3.0.3**. Updated **October 24, 2026**.
 
 Kaspersky's Inventions brings equipment information, a redesigned lobby, local battle history and streamer controls into Tanki Online. It builds on the game's familiar interface: original navigation, game icons, account data and native actions remain the basis of the experience.
 
@@ -2140,8 +2140,8 @@ The following names and roles reproduce the current welcome window. AI names are
 | Role | Contributors |
 | --- | --- |
 | Project idea | Kaspersky |
-| Co-creation credits | ChatGPT 6 Luna, ChatGPT 6.1 Sol, DeepSeek V4, Claude Sonnet 5.5, Claude Haiku 4.5, Gemini 3.5 Flash-Lite, Gemini 3.8 Flash, Gemini 3.1 Pro, Grok 4.6 |
-| Quality review credits | Claude Fable 5.1, Claude Opus 5.5, Gemini 4 Argon, ChatGPT 6 Astra |
+| Co-creation credits | ChatGPT Luna, ChatGPT Sol, ChatGPT Terra, DeepSeek, Claude Sonnet, Claude Haiku, GeminiFlash-Lite, Gemini Flash, Gemini Pro, Grok |
+| Quality review credits | Claude Fable, Claude Opus, Gemini Argon, ChatGPT Astra |
 | Design | Lukas |
 | Testing | safwan, Tenobyte, KOCMOHABTUK, ItzBoddish, Master |
 | Coding | safwan, Tenobyte, Shiya |
@@ -2151,7 +2151,7 @@ The following names and roles reproduce the current welcome window. AI names are
 
 ## Полное описание для публикации (RU)
 
-Полное русское описание для публикации. Версия расширения **3.0.2**, обновлено **24 октября 2026 года**.
+Полное русское описание для публикации. Версия расширения **3.0.3**, обновлено **24 октября 2026 года**.
 
 Kaspersky's Inventions дополняет «Танки Онлайн» информацией о вооружении, новым оформлением лобби, локальной историей битв и настройками для стримов. Расширение использует привычные разделы, оригинальные иконки и действия игры.
 
@@ -2277,8 +2277,8 @@ Kaspersky's Inventions — независимый проект. Использо
 | Роль | Участники |
 | --- | --- |
 | Автор идеи | Kaspersky |
-| Участвовали в создании | ChatGPT 6 Luna, ChatGPT 6.1 Sol, DeepSeek V4, Claude Sonnet 5.5, Claude Haiku 4.5, Gemini 3.5 Flash-Lite, Gemini 3.8 Flash, Gemini 3.1 Pro, Grok 4.6 |
-| Оценивали качество | Claude Fable 5.1, Claude Opus 5.5, Gemini 4 Argon, ChatGPT 6 Astra |
+| Участвовали в создании | ChatGPT Luna, ChatGPT Sol, ChatGPT Terra, DeepSeek, Claude Sonnet, Claude Haiku, GeminiFlash-Lite, Gemini Flash, Gemini Pro, Grok |
+| Оценивали качество | Claude Fable, Claude Opus, Gemini Argon, ChatGPT Astra |
 | Дизайн | Lukas |
 | Тестирование | safwan, Tenobyte, KOCMOHABTUK, ItzBoddish, Master |
 | Код | safwan, Tenobyte, Shiya |
@@ -2296,6 +2296,10 @@ The integrated version contains rain, clouds and storm effects. Experimental pud
 
 During rainy weather, the original game fog fades out using native fog-uniform strength, including skybox fog, and automatically returns afterwards. The game graphics preference is never changed. Ambient/sun darkening is stronger (up to 78% attenuation), with up to 82% skybox darkening; native dynamic and emissive lights retain their original behavior. Standalone fog and enhanced-light options, their sliders and the volumetric render pass have been removed. The storm budget is restored to 25,000 streaks.
 
+**Settings → KASPERSKY → Visual changes → Random battle weather** automatically selects rain on nonwinter maps and snow on WINTER_DAY/WINTER_NIGHT maps. Nonwinter Бойня (Massacre) and space maps have no weather. Weather can start from the native map title even when matchmaking supplies no optional lobby theme event. Chance, duration and desired preset are shared; generation changes apply to the next newly planned battle. Five snow profiles remain: Clear, Overcast, Light snow, Sunlit snow and Blizzard; Random chooses one of the three snowy profiles. Blizzards use up to 20,000 particles: 4,000 crystals and 16,000 soft wind-aligned ribbons. Transitions remain gradual and map geometry occludes flakes. Snowfall never creates puddles, liquid reflections, spray, rain audio or thunder, even with the saved puddle switch enabled.
+
+Snowdrifts, their tank-deformation experiments and the entire snow developer panel are archived in `archive/snowdrifts-and-snow-tuner-2026-10-27/`. They are absent from the active source imports, settings and packaged extension. Ctrl+Alt+S and `__kaspSnow` are removed. Old manual precipitation, snowbank and tuner preferences are ignored. The active snow folder contains only fixed weather profiles and snowfall shaders.
+
 ## Acknowledgements
 
 The roles and spelling below reproduce `templates/welcome-modal.html`, interpreted using the role dictionaries in `src/modules/welcomeModal.ts`. AI names are project acknowledgements, not build dependencies, required services or product-availability claims.
@@ -2303,8 +2307,8 @@ The roles and spelling below reproduce `templates/welcome-modal.html`, interpret
 | Role | Contributors |
 | --- | --- |
 | Project idea | Kaspersky |
-| Co-creation credits | ChatGPT 6 Luna, ChatGPT 6.1 Sol, DeepSeek V4, Claude Sonnet 5.5, Claude Haiku 4.5, Gemini 3.5 Flash-Lite, Gemini 3.8 Flash, Gemini 3.1 Pro, Grok 4.6 |
-| Quality review credits | Claude Fable 5.1, Claude Opus 5.5, Gemini 4 Argon, ChatGPT 6 Astra |
+| Co-creation credits | ChatGPT Luna, ChatGPT Sol, ChatGPT Terra, DeepSeek, Claude Sonnet, Claude Haiku, GeminiFlash-Lite, Gemini Flash, Gemini Pro, Grok |
+| Quality review credits | Claude Fable, Claude Opus, Gemini Argon, ChatGPT Astra |
 | Design | Lukas |
 | Testing | safwan, Tenobyte, KOCMOHABTUK, ItzBoddish, Master |
 | Coding | safwan, Tenobyte, Shiya |

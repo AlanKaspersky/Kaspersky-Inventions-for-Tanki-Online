@@ -1,5 +1,6 @@
 import { featureScope } from '../core/featureRuntime';
 import { gameDOM } from '../core/gameDOM';
+import { state } from '../core/state';
 
 const lifecycle = featureScope('lobbyNavigation');
 
@@ -12,6 +13,40 @@ export const lobbyNavigation = lifecycle.initialize(() => {
     let observer: MutationObserver | null = null, resize: ResizeObserver | null = null;
     let observed: HTMLElement[] = [];
     const art = `url(${JSON.stringify(chrome.runtime.getURL('assets/art3.jpg'))})`;
+    const links = [
+        { id: 'esports', ru: 'Киберспорт', en: 'Esports', ruURL: 'https://tankisport.com/', enURL: 'https://tankisport.com/' },
+        { id: 'forum', ru: 'Форум', en: 'Forum', ruURL: 'https://ru.tankiforum.com/', enURL: 'https://en.tankiforum.com/' },
+        { id: 'ratings', ru: 'Рейтинги', en: 'Ratings', ruURL: 'https://ratings.tankionline.com/ru/', enURL: 'https://ratings.tankionline.com/en' },
+        { id: 'wiki', ru: 'Энциклопедия', en: 'Wiki', ruURL: 'https://ru.tankiwiki.com', enURL: 'https://en.tankiwiki.com' },
+    ];
+    function syncLinks(): void {
+        const footer = root?.querySelector(gameDOM.navigation.footer);
+        if (!footer) return;
+        let list = footer.querySelector<HTMLUListElement>('.kasp-lobby-links');
+        if (!list) {
+            list = document.createElement('ul');
+            list.className = 'kasp-lobby-links';
+            for (const link of links) {
+                const item = document.createElement('li');
+                item.className = gameDOM.classes.footerEntry + ' kasp-lobby-link';
+                const anchor = document.createElement('a');
+                anchor.dataset.kaspLobbyLink = link.id;
+                anchor.target = '_blank'; anchor.rel = 'noopener noreferrer';
+                const icon = document.createElement('span');
+                icon.className = 'kasp-lobby-link-icon'; icon.setAttribute('aria-hidden', 'true');
+                anchor.appendChild(icon); item.appendChild(anchor); list.appendChild(item);
+            }
+            footer.appendChild(list);
+        }
+        for (const link of links) {
+            const anchor = list.querySelector<HTMLAnchorElement>(`[data-kasp-lobby-link="${link.id}"]`);
+            if (!anchor) continue;
+            const label = state.lang === 'RU' ? link.ru : link.en;
+            const url = state.lang === 'RU' ? link.ruURL : link.enURL;
+            if (anchor.getAttribute('href') !== url) anchor.setAttribute('href', url);
+            if (anchor.title !== label) { anchor.title = label; anchor.setAttribute('aria-label', label); }
+        }
+    }
     function releaseCard(card: HTMLElement): void {
         const record = cards.get(card);
         if (!record) return;
@@ -22,6 +57,7 @@ export const lobbyNavigation = lifecycle.initialize(() => {
     function release(): void {
         observer?.disconnect(); resize?.disconnect(); observed = [];
         for (const card of cards.keys()) releaseCard(card);
+        root?.querySelectorAll('.kasp-lobby-links').forEach(list => list.remove());
         if (!hadRootClass) root?.classList.remove('kasp-lobby-left');
         if (!hadGroupClass) group?.classList.remove('kasp-left-play-group');
         root = group = null;
@@ -58,6 +94,7 @@ export const lobbyNavigation = lifecycle.initialize(() => {
         if (!root) return;
         if (!root.classList.contains('kasp-lobby-left')) root.classList.add('kasp-lobby-left');
         if (group && !group.classList.contains('kasp-left-play-group')) group.classList.add('kasp-left-play-group');
+        syncLinks();
         const current = Array.from(root.querySelectorAll<HTMLElement>(gameDOM.lobbyNavigation.cards));
         for (const card of cards.keys()) if (!current.includes(card)) releaseCard(card);
         for (const card of current) {

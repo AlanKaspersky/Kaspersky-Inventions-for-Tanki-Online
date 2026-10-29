@@ -1326,6 +1326,46 @@
       "objectId": "1931009779372",
       "property": "ULTIMATE_CHARGE_PER_SCORE_POINT",
       "status": "lower"
+    },
+    {
+      "objectId": "921009729064",
+      "property": "ALLY_HEALING_MODE",
+      "status": "better"
+    },
+    {
+      "objectId": "921009729064",
+      "property": "WEAPON_KICKBACK",
+      "status": "better"
+    },
+    {
+      "objectId": "1931009780278",
+      "property": "CRITICAL_SPLASH_DAMAGE_RADIUS",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009780279",
+      "property": "CRITICAL_SPLASH_DAMAGE_RADIUS",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009780280",
+      "property": "CRITICAL_SPLASH_DAMAGE_RADIUS",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009780281",
+      "property": "CRITICAL_SPLASH_DAMAGE_RADIUS",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009780282",
+      "property": "CRITICAL_SPLASH_DAMAGE_RADIUS",
+      "status": "lower"
+    },
+    {
+      "objectId": "1931009780283",
+      "property": "CRITICAL_SPLASH_DAMAGE_RADIUS",
+      "status": "lower"
     }
   ]
 }

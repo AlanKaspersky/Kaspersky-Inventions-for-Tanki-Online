@@ -1,3 +1,4 @@
+import { SNOW_PRESETS } from '../snowWeather/config';
 export const WEATHER = Object.freeze({
     chance: .24, // Actual rain probability in random mode, preserving the previous ~24% default.
     fadeIn: 24, fadeOut: 30, cloudLead: 12,
@@ -14,17 +15,19 @@ export const RAIN_PRESETS = Object.freeze({
     sunny: { rain: 0, clouds: .20, wind: .20, storm: 0, sound: 0 },
 });
 export type RainPreset = keyof typeof RAIN_PRESETS;
+export type Precipitation = 'rain' | 'snow';
+export const weatherProfile=(preset:RainPreset,precipitation?:Precipitation)=>(precipitation==='snow'?SNOW_PRESETS:RAIN_PRESETS)[preset];
 export type WeatherPresetChoice = 'random' | RainPreset;
-export interface WeatherGeneration { chance: number; preset: WeatherPresetChoice; duration: number; }
-export const DEFAULT_WEATHER_GENERATION: Readonly<WeatherGeneration> = Object.freeze({ chance: WEATHER.chance, preset: 'random', duration: .3 });
+export interface WeatherGeneration { chance: number; preset: WeatherPresetChoice; duration: number; precipitation: Precipitation; }
+export const DEFAULT_WEATHER_GENERATION: Readonly<WeatherGeneration> = Object.freeze({ chance: WEATHER.chance, preset: 'random', duration: .3, precipitation: 'rain' });
 const rainyPresets = (Object.keys(RAIN_PRESETS) as RainPreset[]).filter(name => RAIN_PRESETS[name].rain > 0);
-export interface RainEpisode { version: 1; preset: RainPreset | null; start: number; hold: number; seed: number; fadeIn: number; fadeOut: number; continuous?: boolean; }
+export interface RainEpisode { version: 1; preset: RainPreset | null; start: number; hold: number; seed: number; fadeIn: number; fadeOut: number; continuous?: boolean; precipitation?: Precipitation; }
 export const smooth = (x: number) => { const t = Math.max(0, Math.min(1, x)); return t * t * (3 - 2 * t); };
 export function planRain(now: number, remaining: number | undefined, random: () => number,
     generation: Readonly<WeatherGeneration> = DEFAULT_WEATHER_GENERATION): RainEpisode {
     const seconds = Number.isFinite(remaining) ? Math.max(0, Math.min(WEATHER.maxBattleSeconds, remaining!)) : WEATHER.unknownBattleSeconds;
     const fraction = Number.isFinite(generation.duration) ? Math.max(0, Math.min(1, generation.duration)) : DEFAULT_WEATHER_GENERATION.duration;
-    const empty: RainEpisode = { version: 1, preset: null, start: now, hold: 0, seed: Math.floor(random() * 0xffffff), fadeIn: WEATHER.fadeIn, fadeOut: WEATHER.fadeOut };
+    const empty: RainEpisode = { version: 1, preset: null, start: now, hold: 0, seed: Math.floor(random() * 0xffffff), fadeIn: WEATHER.fadeIn, fadeOut: WEATHER.fadeOut, precipitation: generation.precipitation==='snow'?'snow':'rain' };
     if (random() >= generation.chance || seconds <= 0 || fraction <= 0) return empty;
     const preset = generation.preset === 'random'
         ? rainyPresets[Math.min(rainyPresets.length - 1, Math.floor(random() * rainyPresets.length))]
@@ -40,7 +43,7 @@ export function planRain(now: number, remaining: number | undefined, random: () 
 }
 export function sampleRain(plan: RainEpisode, now: number) {
     const elapsed = (now - plan.start) / 1000, total = plan.fadeIn + plan.hold + plan.fadeOut;
-    const profile = plan.preset ? RAIN_PRESETS[plan.preset] : RAIN_PRESETS.sunny;
+    const profile = plan.preset ? weatherProfile(plan.preset,plan.precipitation) : RAIN_PRESETS.sunny;
     const lead = Math.min(WEATHER.cloudLead, plan.fadeIn * .5), tail = Math.min(5, plan.fadeOut / 6);
     const clouds = plan.preset ? smooth(elapsed / plan.fadeIn) * (plan.continuous ? 1 : 1 - smooth((elapsed - plan.fadeIn - plan.hold) / plan.fadeOut)) : 0;
     const rain = plan.preset ? smooth((elapsed - lead) / Math.max(.001, plan.fadeIn - lead))
@@ -57,7 +60,7 @@ export function rainTiming(plan: RainEpisode, now: number) {
         : elapsed < plan.fadeIn ? 'forming' : elapsed < plan.fadeIn + plan.hold ? 'holding' : 'clearing';
     return { phase,
         startsInSeconds: plan.preset && phase !== 'finished' ? Math.max(0, Math.ceil(-elapsed)) : null,
-        rainStartsInSeconds: plan.preset && RAIN_PRESETS[plan.preset].rain > 0 && phase !== 'finished'
+        rainStartsInSeconds: plan.preset && weatherProfile(plan.preset,plan.precipitation).rain > 0 && phase !== 'finished'
             ? Math.max(0, Math.ceil(Math.min(WEATHER.cloudLead, plan.fadeIn * .5) - elapsed)) : null };
 }
 export function validEpisode(value: unknown): value is RainEpisode {
@@ -66,5 +69,6 @@ export function validEpisode(value: unknown): value is RainEpisode {
     return p.version === 1 && (p.preset === null || Object.prototype.hasOwnProperty.call(RAIN_PRESETS, p.preset))
         && [p.start,p.hold,p.seed,p.fadeIn,p.fadeOut].every(Number.isFinite) && p.hold >= 0 && p.hold <= WEATHER.maxBattleSeconds
         && p.fadeIn > 0 && p.fadeIn <= 60 && p.fadeOut > 0 && p.fadeOut <= 60
-        && (p.continuous === undefined || typeof p.continuous === 'boolean');
+        && (p.continuous === undefined || typeof p.continuous === 'boolean')
+        && (p.precipitation === undefined || p.precipitation === 'rain' || p.precipitation === 'snow');
 }

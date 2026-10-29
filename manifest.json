@@ -1,8 +1,13 @@
 {
   "manifest_version": 3,
   "name": "Tanki Online: Kaspersky's Inventions",
-  "version": "3.0.2",
+  "version": "3.0.3",
   "default_locale": "en",
+  "permissions": ["declarativeNetRequestWithHostAccess"],
+  "host_permissions": ["*://*.tankionline.com/*"],
+  "declarative_net_request": {
+    "rule_resources": [{ "id": "game_bundle_gate", "enabled": true, "path": "rules/game-bundle.json" }]
+  },
   "description": "__MSG_extensionDescription__",
   "icons": {
     "16": "assets/icons/icon16.png",
@@ -29,6 +34,7 @@
         "styles/accountSearchNotice.css",
         "styles/lobbyPasses.css",
         "styles/lobbyAnnouncements.css",
+        "styles/matchmaking.css",
         "styles/lobbyNavigation.css",
         "styles/battleStats.css",
         "styles/overdriveTimer.css",
@@ -64,7 +70,8 @@
       "resources": [
         "assets/*",
         "templates/*.html",
-        "database/*.json"
+        "database/*.json",
+        "dist/kasp_game_gate.js"
       ],
       "matches": [
         "*://*.tankionline.com/*"

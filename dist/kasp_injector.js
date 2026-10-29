@@ -5185,6 +5185,21 @@
   });
 
   // src/core/featureRuntime.ts
+  function scheduleDOMSweep() {
+    if (domSweepTimer !== void 0 || !domSweepers.size) return;
+    domSweepTimer = window.setTimeout(() => {
+      domSweepTimer = void 0;
+      for (const sweep of [...domSweepers]) sweep();
+      scheduleDOMSweep();
+    }, 1e3);
+  }
+  function stopDOMSweep(sweep) {
+    domSweepers.delete(sweep);
+    if (!domSweepers.size && domSweepTimer !== void 0) {
+      window.clearTimeout(domSweepTimer);
+      domSweepTimer = void 0;
+    }
+  }
   function createFeatureScope(id, options = {}) {
     const now = options.now || (() => performance.now());
     const budget = options.budgetMs ?? 16;
@@ -5199,7 +5214,9 @@
       lastMs: 0,
       maxMs: 0,
       cleanupErrors: 0,
-      resources: 0
+      resources: 0,
+      domNodes: 0,
+      listeners: 0
     };
     const cleanups = /* @__PURE__ */ new Set();
     const failuresAt = [];
@@ -5216,6 +5233,7 @@
       }
       cleanups.clear();
       status.resources = 0;
+      stopDOMSweep(pruneDOM);
     };
     const onCleanup = (cleanup) => {
       if (status.disabled) {
@@ -5277,27 +5295,97 @@
       }
     };
     const listeners = /* @__PURE__ */ new Set();
-    let lastPrune = 0;
+    const listenerIndex = /* @__PURE__ */ new WeakMap();
+    const domEntries = /* @__PURE__ */ new Map();
+    let releaseDOMCleanup;
+    const removable = (target) => "isConnected" in target && (!("nodeType" in target) || target.nodeType !== 9);
+    const watchDOM = () => {
+      let needed = domEntries.size > 0;
+      if (!needed) {
+        for (const entry of listeners) if (removable(entry.target)) {
+          needed = true;
+          break;
+        }
+      }
+      if (!status.disabled && needed) {
+        domSweepers.add(pruneDOM);
+        scheduleDOMSweep();
+      } else stopDOMSweep(pruneDOM);
+    };
+    const releaseDOM = (element) => {
+      const entry = domEntries.get(element);
+      if (!entry) return;
+      domEntries.delete(element);
+      for (const cleanup of entry.callbacks.values()) {
+        try {
+          cleanup();
+        } catch {
+          status.cleanupErrors++;
+        }
+      }
+      entry.callbacks.clear();
+      if (!domEntries.size) {
+        releaseDOMCleanup?.();
+        releaseDOMCleanup = void 0;
+      }
+      watchDOM();
+    };
+    const ownDOM = (element, cleanup) => {
+      if (status.disabled) return () => {
+      };
+      let entry = domEntries.get(element);
+      if (!entry) {
+        entry = { callbacks: /* @__PURE__ */ new Map() };
+        domEntries.set(element, entry);
+      }
+      if (!entry.callbacks.has(cleanup)) entry.callbacks.set(cleanup, () => cleanup(element));
+      if (!releaseDOMCleanup) releaseDOMCleanup = onCleanup(() => {
+        for (const node of [...domEntries.keys()]) releaseDOM(node);
+      });
+      watchDOM();
+      return () => {
+        entry.callbacks.delete(cleanup);
+        if (!entry.callbacks.size && domEntries.get(element) === entry) domEntries.delete(element);
+        if (!domEntries.size) {
+          releaseDOMCleanup?.();
+          releaseDOMCleanup = void 0;
+        }
+        watchDOM();
+      };
+    };
+    function pruneDOM() {
+      const time = now();
+      const expired = (node, entry) => {
+        if (!("isConnected" in node) || node.isConnected !== false) {
+          entry.disconnectedAt = void 0;
+          return false;
+        }
+        entry.disconnectedAt ??= time;
+        return time - entry.disconnectedAt >= 1e3;
+      };
+      for (const [node, entry] of domEntries) if (expired(node, entry)) releaseDOM(node);
+      for (const entry of listeners) if (removable(entry.target) && expired(entry.target, entry)) {
+        unlisten(entry.target, entry.type, entry.original, entry.options);
+      }
+      watchDOM();
+    }
     const unlisten = (target, type2, listener, options2) => {
       if (!target) return;
       const capture = typeof options2 === "boolean" ? options2 : !!options2?.capture;
-      for (const entry of listeners) if (entry.target === target && entry.type === type2 && entry.original === listener && (typeof entry.options === "boolean" ? entry.options : !!entry.options?.capture) === capture) {
+      const indexed = listenerIndex.get(target);
+      if (!indexed) return;
+      for (const entry of indexed) if (entry.type === type2 && entry.original === listener && (typeof entry.options === "boolean" ? entry.options : !!entry.options?.capture) === capture) {
         target.removeEventListener?.(type2, entry.wrapped, entry.options);
         entry.release();
         listeners.delete(entry);
+        indexed.delete(entry);
       }
+      if (!indexed.size) listenerIndex.delete(target);
+      watchDOM();
     };
     const listen = (target, type2, listener, options2) => {
       if (!target || status.disabled) return;
-      const time = now();
-      if (time - lastPrune > 1e3) {
-        lastPrune = time;
-        for (const entry2 of listeners) if (time - entry2.since > 1e3 && "isConnected" in entry2.target && entry2.target.isConnected === false) {
-          entry2.target.removeEventListener(entry2.type, entry2.wrapped, entry2.options);
-          entry2.release();
-          listeners.delete(entry2);
-        }
-      }
+      unlisten(target, type2, listener, options2);
       if (listeners.size >= 4096) {
         dispose("listener-limit");
         return;
@@ -5307,13 +5395,22 @@
         return run(() => listener.call(target, event));
       };
       target.addEventListener(type2, wrapped, options2);
-      const entry = { target, type: type2, original: listener, wrapped, options: options2, since: time, release: () => {
+      const entry = { target, type: type2, original: listener, wrapped, options: options2, release: () => {
       } };
+      let indexed = listenerIndex.get(target);
+      if (!indexed) {
+        indexed = /* @__PURE__ */ new Set();
+        listenerIndex.set(target, indexed);
+      }
+      indexed.add(entry);
       entry.release = onCleanup(() => {
         target.removeEventListener(type2, wrapped, options2);
         listeners.delete(entry);
+        indexed.delete(entry);
+        watchDOM();
       });
       listeners.add(entry);
+      watchDOM();
     };
     const timeouts = /* @__PURE__ */ new Map(), intervals = /* @__PURE__ */ new Map(), frames = /* @__PURE__ */ new Map();
     const cancelTimeout = (handle) => {
@@ -5390,12 +5487,15 @@
     };
     const presentations = /* @__PURE__ */ new WeakMap();
     const preserve = (element, styles = [], classes = []) => {
+      if (status.disabled) return () => {
+      };
       let saved = presentations.get(element);
       if (!saved) {
         saved = { styles: /* @__PURE__ */ new Map(), classes: /* @__PURE__ */ new Map() };
         presentations.set(element, saved);
         const entry = saved;
-        onCleanup(() => {
+        ownDOM(element, () => {
+          presentations.delete(element);
           for (const [key, value] of entry.styles) if (element.style.getPropertyValue(key) === value.after && element.style.getPropertyPriority(key) === value.afterPriority) {
             if (value.before) element.style.setProperty(key, value.before, value.priority);
             else element.style.removeProperty(key);
@@ -5403,14 +5503,19 @@
           for (const [key, value] of entry.classes) if (element.classList.contains(key) === value.after) element.classList.toggle(key, value.before);
         });
       }
-      for (const key of styles) if (!saved.styles.has(key)) saved.styles.set(key, {
-        before: element.style.getPropertyValue(key),
-        priority: element.style.getPropertyPriority(key),
-        after: element.style.getPropertyValue(key),
-        afterPriority: element.style.getPropertyPriority(key)
-      });
-      for (const key of classes) if (!saved.classes.has(key)) saved.classes.set(key, { before: element.classList.contains(key), after: element.classList.contains(key) });
+      for (const key of styles) {
+        const current = element.style.getPropertyValue(key), priority = element.style.getPropertyPriority(key), previous = saved.styles.get(key);
+        if (!previous || current !== previous.after || priority !== previous.afterPriority) saved.styles.set(
+          key,
+          { before: current, priority, after: current, afterPriority: priority }
+        );
+      }
+      for (const key of classes) {
+        const current = element.classList.contains(key), previous = saved.classes.get(key);
+        if (!previous || current !== previous.after) saved.classes.set(key, { before: current, after: current });
+      }
       return () => {
+        if (status.disabled || presentations.get(element) !== saved) return;
         for (const key of styles) {
           const value = saved.styles.get(key);
           value.after = element.style.getPropertyValue(key);
@@ -5437,10 +5542,13 @@
       cancelInterval,
       cancelFrame,
       preserve,
+      ownDOM,
+      releaseDOM,
+      pruneDOM,
       get disabled() {
         return status.disabled;
       },
-      status: () => ({ ...status })
+      status: () => ({ ...status, domNodes: domEntries.size, listeners: listeners.size })
     };
   }
   function featureScope(id, options) {
@@ -5462,10 +5570,11 @@
     if (world === "page") target.__kaspPageModulesDebug = debug;
     else target.__kaspModulesDebug = debug;
   }
-  var scopes;
+  var domSweepers, domSweepTimer, scopes;
   var init_featureRuntime = __esm({
     "src/core/featureRuntime.ts"() {
       "use strict";
+      domSweepers = /* @__PURE__ */ new Set();
       scopes = /* @__PURE__ */ new Map();
     }
   });
@@ -5480,6 +5589,7 @@
     const detail = message.detail;
     switch (message.type) {
       case "kasp:account-identity:request":
+        return message.refreshPlayers === void 0 || typeof message.refreshPlayers === "boolean";
       case "kasp:game-augments-request":
         return true;
       case "kasp:account-identity": {
@@ -5587,6 +5697,7 @@
           resultName: '#selfUserBg [class*="BattleKillBoardComponentStyle-col1"] span.-whiteSpaceNoWrap',
           privateHeaderFields: ".UserInfoContainerStyle-userNameRank, .UserInfoContainerStyle-progressValue",
           clientParameter: ".ClientInfoComponentStyle-parameterText",
+          clientInfo: ".ClientInfoComponentStyle-container",
           currencyIcon: ".HeaderCommonStyle-icons",
           currencyValues: ".UserScoreComponentStyle-coinBlock span, .HeaderCommonStyle-icons span",
           currencyHeader: ".BreadcrumbsComponentStyle-rightButtonsContainer",
@@ -5604,6 +5715,7 @@
           battleHud: ".BattleHudComponentStyle-hudContainer, .BattleHudComponentStyle-container, .BattleComponentStyle-canvasContainer",
           loadingBackground: ".ApplicationLoaderComponentStyle-container.-background",
           battleCanvas: ".BattleComponentStyle-canvasContainer",
+          weatherExcluded: ".GarageCommonStyle-garageContainer, .GarageCommonStyle-positionContent, .GarageMainScreenStyle-blockParameters, .GarageComponentStyle-tankPreview.TankPreviewComponentStyle-visible, .ContainerInfoComponentStyle-lootBoxContainer, .NewShopCommonComponentStyle-commonContainer",
           tankPreview: ".GarageComponentStyle-tankPreview",
           visibleTankPreview: ".GarageComponentStyle-tankPreview.TankPreviewComponentStyle-visible",
           garage: ".GarageCommonStyle-positionContent, .GarageItemComponent-container, .ContainerInfoComponentStyle-lootBoxContainer, .GarageMainScreenStyle-blockParameters, .SkinsAndAlterationsStyle-SkinsVerticalComponent",
@@ -5633,7 +5745,8 @@
           settingsIcon: ".PrimaryMenuItemComponentStyle-itemLiOption",
           primaryItemName: ".PrimaryMenuItemComponentStyle-itemName",
           settingsContent: ".SettingsComponentStyle-container",
-          footerList: ".FooterComponentStyle-footer ul"
+          footerList: ".FooterComponentStyle-footer ul",
+          footer: ".FooterComponentStyle-footer"
         },
         garage: {
           skinArt: [".GarageItemComponentStyle-mainImg", ".garage-item img", ".MountedItemsStyle-itemPreview"],
@@ -14586,6 +14699,7 @@
     let account = null, players = [];
     let nextDiscovery = 0, nextAccountDiscovery = 0, nextPlayers = 0, slices = 0, lastError = null;
     let invalidPath = false, publishPending = false, direct = false;
+    let lastPlayerDemand = -Infinity;
     const error = (cause) => {
       lastError = String(cause);
     };
@@ -14647,7 +14761,11 @@
       account = next;
       return { account, players: account ? players : [] };
     };
-    const refresh = () => {
+    const refresh = (refreshPlayers = false) => {
+      if (refreshPlayers && Date.now() - lastPlayerDemand >= 1e3) {
+        lastPlayerDemand = Date.now();
+        nextPlayers = 0;
+      }
       snapshot();
       if (!localJob && ((invalidPath || !users.length) && Date.now() >= nextAccountDiscovery || account && !remote.length && Date.now() >= nextDiscovery)) discover();
       if (!account || localJob || remoteJob || Date.now() < nextPlayers) return;
@@ -14822,13 +14940,14 @@
         schedule();
       }, delay);
     };
-    const poll = () => {
-      reader?.refresh();
+    const poll = (refreshPlayers = false) => {
+      reader?.refresh(refreshPlayers);
       publish();
       schedule();
     };
     lifecycle.listen(page, "message", (event) => {
-      if (readPageMessage(event, page, ACCOUNT_IDENTITY_REQUEST)) poll();
+      const request = readPageMessage(event, page, ACCOUNT_IDENTITY_REQUEST);
+      if (request) poll(request.refreshPlayers === true);
     });
     lifecycle.interval(poll, 1e3);
     lifecycle.onCleanup(() => {
@@ -16893,11 +17012,216 @@
     }
   });
 
+  // src/core/snowWeather/config.ts
+  var SNOW_PRESETS, SNOW, SNOW_PALETTES;
+  var init_config = __esm({
+    "src/core/snowWeather/config.ts"() {
+      "use strict";
+      SNOW_PRESETS = Object.freeze({
+        "sunshower": {
+          "rain": 0.5,
+          "clouds": 0.4,
+          "wind": 0.2,
+          "storm": 0,
+          "sound": 0
+        },
+        "drizzle": {
+          "rain": 0.25,
+          "clouds": 0.65,
+          "wind": 0.15,
+          "storm": 0,
+          "sound": 0
+        },
+        "storm": {
+          "rain": 1,
+          "clouds": 1,
+          "wind": 1,
+          "storm": 0.65,
+          "sound": 0
+        },
+        "overcast": {
+          "rain": 0,
+          "clouds": 0.8,
+          "wind": 0.25,
+          "storm": 0,
+          "sound": 0
+        },
+        "sunny": {
+          "rain": 0,
+          "clouds": 0.15,
+          "wind": 0.1,
+          "storm": 0,
+          "sound": 0
+        }
+      });
+      SNOW = Object.freeze({ "maxFlakes": 2e4, "blizzardStreakShare": 0.8, "blizzardWindScale": 8, "blizzardFallScale": 1.8, "blizzardFlutterScale": 3.6 });
+      SNOW_PALETTES = {
+        storm: { low: [0.1, 0.13, 0.17], high: [0.26, 0.3, 0.37], haze: [0.19, 0.23, 0.29], fog: [0.2, 0.25, 0.31] },
+        drizzle: { low: [0.3, 0.35, 0.41], high: [0.6, 0.65, 0.71], haze: [0.46, 0.52, 0.6], fog: [0.43, 0.49, 0.56] },
+        overcast: { low: [0.32, 0.37, 0.43], high: [0.65, 0.7, 0.76], haze: [0.5, 0.56, 0.63], fog: [0.46, 0.52, 0.59] },
+        sunshower: { low: [0.48, 0.54, 0.61], high: [0.87, 0.91, 0.96], haze: [0.72, 0.79, 0.86], fog: [0.64, 0.71, 0.79] },
+        sunny: { low: [0.68, 0.74, 0.81], high: [0.94, 0.97, 1], haze: [0.81, 0.87, 0.94], fog: [0.71, 0.78, 0.86] }
+      };
+      Object.values(SNOW_PALETTES).forEach((p) => {
+        Object.values(p).forEach(Object.freeze);
+        Object.freeze(p);
+      });
+      Object.freeze(SNOW_PALETTES);
+    }
+  });
+
+  // src/core/snowWeather/shaders.ts
+  var SNOW_VERTEX, SNOW_FRAGMENT, SNOW_STREAK_VERTEX, SNOW_STREAK_FRAGMENT;
+  var init_shaders = __esm({
+    "src/core/snowWeather/shaders.ts"() {
+      "use strict";
+      SNOW_VERTEX = `#version 300 es
+precision highp float;precision highp int;
+uniform mat4 uVP;uniform vec3 uCam;uniform vec2 uViewport;
+uniform float uTime,uRain,uSeed,uWind,uCount,uIdOffset;
+const float uSnowP[32]=float[32](8.0,1.8,3.6,65.0,220.0,35.0,520.0,196.699,1100.0,420.0,0.65,1.37,15.0,65.0,45.0,2.5,11.0,1.2,3.8,24.0,65.0,1.0,1.0,5000.0,6800.0,7000.0,5000.0,4600.0,3400.0,0.72,0.4,3.0);
+out vec2 q;out float opacity;out float distance_;out float variation;out float light_;
+uint pcg(uint v){uint s=v*747796405u+2891336453u;uint w=((s>>((s>>28u)+4u))^s)*277803737u;return(w>>22u)^w;}
+float h(uint id,uint salt){return float(pcg(id+pcg(salt+uint(uSeed))))*(1./4294967296.);}
+void main(){
+ uint id=uint(gl_InstanceID)+uint(uIdOffset);float size=h(id,3u),phase=h(id,4u)*6.2831853;
+ // Calm presets keep their original motion; a blizzard adds fast advection and gusts.
+ float blizzard=smoothstep(.45,.95,uWind);
+ float windScale=mix(1.,uSnowP[0],blizzard);
+ float speed=mix(uSnowP[3],uSnowP[4],size)*(1.+uWind*.55)*mix(1.,uSnowP[1],blizzard);
+ vec3 box=mix(vec3(uSnowP[25],uSnowP[25],uSnowP[26]),vec3(uSnowP[27],uSnowP[27],uSnowP[28]),blizzard);
+ vec3 base=vec3(h(id,1u),h(id,2u),h(id,5u))*box;
+ vec2 windDirection=vec2(cos(radians(uSnowP[7])),sin(radians(uSnowP[7])))*vec2(1.,1.);
+ vec2 windVelocity=windDirection*vec2(1.04403065)*(uSnowP[5]+uWind*uSnowP[6])*windScale;
+ vec3 drift=vec3(windVelocity*uTime,-speed*uTime);
+ // Integrate gust velocity analytically: multiplying time by a changing gust would teleport flakes.
+ float gustTravel=uSnowP[8]/uSnowP[10]*sin(uTime*uSnowP[10])+uSnowP[9]/uSnowP[11]*sin(uTime*uSnowP[11]);
+ drift.xy+=windDirection*1.04403065*blizzard*gustTravel;
+ float flutter=mix(uSnowP[12],uSnowP[13],uWind)*mix(1.,uSnowP[2],blizzard);
+ drift.xy+=vec2(sin(uTime*(.7+size)+phase),cos(uTime*(.5+size*.5)+phase))*flutter;
+ drift.z+=blizzard*uSnowP[14]*sin(uTime*2.2+phase);
+ vec3 relative=mod(base+drift-uCam+box*.5,box)-box*.5;
+ vec3 center=relative+uCam;distance_=length(relative);variation=h(id,9u);
+ int face=gl_VertexID/6,corner=gl_VertexID%6;
+ q=vec2(corner==0||corner==3||corner==5?-1.:1.,corner<2||corner==3?-1.:1.);
+ float spin=phase+uTime*uSnowP[22]*(.35+h(id,6u)*1.1)*(1.+blizzard*1.8),tilt=sin(uTime*(.55+blizzard*.7)+phase)*.9;
+ vec3 a=vec3(cos(spin),sin(spin),0.);
+ vec3 b=face==0?vec3(-sin(spin)*cos(tilt),cos(spin)*cos(tilt),sin(tilt)):
+   vec3(sin(spin)*sin(tilt),-cos(spin)*sin(tilt),cos(tilt));
+ if(face==2){a=vec3(-sin(spin),cos(spin),0.);b=vec3(0.,0.,1.);}
+ vec3 normal=normalize(cross(a,b));light_=.68+.32*abs(dot(normal,normalize(vec3(.3,.2,1.))));
+ float radius=mix(uSnowP[15],uSnowP[16],size);
+ gl_Position=uVP*vec4(center+(a*q.x+b*q.y)*radius,1.);
+ float rim=1.-smoothstep(.60,.98,length(relative.xy/(box.xy*.5)));
+ float vertical=1.-smoothstep(.70,.99,abs(relative.z)/(box.z*.5));
+ opacity=mix(.45,.85,size)*rim*vertical*smoothstep(60.,220.,distance_)
+   *(1.-smoothstep(uSnowP[23],uSnowP[24],distance_))*smoothstep(0.,48.,uCount-float(gl_InstanceID));
+ float bands=.65+.35*smoothstep(-.6,.8,sin(dot(center.xy,vec2(.0018,.00054))+uTime*2.5)+.3*sin(center.z*.003));
+ opacity*=mix(1.,bands,blizzard);
+ opacity*=1.-blizzard*smoothstep(1600.,3000.,distance_);
+}`;
+      SNOW_FRAGMENT = `#version 300 es
+precision highp float;
+in vec2 q;in float opacity;in float distance_;in float variation;in float light_;
+const float uSnowP[32]=float[32](8.0,1.8,3.6,65.0,220.0,35.0,520.0,196.699,1100.0,420.0,0.65,1.37,15.0,65.0,45.0,2.5,11.0,1.2,3.8,24.0,65.0,1.0,1.0,5000.0,6800.0,7000.0,5000.0,4600.0,3400.0,0.72,0.4,3.0);
+uniform float uFade;uniform vec3 uFog;uniform vec4 uFogColor;out vec4 o;
+void main(){
+ float radius=length(q),aa=max(fwidth(radius),.015);
+ if(radius>1.+aa)discard;
+ float angle=atan(q.y,q.x),fold=abs(mod(angle+3.14159265/6.,3.14159265/3.)-3.14159265/6.);
+ vec2 arm=vec2(cos(fold),sin(fold))*radius;
+ float shaft=1.-smoothstep(.025+aa,.065+aa,arm.y);
+ float branch=0.;
+ for(int i=0;i<8;i++){if(float(i)>=uSnowP[31])break;
+  float at=.30+float(i)*.22;
+  float line=abs(arm.y-(arm.x-at)*.72);
+  branch=max(branch,(1.-smoothstep(.018+aa,.045+aa,line))*smoothstep(at-.02,at+.03,arm.x)
+    *(1.-smoothstep(at+.20,at+.30,arm.x)));
+ }
+ float crystal=max(shaft,branch)*(1.-smoothstep(.86,1.,radius));
+ float soft=exp(-radius*radius*4.5)*(1.-smoothstep(.75,1.,radius));
+ float detail=1.-smoothstep(.035,.13,aa);
+ float coverage=mix(soft,mix(crystal,soft,step(.72,variation)),detail);
+ float alpha=coverage*opacity*uFade*uSnowP[29];if(alpha<.004)discard;
+ float fog=uFog.x*smoothstep(uFog.y,uFog.z,distance_)*uFogColor.a;
+ vec3 color=mix(vec3(.84,.90,.98),vec3(1.),light_)*light_;
+ o=vec4(mix(color,uFogColor.rgb,fog)*alpha,alpha);
+}`;
+      SNOW_STREAK_VERTEX = `#version 300 es
+precision highp float;precision highp int;
+uniform mat4 uVP;uniform vec3 uCam;uniform vec2 uViewport;
+uniform float uTime,uRain,uSeed,uWind,uCount,uIdOffset;
+const float uSnowP[32]=float[32](8.0,1.8,3.6,65.0,220.0,35.0,520.0,196.699,1100.0,420.0,0.65,1.37,15.0,65.0,45.0,2.5,11.0,1.2,3.8,24.0,65.0,1.0,1.0,5000.0,6800.0,7000.0,5000.0,4600.0,3400.0,0.72,0.4,3.0);
+out vec2 q;out float opacity;out float distance_;out float variation;out float light_;
+uint pcg(uint v){uint s=v*747796405u+2891336453u;uint w=((s>>((s>>28u)+4u))^s)*277803737u;return(w>>22u)^w;}
+float h(uint id,uint salt){return float(pcg(id+pcg(salt+uint(uSeed))))*(1./4294967296.);}
+void main(){
+ uint id=uint(gl_InstanceID)+uint(uIdOffset);float size=h(id,3u),phase=h(id,4u)*6.2831853;
+ // Calm presets keep their original motion; a blizzard adds fast advection and gusts.
+ float blizzard=smoothstep(.45,.95,uWind);
+ float windScale=mix(1.,uSnowP[0],blizzard);
+ float speed=mix(uSnowP[3],uSnowP[4],size)*(1.+uWind*.55)*mix(1.,uSnowP[1],blizzard);
+ vec3 box=mix(vec3(uSnowP[25],uSnowP[25],uSnowP[26]),vec3(uSnowP[27],uSnowP[27],uSnowP[28]),blizzard);
+ vec3 base=vec3(h(id,1u),h(id,2u),h(id,5u))*box;
+ vec2 windDirection=vec2(cos(radians(uSnowP[7])),sin(radians(uSnowP[7])))*vec2(1.,1.);
+ vec2 windVelocity=windDirection*vec2(1.04403065)*(uSnowP[5]+uWind*uSnowP[6])*windScale;
+ vec3 drift=vec3(windVelocity*uTime,-speed*uTime);
+ // Integrate gust velocity analytically: multiplying time by a changing gust would teleport flakes.
+ float gustTravel=uSnowP[8]/uSnowP[10]*sin(uTime*uSnowP[10])+uSnowP[9]/uSnowP[11]*sin(uTime*uSnowP[11]);
+ drift.xy+=windDirection*1.04403065*blizzard*gustTravel;
+ float flutter=mix(uSnowP[12],uSnowP[13],uWind)*mix(1.,uSnowP[2],blizzard);
+ drift.xy+=vec2(sin(uTime*(.7+size)+phase),cos(uTime*(.5+size*.5)+phase))*flutter;
+ drift.z+=blizzard*uSnowP[14]*sin(uTime*2.2+phase);
+ vec3 relative=mod(base+drift-uCam+box*.5,box)-box*.5;
+ vec3 center=relative+uCam;distance_=length(relative);variation=h(id,9u);
+ int corner=gl_VertexID%6;
+ q=vec2(corner==0||corner==3||corner==5?-1.:1.,corner<2||corner==3?-1.:1.);
+ float gustSpeed=uSnowP[8]*cos(uTime*uSnowP[10])+uSnowP[9]*cos(uTime*uSnowP[11]);
+ vec3 velocity=vec3(windVelocity+windDirection*1.04403065*blizzard*gustSpeed,-speed);
+ vec3 axis=normalize(velocity),side=cross(axis,uCam-center);if(length(side)<.001)side=vec3(1.,0.,0.);side=normalize(side);
+ vec4 clip=uVP*vec4(center,1.),delta=uVP*vec4(side,0.);
+ float pixelScale=length((delta.xy*clip.w-clip.xy*delta.w)/max(clip.w*clip.w,.001)*uViewport*.5);
+ float width=max(mix(uSnowP[17],uSnowP[18],size),.65/max(pixelScale,.0001));
+ float trail=mix(uSnowP[19],uSnowP[20],size)+length(velocity)*mix(.009,.028,size)*uSnowP[21];
+ light_=.88;
+ gl_Position=uVP*vec4(center+axis*q.y*trail*.5+side*q.x*width,1.);
+ float rim=1.-smoothstep(.60,.98,length(relative.xy/(box.xy*.5)));
+ float vertical=1.-smoothstep(.70,.99,abs(relative.z)/(box.z*.5));
+ opacity=mix(.45,.85,size)*rim*vertical*smoothstep(60.,220.,distance_)
+   *(1.-smoothstep(uSnowP[23],uSnowP[24],distance_))*smoothstep(0.,48.,uCount-float(gl_InstanceID));
+ float bands=.65+.35*smoothstep(-.6,.8,sin(dot(center.xy,vec2(.0018,.00054))+uTime*2.5)+.3*sin(center.z*.003));
+ opacity*=mix(1.,bands,blizzard);
+ opacity*=smoothstep(180.,450.,distance_);
+}`;
+      SNOW_STREAK_FRAGMENT = `#version 300 es
+precision highp float;
+in vec2 q;in float opacity;in float distance_;in float variation;in float light_;
+const float uSnowP[32]=float[32](8.0,1.8,3.6,65.0,220.0,35.0,520.0,196.699,1100.0,420.0,0.65,1.37,15.0,65.0,45.0,2.5,11.0,1.2,3.8,24.0,65.0,1.0,1.0,5000.0,6800.0,7000.0,5000.0,4600.0,3400.0,0.72,0.4,3.0);
+uniform float uFade;uniform vec3 uFog;uniform vec4 uFogColor;out vec4 o;
+void main(){
+ float edge=1.-smoothstep(.55,1.,abs(q.x)),cap=1.-smoothstep(.45,1.,abs(q.y));
+ float alpha=edge*cap*exp(-q.x*q.x*2.)*opacity*uFade*uSnowP[30];
+ if(alpha<.003)discard;
+ float fog=uFog.x*smoothstep(uFog.y,uFog.z,distance_)*uFogColor.a;
+ o=vec4(mix(vec3(.86,.91,.98),uFogColor.rgb,fog)*alpha,alpha);
+}`;
+    }
+  });
+
+  // src/core/snowWeather/index.ts
+  var init_snowWeather = __esm({
+    "src/core/snowWeather/index.ts"() {
+      "use strict";
+      init_config();
+      init_shaders();
+    }
+  });
+
   // src/core/rainWeather/schedule.ts
   function planRain(now, remaining, random3, generation = DEFAULT_WEATHER_GENERATION) {
     const seconds = Number.isFinite(remaining) ? Math.max(0, Math.min(WEATHER.maxBattleSeconds, remaining)) : WEATHER.unknownBattleSeconds;
     const fraction = Number.isFinite(generation.duration) ? Math.max(0, Math.min(1, generation.duration)) : DEFAULT_WEATHER_GENERATION.duration;
-    const empty = { version: 1, preset: null, start: now, hold: 0, seed: Math.floor(random3() * 16777215), fadeIn: WEATHER.fadeIn, fadeOut: WEATHER.fadeOut };
+    const empty = { version: 1, preset: null, start: now, hold: 0, seed: Math.floor(random3() * 16777215), fadeIn: WEATHER.fadeIn, fadeOut: WEATHER.fadeOut, precipitation: generation.precipitation === "snow" ? "snow" : "rain" };
     if (random3() >= generation.chance || seconds <= 0 || fraction <= 0) return empty;
     const preset = generation.preset === "random" ? rainyPresets[Math.min(rainyPresets.length - 1, Math.floor(random3() * rainyPresets.length))] : generation.preset;
     if (fraction === 1) return { ...empty, preset, hold: seconds, continuous: true };
@@ -16909,7 +17233,7 @@
   }
   function sampleRain(plan, now) {
     const elapsed = (now - plan.start) / 1e3, total = plan.fadeIn + plan.hold + plan.fadeOut;
-    const profile = plan.preset ? RAIN_PRESETS[plan.preset] : RAIN_PRESETS.sunny;
+    const profile = plan.preset ? weatherProfile(plan.preset, plan.precipitation) : RAIN_PRESETS.sunny;
     const lead = Math.min(WEATHER.cloudLead, plan.fadeIn * 0.5), tail = Math.min(5, plan.fadeOut / 6);
     const clouds = plan.preset ? smooth(elapsed / plan.fadeIn) * (plan.continuous ? 1 : 1 - smooth((elapsed - plan.fadeIn - plan.hold) / plan.fadeOut)) : 0;
     const rain = plan.preset ? smooth((elapsed - lead) / Math.max(1e-3, plan.fadeIn - lead)) * (plan.continuous ? 1 : 1 - smooth((elapsed - plan.fadeIn - plan.hold + tail) / Math.max(1e-3, plan.fadeOut - tail))) : 0;
@@ -16930,18 +17254,19 @@
     return {
       phase,
       startsInSeconds: plan.preset && phase !== "finished" ? Math.max(0, Math.ceil(-elapsed)) : null,
-      rainStartsInSeconds: plan.preset && RAIN_PRESETS[plan.preset].rain > 0 && phase !== "finished" ? Math.max(0, Math.ceil(Math.min(WEATHER.cloudLead, plan.fadeIn * 0.5) - elapsed)) : null
+      rainStartsInSeconds: plan.preset && weatherProfile(plan.preset, plan.precipitation).rain > 0 && phase !== "finished" ? Math.max(0, Math.ceil(Math.min(WEATHER.cloudLead, plan.fadeIn * 0.5) - elapsed)) : null
     };
   }
   function validEpisode(value) {
     if (!value || typeof value !== "object") return false;
     const p = value;
-    return p.version === 1 && (p.preset === null || Object.prototype.hasOwnProperty.call(RAIN_PRESETS, p.preset)) && [p.start, p.hold, p.seed, p.fadeIn, p.fadeOut].every(Number.isFinite) && p.hold >= 0 && p.hold <= WEATHER.maxBattleSeconds && p.fadeIn > 0 && p.fadeIn <= 60 && p.fadeOut > 0 && p.fadeOut <= 60 && (p.continuous === void 0 || typeof p.continuous === "boolean");
+    return p.version === 1 && (p.preset === null || Object.prototype.hasOwnProperty.call(RAIN_PRESETS, p.preset)) && [p.start, p.hold, p.seed, p.fadeIn, p.fadeOut].every(Number.isFinite) && p.hold >= 0 && p.hold <= WEATHER.maxBattleSeconds && p.fadeIn > 0 && p.fadeIn <= 60 && p.fadeOut > 0 && p.fadeOut <= 60 && (p.continuous === void 0 || typeof p.continuous === "boolean") && (p.precipitation === void 0 || p.precipitation === "rain" || p.precipitation === "snow");
   }
-  var WEATHER, RAIN_PRESETS, DEFAULT_WEATHER_GENERATION, rainyPresets, smooth;
+  var WEATHER, RAIN_PRESETS, weatherProfile, DEFAULT_WEATHER_GENERATION, rainyPresets, smooth;
   var init_schedule = __esm({
     "src/core/rainWeather/schedule.ts"() {
       "use strict";
+      init_config();
       WEATHER = Object.freeze({
         chance: 0.24,
         // Actual rain probability in random mode, preserving the previous ~24% default.
@@ -16966,7 +17291,8 @@
         overcast: { rain: 0, clouds: 0.85, wind: 0.3, storm: 0, sound: 0 },
         sunny: { rain: 0, clouds: 0.2, wind: 0.2, storm: 0, sound: 0 }
       });
-      DEFAULT_WEATHER_GENERATION = Object.freeze({ chance: WEATHER.chance, preset: "random", duration: 0.3 });
+      weatherProfile = (preset, precipitation) => (precipitation === "snow" ? SNOW_PRESETS : RAIN_PRESETS)[preset];
+      DEFAULT_WEATHER_GENERATION = Object.freeze({ chance: WEATHER.chance, preset: "random", duration: 0.3, precipitation: "rain" });
       rainyPresets = Object.keys(RAIN_PRESETS).filter((name) => RAIN_PRESETS[name].rain > 0);
       smooth = (x) => {
         const t = Math.max(0, Math.min(1, x));
@@ -16977,7 +17303,7 @@
 
   // src/core/rainWeather/shaders.ts
   var FULL_VERTEX, COMMON, CLOUD_FRAGMENT, COMPOSITE_FRAGMENT, RAIN_VERTEX, ATMOSPHERE_FRAGMENT, LIGHTNING_VERTEX, LIGHTNING_FRAGMENT, RAIN_FRAGMENT;
-  var init_shaders = __esm({
+  var init_shaders2 = __esm({
     "src/core/rainWeather/shaders.ts"() {
       "use strict";
       FULL_VERTEX = `#version 300 es
@@ -17147,7 +17473,7 @@ o=vec4(mix(color,uFogColor.rgb,fog)*a,a);}`;
     };
   }
   function stormStrikes(plan) {
-    if (plan.preset !== "storm") return [];
+    if (plan.preset !== "storm" || plan.precipitation === "snow") return [];
     const random3 = seeded(plan.seed ^ 1910917849), out = [];
     let seconds = plan.fadeIn + LIGHTNING.firstMin + random3() * (LIGHTNING.firstMax - LIGHTNING.firstMin);
     while (seconds < plan.fadeIn + plan.hold - 8 && out.length < LIGHTNING.maxStrikes) {
@@ -17668,7 +17994,7 @@ void main(){
   var init_puddles = __esm({
     "src/core/rainWeather/puddles.ts"() {
       "use strict";
-      init_shaders();
+      init_shaders2();
       init_puddleSurface();
       init_mapSurface();
       PUDDLES = Object.freeze({ steps: 24, refinements: 6, distance: 6e3, far: 25e3, fadeSeconds: 1.2 });
@@ -17730,7 +18056,7 @@ void main(){
   var init_splashShaders = __esm({
     "src/core/rainWeather/splashShaders.ts"() {
       "use strict";
-      init_shaders();
+      init_shaders2();
       MAP_VERTEX = `#version 300 es
 precision highp float;layout(location=0)in vec3 position;uniform mat4 uVP;out float worldZ;
 void main(){worldZ=position.z;gl_Position=uVP*vec4(position,1.);}`;
@@ -17957,6 +18283,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
     let ready = false, disposed = false, vao = null, cloudTex = null, cloudFbo = null;
     let cw = 0, ch = 0, cloudAt = -Infinity;
     const cloudFloat = !!gl.getExtension("EXT_color_buffer_float");
+    let snow, snowStreak, snowError = null, snowStreakError = null, snowFlakes = 0, snowCrystals = 0, snowStreaks = 0;
     let cloud, composite, rain, atmosphere, bolt;
     let boltBuffer = null, boltVao = null, boltKey = "", boltCount = 0;
     const puddlePrograms = {}, puddleErrors = {};
@@ -18450,6 +18777,22 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
       programs.push(p);
       return p;
     }
+    function prepareSnow() {
+      if (!snow && !snowError) try {
+        snow = owned(SNOW_VERTEX, SNOW_FRAGMENT, [...shared, "uVP", "uViewport", "uWind", "uCount", "uIdOffset"]);
+      } catch (error) {
+        snowError = String(error);
+      }
+      return snow;
+    }
+    function prepareSnowStreaks() {
+      if (!snowStreak && !snowStreakError) try {
+        snowStreak = owned(SNOW_STREAK_VERTEX, SNOW_STREAK_FRAGMENT, [...shared, "uVP", "uViewport", "uWind", "uCount", "uIdOffset"]);
+      } catch (error) {
+        snowStreakError = String(error);
+      }
+      return snowStreak;
+    }
     function prepareReflections(detail) {
       if (puddlePrograms[detail]) return puddlePrograms[detail];
       if (!puddleErrors[detail]) {
@@ -18477,10 +18820,11 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
       gl.deleteVertexArray(splashVao);
       gl.deleteBuffer(splashBuffer);
     }
-    function warm(reflections = false, detail = "low") {
+    function warm(reflections = false, detail = "low", precipitation = "rain") {
       if (disposed) return;
       if (ready) {
         if (reflections) prepareReflections(detail);
+        if (precipitation === "snow") prepareSnow();
         return;
       }
       const state = saveState();
@@ -18491,6 +18835,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
         rain = owned(RAIN_VERTEX, RAIN_FRAGMENT, [...shared, "uVP", "uViewport", "uWind", "uCount"]);
         bolt = owned(LIGHTNING_VERTEX, LIGHTNING_FRAGMENT, ["uVP", "uViewport", "uPower", "uFade"]);
         if (reflections) prepareReflections(detail);
+        if (precipitation === "snow") prepareSnow();
         vao = gl.createVertexArray();
         cloudTex = gl.createTexture();
         cloudFbo = gl.createFramebuffer();
@@ -18532,8 +18877,11 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
     }
     let frames = 0, depthCopies = 0, cloudFrames = 0;
     function draw(f, stage = "all") {
+      snowFlakes = 0;
+      snowCrystals = 0;
+      snowStreaks = 0;
       if (disposed || gl.isContextLost() || f.fade <= 0) return;
-      warm();
+      warm(false, "low", f.precipitation);
       if (!ready || !invert4(f.vp, invVP)) return;
       if (f.clouds < 1e-3 && f.rain < 1e-3 && f.storm < 1e-3) {
         releaseReflections();
@@ -18546,8 +18894,8 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
         const width = state.viewport[2], height = state.viewport[3];
         if (width < 1 || height < 1) return;
         const refreshCloud = sky && f.clouds > 1e-3 && f.time - cloudAt >= 1 / WEATHER.cloudHz;
-        const wet = sky && Math.max(0, Math.min(1, f.puddles ?? 0)) * f.rain * f.fade > 2e-3;
-        const depthNeeded = weather && f.rain > 0.03 || wet;
+        const wet = sky && f.precipitation !== "snow" && Math.max(0, Math.min(1, f.puddles ?? 0)) * f.rain * f.fade > 2e-3;
+        const depthNeeded = weather && f.rain > 0.03 && f.precipitation !== "snow" || wet;
         const depth = depthNeeded && copySceneDepth(state);
         if (depth) depthCopies++;
         gl.disable(gl.STENCIL_TEST);
@@ -18670,7 +19018,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
           gl.drawArrays(gl.TRIANGLES, 0, 3);
         }
         if (weather && f.rain > 1e-3) {
-          const data = f.splashData;
+          const data = f.precipitation === "snow" ? void 0 : f.splashData;
           if (data?.length && !splashError) {
             try {
               if (!splashProgram) {
@@ -18686,10 +19034,10 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                   gl.vertexAttribDivisor(index, 1);
                 }
               }
-              const count2 = Math.min(SPLASHES.capacity, Math.floor(data.length / SPLASHES.stride));
+              const count = Math.min(SPLASHES.capacity, Math.floor(data.length / SPLASHES.stride));
               gl.bindVertexArray(splashVao);
               gl.bindBuffer(gl.ARRAY_BUFFER, splashBuffer);
-              gl.bufferSubData(gl.ARRAY_BUFFER, 0, data.subarray(0, count2 * SPLASHES.stride));
+              gl.bufferSubData(gl.ARRAY_BUFFER, 0, data.subarray(0, count * SPLASHES.stride));
               use(splashProgram, f);
               const tuning = f.surfaceTuning || DEFAULT_SURFACE_TUNING;
               gl.uniformMatrix4fv(splashProgram.u.uVP, false, f.vp);
@@ -18699,7 +19047,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
               gl.uniform1f(splashProgram.u.uDetail, f.puddleDetail === "high" ? 1 : 0);
               gl.enable(gl.DEPTH_TEST);
               gl.depthFunc(gl.LEQUAL);
-              splashParticles = count2;
+              splashParticles = count;
               gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, splashParticles);
             } catch (error) {
               splashError = String(error);
@@ -18707,15 +19055,31 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
               gl.bindVertexArray(vao);
             }
           } else splashParticles = 0;
-          gl.enable(gl.DEPTH_TEST);
-          gl.depthFunc(gl.LEQUAL);
-          use(rain, f);
-          const count = Math.round(WEATHER.maxDrops * f.rain);
-          gl.uniformMatrix4fv(rain.u.uVP, false, f.vp);
-          gl.uniform2f(rain.u.uViewport, width, height);
-          gl.uniform1f(rain.u.uWind, f.wind);
-          gl.uniform1f(rain.u.uCount, count);
-          gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, count);
+          const snowy = f.precipitation === "snow", particle = snowy ? prepareSnow() : rain;
+          if (particle) {
+            gl.enable(gl.DEPTH_TEST);
+            gl.depthFunc(gl.LEQUAL);
+            const count = Math.round((snowy ? SNOW.maxFlakes : WEATHER.maxDrops) * Math.min(1, f.rain));
+            const streak = snowy && f.wind >= 0.95 ? prepareSnowStreaks() : void 0;
+            const streakCount = streak ? Math.round(count * SNOW.blizzardStreakShare) : 0, crystalCount = count - streakCount;
+            const drawParticles = (program2, n, vertices, offset) => {
+              if (!n) return;
+              use(program2, f);
+              gl.uniformMatrix4fv(program2.u.uVP, false, f.vp);
+              gl.uniform2f(program2.u.uViewport, width, height);
+              gl.uniform1f(program2.u.uWind, f.wind);
+              gl.uniform1f(program2.u.uCount, n);
+              gl.uniform1f(program2.u.uIdOffset ?? null, offset);
+              gl.drawArraysInstanced(snowy ? gl.TRIANGLES : gl.TRIANGLE_STRIP, 0, vertices, n);
+            };
+            drawParticles(particle, crystalCount, snowy ? 12 : 4, 0);
+            if (streak) drawParticles(streak, streakCount, 6, SNOW.maxFlakes - Math.round(SNOW.maxFlakes * SNOW.blizzardStreakShare));
+            if (snowy) {
+              snowFlakes = count;
+              snowCrystals = crystalCount;
+              snowStreaks = streakCount;
+            }
+          }
         }
         frames++;
       } finally {
@@ -18729,6 +19093,11 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
       ready,
       disposed,
       frames,
+      snowFlakes,
+      snowCrystals,
+      snowStreaks,
+      snowError,
+      snowStreakError,
       depthCopies,
       cloudFrames,
       cloudSize: [cw, ch],
@@ -18753,8 +19122,9 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
   var init_renderer = __esm({
     "src/core/rainWeather/renderer.ts"() {
       "use strict";
+      init_snowWeather();
       init_schedule();
-      init_shaders();
+      init_shaders2();
       init_lightning();
       init_puddles();
       init_tuning();
@@ -18917,7 +19287,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
 
   // src/core/rainWeather/preferences.ts
   function readWeatherGeneration(storage) {
-    let chance = DEFAULT_WEATHER_GENERATION.chance, preset = DEFAULT_WEATHER_GENERATION.preset, duration = DEFAULT_WEATHER_GENERATION.duration;
+    let chance = DEFAULT_WEATHER_GENERATION.chance, preset = DEFAULT_WEATHER_GENERATION.preset, duration = DEFAULT_WEATHER_GENERATION.duration, precipitation = DEFAULT_WEATHER_GENERATION.precipitation;
     try {
       const raw = storage.getItem(WEATHER_GENERATION_KEYS.chance);
       const value = raw === null || raw.trim() === "" ? NaN : Number(raw);
@@ -18935,7 +19305,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
       if (Number.isFinite(value)) duration = Math.max(0, Math.min(1, value));
     } catch {
     }
-    return { chance, preset, duration };
+    return { chance, preset, duration, precipitation };
   }
   function readWeatherVolumes(storage) {
     const read = (key) => {
@@ -19008,6 +19378,17 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
       default:
         return [1, 1, 1];
     }
+  }
+  function mapWeather(theme, name) {
+    if (theme === "SPACE") return null;
+    if (theme === "WINTER_DAY" || theme === "WINTER_NIGHT") return "snow";
+    if (typeof name !== "string" || !name.trim()) return void 0;
+    if (!theme) {
+      const words = name.normalize("NFKC").toLowerCase().split(/[^a-zа-яё]+/u);
+      if (words.some((word) => ["space", "\u043A\u043E\u0441\u043C\u043E\u0441", "\u043A\u043E\u0441\u043C\u0438\u0447\u0435\u0441\u043A\u0438\u0439", "\u043A\u043E\u0441\u043C\u0438\u0447\u0435\u0441\u043A\u0430\u044F"].includes(word))) return null;
+      if (words.some((word) => ["winter", "snow", "snowy", "\u0437\u0438\u043C\u0430", "\u0437\u0438\u043C\u043D\u0438\u0439", "\u0437\u0438\u043C\u043D\u044F\u044F", "\u0437\u0438\u043C\u043D\u0435\u0435", "\u0437\u0438\u043C\u043D\u0438\u0435", "\u0441\u043D\u0435\u0433", "\u0441\u043D\u0435\u0436\u043D\u044B\u0439", "\u0441\u043D\u0435\u0436\u043D\u0430\u044F", "\u0441\u043D\u0435\u0436\u043D\u043E\u0435"].includes(word))) return "snow";
+    }
+    return mapAllowsPuddles(name) ? "rain" : null;
   }
   var MAP_THEMES;
   var init_environment = __esm({
@@ -19091,6 +19472,8 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
     let draws = 0;
     let nativeFrameAt = -Infinity, nativeMapCaptured = false;
     let nativeCanvas;
+    let battleScenes = /* @__PURE__ */ new WeakSet(), sceneCount = 0, suspended = false;
+    const excluded = () => !!document.querySelector(gameDOM.screens.weatherExcluded);
     let patchState = "pending";
     let puddles = false, puddleAmount = 0, puddleAt = performance.now();
     const puddleDetail = "high";
@@ -19099,6 +19482,8 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
     const tanks = /* @__PURE__ */ new Map(), splashes = createSplashEmitter();
     const hulls = /* @__PURE__ */ new WeakMap(), themes = /* @__PURE__ */ new Map();
     const theme = () => battleId ? themes.get(battleId) : void 0;
+    const precipitation = () => mapWeather(theme(), mapName);
+    const permits = (plan) => !!plan && !!precipitation() && (plan.precipitation ?? "rain") === precipitation();
     const skyUniforms = createSkyboxUniforms();
     let sunDirection = [0, 0, 1];
     let audio = null;
@@ -19119,7 +19504,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
       }
     };
     const prepareMap = () => {
-      if (!pendingMap) return;
+      if (!pendingMap || precipitation() !== "rain") return;
       const capture = pendingMap;
       pendingMap = void 0;
       try {
@@ -19149,6 +19534,9 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
     };
     const leave = () => {
       present = false;
+      suspended = false;
+      battleScenes = /* @__PURE__ */ new WeakSet();
+      sceneCount = 0;
       entryAt = 0;
       lastFrame = 0;
       nativeFrameAt = -Infinity;
@@ -19170,7 +19558,19 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
       for (const r of contexts.values()) r.clearReflections();
       stopSound();
     };
-    const nativeBattle = () => nativeLoaded !== false && performance.now() - nativeFrameAt < 1e3 && (!nativeCanvas || !("isConnected" in nativeCanvas) || nativeCanvas.isConnected);
+    function reconcileMap() {
+      if (permits(current) && (!override || permits(override))) return;
+      current = void 0;
+      override = void 0;
+      puddleAmount = 0;
+      strikePlan = void 0;
+      strikes = [];
+      splashes.clear();
+      dropContexts();
+      stopSound();
+      if (precipitation() !== "rain") mapSurface = void 0;
+    }
+    const nativeBattle = () => !excluded() && nativeLoaded !== false && performance.now() - nativeFrameAt < 1e3 && (!nativeCanvas || !("isConnected" in nativeCanvas) || nativeCanvas.isConnected);
     const sync = () => {
       let next = false;
       try {
@@ -19191,8 +19591,18 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
       surfaceTuning = readSurfaceTuning(localStorage);
       if (enabled && pendingMap) scope.timeout(prepareMap, 0);
       audio?.volumes(readWeatherVolumes(localStorage));
+      if (excluded()) {
+        if (!suspended) {
+          suspended = true;
+          tanks.clear();
+          splashes.clear();
+          for (const r of contexts.values()) r.clearReflections();
+        }
+        stopSound();
+        return;
+      }
       const visible = !!document.querySelector(gameDOM.screens.battleHud) || nativeBattle();
-      if (!visible && present) leave();
+      if (!visible && present && (!suspended || nativeLoaded === false)) leave();
       if (visible && !present) {
         present = true;
         entryAt = Date.now();
@@ -19241,13 +19651,13 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
     const weather = (plan, now) => {
       const value = sampleRain(plan, now);
       value.rain *= surfaceTuning.rainIntensity;
-      value.sound = rainSoundLevel(value.rain);
+      value.sound = plan.precipitation === "snow" ? 0 : rainSoundLevel(value.rain);
       return value;
     };
     const rainEnvelope = () => {
       const plan = override || current;
-      if (!enabled || scope.disabled || !present || nativeLoaded === false || theme() === "SPACE" || !plan?.preset || surfaceTuning.rainIntensity <= 0) return 0;
-      const profile = RAIN_PRESETS[plan.preset];
+      if (!enabled || scope.disabled || !present || excluded() || nativeLoaded === false || !permits(plan) || !plan?.preset || surfaceTuning.rainIntensity <= 0) return 0;
+      const profile = weatherProfile(plan.preset, plan.precipitation);
       if (profile.rain <= 0) return 0;
       return Math.max(0, Math.min(1, sampleRain(plan, Date.now()).rain / profile.rain)) * smooth((Date.now() - entryAt) / 1800);
     };
@@ -19255,7 +19665,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
       skyShader: skyboxShader,
       skyUniform(gl) {
         const plan = override || current, now = Date.now();
-        const darkness = enabled && !scope.disabled && present && nativeLoaded !== false && theme() !== "SPACE" && plan ? skyboxDarkness(weather(plan, now), smooth((now - entryAt) / 1800), theme()) : 0;
+        const darkness = enabled && !scope.disabled && present && !excluded() && nativeLoaded !== false && permits(plan) && plan ? skyboxDarkness(weather(plan, now), smooth((now - entryAt) / 1800), theme()) : 0;
         skyUniforms(gl, darkness);
       },
       patch(state) {
@@ -19266,12 +19676,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
         if (!next || typeof id !== "string" || !/^[\w:-]{1,140}$/.test(id)) return;
         themes.set(id, next);
         while (themes.size > 64) themes.delete(themes.keys().next().value);
-        if (id === battleId && next === "SPACE") {
-          override = void 0;
-          splashes.clear();
-          dropContexts();
-          stopSound();
-        }
+        if (id === battleId) reconcileMap();
       },
       treeShader: treeWindShader,
       nativeFogStrength(value) {
@@ -19279,9 +19684,10 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
       },
       dropZones(gl) {
         const plan = override || current;
-        if (!enabled || !puddles || scope.disabled || !present || nativeLoaded === false || theme() === "SPACE" || !plan?.preset || !mapAllowsPuddles(mapName)) return;
-        if (weather(plan, Date.now()).rain * puddleAmount < 2e-3) return;
-        return suppressOverlayDepth(gl);
+        if (!enabled || scope.disabled || !present || excluded() || nativeLoaded === false || !permits(plan) || !plan?.preset) return;
+        const sample = weather(plan, Date.now());
+        const water = precipitation() === "rain" && puddles && sample.rain * puddleAmount >= 2e-3;
+        if (water) return suppressOverlayDepth(gl);
       },
       hull(value, main, boxes, schema) {
         if (scope.disabled || !value || typeof value !== "object") return;
@@ -19294,6 +19700,8 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
       map(raw, schema) {
         if (scope.disabled) return;
         nativeMapCaptured = true;
+        battleScenes = /* @__PURE__ */ new WeakSet();
+        sceneCount = 0;
         pendingMap = { raw, schema };
         mapSurface = void 0;
         mapError = null;
@@ -19301,7 +19709,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
         if (enabled) scope.timeout(prepareMap, 0);
       },
       tank(value, schema) {
-        if (!enabled || scope.disabled || !value || typeof value !== "object") return;
+        if (!enabled || scope.disabled || excluded() || !value || typeof value !== "object") return;
         const get = (v, key) => v && typeof v === "object" ? Object.getOwnPropertyDescriptor(v, key)?.value : void 0;
         if (get(value, schema.active) !== true) {
           tanks.delete(value);
@@ -19329,7 +19737,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
       lighting(buffer) {
         nativeLightingReady = true;
         if (buffer instanceof Float32Array && buffer.length >= 11 && [buffer[8], buffer[9], buffer[10]].every(Number.isFinite)) sunDirection = [-buffer[8], -buffer[9], -buffer[10]];
-        if (!enabled || scope.disabled || !present || nativeLoaded === false || theme() === "SPACE") return;
+        if (!enabled || scope.disabled || !present || excluded() || nativeLoaded === false || !permits(override || current)) return;
         const plan = override || current;
         if (!plan) return;
         const now = Date.now(), sample = weather(plan, now), fade = smooth((now - entryAt) / 1800);
@@ -19340,13 +19748,15 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
       force(preset = "storm", hold = 120) {
         sync();
         if (!enabled) return { ok: false, reason: "Enable Random battle weather in settings first" };
-        if (theme() === "SPACE") return { ok: false, reason: "Weather is disabled on space maps" };
+        if (excluded()) return { ok: false, code: "battle-not-visible", reason: "Return to the battle scene first" };
         if (scope.disabled) return { ok: false, reason: "Weather stopped after an error; reload the game" };
         if (!hookReady) return { ok: false, code: "render-hook-missing", reason: "Weather render hook has not run. Reload the game after updating the extension; check status().patch if it persists" };
         if (!present) return { ok: false, code: "battle-not-present", reason: "No active battle detected" };
-        if (nativeLoaded === false || !current) return { ok: false, code: "battle-loading", reason: "Battle loading has not finished; wait for a valid battle render frame" };
+        if (nativeLoaded === false) return { ok: false, code: "battle-loading", reason: "Battle loading has not finished" };
+        if (!precipitation()) return { ok: false, code: "map-weather-unavailable", reason: precipitation() === null ? "Weather is disabled on this map" : "Wait for native map metadata" };
+        if (!current) return { ok: false, code: "battle-loading", reason: "Battle loading has not finished; wait for a valid battle render frame" };
         if (!Object.prototype.hasOwnProperty.call(RAIN_PRESETS, preset) || !Number.isFinite(hold)) return { ok: false, reason: "Invalid preset or duration" };
-        override = { version: 1, preset, start: Date.now(), hold: Math.max(15, Math.min(180, hold)), seed: Math.floor(random2() * 16777215), fadeIn: WEATHER.fadeIn, fadeOut: WEATHER.fadeOut };
+        override = { version: 1, preset, start: Date.now(), hold: Math.max(15, Math.min(180, hold)), seed: Math.floor(random2() * 16777215), fadeIn: WEATHER.fadeIn, fadeOut: WEATHER.fadeOut, precipitation: precipitation() };
         stopSound();
         return { ok: true, preset, hold: override.hold, fadeIn: override.fadeIn, fadeOut: override.fadeOut };
       },
@@ -19384,18 +19794,18 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
         }
         const name = v[schema.mapNameWithoutMode || schema.mapName];
         if (typeof name === "string" && name.trim() && name.length <= 200) {
-          const allowed = mapAllowsPuddles(mapName);
           mapName = name.trim();
-          if (allowed && !mapAllowsPuddles(mapName)) {
-            puddleAmount = 0;
-            for (const r of contexts.values()) r.clearReflections();
-          }
         }
+        reconcileMap();
       },
       frame(renderer, scene, camera, s, stage = "all") {
         hookReady = true;
         if (!enabled || scope.disabled) return;
         scope.run(() => {
+          if (excluded()) {
+            sync();
+            return;
+          }
           if (nativeLoaded === false || !scene || typeof scene !== "object") return;
           const r = nativeObject(renderer), c = nativeObject(camera);
           if (!r || !c) return;
@@ -19403,11 +19813,21 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
           const vp = c[s.vp], p = nativeObject(c[s.camera]);
           if (!gl || typeof gl.drawArraysInstanced !== "function" || gl.isContextLost() || !(vp instanceof Float32Array) || vp.length !== 16 || !p) return;
           if (gl.canvas && "isConnected" in gl.canvas && !gl.canvas.isConnected) return;
+          const hud = !!document.querySelector(gameDOM.screens.battleHud), freshTank = [...tanks.values()].some((t) => performance.now() / 1e3 - t.at < 0.5);
+          const battleRoot = document.querySelector(gameDOM.screens.battleCanvas);
+          if (battleRoot && gl.canvas && "nodeType" in gl.canvas && typeof battleRoot.contains === "function" && !battleRoot.contains(gl.canvas)) return;
+          if (!battleScenes.has(scene)) {
+            if (!hud && !(nativeMapCaptured && (freshTank || nativeLoaded === true && sceneCount === 0))) return;
+            battleScenes.add(scene);
+            sceneCount++;
+          }
           nativeCanvas = gl.canvas;
-          if (nativeMapCaptured && (nativeLoaded === true || [...tanks.values()].some((t) => performance.now() / 1e3 - t.at < 0.5))) nativeFrameAt = performance.now();
+          if (nativeMapCaptured && (nativeLoaded === true || freshTank)) nativeFrameAt = performance.now();
+          suspended = false;
           if (!present) sync();
           if (!present) return;
-          if (theme() === "SPACE") return;
+          const mode = precipitation();
+          if (!mode) return;
           const cameraPosition = [p[s.x], p[s.y], p[s.z]];
           if (!cameraPosition.every(Number.isFinite)) return;
           const getRenderer = () => {
@@ -19433,9 +19853,10 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
           const now = Date.now();
           if (!current) {
             const remaining = clock(document.querySelector(gameDOM.presence.timer)?.textContent || "");
-            current = battleId && episodes.get(battleId) || planRain(now, remaining, random2, readWeatherGeneration(localStorage));
+            const cached = battleId ? episodes.get(battleId) : void 0;
+            current = permits(cached) ? cached : planRain(now, remaining, random2, { ...readWeatherGeneration(localStorage), precipitation: mode });
           }
-          if (battleId && !episodes.has(battleId)) {
+          if (battleId && episodes.get(battleId) !== current) {
             episodes.set(battleId, current);
             while (episodes.size > 24) episodes.delete(episodes.keys().next().value);
             save();
@@ -19452,7 +19873,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
           lastFrame = performance.now();
           const elapsed = Math.max(0, Math.min(0.25, (lastFrame - puddleAt) / 1e3));
           puddleAt = lastFrame;
-          const allowPuddles = mapAllowsPuddles(mapName);
+          const allowPuddles = mode === "rain";
           if (!allowPuddles) puddleAmount = 0;
           else puddleAmount += (Number(puddles) - puddleAmount) * (1 - Math.exp(-elapsed / PUDDLES.fadeSeconds));
           if (!activePlan.preset || sample.finished) {
@@ -19461,12 +19882,12 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
             return;
           }
           const gpu = getRenderer();
-          gpu.warm(puddles && allowPuddles, puddleDetail);
+          gpu.warm(puddles && allowPuddles, puddleDetail, activePlan.precipitation);
+          for (const [key, tank] of tanks) if (lastFrame / 1e3 - tank.at > 0.5) tanks.delete(key);
+          prepareMap();
           if (!sample.active) return;
           const fog = rainFog(r, s), fade = smooth((now - entryAt) / 1800);
           fog.fog[0] *= 1 - rainEnvelope();
-          prepareMap();
-          for (const [key, tank] of tanks) if (lastFrame / 1e3 - tank.at > 0.5) tanks.delete(key);
           const nearby = [...tanks.values()].sort((a, b) => Math.hypot(a.position[0] - cameraPosition[0], a.position[1] - cameraPosition[1]) - Math.hypot(b.position[0] - cameraPosition[0], b.position[1] - cameraPosition[1])).slice(0, 12);
           if (!strikeOrigin) strikeOrigin = [cameraPosition[0], cameraPosition[1], 0];
           const strike = strikes.find((s2) => now >= s2.at && now < s2.at + LIGHTNING.duration * 1e3);
@@ -19491,20 +19912,23 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
               if (audio?.thunder(key, s2.seed, s2.delay - (now - s2.at) / 1e3)) heard.add(key);
             }
           }
-          const splashData = stage !== "sky" ? splashes.update({ time: lastFrame / 1e3, seed: activePlan.seed, rain: sample.rain, wind: sample.wind, puddles: puddleAmount, camera: cameraPosition, map: mapSurface, tanks: nearby, tuning: surfaceTuning, vp }) : void 0;
-          gpu.draw({ vp, camera: cameraPosition, time: lastFrame / 1e3, seed: activePlan.seed, fade, ...sample, skyDarkness: skyboxDarkness(sample, fade, theme()), cloudTone: cloudTone(theme()), sunDirection, lightning, puddles: puddleAmount, puddleDetail, surfaceTuning, map: mapSurface, splashData, nativeLighting: true, fog: fog.fog, fogColor: fog.color, cloudPalette: weatherPalette(activePlan.preset) }, stage);
+          if (activePlan.precipitation === "snow") splashes.clear();
+          const splashData = stage !== "sky" && activePlan.precipitation !== "snow" ? splashes.update({ time: lastFrame / 1e3, seed: activePlan.seed, rain: sample.rain, wind: sample.wind, puddles: puddleAmount, camera: cameraPosition, map: mapSurface, tanks: nearby, tuning: surfaceTuning, vp }) : void 0;
+          gpu.draw({ precipitation: activePlan.precipitation, vp, camera: cameraPosition, time: lastFrame / 1e3, seed: activePlan.seed, fade, ...sample, skyDarkness: skyboxDarkness(sample, fade, theme()), cloudTone: cloudTone(theme()), sunDirection, lightning, puddles: puddleAmount, puddleDetail, surfaceTuning, map: mapSurface, splashData, nativeLighting: true, fog: fog.fog, fogColor: fog.color, cloudPalette: activePlan.precipitation === "snow" ? SNOW_PALETTES[activePlan.preset] : weatherPalette(activePlan.preset) }, stage);
           draws++;
         });
       },
       status: () => ({
         enabled,
+        suspended: suspended || excluded(),
+        precipitation: precipitation() ?? null,
         nativeFogSuppression: rainEnvelope(),
         present,
         hookReady,
         patch: patchState,
         nativeLoaded: nativeLoaded ?? null,
         nativeBattle: nativeBattle(),
-        environment: { theme: theme() ?? null, weatherAllowed: theme() !== "SPACE", cloudTone: cloudTone(theme()), palette: (override || current)?.preset ?? "storm" },
+        environment: { theme: theme() ?? null, weatherAllowed: !!precipitation(), cloudTone: cloudTone(theme()), palette: (override || current)?.preset ?? "storm" },
         surfaceRevision: PUDDLE_SURFACE_REVISION,
         battleId: battleId ?? null,
         episode: current ? { ...current } : null,
@@ -19512,8 +19936,8 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
         timing: override || current ? rainTiming(override || current, Date.now()) : null,
         weather: override || current ? weather(override || current, Date.now()) : null,
         puddles,
-        puddlesAllowed: mapAllowsPuddles(mapName),
-        puddleBlockedReason: mapAllowsPuddles(mapName) ? null : "map-massacre",
+        puddlesAllowed: precipitation() === "rain",
+        puddleBlockedReason: precipitation() === "rain" ? null : precipitation() === "snow" ? "snowfall" : precipitation() === null ? "map-excluded" : "map-metadata-pending",
         mapName: mapName ?? null,
         foliageAnimation: false,
         puddleAmount,
@@ -19542,6 +19966,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
   var init_rainWeather = __esm({
     "src/core/rainWeather/index.ts"() {
       "use strict";
+      init_config();
       init_featureRuntime();
       init_gameDOM();
       init_renderer();
@@ -20230,7 +20655,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 edits: []
               },
               {
-                pattern: "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*for(?![$\\w])\\s*\\(\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*new(?![$\\w])\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])(?:\\s*\\(\\s*\\))?\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*,\\s*10\\s*\\)\\s*\\)\\s*,\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s13>(?![$\\w])\\s*\\)\\s*;?\\s*\\}\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*;\\s*for(?![$\\w])\\s*\\(\\s*var(?![$\\w])\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\k<s18>(?![$\\w])\\s*,\\s*10\\s*\\)\\s*\\)\\s*,\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s18>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s21>(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s21>(?![$\\w])\\s*\\.\\s*\\k<s15>(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*\\k<s20>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\(\\s*\\k<s22>(?![$\\w])\\s*\\)\\s*;?\\s*\\}\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s17>(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*\\)\\s*;\\s*for(?![$\\w])\\s*\\(\\s*var(?![$\\w])\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s28>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s24>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s29>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s30>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*\\k<s15>(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*null(?![$\\w])\\s*==\\s*\\k<s29>(?![$\\w])\\s*\\|\\|\\s*\\k<s26>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\(\\s*\\k<s29>(?![$\\w])\\s*\\)\\s*;?\\s*\\}\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s17>(?![$\\w])\\s*\\(\\s*\\k<s26>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s31>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*0\\s*,\\s*(?<s32>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s33>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\k<s31>(?![$\\w])\\s*<\\s*\\k<s32>(?![$\\w])\\s*\\)\\s*do(?![$\\w])\\s*\\{\\s*var(?![$\\w])\\s*(?<s34>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s31>(?![$\\w])\\s*;\\s*\\(?\\s*\\k<s31>(?![$\\w])\\s*=\\s*\\k<s31>(?![$\\w])\\s*\\+\\s*1\\s*\\|\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s35>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s34>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s36>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)?\\s*;?\\s*\\}\\s*while(?![$\\w])\\s*\\(\\s*\\k<s31>(?![$\\w])\\s*<\\s*\\k<s32>(?![$\\w])\\s*\\)\\s*;\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;?\\s*\\}",
+                pattern: "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*for(?![$\\w])\\s*\\(\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*new(?![$\\w])\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])(?:\\s*\\(\\s*\\))?\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*,\\s*10\\s*\\)\\s*\\)\\s*,\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s13>(?![$\\w])\\s*\\)\\s*;?\\s*\\}\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*;\\s*for(?![$\\w])\\s*\\(\\s*var(?![$\\w])\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\k<s18>(?![$\\w])\\s*,\\s*10\\s*\\)\\s*\\)\\s*,\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s18>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s21>(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s21>(?![$\\w])\\s*\\.\\s*\\k<s15>(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*\\k<s20>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\(\\s*\\k<s22>(?![$\\w])\\s*\\)\\s*;?\\s*\\}\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s17>(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*\\)\\s*;\\s*for(?![$\\w])\\s*\\(\\s*var(?![$\\w])\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s28>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s24>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s29>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s30>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*\\k<s15>(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*null(?![$\\w])\\s*==\\s*\\k<s29>(?![$\\w])\\s*\\|\\|\\s*\\k<s26>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\(\\s*\\k<s29>(?![$\\w])\\s*\\)\\s*;?\\s*\\}\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s17>(?![$\\w])\\s*\\(\\s*\\k<s26>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s31>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*0\\s*,\\s*(?<s32>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s33>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\k<s31>(?![$\\w])\\s*<\\s*\\k<s32>(?![$\\w])\\s*\\)\\s*do(?![$\\w])\\s*\\{\\s*var(?![$\\w])\\s*(?<s34>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s31>(?![$\\w])\\s*;\\s*\\s*\\(?\\s*\\k<s31>(?![$\\w])\\s*=\\s*\\k<s31>(?![$\\w])\\s*\\+\\s*1\\s*\\|\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s35>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s34>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s36>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)?\\s*;?\\s*\\}\\s*while(?![$\\w])\\s*\\(\\s*\\k<s31>(?![$\\w])\\s*<\\s*\\k<s32>(?![$\\w])\\s*\\)\\s*;\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;?\\s*\\}",
                 roles: {
                   scene_count: "s33",
                   scene_get: "s35"
@@ -20242,7 +20667,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 edits: []
               },
               {
-                pattern: "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\(?\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s2>(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s2>(?![$\\w])\\s*\\)?\\s*;?\\s*\\}",
+                pattern: "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\s*\\(?\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s2>(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s2>(?![$\\w])\\s*\\)?\\s*;?\\s*\\}",
                 roles: {
                   scene_mapx: "s5",
                   scene_mapy: "s6",
@@ -20382,7 +20807,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 ]
               },
               {
-                pattern: "(?<![$\\w])\\s*\\(?\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*0\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*0\\s*\\)\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\(\\s*0\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*,\\s*4\\s*\\)\\s*,\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\(\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*\\[\\s*8\\s*\\]\\s*=\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s9>(?![$\\w])\\s*\\[\\s*9\\s*\\]\\s*=\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s9>(?![$\\w])\\s*\\[\\s*10\\s*\\]\\s*=\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)?",
+                pattern: "(?<![$\\w])\\s*\\s*\\(?\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*0\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*0\\s*\\)\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\(\\s*0\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*,\\s*4\\s*\\)\\s*,\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\(\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*\\[\\s*8\\s*\\]\\s*=\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s9>(?![$\\w])\\s*\\[\\s*9\\s*\\]\\s*=\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s9>(?![$\\w])\\s*\\[\\s*10\\s*\\]\\s*=\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)?",
                 roles: {
                   scene_lightingData: "s4",
                   scene_lightingBuffer: "s3"
@@ -20430,7 +20855,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 ]
               },
               {
-                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*\\(?\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*new(?![$\\w])\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*new(?![$\\w])\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])(?:\\s*\\(\\s*\\))?\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\(?\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\.5\\s*\\)\\s*,\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s16>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\(?\\s*\\k<s24>(?![$\\w])\\s*\\.\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?:"hull-main"|'hull-main')\\s*,\\s*\\k<s24>(?![$\\w])\\s*\\.\\s*(?<s28>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*1\\s*,\\s*\\k<s24>(?![$\\w])\\s*\\.\\s*(?<s29>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*!\\s*0\\s*,\\s*\\k<s24>(?![$\\w])\\s*\\.\\s*(?<s30>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s31>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s32>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s33>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s24>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s34>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*\\k<s33>(?![$\\w])\\s*\\)\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s35>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s36>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s37>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*0\\s*,\\s*(?<s38>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s35>(?![$\\w])\\s*\\.\\s*(?<s39>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\k<s37>(?![$\\w])\\s*<\\s*\\k<s38>(?![$\\w])\\s*\\)\\s*do(?![$\\w])\\s*\\{\\s*var(?![$\\w])\\s*(?<s40>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s37>(?![$\\w])\\s*;\\s*\\k<s37>(?![$\\w])\\s*=\\s*\\k<s37>(?![$\\w])\\s*\\+\\s*1\\s*\\|\\s*0\\s*;\\s*var(?![$\\w])\\s*(?<s41>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s35>(?![$\\w])\\s*\\.\\s*(?<s42>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s40>(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s26>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\(?\\s*\\k<s41>(?![$\\w])\\s*\\.\\s*\\k<s28>(?![$\\w])\\s*=\\s*1\\s*,\\s*\\k<s41>(?![$\\w])\\s*\\.\\s*(?<s43>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*16\\s*,\\s*\\k<s41>(?![$\\w])\\s*\\.\\s*\\k<s30>(?![$\\w])\\s*=\\s*(?:"hull-static-top"|'hull-static-top')\\s*===\\s*\\k<s41>(?![$\\w])\\s*\\.\\s*\\k<s27>(?![$\\w])\\s*\\?\\s*\\k<s31>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s44>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*:\\s*\\k<s31>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s32>(?![$\\w])\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s45>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s41>(?![$\\w])\\s*;\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s34>(?![$\\w])\\s*\\(\\s*\\k<s45>(?![$\\w])\\s*\\)\\s*;?\\s*\\}\\s*while(?![$\\w])\\s*\\(\\s*\\k<s37>(?![$\\w])\\s*<\\s*\\k<s38>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s46>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s47>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s48>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*0\\s*,\\s*(?<s49>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s46>(?![$\\w])\\s*\\.\\s*\\k<s39>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\k<s48>(?![$\\w])\\s*<\\s*\\k<s49>(?![$\\w])\\s*\\)\\s*do(?![$\\w])\\s*\\{\\s*var(?![$\\w])\\s*(?<s50>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s48>(?![$\\w])\\s*;\\s*\\k<s48>(?![$\\w])\\s*=\\s*\\k<s48>(?![$\\w])\\s*\\+\\s*1\\s*\\|\\s*0\\s*;\\s*var(?![$\\w])\\s*(?<s51>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s46>(?![$\\w])\\s*\\.\\s*\\k<s42>(?![$\\w])\\s*\\(\\s*\\k<s50>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s52>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\(?\\s*\\k<s51>(?![$\\w])\\s*\\.\\s*\\k<s28>(?![$\\w])\\s*=\\s*1\\s*,\\s*\\k<s51>(?![$\\w])\\s*\\.\\s*\\k<s43>(?![$\\w])\\s*=\\s*16\\s*,\\s*\\k<s51>(?![$\\w])\\s*\\.\\s*\\k<s30>(?![$\\w])\\s*=\\s*(?:"hull-static-top"|'hull-static-top')\\s*===\\s*\\k<s51>(?![$\\w])\\s*\\.\\s*\\k<s27>(?![$\\w])\\s*\\?\\s*\\k<s31>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s44>(?![$\\w])\\s*:\\s*\\k<s31>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s32>(?![$\\w])\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s53>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s51>(?![$\\w])\\s*;\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s34>(?![$\\w])\\s*\\(\\s*\\k<s53>(?![$\\w])\\s*\\)\\s*;?\\s*\\}\\s*while(?![$\\w])\\s*\\(\\s*\\k<s48>(?![$\\w])\\s*<\\s*\\k<s49>(?![$\\w])\\s*\\)\\s*;?\\s*(?<e6start>)(?<e6end>)\\}`,
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*\\s*\\(?\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*new(?![$\\w])\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*new(?![$\\w])\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])(?:\\s*\\(\\s*\\))?\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\s*\\(?\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\.5\\s*\\)\\s*,\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s16>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\s*\\(?\\s*\\k<s24>(?![$\\w])\\s*\\.\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?:"hull-main"|'hull-main')\\s*,\\s*\\k<s24>(?![$\\w])\\s*\\.\\s*(?<s28>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*1\\s*,\\s*\\k<s24>(?![$\\w])\\s*\\.\\s*(?<s29>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*!\\s*0\\s*,\\s*\\k<s24>(?![$\\w])\\s*\\.\\s*(?<s30>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s31>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s32>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s33>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s24>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s34>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*\\k<s33>(?![$\\w])\\s*\\)\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s35>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s36>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s37>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*0\\s*,\\s*(?<s38>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s35>(?![$\\w])\\s*\\.\\s*(?<s39>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\k<s37>(?![$\\w])\\s*<\\s*\\k<s38>(?![$\\w])\\s*\\)\\s*do(?![$\\w])\\s*\\{\\s*var(?![$\\w])\\s*(?<s40>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s37>(?![$\\w])\\s*;\\s*\\k<s37>(?![$\\w])\\s*=\\s*\\k<s37>(?![$\\w])\\s*\\+\\s*1\\s*\\|\\s*0\\s*;\\s*var(?![$\\w])\\s*(?<s41>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s35>(?![$\\w])\\s*\\.\\s*(?<s42>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s40>(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s26>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\s*\\(?\\s*\\k<s41>(?![$\\w])\\s*\\.\\s*\\k<s28>(?![$\\w])\\s*=\\s*1\\s*,\\s*\\k<s41>(?![$\\w])\\s*\\.\\s*(?<s43>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*16\\s*,\\s*\\k<s41>(?![$\\w])\\s*\\.\\s*\\k<s30>(?![$\\w])\\s*=\\s*(?:"hull-static-top"|'hull-static-top')\\s*===\\s*\\k<s41>(?![$\\w])\\s*\\.\\s*\\k<s27>(?![$\\w])\\s*\\?\\s*\\k<s31>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s44>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*:\\s*\\k<s31>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s32>(?![$\\w])\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s45>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s41>(?![$\\w])\\s*;\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s34>(?![$\\w])\\s*\\(\\s*\\k<s45>(?![$\\w])\\s*\\)\\s*;?\\s*\\}\\s*while(?![$\\w])\\s*\\(\\s*\\k<s37>(?![$\\w])\\s*<\\s*\\k<s38>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s46>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s47>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s48>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*0\\s*,\\s*(?<s49>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s46>(?![$\\w])\\s*\\.\\s*\\k<s39>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\k<s48>(?![$\\w])\\s*<\\s*\\k<s49>(?![$\\w])\\s*\\)\\s*do(?![$\\w])\\s*\\{\\s*var(?![$\\w])\\s*(?<s50>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s48>(?![$\\w])\\s*;\\s*\\k<s48>(?![$\\w])\\s*=\\s*\\k<s48>(?![$\\w])\\s*\\+\\s*1\\s*\\|\\s*0\\s*;\\s*var(?![$\\w])\\s*(?<s51>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s46>(?![$\\w])\\s*\\.\\s*\\k<s42>(?![$\\w])\\s*\\(\\s*\\k<s50>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s52>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\s*\\(?\\s*\\k<s51>(?![$\\w])\\s*\\.\\s*\\k<s28>(?![$\\w])\\s*=\\s*1\\s*,\\s*\\k<s51>(?![$\\w])\\s*\\.\\s*\\k<s43>(?![$\\w])\\s*=\\s*16\\s*,\\s*\\k<s51>(?![$\\w])\\s*\\.\\s*\\k<s30>(?![$\\w])\\s*=\\s*(?:"hull-static-top"|'hull-static-top')\\s*===\\s*\\k<s51>(?![$\\w])\\s*\\.\\s*\\k<s27>(?![$\\w])\\s*\\?\\s*\\k<s31>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s44>(?![$\\w])\\s*:\\s*\\k<s31>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s32>(?![$\\w])\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s53>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s51>(?![$\\w])\\s*;\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s34>(?![$\\w])\\s*\\(\\s*\\k<s53>(?![$\\w])\\s*\\)\\s*;?\\s*\\}\\s*while(?![$\\w])\\s*\\(\\s*\\k<s48>(?![$\\w])\\s*<\\s*\\k<s49>(?![$\\w])\\s*\\)\\s*;?\\s*(?<e6start>)(?<e6end>)\\}`,
                 roles: {
                   scene_tankSize: "s5",
                   scene_count: "s39",
@@ -20572,7 +20997,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 ]
               },
               {
-                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*if(?![$\\w])\\s*\\(\\s*!\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*0\\s*,\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*<\\s*\\k<s10>(?![$\\w])\\s*\\)\\s*do(?![$\\w])\\s*\\{\\s*var(?![$\\w])\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s9>(?![$\\w])\\s*;\\s*\\(?\\s*\\k<s9>(?![$\\w])\\s*=\\s*\\k<s9>(?![$\\w])\\s*\\+\\s*1\\s*\\|\\s*0\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s12>(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s2>(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\)?\\s*;?\\s*\\}\\s*while(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*<\\s*\\k<s10>(?![$\\w])\\s*\\)\\s*;?\\s*(?<e1start>)(?<e1end>)\\}",
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*if(?![$\\w])\\s*\\(\\s*!\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*0\\s*,\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*<\\s*\\k<s10>(?![$\\w])\\s*\\)\\s*do(?![$\\w])\\s*\\{\\s*var(?![$\\w])\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s9>(?![$\\w])\\s*;\\s*\\s*\\(?\\s*\\k<s9>(?![$\\w])\\s*=\\s*\\k<s9>(?![$\\w])\\s*\\+\\s*1\\s*\\|\\s*0\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s12>(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s2>(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\)?\\s*;?\\s*\\}\\s*while(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*<\\s*\\k<s10>(?![$\\w])\\s*\\)\\s*;?\\s*(?<e1start>)(?<e1end>)\\}",
                 roles: {
                   scene_tankActive: "s4",
                   scene_count: "s11",
@@ -20693,7 +21118,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 ]
               },
               {
-                pattern: "(?<![$\\w])\\s*\\(?\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*\\k<s1>(?![$\\w])\\s*\\)\\s*\\)?",
+                pattern: "(?<![$\\w])\\s*\\s*\\(?\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*\\k<s1>(?![$\\w])\\s*\\)\\s*\\)?",
                 roles: {
                   scene_tankPosition: "s1",
                   scene_tankMatrix: "s10"
@@ -20705,7 +21130,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 edits: []
               },
               {
-                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*\\(?\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*0\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*1\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*2\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*3\\s*\\]\\s*=\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*4\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*5\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*6\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*7\\s*\\]\\s*=\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*8\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*9\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*10\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*11\\s*\\]\\s*=\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*12\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*13\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*14\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*15\\s*\\]\\s*=\\s*1\\s*\\)?\\s*;?\\s*\\}",
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*\\s*\\(?\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*0\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*1\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*2\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*3\\s*\\]\\s*=\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*4\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*5\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*6\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*7\\s*\\]\\s*=\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*8\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*9\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*10\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*11\\s*\\]\\s*=\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*12\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*13\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*14\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*15\\s*\\]\\s*=\\s*1\\s*\\)?\\s*;?\\s*\\}",
                 roles: {
                   scene_matrix0: "s4",
                   scene_matrix1: "s5",
@@ -20727,7 +21152,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 edits: []
               },
               {
-                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*;\\s*return(?![$\\w])\\s*\\(?\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\)?\\s*;?\\s*\\}",
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*;\\s*return(?![$\\w])\\s*\\s*\\(?\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\)?\\s*;?\\s*\\}",
                 roles: {
                   scene_hullHalfSize: "s5",
                   scene_hullLocalMatrix: "s10"
@@ -20945,7 +21370,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 ]
               },
               {
-                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*\\(?\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"mvp"|'mvp')\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\(\\s*(?:"skyboxTexture"|'skyboxTexture')\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\(\\s*(?:"uFogColor"|'uFogColor')\\s*\\)\\s*\\)\\s*\\)?\\s*;?\\s*\\}`,
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*\\s*\\(?\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"mvp"|'mvp')\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\(\\s*(?:"skyboxTexture"|'skyboxTexture')\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\(\\s*(?:"uFogColor"|'uFogColor')\\s*\\)\\s*\\)\\s*\\)?\\s*;?\\s*\\}`,
                 roles: {
                   scene_skySampler: "s6"
                 },
@@ -20957,7 +21382,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 edits: []
               },
               {
-                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\(?\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*!\\s*1\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\*\\s*this(?![$\\w])\\s*\\.\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*34067\\s*\\)\\s*\\)?\\s*;?\\s*(?<e1start>)(?<e1end>)\\}",
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\s*\\(?\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*!\\s*1\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\*\\s*this(?![$\\w])\\s*\\.\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*34067\\s*\\)\\s*\\)?\\s*;?\\s*(?<e1start>)(?<e1end>)\\}",
                 roles: {
                   gl: "s10",
                   scene_skySampler: "s24"
@@ -21004,7 +21429,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 edits: []
               },
               {
-                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*\\(?\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*,\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\)\\s*,\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<e1start>)(?<e1end>)\\k<s9>(?![$\\w])(?<e2start>)(?<e2end>)\\s*\\)\\s*\\)?\\s*;?\\s*\\}",
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*\\s*\\(?\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*,\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\)\\s*,\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<e1start>)(?<e1end>)\\k<s9>(?![$\\w])(?<e2start>)(?<e2end>)\\s*\\)\\s*\\)?\\s*;?\\s*\\}",
                 roles: {
                   gl: "s11",
                   scene_nativeFogClass: "s1",
@@ -21032,7 +21457,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 ]
               },
               {
-                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*\\(?\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*,\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<e1start>)(?<e1end>)\\k<s7>(?![$\\w])(?<e2start>)(?<e2end>)\\s*\\)\\s*\\)?\\s*;?\\s*\\}",
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*\\s*\\(?\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*,\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<e1start>)(?<e1end>)\\k<s7>(?![$\\w])(?<e2start>)(?<e2end>)\\s*\\)\\s*\\)?\\s*;?\\s*\\}",
                 roles: {
                   gl: "s9",
                   scene_nativeFogClass: "s1",
@@ -21060,7 +21485,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 ]
               },
               {
-                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\(?\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*!\\s*1\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<e1start>)(?<e1end>)\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\*\\s*this(?![$\\w])\\s*\\.\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])(?<e2start>)(?<e2end>)\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*34067\\s*\\)\\s*\\)?\\s*;?\\s*\\}",
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\s*\\(?\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*!\\s*1\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<e1start>)(?<e1end>)\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\*\\s*this(?![$\\w])\\s*\\.\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])(?<e2start>)(?<e2end>)\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*34067\\s*\\)\\s*\\)?\\s*;?\\s*\\}",
                 roles: {
                   gl: "s10",
                   red: "s17",
@@ -21101,7 +21526,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 edits: []
               },
               {
-                pattern: "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\(?\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)?\\s*;?\\s*\\}",
+                pattern: "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\s*\\(?\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)?\\s*;?\\s*\\}",
                 roles: {
                   scene_dropZoneEnum: "s2",
                   scene_dropZoneLayer: "s0"
@@ -21114,7 +21539,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 edits: []
               },
               {
-                pattern: "(?<![$\\w])\\s*\\(?\\s*this(?![$\\w])\\s*\\.\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<e1start>)(?<e1end>)(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)(?<e2start>)(?<e2end>)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*32926\\s*\\)\\s*\\)?",
+                pattern: "(?<![$\\w])\\s*\\s*\\(?\\s*this(?![$\\w])\\s*\\.\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<e1start>)(?<e1end>)(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)(?<e2start>)(?<e2end>)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*32926\\s*\\)\\s*\\)?",
                 roles: {
                   gl: "s6",
                   scene_dropZoneLayer: "s2"
@@ -21805,7 +22230,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 edits: []
               },
               {
-                pattern: "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*for(?![$\\w])\\s*\\(\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*new(?![$\\w])\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])(?:\\s*\\(\\s*\\))?\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*,\\s*10\\s*\\)\\s*\\)\\s*,\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s13>(?![$\\w])\\s*\\)\\s*;?\\s*\\}\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*;\\s*for(?![$\\w])\\s*\\(\\s*var(?![$\\w])\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\k<s18>(?![$\\w])\\s*,\\s*10\\s*\\)\\s*\\)\\s*,\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s18>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s21>(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s21>(?![$\\w])\\s*\\.\\s*\\k<s15>(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*\\k<s20>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\(\\s*\\k<s22>(?![$\\w])\\s*\\)\\s*;?\\s*\\}\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s17>(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*\\)\\s*;\\s*for(?![$\\w])\\s*\\(\\s*var(?![$\\w])\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s28>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s24>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s29>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s30>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*\\k<s15>(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*null(?![$\\w])\\s*==\\s*\\k<s29>(?![$\\w])\\s*\\|\\|\\s*\\k<s26>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\(\\s*\\k<s29>(?![$\\w])\\s*\\)\\s*;?\\s*\\}\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s17>(?![$\\w])\\s*\\(\\s*\\k<s26>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s31>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*0\\s*,\\s*(?<s32>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s33>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\k<s31>(?![$\\w])\\s*<\\s*\\k<s32>(?![$\\w])\\s*\\)\\s*do(?![$\\w])\\s*\\{\\s*var(?![$\\w])\\s*(?<s34>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s31>(?![$\\w])\\s*;\\(?\\s*\\s*\\k<s31>(?![$\\w])\\s*=\\s*\\k<s31>(?![$\\w])\\s*\\+\\s*1\\s*\\|\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s35>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s34>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s36>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)?\\s*;?\\s*\\}\\s*while(?![$\\w])\\s*\\(\\s*\\k<s31>(?![$\\w])\\s*<\\s*\\k<s32>(?![$\\w])\\s*\\)\\s*;\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;?\\s*\\}",
+                pattern: "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*for(?![$\\w])\\s*\\(\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*new(?![$\\w])\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])(?:\\s*\\(\\s*\\))?\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*,\\s*10\\s*\\)\\s*\\)\\s*,\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s13>(?![$\\w])\\s*\\)\\s*;?\\s*\\}\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*;\\s*for(?![$\\w])\\s*\\(\\s*var(?![$\\w])\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s8>(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*\\(\\s*\\k<s18>(?![$\\w])\\s*,\\s*10\\s*\\)\\s*\\)\\s*,\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s18>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s21>(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s21>(?![$\\w])\\s*\\.\\s*\\k<s15>(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*\\k<s20>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\(\\s*\\k<s22>(?![$\\w])\\s*\\)\\s*;?\\s*\\}\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s17>(?![$\\w])\\s*\\(\\s*\\k<s20>(?![$\\w])\\s*\\)\\s*;\\s*for(?![$\\w])\\s*\\(\\s*var(?![$\\w])\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s28>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s24>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s29>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s30>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s28>(?![$\\w])\\s*\\.\\s*\\k<s15>(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*;\\s*null(?![$\\w])\\s*==\\s*\\k<s29>(?![$\\w])\\s*\\|\\|\\s*\\k<s26>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\(\\s*\\k<s29>(?![$\\w])\\s*\\)\\s*;?\\s*\\}\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s17>(?![$\\w])\\s*\\(\\s*\\k<s26>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s31>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*0\\s*,\\s*(?<s32>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s33>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\k<s31>(?![$\\w])\\s*<\\s*\\k<s32>(?![$\\w])\\s*\\)\\s*do(?![$\\w])\\s*\\{\\s*var(?![$\\w])\\s*(?<s34>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s31>(?![$\\w])\\s*;\\s*\\(?\\s*\\s*\\k<s31>(?![$\\w])\\s*=\\s*\\k<s31>(?![$\\w])\\s*\\+\\s*1\\s*\\|\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s35>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s34>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s36>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)?\\s*;?\\s*\\}\\s*while(?![$\\w])\\s*\\(\\s*\\k<s31>(?![$\\w])\\s*<\\s*\\k<s32>(?![$\\w])\\s*\\)\\s*;\\s*return(?![$\\w])\\s*\\k<s3>(?![$\\w])\\s*;?\\s*\\}",
                 roles: {
                   scene_count: "s33",
                   scene_get: "s35"
@@ -21817,7 +22242,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 edits: []
               },
               {
-                pattern: "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\(?\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s2>(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s2>(?![$\\w])\\s*\\)?\\s*;?\\s*\\}",
+                pattern: "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\s*\\(?\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s2>(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s2>(?![$\\w])\\s*\\)?\\s*;?\\s*\\}",
                 roles: {
                   scene_mapx: "s5",
                   scene_mapy: "s6",
@@ -21957,7 +22382,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 ]
               },
               {
-                pattern: "(?<![$\\w])\\s*\\(?\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*0\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*0\\s*\\)\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\(\\s*0\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*,\\s*4\\s*\\)\\s*,\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\(\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*\\[\\s*8\\s*\\]\\s*=\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s9>(?![$\\w])\\s*\\[\\s*9\\s*\\]\\s*=\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s9>(?![$\\w])\\s*\\[\\s*10\\s*\\]\\s*=\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)?",
+                pattern: "(?<![$\\w])\\s*\\s*\\(?\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*0\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*0\\s*\\)\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\(\\s*0\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*,\\s*4\\s*\\)\\s*,\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s1>(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\(\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*\\)\\s*\\[\\s*8\\s*\\]\\s*=\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s9>(?![$\\w])\\s*\\[\\s*9\\s*\\]\\s*=\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s9>(?![$\\w])\\s*\\[\\s*10\\s*\\]\\s*=\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)?",
                 roles: {
                   scene_lightingData: "s4",
                   scene_lightingBuffer: "s3"
@@ -22005,7 +22430,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 ]
               },
               {
-                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\(?\\s*\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*new(?![$\\w])\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*new(?![$\\w])\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])(?:\\s*\\(\\s*\\))?\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\(?\\s*\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\.5\\s*\\)\\s*,\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s16>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\(?\\s*\\s*\\k<s24>(?![$\\w])\\s*\\.\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?:"hull-main"|'hull-main')\\s*,\\s*\\k<s24>(?![$\\w])\\s*\\.\\s*(?<s28>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*1\\s*,\\s*\\k<s24>(?![$\\w])\\s*\\.\\s*(?<s29>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*!\\s*0\\s*,\\s*\\k<s24>(?![$\\w])\\s*\\.\\s*(?<s30>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s31>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s32>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s33>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s24>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s34>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*\\k<s33>(?![$\\w])\\s*\\)\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s35>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s36>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s37>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*0\\s*,\\s*(?<s38>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s35>(?![$\\w])\\s*\\.\\s*(?<s39>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\k<s37>(?![$\\w])\\s*<\\s*\\k<s38>(?![$\\w])\\s*\\)\\s*do(?![$\\w])\\s*\\{\\s*var(?![$\\w])\\s*(?<s40>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s37>(?![$\\w])\\s*;\\s*\\k<s37>(?![$\\w])\\s*=\\s*\\k<s37>(?![$\\w])\\s*\\+\\s*1\\s*\\|\\s*0\\s*;\\s*var(?![$\\w])\\s*(?<s41>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s35>(?![$\\w])\\s*\\.\\s*(?<s42>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s40>(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s26>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\(?\\s*\\s*\\k<s41>(?![$\\w])\\s*\\.\\s*\\k<s28>(?![$\\w])\\s*=\\s*1\\s*,\\s*\\k<s41>(?![$\\w])\\s*\\.\\s*(?<s43>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*16\\s*,\\s*\\k<s41>(?![$\\w])\\s*\\.\\s*\\k<s30>(?![$\\w])\\s*=\\s*(?:"hull-static-top"|'hull-static-top')\\s*===\\s*\\k<s41>(?![$\\w])\\s*\\.\\s*\\k<s27>(?![$\\w])\\s*\\?\\s*\\k<s31>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s44>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*:\\s*\\k<s31>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s32>(?![$\\w])\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s45>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s41>(?![$\\w])\\s*;\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s34>(?![$\\w])\\s*\\(\\s*\\k<s45>(?![$\\w])\\s*\\)\\s*;?\\s*\\}\\s*while(?![$\\w])\\s*\\(\\s*\\k<s37>(?![$\\w])\\s*<\\s*\\k<s38>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s46>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s47>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s48>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*0\\s*,\\s*(?<s49>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s46>(?![$\\w])\\s*\\.\\s*\\k<s39>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\k<s48>(?![$\\w])\\s*<\\s*\\k<s49>(?![$\\w])\\s*\\)\\s*do(?![$\\w])\\s*\\{\\s*var(?![$\\w])\\s*(?<s50>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s48>(?![$\\w])\\s*;\\s*\\k<s48>(?![$\\w])\\s*=\\s*\\k<s48>(?![$\\w])\\s*\\+\\s*1\\s*\\|\\s*0\\s*;\\s*var(?![$\\w])\\s*(?<s51>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s46>(?![$\\w])\\s*\\.\\s*\\k<s42>(?![$\\w])\\s*\\(\\s*\\k<s50>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s52>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\(?\\s*\\s*\\k<s51>(?![$\\w])\\s*\\.\\s*\\k<s28>(?![$\\w])\\s*=\\s*1\\s*,\\s*\\k<s51>(?![$\\w])\\s*\\.\\s*\\k<s43>(?![$\\w])\\s*=\\s*16\\s*,\\s*\\k<s51>(?![$\\w])\\s*\\.\\s*\\k<s30>(?![$\\w])\\s*=\\s*(?:"hull-static-top"|'hull-static-top')\\s*===\\s*\\k<s51>(?![$\\w])\\s*\\.\\s*\\k<s27>(?![$\\w])\\s*\\?\\s*\\k<s31>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s44>(?![$\\w])\\s*:\\s*\\k<s31>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s32>(?![$\\w])\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s53>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s51>(?![$\\w])\\s*;\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s34>(?![$\\w])\\s*\\(\\s*\\k<s53>(?![$\\w])\\s*\\)\\s*;?\\s*\\}\\s*while(?![$\\w])\\s*\\(\\s*\\k<s48>(?![$\\w])\\s*<\\s*\\k<s49>(?![$\\w])\\s*\\)(?<e6start>)(?<e6end>)\\s*;?\\s*\\}`,
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*\\(?\\s*\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*new(?![$\\w])\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*new(?![$\\w])\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])(?:\\s*\\(\\s*\\))?\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\(?\\s*\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\.5\\s*\\)\\s*,\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*,\\s*\\k<s16>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\(?\\s*\\s*\\k<s24>(?![$\\w])\\s*\\.\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?:"hull-main"|'hull-main')\\s*,\\s*\\k<s24>(?![$\\w])\\s*\\.\\s*(?<s28>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*1\\s*,\\s*\\k<s24>(?![$\\w])\\s*\\.\\s*(?<s29>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*!\\s*0\\s*,\\s*\\k<s24>(?![$\\w])\\s*\\.\\s*(?<s30>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s31>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s32>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s33>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s24>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s34>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*\\k<s33>(?![$\\w])\\s*\\)\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s35>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s36>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s37>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*0\\s*,\\s*(?<s38>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s35>(?![$\\w])\\s*\\.\\s*(?<s39>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\k<s37>(?![$\\w])\\s*<\\s*\\k<s38>(?![$\\w])\\s*\\)\\s*do(?![$\\w])\\s*\\{\\s*var(?![$\\w])\\s*(?<s40>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s37>(?![$\\w])\\s*;\\s*\\k<s37>(?![$\\w])\\s*=\\s*\\k<s37>(?![$\\w])\\s*\\+\\s*1\\s*\\|\\s*0\\s*;\\s*var(?![$\\w])\\s*(?<s41>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s35>(?![$\\w])\\s*\\.\\s*(?<s42>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s40>(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s26>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\(?\\s*\\s*\\k<s41>(?![$\\w])\\s*\\.\\s*\\k<s28>(?![$\\w])\\s*=\\s*1\\s*,\\s*\\k<s41>(?![$\\w])\\s*\\.\\s*(?<s43>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*16\\s*,\\s*\\k<s41>(?![$\\w])\\s*\\.\\s*\\k<s30>(?![$\\w])\\s*=\\s*(?:"hull-static-top"|'hull-static-top')\\s*===\\s*\\k<s41>(?![$\\w])\\s*\\.\\s*\\k<s27>(?![$\\w])\\s*\\?\\s*\\k<s31>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s44>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*:\\s*\\k<s31>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s32>(?![$\\w])\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s45>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s41>(?![$\\w])\\s*;\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s34>(?![$\\w])\\s*\\(\\s*\\k<s45>(?![$\\w])\\s*\\)\\s*;?\\s*\\}\\s*while(?![$\\w])\\s*\\(\\s*\\k<s37>(?![$\\w])\\s*<\\s*\\k<s38>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s46>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s47>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s48>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*0\\s*,\\s*(?<s49>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s46>(?![$\\w])\\s*\\.\\s*\\k<s39>(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\k<s48>(?![$\\w])\\s*<\\s*\\k<s49>(?![$\\w])\\s*\\)\\s*do(?![$\\w])\\s*\\{\\s*var(?![$\\w])\\s*(?<s50>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s48>(?![$\\w])\\s*;\\s*\\k<s48>(?![$\\w])\\s*=\\s*\\k<s48>(?![$\\w])\\s*\\+\\s*1\\s*\\|\\s*0\\s*;\\s*var(?![$\\w])\\s*(?<s51>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s46>(?![$\\w])\\s*\\.\\s*\\k<s42>(?![$\\w])\\s*\\(\\s*\\k<s50>(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s52>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\(?\\s*\\s*\\k<s51>(?![$\\w])\\s*\\.\\s*\\k<s28>(?![$\\w])\\s*=\\s*1\\s*,\\s*\\k<s51>(?![$\\w])\\s*\\.\\s*\\k<s43>(?![$\\w])\\s*=\\s*16\\s*,\\s*\\k<s51>(?![$\\w])\\s*\\.\\s*\\k<s30>(?![$\\w])\\s*=\\s*(?:"hull-static-top"|'hull-static-top')\\s*===\\s*\\k<s51>(?![$\\w])\\s*\\.\\s*\\k<s27>(?![$\\w])\\s*\\?\\s*\\k<s31>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s44>(?![$\\w])\\s*:\\s*\\k<s31>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s32>(?![$\\w])\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s53>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s51>(?![$\\w])\\s*;\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s34>(?![$\\w])\\s*\\(\\s*\\k<s53>(?![$\\w])\\s*\\)\\s*;?\\s*\\}\\s*while(?![$\\w])\\s*\\(\\s*\\k<s48>(?![$\\w])\\s*<\\s*\\k<s49>(?![$\\w])\\s*\\)(?<e6start>)(?<e6end>)\\s*;?\\s*\\}`,
                 roles: {
                   scene_tankSize: "s5",
                   scene_count: "s39",
@@ -22147,7 +22572,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 ]
               },
               {
-                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*if(?![$\\w])\\s*\\(\\s*!\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*0\\s*,\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*<\\s*\\k<s10>(?![$\\w])\\s*\\)\\s*do(?![$\\w])\\s*\\{\\s*var(?![$\\w])\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s9>(?![$\\w])\\s*;\\(?\\s*\\s*\\k<s9>(?![$\\w])\\s*=\\s*\\k<s9>(?![$\\w])\\s*\\+\\s*1\\s*\\|\\s*0\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s12>(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s2>(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\)?\\s*;?\\s*\\}\\s*while(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*<\\s*\\k<s10>(?![$\\w])\\s*\\)(?<e1start>)(?<e1end>)\\s*;?\\s*\\}",
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*if(?![$\\w])\\s*\\(\\s*!\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*return(?![$\\w])\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*;\\s*var(?![$\\w])\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*0\\s*,\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*<\\s*\\k<s10>(?![$\\w])\\s*\\)\\s*do(?![$\\w])\\s*\\{\\s*var(?![$\\w])\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s9>(?![$\\w])\\s*;\\s*\\(?\\s*\\s*\\k<s9>(?![$\\w])\\s*=\\s*\\k<s9>(?![$\\w])\\s*\\+\\s*1\\s*\\|\\s*0\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s12>(?![$\\w])\\s*\\)\\s*\\.\\s*\\k<s2>(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\)\\s*\\)?\\s*;?\\s*\\}\\s*while(?![$\\w])\\s*\\(\\s*\\k<s9>(?![$\\w])\\s*<\\s*\\k<s10>(?![$\\w])\\s*\\)(?<e1start>)(?<e1end>)\\s*;?\\s*\\}",
                 roles: {
                   scene_tankActive: "s4",
                   scene_count: "s11",
@@ -22268,7 +22693,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 ]
               },
               {
-                pattern: "(?<![$\\w])\\s*\\(?\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*\\k<s1>(?![$\\w])\\s*\\)\\s*\\)?",
+                pattern: "(?<![$\\w])\\s*\\s*\\(?\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*\\k<s7>(?![$\\w])\\s*,\\s*\\k<s0>(?![$\\w])\\s*\\.\\s*\\k<s1>(?![$\\w])\\s*\\)\\s*\\)?",
                 roles: {
                   scene_tankPosition: "s1",
                   scene_tankMatrix: "s10"
@@ -22280,7 +22705,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 edits: []
               },
               {
-                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\(?\\s*\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*0\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*1\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*2\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*3\\s*\\]\\s*=\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*4\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*5\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*6\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*7\\s*\\]\\s*=\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*8\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*9\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*10\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*11\\s*\\]\\s*=\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*12\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*13\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*14\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*15\\s*\\]\\s*=\\s*1\\s*\\)?\\s*;?\\s*\\}",
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*\\(?\\s*\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*0\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*1\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*2\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*3\\s*\\]\\s*=\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*4\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*5\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*6\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*7\\s*\\]\\s*=\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*8\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*9\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*10\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*11\\s*\\]\\s*=\\s*0\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*12\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*13\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*14\\s*\\]\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\[\\s*15\\s*\\]\\s*=\\s*1\\s*\\)?\\s*;?\\s*\\}",
                 roles: {
                   scene_matrix0: "s4",
                   scene_matrix1: "s5",
@@ -22302,7 +22727,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 edits: []
               },
               {
-                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*;\\s*return(?![$\\w])\\s*\\(?\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\)?\\s*;?\\s*\\}",
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*;\\s*return(?![$\\w])\\s*\\s*\\(?\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\)?\\s*;?\\s*\\}",
                 roles: {
                   scene_hullHalfSize: "s5",
                   scene_hullLocalMatrix: "s10"
@@ -22520,7 +22945,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 ]
               },
               {
-                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\(?\\s*\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"mvp"|'mvp')\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\(\\s*(?:"skyboxTexture"|'skyboxTexture')\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\(\\s*(?:"uFogColor"|'uFogColor')\\s*\\)\\s*\\)\\s*\\)?\\s*;?\\s*\\}`,
+                pattern: `(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*\\(?\\s*\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"mvp"|'mvp')\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\(\\s*(?:"skyboxTexture"|'skyboxTexture')\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*\\(\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s5>(?![$\\w])\\s*\\(\\s*(?:"uFogColor"|'uFogColor')\\s*\\)\\s*\\)\\s*\\)?\\s*;?\\s*\\}`,
                 roles: {
                   scene_skySampler: "s6"
                 },
@@ -22532,7 +22957,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 edits: []
               },
               {
-                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\(?\\s*\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*!\\s*1\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\*\\s*this(?![$\\w])\\s*\\.\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*34067\\s*\\)\\s*\\)?(?<e1start>)(?<e1end>)\\s*;?\\s*\\}",
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\(?\\s*\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*!\\s*1\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\*\\s*this(?![$\\w])\\s*\\.\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*34067\\s*\\)\\s*\\)?(?<e1start>)(?<e1end>)\\s*;?\\s*\\}",
                 roles: {
                   gl: "s10",
                   scene_skySampler: "s24"
@@ -22579,7 +23004,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 edits: []
               },
               {
-                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\(?\\s*\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*,\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\)\\s*,\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,(?<e1start>)(?<e1end>)\\s*\\k<s9>(?![$\\w])(?<e2start>)(?<e2end>)\\s*\\)\\s*\\)?\\s*;?\\s*\\}",
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*\\(?\\s*\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\)\\s*,\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\)\\s*,\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s11>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,(?<e1start>)(?<e1end>)\\s*\\k<s9>(?![$\\w])(?<e2start>)(?<e2end>)\\s*\\)\\s*\\)?\\s*;?\\s*\\}",
                 roles: {
                   gl: "s11",
                   scene_nativeFogClass: "s1",
@@ -22607,7 +23032,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 ]
               },
               {
-                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\(?\\s*\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*,\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,(?<e1start>)(?<e1end>)\\s*\\k<s7>(?![$\\w])(?<e2start>)(?<e2end>)\\s*\\)\\s*\\)?\\s*;?\\s*\\}",
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*\\(?\\s*\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*,\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s9>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,(?<e1start>)(?<e1end>)\\s*\\k<s7>(?![$\\w])(?<e2start>)(?<e2end>)\\s*\\)\\s*\\)?\\s*;?\\s*\\}",
                 roles: {
                   gl: "s9",
                   scene_nativeFogClass: "s1",
@@ -22635,7 +23060,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 ]
               },
               {
-                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\(?\\s*\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*!\\s*1\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,(?<e1start>)(?<e1end>)\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\*\\s*this(?![$\\w])\\s*\\.\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])(?<e2start>)(?<e2end>)\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*34067\\s*\\)\\s*\\)?\\s*;?\\s*\\}",
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*\\(?\\s*\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*!\\s*1\\s*,\\s*\\k<s6>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s10>(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,(?<e1start>)(?<e1end>)\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s16>(?![$\\w])\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\*\\s*this(?![$\\w])\\s*\\.\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])(?<e2start>)(?<e2end>)\\s*\\)\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s7>(?![$\\w])\\s*\\.\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*34067\\s*\\)\\s*\\)?\\s*;?\\s*\\}",
                 roles: {
                   gl: "s10",
                   red: "s17",
@@ -22676,7 +23101,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 edits: []
               },
               {
-                pattern: "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\(?\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)?\\s*;?\\s*\\}",
+                pattern: "(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\{\\s*return(?![$\\w])\\s*\\s*\\(?\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)?\\s*;?\\s*\\}",
                 roles: {
                   scene_dropZoneEnum: "s2",
                   scene_dropZoneLayer: "s0"
@@ -22689,7 +23114,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 edits: []
               },
               {
-                pattern: "(?<![$\\w])\\s*\\(?\\s*this(?![$\\w])\\s*\\.\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,(?<e1start>)(?<e1end>)\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)(?<e2start>)(?<e2end>)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*32926\\s*\\)\\s*\\)?",
+                pattern: "(?<![$\\w])\\s*\\s*\\(?\\s*this(?![$\\w])\\s*\\.\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,(?<e1start>)(?<e1end>)\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)(?<e2start>)(?<e2end>)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*32926\\s*\\)\\s*\\)?",
                 roles: {
                   gl: "s6",
                   scene_dropZoneLayer: "s2"
@@ -22764,6 +23189,241 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
     }
   });
 
+  // src/core/gameBundleRequest.ts
+  async function readGameBundle(url, timeoutMs = 15e3) {
+    const controller = new AbortController();
+    let timer;
+    const deadline = new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        reject(new Error("Game bundle request timed out"));
+        controller.abort();
+      }, timeoutMs);
+    });
+    try {
+      const request = (async () => {
+        const response = await fetch(url, { signal: controller.signal });
+        if (!response.ok) throw new Error(`Game bundle request failed: HTTP ${response.status}`);
+        const source = await response.text();
+        if (!source.trim()) throw new Error("Game bundle response is empty");
+        return source;
+      })();
+      return await Promise.race([request, deadline]);
+    } finally {
+      if (timer !== void 0) clearTimeout(timer);
+    }
+  }
+  var init_gameBundleRequest = __esm({
+    "src/core/gameBundleRequest.ts"() {
+      "use strict";
+    }
+  });
+
+  // src/core/gameBundleURL.ts
+  function isGameBundleURL(value, allowQuery = false) {
+    try {
+      const url = new URL(value);
+      return /^(?:https?:)$/.test(url.protocol) && /(?:^|\.)tankionline\.com$/i.test(url.hostname) && /^\/(?:browser-public\/)?static\/js\/main\.[\w-]+\.js$/.test(url.pathname) && (allowQuery || !url.search);
+    } catch {
+      return false;
+    }
+  }
+  function nativeGameBundleURL(value) {
+    const url = new URL(value);
+    url.searchParams.set("ki_native", "1");
+    return url.href;
+  }
+  var init_gameBundleURL = __esm({
+    "src/core/gameBundleURL.ts"() {
+      "use strict";
+    }
+  });
+
+  // src/core/gameLoader.ts
+  function installGameLoader(page, prepare, report = () => {
+  }) {
+    if (page.__kaspGameLoader) return page.__kaspGameLoader;
+    const doc = page.document;
+    const state = {
+      phase: page.__kaspNativeGateStarted ? "native" : "waiting",
+      source: null,
+      reason: null,
+      entered: false,
+      completed: false,
+      nativeFallback: !!page.__kaspNativeGateStarted
+    };
+    const token = Math.random().toString(36).slice(2);
+    const controller = new AbortController();
+    const forwarded = /* @__PURE__ */ new WeakSet();
+    const seen = /* @__PURE__ */ new WeakSet();
+    const pendingEvents = /* @__PURE__ */ new Set();
+    let original;
+    let timer;
+    let sourceURL = "";
+    let nativeSource = "";
+    const notify = () => {
+      try {
+        report({ ...state });
+      } catch {
+      }
+    };
+    const set = (phase, reason = null) => {
+      state.phase = phase;
+      state.reason = reason;
+      notify();
+    };
+    const clearDeadline = () => {
+      if (timer !== void 0) page.clearTimeout(timer);
+      timer = void 0;
+    };
+    const forward = (type2) => {
+      for (const script of pendingEvents) {
+        pendingEvents.delete(script);
+        const event = new Event(type2);
+        forwarded.add(event);
+        script.dispatchEvent(event);
+      }
+    };
+    const fail = (reason) => {
+      clearDeadline();
+      set("failed", reason);
+      console.error("[KI Loader]", reason);
+      forward("error");
+    };
+    const native = (script, reason) => {
+      if (state.entered || state.nativeFallback) return;
+      clearDeadline();
+      controller.abort();
+      original = script;
+      state.source = script.src;
+      state.nativeFallback = true;
+      set("native", reason);
+      console.warn("[KI Loader] Loading the native game:", reason);
+      try {
+        const fallback = doc.createElement("script");
+        for (const attr of Array.from(script.attributes)) fallback.setAttribute(attr.name, attr.value);
+        fallback.src = nativeGameBundleURL(script.src);
+        nativeSource = fallback.src;
+        fallback.async = script.async;
+        fallback.nonce = script.nonce;
+        fallback.addEventListener("load", () => {
+          if (state.phase === "failed") return;
+          state.completed = true;
+          notify();
+          forward("load");
+        }, { once: true });
+        fallback.addEventListener("error", () => fail("native-load-failed"), { once: true });
+        (doc.head || doc.documentElement).appendChild(fallback);
+      } catch (error) {
+        fail(`native-insertion-failed: ${String(error)}`);
+      }
+    };
+    const api = {
+      status: () => ({ ...state }),
+      enter(value) {
+        if (value !== token || controller.signal.aborted || state.nativeFallback || state.entered) return false;
+        state.entered = true;
+        set("executing");
+        return true;
+      },
+      complete(value) {
+        if (value !== token || !state.entered || state.phase !== "executing") return;
+        state.completed = true;
+        clearDeadline();
+        set("running");
+      },
+      load(script) {
+        if (!isGameBundleURL(script.src) || seen.has(script)) return;
+        seen.add(script);
+        pendingEvents.add(script);
+        if (state.phase !== "waiting") {
+          if (state.completed) forward("load");
+          else if (state.phase === "failed") forward("error");
+          return;
+        }
+        original = script;
+        state.source = script.src;
+        const type2 = script.type.trim().toLowerCase();
+        if (type2 === "module" || script.noModule || script.integrity) {
+          native(script, "native-script-contract");
+          return;
+        }
+        if (type2 && !/^(?:text|application)\/(?:java|ecma)script$/.test(type2)) {
+          native(script, "unsupported-script-type");
+          return;
+        }
+        set("fetching");
+        void (async () => {
+          try {
+            const source = await readGameBundle(nativeGameBundleURL(script.src));
+            if (controller.signal.aborted) return;
+            set("preparing");
+            const deadline = new Promise((_, reject) => {
+              timer = page.setTimeout(() => {
+                reject(new Error("patch-preparation-timeout"));
+                controller.abort();
+              }, 15e3);
+            });
+            const code = await Promise.race([prepare(source, controller.signal), deadline]);
+            clearDeadline();
+            if (controller.signal.aborted || state.nativeFallback) return;
+            if (!code.trim()) throw new Error("empty-patched-source");
+            sourceURL = `ki-game-bundle-${token}.js`;
+            const setup = `if(!window.__kaspGameLoader.enter(${JSON.stringify(token)}))throw new Error("Cancelled game startup");`;
+            const replacement = doc.createElement("script");
+            replacement.type = script.type;
+            replacement.nonce = script.nonce;
+            replacement.textContent = clientPatchHeader(code, "/*ki-game-loader:", {}, setup) + code + `
+;window.__kaspGameLoader.complete(${JSON.stringify(token)});
+//# sourceURL=${sourceURL}`;
+            (doc.head || doc.documentElement).appendChild(replacement);
+            if (!state.entered) native(script, "patched-script-not-executed");
+            else if (!state.completed) {
+              if (state.phase !== "failed") fail("game-runtime-error-after-start");
+            } else forward("load");
+          } catch (error) {
+            if (state.entered) {
+              if (state.phase !== "failed") fail(`game-error-after-start: ${String(error)}`);
+            } else native(script, String(error));
+          } finally {
+            clearDeadline();
+          }
+        })();
+      }
+    };
+    page.__kaspGameLoader = api;
+    doc.addEventListener("load", (event) => {
+      if (forwarded.has(event) || !(event.target instanceof HTMLScriptElement) || !isGameBundleURL(event.target.src, true)) return;
+      if (original && isGameBundleURL(event.target.src)) event.stopImmediatePropagation();
+      else if (state.phase === "waiting") {
+        state.source = event.target.src;
+        state.completed = true;
+        set("native", "network-gate-unavailable");
+      }
+    }, true);
+    doc.addEventListener("error", (event) => {
+      if (forwarded.has(event) || !(event.target instanceof HTMLScriptElement) || !isGameBundleURL(event.target.src)) return;
+      if (state.phase === "waiting") {
+        event.stopImmediatePropagation();
+        seen.add(event.target);
+        pendingEvents.add(event.target);
+        native(event.target, "gate-resource-error");
+      }
+    }, true);
+    page.addEventListener("error", (event) => {
+      if (state.entered && !state.completed && event.filename?.endsWith(sourceURL) && state.phase !== "failed") fail("game-runtime-error-after-start");
+      else if (state.nativeFallback && nativeSource && event.filename === nativeSource && state.phase !== "failed") fail("native-runtime-error");
+    });
+    return api;
+  }
+  var init_gameLoader = __esm({
+    "src/core/gameLoader.ts"() {
+      "use strict";
+      init_clientPatches();
+      init_gameBundleRequest();
+      init_gameBundleURL();
+    }
+  });
+
   // src/kasp_injector.ts
   var require_kasp_injector = __commonJS({
     "src/kasp_injector.ts"() {
@@ -22804,8 +23464,10 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
       init_rainWeather();
       init_patch();
       init_rain_weather();
+      init_gameLoader();
       (function() {
         "use strict";
+        if (window.__kaspGameLoader || window.__kaspNativeGateStarted) return;
         installFeatureDiagnostics(window, "page");
         featureScope("rainWeather").run(() => {
           window.__kaspRain = installRainWeather(window);
@@ -22900,243 +23562,223 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
             };
           }
         }
-        let bundleIntercepted = false;
-        const observer = new MutationObserver((mutations) => {
-          for (const m of mutations) {
-            for (const node of Array.from(m.addedNodes)) {
-              if (!bundleIntercepted && node instanceof HTMLScriptElement && node.src.includes("/static/js/main.")) {
-                bundleIntercepted = true;
-                window.__kaspRain?.patch?.("loading");
-                const originalScript = document.createElement("script");
-                for (const attribute of Array.from(node.attributes)) {
-                  originalScript.setAttribute(attribute.name, attribute.value);
-                }
-                originalScript.async = node.async;
-                originalScript.nonce = node.nonce;
-                node.type = "javascript/blocked";
-                node.remove();
-                observer.disconnect();
-                let sourceForPatches;
-                fetch(node.src).then((res) => {
-                  if (!res.ok) throw new Error(`Game bundle request failed: HTTP ${res.status}`);
-                  return res.text();
-                }).then(async (code) => {
-                  const originalCode = code;
-                  sourceForPatches = originalCode;
-                  const prepared = [];
-                  let bonusPlan;
-                  let arcadePlan;
-                  let augmentPlan;
-                  let garageDetailsPlan;
-                  let garageItemsPlan;
-                  let garageInventoryPlan;
-                  let battlePresencePlan;
-                  let battleStatisticsPlan;
-                  let userActionPlan;
-                  let criticalPlan;
-                  let directionPlan;
-                  const reportBonus = (status) => {
-                    hookStatus = status;
-                    diagnostics.record(status);
-                    if (!status.ready) console.warn("[KI Overdrive] AST mapping unavailable or incomplete:", status);
-                  };
-                  try {
-                    bonusPlan = await selectBonusPatchPlan(originalCode, overdrive_default.plans);
-                    if (patchBonusPickups(originalCode, reportBonus, bonusPlan) !== originalCode && bonusPlan) prepared.push(bonusPlan);
-                  } catch (error) {
-                    reportBonus({ kind: "hooks", ready: false, issues: ["overdrive-patch-error"], error: String(error) });
-                  }
-                  const reportArcade = (status) => {
-                    arcadeHookStatus = status;
-                    if (!status.hooked) console.warn("[KI Arcade reload] Native bar hook unavailable:", status);
-                  };
-                  try {
-                    let enabled = true;
-                    try {
-                      enabled = localStorage.getItem("kasp_arcade_reload_enabled") !== "false";
-                    } catch {
-                    }
-                    if (enabled) {
-                      arcadePlan = await selectArcadeReloadPlan(originalCode, arcade_default.plans);
-                      if (patchArcadeReload(originalCode, reportArcade, arcadePlan) !== originalCode && arcadePlan) prepared.push(arcadePlan);
-                    } else reportArcade({ hooked: false, ready: false, issues: ["disabled-for-diagnosis"] });
-                  } catch (error) {
-                    reportArcade({ hooked: false, ready: false, issues: ["arcade-patch-error"] });
-                    arcadeError = String(error);
-                  }
-                  const reportAugments = (status) => {
-                    window.__kaspAugmentsDebug?.reportHook(status);
-                    if (!status.ready) console.warn("[KI Augments] AST mapping unavailable:", status);
-                  };
-                  try {
-                    augmentPlan = await selectGameAugmentsPlan(originalCode, augments_default.plans);
-                    if (patchGameAugments(originalCode, reportAugments, augmentPlan) !== originalCode && augmentPlan) prepared.push(augmentPlan);
-                  } catch {
-                    reportAugments({ hooked: false, ready: false, strategy: "ast-plan", issues: ["augments-patch-error"] });
-                  }
-                  const reportGarageDetails = (status) => {
-                    if (!status.ready) console.warn("[KI Garage details] AST mapping unavailable:", status);
-                  };
-                  try {
-                    garageDetailsPlan = await selectGarageDetailsPlan(originalCode, garage_details_default.plans);
-                    if (patchUnavailableGarageDetails(originalCode, reportGarageDetails, garageDetailsPlan) !== originalCode && garageDetailsPlan) prepared.push(garageDetailsPlan);
-                  } catch {
-                    reportGarageDetails({ hooked: false, ready: false, strategy: "ast-plan", issues: ["garage-details-patch-error"] });
-                  }
-                  const reportGarageItems = (status) => {
-                    if (!status.ready) console.warn("[KI Garage items] AST mapping unavailable:", status);
-                  };
-                  try {
-                    garageItemsPlan = await selectGarageItemsPlan(originalCode, garage_items_default.plans);
-                    if (patchUnavailableGarageItems(originalCode, reportGarageItems, garageItemsPlan) !== originalCode && garageItemsPlan) prepared.push(garageItemsPlan);
-                  } catch {
-                    reportGarageItems({ hooked: false, ready: false, strategy: "ast-plan", issues: ["garage-items-patch-error"] });
-                  }
-                  const reportGarageInventory = (status) => {
-                    if (!status.ready) console.warn("[KI Garage inventory] AST mapping unavailable:", status);
-                  };
-                  try {
-                    garageInventoryPlan = await selectGarageInventoryPlan(originalCode, garage_inventory_default.plans);
-                    if (patchGarageInventoryDiagnostics(originalCode, reportGarageInventory, garageInventoryPlan) !== originalCode && garageInventoryPlan) prepared.push(garageInventoryPlan);
-                  } catch {
-                    reportGarageInventory({ hooked: false, ready: false, strategy: "ast-plan", issues: ["garage-inventory-patch-error"] });
-                  }
-                  const reportBattlePresence = (status) => {
-                    accountIdentity?.reportMapping(status);
-                    if (!status.ready) console.warn("[KI Presence] AST mapping unavailable:", status);
-                  };
-                  try {
-                    battlePresencePlan = await selectBattlePresencePlan(
-                      originalCode,
-                      battle_presence_default.plans,
-                      navigator.userAgent.includes("Electron") ? "complete" : "store"
-                    );
-                    if (!battlePresencePlan && navigator.userAgent.includes("Electron")) {
-                      battlePresencePlan = await selectBattlePresencePlan(originalCode, battle_presence_default.plans, "store");
-                    }
-                    if (patchBattlePresence(originalCode, reportBattlePresence, battlePresencePlan) !== originalCode && battlePresencePlan) prepared.push(battlePresencePlan);
-                  } catch {
-                    reportBattlePresence({ hooked: false, ready: false, strategy: "ast-plan", issues: ["battle-presence-patch-error"] });
-                  }
-                  const reportBattleStatistics = (status) => {
-                    if (!status.ready) console.warn("[KI Battle statistics] AST mapping unavailable:", status);
-                  };
-                  try {
-                    battleStatisticsPlan = await selectBattleStatisticsPlan(originalCode, battle_statistics_default.plans);
-                    if (patchBattleStatistics(originalCode, reportBattleStatistics, battleStatisticsPlan) !== originalCode && battleStatisticsPlan) prepared.push(battleStatisticsPlan);
-                  } catch {
-                    reportBattleStatistics({ hooked: false, ready: false, strategy: "ast-plan", issues: ["battle-statistics-patch-error"] });
-                  }
-                  const reportUserActions = (status) => {
-                    if (!status.ready) console.warn("[KI User actions] AST mapping unavailable:", status);
-                  };
-                  try {
-                    userActionPlan = await selectUserActionPlan(originalCode, user_action_default.plans);
-                    if (patchUserActions(originalCode, reportUserActions, userActionPlan) !== originalCode && userActionPlan) prepared.push(userActionPlan);
-                  } catch {
-                    reportUserActions({ hooked: false, ready: false, strategy: "ast-plan", issues: ["user-action-patch-error"] });
-                  }
-                  const reportCritical = (status) => {
-                    window.__kaspCriticalDebug?.reportHook(status);
-                    if (!status.ready) console.warn("[KI Critical indicator] AST mapping unavailable:", status);
-                  };
-                  try {
-                    criticalPlan = await selectCriticalPlan(originalCode, critical_default.plans);
-                    if (patchCriticalIndicator(originalCode, reportCritical, criticalPlan) !== originalCode && criticalPlan) prepared.push(criticalPlan);
-                  } catch {
-                    reportCritical({ hooked: false, ready: false, strategy: "ast-plan", issues: ["critical-patch-error"] });
-                  }
-                  try {
-                    directionPlan = await selectDirectionPlan(originalCode, overdrive_direction_default.plans);
-                    if (directionPlan && directionPlanValid(originalCode, directionPlan)) {
-                      prepared.push(directionPlan);
-                      direction?.reportHook(directionPlan.status);
-                    } else direction?.reportHook({ ready: false, hooked: false, strategy: "ast-plan", issues: ["direction-mapping-unavailable"] });
-                  } catch {
-                    direction?.reportHook({ ready: false, hooked: false, strategy: "ast-plan", issues: ["direction-patch-error"] });
-                  }
-                  let supplyPrivacyPlan;
-                  try {
-                    supplyPrivacyPlan = await selectSupplyPrivacyPlan(originalCode, supply_privacy_default.plans);
-                    if (supplyPrivacyPlan && supplyPrivacyPlanValid(originalCode, supplyPrivacyPlan)) prepared.push(supplyPrivacyPlan);
-                    else console.warn("[KI Supply privacy] Count label mapping unavailable");
-                  } catch {
-                    console.warn("[KI Supply privacy] Count label mapping failed");
-                  }
-                  let boxPickupPlan;
-                  try {
-                    boxPickupPlan = await selectBoxPickupPlan(originalCode, box_pickup_default.plans);
-                    if (boxPickupPlan && boxPickupPlanValid(originalCode, boxPickupPlan)) prepared.push(boxPickupPlan);
-                    else console.warn("[KI Box pickup] Animation mapping unavailable; using the original animation");
-                  } catch {
-                    console.warn("[KI Box pickup] Animation mapping failed; using the original animation");
-                  }
-                  let killFeedPrivacyPlan;
-                  try {
-                    killFeedPrivacyPlan = await selectKillFeedPrivacyPlan(originalCode, kill_feed_privacy_default.plans);
-                    if (killFeedPrivacyPlan && killFeedPrivacyPlanValid(originalCode, killFeedPrivacyPlan)) prepared.push(killFeedPrivacyPlan);
-                    else console.warn("[KI Kill feed privacy] Text mapping unavailable");
-                  } catch {
-                    console.warn("[KI Kill feed privacy] Text mapping failed");
-                  }
-                  let rainPlan;
-                  try {
-                    rainPlan = await selectRainPlan(originalCode, rain_weather_default.plans);
-                    if (rainPlan) prepared.push(rainPlan);
-                    else {
-                      window.__kaspRain?.patch?.("unsupported");
-                      console.warn("[KI Weather] Render mapping unavailable; native weather is unchanged");
-                    }
-                  } catch {
-                    window.__kaspRain?.patch?.("error");
-                    console.warn("[KI Weather] Render mapping unavailable; native weather is unchanged");
-                  }
-                  const merged = mergeClientPatchPlans(originalCode, prepared);
-                  code = merged.code;
-                  if (rainPlan) {
-                    if (merged.rejected.includes(rainPlan)) {
-                      window.__kaspRain?.patch?.("conflict");
-                      console.warn("[KI Weather] Render patch conflict; weather disabled");
-                    } else window.__kaspRain?.patch?.("installed");
-                  }
-                  if (killFeedPrivacyPlan && merged.rejected.includes(killFeedPrivacyPlan)) console.warn("[KI Kill feed privacy] Text patch conflict");
-                  if (boxPickupPlan && merged.rejected.includes(boxPickupPlan)) console.warn("[KI Box pickup] Animation patch conflict; using the original animation");
-                  if (supplyPrivacyPlan && merged.rejected.includes(supplyPrivacyPlan)) console.warn("[KI Supply privacy] Count label patch conflict");
-                  if (bonusPlan && merged.rejected.includes(bonusPlan)) reportBonus({ kind: "hooks", ready: false, issues: ["overdrive-edit-conflict"] });
-                  if (arcadePlan && merged.rejected.includes(arcadePlan)) reportArcade({ hooked: false, ready: false, issues: ["arcade-edit-conflict"] });
-                  if (augmentPlan && merged.rejected.includes(augmentPlan)) reportAugments({ hooked: false, ready: false, strategy: "ast-plan", issues: ["augments-edit-conflict"] });
-                  if (garageDetailsPlan && merged.rejected.includes(garageDetailsPlan)) reportGarageDetails({ hooked: false, ready: false, strategy: "ast-plan", issues: ["garage-details-edit-conflict"] });
-                  if (garageItemsPlan && merged.rejected.includes(garageItemsPlan)) reportGarageItems({ hooked: false, ready: false, strategy: "ast-plan", issues: ["garage-items-edit-conflict"] });
-                  if (garageInventoryPlan && merged.rejected.includes(garageInventoryPlan)) reportGarageInventory({ hooked: false, ready: false, strategy: "ast-plan", issues: ["garage-inventory-edit-conflict"] });
-                  if (battlePresencePlan && merged.rejected.includes(battlePresencePlan)) reportBattlePresence({ hooked: false, ready: false, strategy: "ast-plan", issues: ["battle-presence-edit-conflict"] });
-                  if (battleStatisticsPlan && merged.rejected.includes(battleStatisticsPlan)) reportBattleStatistics({ hooked: false, ready: false, strategy: "ast-plan", issues: ["battle-statistics-edit-conflict"] });
-                  if (userActionPlan && merged.rejected.includes(userActionPlan)) reportUserActions({ hooked: false, ready: false, strategy: "ast-plan", issues: ["user-action-edit-conflict"] });
-                  if (criticalPlan && merged.rejected.includes(criticalPlan)) reportCritical({ hooked: false, ready: false, strategy: "ast-plan", issues: ["critical-edit-conflict"] });
-                  if (directionPlan && merged.rejected.includes(directionPlan)) direction?.reportHook({ ready: false, hooked: false, strategy: "ast-plan", issues: ["direction-edit-conflict"] });
-                  const script = document.createElement("script");
-                  script.type = originalScript.type;
-                  script.nonce = originalScript.nonce;
-                  script.textContent = code;
-                  (document.head || document.documentElement).appendChild(script);
-                }).catch((error) => {
-                  window.__kaspRain?.patch?.("error");
-                  console.error("[Kaspersky Inventions] Bundle injection failed; loading the original game script:", error);
-                  originalScript.addEventListener("error", () => {
-                    console.error("[Kaspersky Inventions] The original game script also failed to load:", originalScript.src);
-                  }, { once: true });
-                  try {
-                    (document.head || document.documentElement).appendChild(originalScript);
-                  } catch (restoreError) {
-                    console.error("[Kaspersky Inventions] Could not restore the original game script:", restoreError);
-                  }
-                }).finally(() => {
-                  if (sourceForPatches !== void 0) releaseClientPatchContext(sourceForPatches);
-                });
-              }
+        installGameLoader(window, async (code, signal) => {
+          const sourceForPatches = code;
+          try {
+            const originalCode = code;
+            const prepared = [];
+            let bonusPlan;
+            let arcadePlan;
+            let augmentPlan;
+            let garageDetailsPlan;
+            let garageItemsPlan;
+            let garageInventoryPlan;
+            let battlePresencePlan;
+            let battleStatisticsPlan;
+            let userActionPlan;
+            let criticalPlan;
+            let directionPlan;
+            const reportBonus = (status) => {
+              hookStatus = status;
+              diagnostics.record(status);
+              if (!status.ready) console.warn("[KI Overdrive] AST mapping unavailable or incomplete:", status);
+            };
+            try {
+              bonusPlan = await selectBonusPatchPlan(originalCode, overdrive_default.plans);
+              if (signal.aborted) return originalCode;
+              if (patchBonusPickups(originalCode, reportBonus, bonusPlan) !== originalCode && bonusPlan) prepared.push(bonusPlan);
+            } catch (error) {
+              reportBonus({ kind: "hooks", ready: false, issues: ["overdrive-patch-error"], error: String(error) });
             }
+            const reportArcade = (status) => {
+              arcadeHookStatus = status;
+              if (!status.hooked) console.warn("[KI Arcade reload] Native bar hook unavailable:", status);
+            };
+            try {
+              let enabled = true;
+              try {
+                enabled = localStorage.getItem("kasp_arcade_reload_enabled") !== "false";
+              } catch {
+              }
+              if (enabled) {
+                arcadePlan = await selectArcadeReloadPlan(originalCode, arcade_default.plans);
+                if (signal.aborted) return originalCode;
+                if (patchArcadeReload(originalCode, reportArcade, arcadePlan) !== originalCode && arcadePlan) prepared.push(arcadePlan);
+              } else reportArcade({ hooked: false, ready: false, issues: ["disabled-for-diagnosis"] });
+            } catch (error) {
+              reportArcade({ hooked: false, ready: false, issues: ["arcade-patch-error"] });
+              arcadeError = String(error);
+            }
+            const reportAugments = (status) => {
+              window.__kaspAugmentsDebug?.reportHook(status);
+              if (!status.ready) console.warn("[KI Augments] AST mapping unavailable:", status);
+            };
+            try {
+              augmentPlan = await selectGameAugmentsPlan(originalCode, augments_default.plans);
+              if (signal.aborted) return originalCode;
+              if (patchGameAugments(originalCode, reportAugments, augmentPlan) !== originalCode && augmentPlan) prepared.push(augmentPlan);
+            } catch {
+              reportAugments({ hooked: false, ready: false, strategy: "ast-plan", issues: ["augments-patch-error"] });
+            }
+            const reportGarageDetails = (status) => {
+              if (!status.ready) console.warn("[KI Garage details] AST mapping unavailable:", status);
+            };
+            try {
+              garageDetailsPlan = await selectGarageDetailsPlan(originalCode, garage_details_default.plans);
+              if (signal.aborted) return originalCode;
+              if (patchUnavailableGarageDetails(originalCode, reportGarageDetails, garageDetailsPlan) !== originalCode && garageDetailsPlan) prepared.push(garageDetailsPlan);
+            } catch {
+              reportGarageDetails({ hooked: false, ready: false, strategy: "ast-plan", issues: ["garage-details-patch-error"] });
+            }
+            const reportGarageItems = (status) => {
+              if (!status.ready) console.warn("[KI Garage items] AST mapping unavailable:", status);
+            };
+            try {
+              garageItemsPlan = await selectGarageItemsPlan(originalCode, garage_items_default.plans);
+              if (signal.aborted) return originalCode;
+              if (patchUnavailableGarageItems(originalCode, reportGarageItems, garageItemsPlan) !== originalCode && garageItemsPlan) prepared.push(garageItemsPlan);
+            } catch {
+              reportGarageItems({ hooked: false, ready: false, strategy: "ast-plan", issues: ["garage-items-patch-error"] });
+            }
+            const reportGarageInventory = (status) => {
+              if (!status.ready) console.warn("[KI Garage inventory] AST mapping unavailable:", status);
+            };
+            try {
+              garageInventoryPlan = await selectGarageInventoryPlan(originalCode, garage_inventory_default.plans);
+              if (signal.aborted) return originalCode;
+              if (patchGarageInventoryDiagnostics(originalCode, reportGarageInventory, garageInventoryPlan) !== originalCode && garageInventoryPlan) prepared.push(garageInventoryPlan);
+            } catch {
+              reportGarageInventory({ hooked: false, ready: false, strategy: "ast-plan", issues: ["garage-inventory-patch-error"] });
+            }
+            const reportBattlePresence = (status) => {
+              accountIdentity?.reportMapping(status);
+              if (!status.ready) console.warn("[KI Presence] AST mapping unavailable:", status);
+            };
+            try {
+              battlePresencePlan = await selectBattlePresencePlan(
+                originalCode,
+                battle_presence_default.plans,
+                navigator.userAgent.includes("Electron") ? "complete" : "store"
+              );
+              if (!battlePresencePlan && navigator.userAgent.includes("Electron")) {
+                battlePresencePlan = await selectBattlePresencePlan(originalCode, battle_presence_default.plans, "store");
+                if (signal.aborted) return originalCode;
+              }
+              if (patchBattlePresence(originalCode, reportBattlePresence, battlePresencePlan) !== originalCode && battlePresencePlan) prepared.push(battlePresencePlan);
+            } catch {
+              reportBattlePresence({ hooked: false, ready: false, strategy: "ast-plan", issues: ["battle-presence-patch-error"] });
+            }
+            const reportBattleStatistics = (status) => {
+              if (!status.ready) console.warn("[KI Battle statistics] AST mapping unavailable:", status);
+            };
+            try {
+              battleStatisticsPlan = await selectBattleStatisticsPlan(originalCode, battle_statistics_default.plans);
+              if (signal.aborted) return originalCode;
+              if (patchBattleStatistics(originalCode, reportBattleStatistics, battleStatisticsPlan) !== originalCode && battleStatisticsPlan) prepared.push(battleStatisticsPlan);
+            } catch {
+              reportBattleStatistics({ hooked: false, ready: false, strategy: "ast-plan", issues: ["battle-statistics-patch-error"] });
+            }
+            const reportUserActions = (status) => {
+              if (!status.ready) console.warn("[KI User actions] AST mapping unavailable:", status);
+            };
+            try {
+              userActionPlan = await selectUserActionPlan(originalCode, user_action_default.plans);
+              if (signal.aborted) return originalCode;
+              if (patchUserActions(originalCode, reportUserActions, userActionPlan) !== originalCode && userActionPlan) prepared.push(userActionPlan);
+            } catch {
+              reportUserActions({ hooked: false, ready: false, strategy: "ast-plan", issues: ["user-action-patch-error"] });
+            }
+            const reportCritical = (status) => {
+              window.__kaspCriticalDebug?.reportHook(status);
+              if (!status.ready) console.warn("[KI Critical indicator] AST mapping unavailable:", status);
+            };
+            try {
+              criticalPlan = await selectCriticalPlan(originalCode, critical_default.plans);
+              if (signal.aborted) return originalCode;
+              if (patchCriticalIndicator(originalCode, reportCritical, criticalPlan) !== originalCode && criticalPlan) prepared.push(criticalPlan);
+            } catch {
+              reportCritical({ hooked: false, ready: false, strategy: "ast-plan", issues: ["critical-patch-error"] });
+            }
+            try {
+              directionPlan = await selectDirectionPlan(originalCode, overdrive_direction_default.plans);
+              if (signal.aborted) return originalCode;
+              if (directionPlan && directionPlanValid(originalCode, directionPlan)) {
+                prepared.push(directionPlan);
+                direction?.reportHook(directionPlan.status);
+              } else direction?.reportHook({ ready: false, hooked: false, strategy: "ast-plan", issues: ["direction-mapping-unavailable"] });
+            } catch {
+              direction?.reportHook({ ready: false, hooked: false, strategy: "ast-plan", issues: ["direction-patch-error"] });
+            }
+            let supplyPrivacyPlan;
+            try {
+              supplyPrivacyPlan = await selectSupplyPrivacyPlan(originalCode, supply_privacy_default.plans);
+              if (signal.aborted) return originalCode;
+              if (supplyPrivacyPlan && supplyPrivacyPlanValid(originalCode, supplyPrivacyPlan)) prepared.push(supplyPrivacyPlan);
+              else console.warn("[KI Supply privacy] Count label mapping unavailable");
+            } catch {
+              console.warn("[KI Supply privacy] Count label mapping failed");
+            }
+            let boxPickupPlan;
+            try {
+              boxPickupPlan = await selectBoxPickupPlan(originalCode, box_pickup_default.plans);
+              if (signal.aborted) return originalCode;
+              if (boxPickupPlan && boxPickupPlanValid(originalCode, boxPickupPlan)) prepared.push(boxPickupPlan);
+              else console.warn("[KI Box pickup] Animation mapping unavailable; using the original animation");
+            } catch {
+              console.warn("[KI Box pickup] Animation mapping failed; using the original animation");
+            }
+            let killFeedPrivacyPlan;
+            try {
+              killFeedPrivacyPlan = await selectKillFeedPrivacyPlan(originalCode, kill_feed_privacy_default.plans);
+              if (signal.aborted) return originalCode;
+              if (killFeedPrivacyPlan && killFeedPrivacyPlanValid(originalCode, killFeedPrivacyPlan)) prepared.push(killFeedPrivacyPlan);
+              else console.warn("[KI Kill feed privacy] Text mapping unavailable");
+            } catch {
+              console.warn("[KI Kill feed privacy] Text mapping failed");
+            }
+            let rainPlan;
+            try {
+              rainPlan = await selectRainPlan(originalCode, rain_weather_default.plans);
+              if (signal.aborted) return originalCode;
+              if (rainPlan) prepared.push(rainPlan);
+              else {
+                window.__kaspRain?.patch?.("unsupported");
+                console.warn("[KI Weather] Render mapping unavailable; native weather is unchanged");
+              }
+            } catch {
+              window.__kaspRain?.patch?.("error");
+              console.warn("[KI Weather] Render mapping unavailable; native weather is unchanged");
+            }
+            const merged = mergeClientPatchPlans(originalCode, prepared);
+            code = merged.code;
+            if (rainPlan) {
+              if (merged.rejected.includes(rainPlan)) {
+                window.__kaspRain?.patch?.("conflict");
+                console.warn("[KI Weather] Render patch conflict; weather disabled");
+              } else window.__kaspRain?.patch?.("installed");
+            }
+            if (killFeedPrivacyPlan && merged.rejected.includes(killFeedPrivacyPlan)) console.warn("[KI Kill feed privacy] Text patch conflict");
+            if (boxPickupPlan && merged.rejected.includes(boxPickupPlan)) console.warn("[KI Box pickup] Animation patch conflict; using the original animation");
+            if (supplyPrivacyPlan && merged.rejected.includes(supplyPrivacyPlan)) console.warn("[KI Supply privacy] Count label patch conflict");
+            if (bonusPlan && merged.rejected.includes(bonusPlan)) reportBonus({ kind: "hooks", ready: false, issues: ["overdrive-edit-conflict"] });
+            if (arcadePlan && merged.rejected.includes(arcadePlan)) reportArcade({ hooked: false, ready: false, issues: ["arcade-edit-conflict"] });
+            if (augmentPlan && merged.rejected.includes(augmentPlan)) reportAugments({ hooked: false, ready: false, strategy: "ast-plan", issues: ["augments-edit-conflict"] });
+            if (garageDetailsPlan && merged.rejected.includes(garageDetailsPlan)) reportGarageDetails({ hooked: false, ready: false, strategy: "ast-plan", issues: ["garage-details-edit-conflict"] });
+            if (garageItemsPlan && merged.rejected.includes(garageItemsPlan)) reportGarageItems({ hooked: false, ready: false, strategy: "ast-plan", issues: ["garage-items-edit-conflict"] });
+            if (garageInventoryPlan && merged.rejected.includes(garageInventoryPlan)) reportGarageInventory({ hooked: false, ready: false, strategy: "ast-plan", issues: ["garage-inventory-edit-conflict"] });
+            if (battlePresencePlan && merged.rejected.includes(battlePresencePlan)) reportBattlePresence({ hooked: false, ready: false, strategy: "ast-plan", issues: ["battle-presence-edit-conflict"] });
+            if (battleStatisticsPlan && merged.rejected.includes(battleStatisticsPlan)) reportBattleStatistics({ hooked: false, ready: false, strategy: "ast-plan", issues: ["battle-statistics-edit-conflict"] });
+            if (userActionPlan && merged.rejected.includes(userActionPlan)) reportUserActions({ hooked: false, ready: false, strategy: "ast-plan", issues: ["user-action-edit-conflict"] });
+            if (criticalPlan && merged.rejected.includes(criticalPlan)) reportCritical({ hooked: false, ready: false, strategy: "ast-plan", issues: ["critical-edit-conflict"] });
+            if (directionPlan && merged.rejected.includes(directionPlan)) direction?.reportHook({ ready: false, hooked: false, strategy: "ast-plan", issues: ["direction-edit-conflict"] });
+            return code;
+          } finally {
+            releaseClientPatchContext(sourceForPatches);
           }
+        }, (status) => {
+          if (status.phase === "fetching") window.__kaspRain?.patch?.("loading");
+          else if (status.nativeFallback || status.phase === "failed") window.__kaspRain?.patch?.("error");
         });
-        observer.observe(document.documentElement, { childList: true, subtree: true });
       })();
     }
   });

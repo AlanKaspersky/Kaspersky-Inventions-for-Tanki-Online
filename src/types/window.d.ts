@@ -2,6 +2,8 @@ export { };
 
 declare global {
     interface Window {
+        __kaspGameLoader?: import('../core/gameLoader').GameLoader;
+        __kaspNativeGateStarted?: boolean;
         __kaspRain?: ReturnType<typeof import('../core/rainWeather').installRainWeather>;
         __kaspKillFeedPrivacy?: ReturnType<typeof import('../core/killFeedPrivacy').installKillFeedPrivacy>;
         __kaspBoxPickup?: ReturnType<typeof import('../core/boxPickup').installBoxPickup>;

@@ -1,0 +1,188 @@
+/* Keep the native matchmaking controls; only their presentation changes. */
+.MatchmakingWaitComponentStyle-container {
+    position: fixed !important;
+    inset: .5em auto auto 50% !important;
+    transform: translateX(-50%) !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 1.5em;
+    width: min(58em, calc(100vw - 2em)) !important;
+    height: auto !important;
+    min-height: 5.25em;
+    margin: 0 !important;
+    padding: .875em 1.25em !important;
+    box-sizing: border-box !important;
+    isolation: isolate;
+    overflow: hidden !important;
+    border: 1px solid rgba(255, 255, 255, .9);
+    border-radius: 1em;
+    background: #e1e1e1 !important;
+    box-shadow: 0 .5em 2em rgba(0, 0, 0, .25);
+    color: #111 !important;
+    pointer-events: auto !important;
+    z-index: 100 !important;
+    animation: kasp-matchmaking-appear .25s ease-out both;
+}
+
+.MatchmakingWaitComponentStyle-container::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    z-index: -1;
+    border-radius: inherit;
+    background: linear-gradient(180deg, rgba(245, 245, 245, .78), rgba(225, 225, 225, .92)),
+        url('chrome-extension://__MSG_@@extension_id__/assets/art3.jpg') center / cover no-repeat;
+    filter: grayscale(1) blur(2px);
+    pointer-events: none;
+}
+
+/* The first native child is the decorative mode illustration (a generated class). */
+.MatchmakingWaitComponentStyle-container > :not(.MatchmakingWaitComponentStyle-contentContainer):not(.MatchmakingWaitComponentStyle-cancelButton) {
+    display: none !important;
+}
+
+.MatchmakingWaitComponentStyle-container .MatchmakingWaitComponentStyle-contentContainer {
+    display: grid !important;
+    grid-template-columns: minmax(8em, .9fr) repeat(2, minmax(0, 1fr));
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 1.25em;
+    flex: 1 1 0;
+    width: auto !important;
+    height: auto !important;
+    min-width: 0;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.MatchmakingWaitComponentStyle-container .MatchmakingWaitComponentStyle-battleModeLabel {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: .75em;
+    min-height: 1.5em;
+    padding: 0;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+}
+
+.MatchmakingWaitComponentStyle-container .MatchmakingWaitComponentStyle-battleModeLabel span {
+    color: #111 !important;
+    font: 1em/1.35 BaseFontBold, FallbackFontBold, sans-serif !important;
+    text-transform: uppercase;
+}
+
+.MatchmakingWaitComponentStyle-container .MatchmakingWaitComponentStyle-battleModeLabel::after {
+    content: '';
+    order: -1;
+    flex: 0 0 1.125em;
+    width: 1.125em;
+    height: 1.125em;
+    box-sizing: border-box;
+    border: 2px solid rgba(0, 0, 0, .15);
+    border-top-color: #111;
+    border-radius: 50%;
+    animation: kasp-matchmaking-spin 1s linear infinite;
+}
+
+.MatchmakingWaitComponentStyle-container :is(.MatchmakingWaitComponentStyle-averageTimeContainer, .MatchmakingWaitComponentStyle-currentTimeContainer) {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: center !important;
+    gap: .125em;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 0 0 1.25em !important;
+    box-sizing: border-box;
+    border-left: 1px solid rgba(0, 0, 0, .14);
+}
+
+.MatchmakingWaitComponentStyle-container .MatchmakingWaitComponentStyle-waitingTimeLabel {
+    color: #505050 !important;
+    font: .875em/1.35 BaseFontRegular, FallbackFontRegular, sans-serif !important;
+    overflow-wrap: anywhere;
+}
+
+.MatchmakingWaitComponentStyle-container .MatchmakingWaitComponentStyle-averageWaitingTimeValue,
+.MatchmakingWaitComponentStyle-container .MatchmakingWaitComponentStyle-waitingTimeValue span {
+    color: #111 !important;
+    font: 1.125em/1.35 BaseFontMedium, FallbackFontMedium, sans-serif !important;
+    font-variant-numeric: tabular-nums;
+    text-transform: none !important;
+    text-shadow: none !important;
+    white-space: nowrap;
+    height: auto !important;
+}
+
+.MatchmakingWaitComponentStyle-container .MatchmakingWaitComponentStyle-waitingTimeValue {
+    height: auto !important;
+    margin: 0 !important;
+}
+
+.MatchmakingWaitComponentStyle-container .MatchmakingWaitComponentStyle-waitingTimeValue span {
+    font-size: 1.375em !important;
+}
+
+.MatchmakingWaitComponentStyle-container .MatchmakingWaitComponentStyle-cancelButton {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 0 0 auto;
+    width: 7em !important;
+    height: auto !important;
+    min-height: 2.75em;
+    margin: 0 !important;
+    padding: .75em 1em !important;
+    box-sizing: border-box;
+    border: 1px solid #111 !important;
+    border-radius: .75em;
+    background: #161819;
+    cursor: pointer;
+    transition: background-color .2s ease, box-shadow .2s ease;
+}
+
+.MatchmakingWaitComponentStyle-container .MatchmakingWaitComponentStyle-cancelButton span {
+    margin: 0 !important;
+    color: #fff !important;
+    font: 1em/1.35 BaseFontBold, FallbackFontBold, sans-serif !important;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+.MatchmakingWaitComponentStyle-container .MatchmakingWaitComponentStyle-cancelButton:hover {
+    background: #353839;
+    box-shadow: 0 .25em .75em rgba(0, 0, 0, .12);
+}
+
+@keyframes kasp-matchmaking-spin { to { transform: rotate(360deg); } }
+@keyframes kasp-matchmaking-appear { from { opacity: 0; } to { opacity: 1; } }
+@media (max-width: 680px) {
+    .MatchmakingWaitComponentStyle-container {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: .75em 1em;
+    }
+    .MatchmakingWaitComponentStyle-container .MatchmakingWaitComponentStyle-contentContainer { display: contents !important; }
+    .MatchmakingWaitComponentStyle-container .MatchmakingWaitComponentStyle-battleModeLabel { grid-column: 1; grid-row: 1; }
+    .MatchmakingWaitComponentStyle-container .MatchmakingWaitComponentStyle-cancelButton {
+        grid-column: 2;
+        grid-row: 1;
+        justify-self: end;
+    }
+    .MatchmakingWaitComponentStyle-container .MatchmakingWaitComponentStyle-averageTimeContainer { grid-column: 1; grid-row: 2; }
+    .MatchmakingWaitComponentStyle-container .MatchmakingWaitComponentStyle-currentTimeContainer { grid-column: 2; grid-row: 2; }
+    .MatchmakingWaitComponentStyle-container :is(.MatchmakingWaitComponentStyle-averageTimeContainer, .MatchmakingWaitComponentStyle-currentTimeContainer) {
+        align-self: stretch;
+        align-content: space-between;
+        padding: 0 !important;
+        border-left: 0;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .MatchmakingWaitComponentStyle-container,
+    .MatchmakingWaitComponentStyle-container .MatchmakingWaitComponentStyle-battleModeLabel::after { animation: none; }
+    .MatchmakingWaitComponentStyle-container .MatchmakingWaitComponentStyle-cancelButton { transition: none; }
+}

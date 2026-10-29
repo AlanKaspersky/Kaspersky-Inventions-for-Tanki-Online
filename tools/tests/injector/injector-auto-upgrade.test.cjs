@@ -40,15 +40,22 @@ runFeatureContext(compile(read('src/core/overdriveDirection.ts')), { module: dir
 const tick = () => new Promise(resolve => setImmediate(resolve));
 
 function injectorFixture(fetch, plans = JSON.parse(read('src/generated/overdrive.json')).plans, bonusOverrides = {}, arcadePlans = [], arcadeOverrides = {}, augmentOverrides = {}, detailsOverrides = {}, itemsOverrides = {}, inventoryOverrides = {}, presenceOverrides = {}, userAgent = 'Chrome', statisticsOverrides = {}, actionOverrides = {}, criticalOverrides = {}) {
+    const requestTimers = new Map(); let requestTimerId = 0;
+    const requestModule = { exports: {} };
+    vm.runInNewContext(compile(read('src/core/gameBundleRequest.ts')), {
+        module: requestModule, fetch, AbortController,
+        setTimeout(callback) { requestTimers.set(++requestTimerId, callback); return requestTimerId; },
+        clearTimeout(id) { requestTimers.delete(id); },
+    });
     class Script {
         constructor() {
             this.src = 'https://tankionline.com/static/js/main.123.js';
-            this.type = 'module';
+            this.type = 'text/javascript';
             this.nonce = 'page-nonce';
             this.async = false;
             this.attributes = [
                 { name: 'src', value: this.src }, { name: 'type', value: this.type },
-                { name: 'crossorigin', value: 'anonymous' }, { name: 'integrity', value: 'sha256-original' },
+                { name: 'crossorigin', value: 'anonymous' }, { name: 'referrerpolicy', value: 'strict-origin' },
                 { name: 'defer', value: '' },
             ];
             this.listeners = new Map();
@@ -59,15 +66,36 @@ function injectorFixture(fetch, plans = JSON.parse(read('src/generated/overdrive
             else this.attributes.push({ name, value });
             if (name === 'src' || name === 'type') this[name] = value;
         }
+        dispatchEvent(event) { this.listeners.get(event.type)?.(event); return true; }
         remove() { this.removed = true; }
         addEventListener(name, handler) { this.listeners.set(name, handler); }
     }
     const appended = [];
     const errors = [];
     const observers = [];
-    const head = { appendChild(script) { appended.push(script); } };
-    const context = {
+    let context;
+    const head = { appendChild(script) {
+        appended.push(script);
+        // Simulate only the synchronous execution handshake. These tests inspect
+        // AST output; the unpacked-extension suite executes actual scripts.
+        if (!script.src && script.textContent) {
+            const token = JSON.parse(script.textContent.match(/\.enter\(("[^"]+")\)/)[1]);
+            context.window.__kaspGameLoader.enter(token);
+            context.window.__kaspGameLoader.complete(token);
+            script.textContent=script.textContent.replace(/if\(!window\.__kaspGameLoader\.enter\("[^"]+"\)\)throw new Error\("Cancelled game startup"\);/,'').replace(/;window\.__kaspGameLoader\.complete\("[^"]+"\);/,'');
+            script.textContent=script.textContent.replace(/^\/\*ki-game-loader:\{\}\*\/\n/,'').replace(/\n\n\/\/# sourceURL=ki-game-bundle-[\w]+\.js$/,'').trim();
+        }
+        return script;
+    } };
+    const domListeners = new Map();
+    const urlModule={exports:{}};
+    vm.runInNewContext(compile(read('src/core/gameBundleURL.ts')),{module:urlModule,URL});
+    const loaderModule={exports:{}};
+
+    context = {
         require: id => {
+            if (id === './core/gameLoader') return loaderModule.exports;
+            if (id === './core/gameBundleRequest') return requestModule.exports;
             if (id === './core/rainWeather') return { installRainWeather: () => ({ battle() {}, frame() {} }) };
             if (id === './core/rainWeather/patch') return { selectRainPlan: async () => undefined };
             if (id === './generated/rain-weather.json') return { plans: [] };
@@ -106,7 +134,7 @@ function injectorFixture(fetch, plans = JSON.parse(read('src/generated/overdrive
         },
         window: { location: { origin: 'https://tankionline.com' }, messages: [], addEventListener() {}, removeEventListener() {}, setInterval() { return 0; }, clearInterval() {}, postMessage(value) { this.messages.push(value); } },
         navigator: { userAgent },
-        document: { head, documentElement: head, createElement: () => {
+        document: { head, documentElement: head, addEventListener(type,callback){domListeners.set(type,callback);}, createElement: () => {
             const script = new Script();
             script.src = '';
             script.type = '';
@@ -122,11 +150,18 @@ function injectorFixture(fetch, plans = JSON.parse(read('src/generated/overdrive
         },
         fetch,
     };
+    context.window.document=context.document;
+    context.window.setTimeout=callback=>{requestTimers.set(++requestTimerId,callback);return requestTimerId;};
+    context.window.clearTimeout=id=>requestTimers.delete(id);
+    context.Event=class {constructor(type){this.type=type;}};
+    vm.runInNewContext(compile(read('src/core/gameLoader.ts')),{...context,module:loaderModule,AbortController,URL,require:id=>id==='./gameBundleRequest'?requestModule.exports:id==='./gameBundleURL'?urlModule.exports:require('../helpers/client-patches.cjs')});
     runFeatureContext(compile(read('src/kasp_injector.ts')), context);
     return {
         Script, appended, errors, observers, page: context.window,
+        expireRequest() { for (const callback of [...requestTimers.values()]) callback(); },
+        get requestTimers() { return requestTimers.size; },
         async intercept(...scripts) {
-            observers[0].callback([{ addedNodes: scripts }]);
+            for (const script of scripts) context.window.__kaspGameLoader.load(script);
             await tick();
         },
     };
@@ -394,23 +429,23 @@ test('HTTP errors reject the response body and restore one original script with 
     await f.intercept(original);
     assert.equal(bodyReads, 0);
     assert.equal(requests, 1);
-    assert.equal(original.type, 'javascript/blocked');
-    assert.equal(original.removed, true);
-    assert.equal(f.observers[0].disconnected, true);
+    assert.equal(original.type, 'text/javascript');
+    assert.equal(original.removed, undefined);
+    assert.equal(f.observers.length, 0);
     assert.equal(f.appended.length, 1);
     const fallback = f.appended[0];
     assert.notEqual(fallback, original);
-    assert.equal(fallback.type, 'module');
-    assert.equal(fallback.src, original.src);
+    assert.equal(fallback.type, 'text/javascript');
+    assert.equal(fallback.src, original.src+'?ki_native=1');
     assert.equal(fallback.nonce, 'page-nonce');
     assert.equal(fallback.async, false);
-    assert.deepEqual(fallback.attributes, original.attributes);
+    assert.deepEqual(fallback.attributes.filter(a=>a.name!=='src'), original.attributes.filter(a=>a.name!=='src'));
     assert.equal(fallback.textContent, undefined);
     fallback.listeners.get('error')();
     await tick();
     assert.equal(f.appended.length, 1);
     assert.equal(requests, 1);
-    assert.equal(f.errors.length, 2);
+    assert.equal(f.errors.length, 1);
 });
 
 test('network rejection and response body failures use native loading without an unhandled rejection', async () => {
@@ -421,8 +456,30 @@ test('network rejection and response body failures use native loading without an
         const f = injectorFixture(fetch);
         await f.intercept(new f.Script());
         assert.equal(f.appended.length, 1);
-        assert.equal(f.appended[0].type, 'module');
-        assert.equal(f.errors.length, 1);
+        assert.equal(f.appended[0].type, 'text/javascript');
+        assert.equal(f.errors.length, 0);
+    }
+});
+
+test('a stalled response or body restores once; late completion cannot launch a patched copy', async () => {
+    for (const stalledBody of [false, true]) {
+        let resolve, signal;
+        const pending = new Promise(done => { resolve = done; });
+        const f = injectorFixture(async (_url, options) => {
+            signal = options.signal;
+            return stalledBody ? { ok: true, text: () => pending } : pending;
+        });
+        await f.intercept(new f.Script());
+        assert.equal(f.appended.length, 0);
+        f.expireRequest(); await tick();
+        assert.equal(signal.aborted, true);
+        assert.equal(f.appended.length, 1);
+        assert.ok(f.appended[0].src.includes('/static/js/main.'));
+        assert.equal(f.requestTimers, 0);
+        resolve(stalledBody ? 'window.late=true;' : { ok: true, text: async () => 'window.late=true;' });
+        await tick(); await tick();
+        assert.equal(f.appended.length, 1);
+        assert.equal(f.errors.length, 0);
     }
 });
 
@@ -444,7 +501,7 @@ test('successful loading preserves both hooks and ignores further main scripts i
     assert.ok(f.appended[0].textContent.includes('window.__kaspSendAction("TankUserActionLog",this,'));
     assert.ok(f.appended[0].textContent.includes('window.__kaspBattleStats(this,'));
     assert.equal(f.appended[0].nonce, 'page-nonce');
-    assert.equal(f.appended[0].type, 'module');
+    assert.equal(f.appended[0].type, 'text/javascript');
     assert.equal(f.errors.length, 0);
 });
 

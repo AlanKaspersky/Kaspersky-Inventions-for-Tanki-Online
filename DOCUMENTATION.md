@@ -2,7 +2,7 @@
 
 ## Complete Implementation Reference
 
-**Extension version:** 3.0.2 (`manifest.json`)
+**Extension version:** 3.0.3 (`manifest.json`)
 
 **Documentation updated:** October 24, 2026
 
@@ -260,7 +260,7 @@ Scopes expose separate diagnostics in MAIN and isolated worlds. Use the failure-
 
 Source: [src/kasp_injector.ts](src/kasp_injector.ts).
 
-The MAIN-world injector installs augment, critical, presence, statistics, action, inventory, arcade-diagnostic, and bonus bridges before observing script URLs containing `/static/js/main.`. Full Discord battle-presence instrumentation is selected for an Electron user agent. Account store capture also has a store-only profile for ordinary browsers; identity is not Electron-only. Supply privacy, box pickup visuals, kill-feed privacy and overdrive direction have independent prepared plans. Runtime behavior depends on the installed `dist/` build, not unbuilt source files.
+The MAIN-world injector installs augment, critical, presence, statistics, action, inventory, arcade-diagnostic, and bonus bridges, then registers the controlled loader in `src/core/gameLoader.ts`. A static network rule replaces the main-bundle response with the packaged `dist/kasp_game_gate.js` before the original code can run. There is no script-removal MutationObserver. Full Discord battle-presence instrumentation is selected for an Electron user agent. Account store capture also has a store-only profile for ordinary browsers; identity is not Electron-only. Supply privacy, box pickup visuals, kill-feed privacy and overdrive direction have independent prepared plans. Runtime behavior depends on the installed `dist/` build, not unbuilt source files.
 
 ### User Action Hook
 
@@ -282,14 +282,14 @@ The current Change Counter listener copies battle kind into its content-script w
 
 ### Interception and Transformation
 
-1. `bundleIntercepted` prevents processing multiple matching scripts, including scripts in the same mutation batch.
-2. A fresh fallback script receives every original attribute, plus the original `async` property and nonce.
-3. The observed element is assigned a blocked type and removed; the injector observer disconnects.
-4. The original URL is fetched. Non-success HTTP status throws before reading its body.
+1. `rules/game-bundle.json` redirects script and fetch/XHR requests only for query-free `main.<hash>.js` under `/static/js/` or `/browser-public/static/js/`, from Tanki initiators to EU/RU game CDNs and EU/RU test domains. Fetch/XHR is required because the game's NetworkFirst service worker fetches the script internally using that network resource type. Other URLs and query-bearing main requests are excluded. The manifest declares `declarativeNetRequestWithHostAccess`, Tanki host access, and the gate as a web-accessible resource; no extension background worker is needed.
+2. The small gate calls `window.__kaspGameLoader.load(originalElement)`. The original game response has not executed. Duplicate gate calls are ignored by the per-document state machine; the injector is idempotent too.
+3. Modules, integrity-bearing scripts and unsupported script types use an original external script with a `ki_native=1` query bypass. Recovery copies native attributes, `async`, nonce and type. If the injector never initialized, the gate itself requests that native bypass once.
+4. For supported classic scripts the source is fetched as text through the `ki_native=1` query bypass, preventing the rule from redirecting the loader's own fetch. The reported source remains the original URL. Non-success HTTP status throws before reading its body; empty text is rejected.
 5. Select each available prepared plan against the original source: source length/SHA-256 for known builds, AST-derived compatibility templates otherwise.
 6. Report and isolate preparation failures; validate and merge accepted plans against original offsets. Reject stale or conflicting plans individually.
-7. Append an inline script carrying the original type/nonce and merged text to the head or root.
-8. Release the one-source analysis context in the promise chain's `finally`, including fallback paths.
+7. Append a classic inline script carrying the original type/nonce and merged text. A strict-mode-preserving entry marker and completion marker distinguish a policy/parse rejection from a partially executed game. The source is not wrapped in a new function or block. Real game load/error completion is forwarded to the original element; the gate's early load event is suppressed.
+8. Release the one-source analysis context in preparation's `finally`, including late cancellation. Preparation checks its abort signal after asynchronous plan selection. Query-bearing main scripts and requests that bypass network rules execute natively and are never copied after a DOM observation.
 
 Template misses leave the affected instrumentation absent. Required roles and expected match counts must resolve before a feature is installed. This is preflight compatibility checking, not a full runtime AST parse or proof of later native execution.
 
@@ -326,9 +326,9 @@ Hash mismatch triggers template matching rather than immediate disablement. Comp
 
 ### Recovery and Limits
 
-Fetch rejection, HTTP failure, body-reading failure, or synchronous transformation/insertion failure enters the catch handler. It logs the original error and appends the saved native script once. An error event on that fallback script and synchronous insertion failures are logged separately.
+`readGameBundle()` gives combined fetch/body reading a 15-second deadline, aborts on expiry and settles even if fetch ignores abort. Preparation has a separate 15-second deadline and cancellation signal. All settled phases release their timers. Before the execution marker has run, HTTP/body/preparation/insertion failures and blocked or unparseable patched scripts request one native bypass. Late responses/preparation completions cannot launch a patched copy after recovery. The native resource's own failure is terminal; it is not retried in a loop.
 
-Fallback loading does not reinstall interception or guarantee instrumentation. A successfully appended inline script can still encounter a later runtime error or policy restriction that is outside the promise chain's synchronous catch. Mutation timing also remains a browser integration constraint; the injector is not a general script execution supervisor.
+Once the entry marker has run, an exception records a terminal failure without replaying native code: earlier side effects cannot be rolled back. Later asynchronous/render errors likewise do not trigger a second startup. Native fallback retains the game without guaranteeing instrumentation. The state snapshot is `window.__kaspGameLoader.status()` (`phase`, `source`, `reason`, `entered`, `completed`, `nativeFallback`). In native mode, `completed` reflects a load event, not server connectivity. Content-Security-Policy and integrity remain enforced. The game's NetworkFirst worker is covered without unregistering it or deleting its caches. Platforms without the network-rule API, cache-only service-worker responses that never fetch, query-bearing bundles and unsupported contracts may run without AST instrumentation. Live Firefox/Electron compatibility and actual game connectivity require separate checks; Edge fixture tests are not a live-account verification.
 
 ## Shared Core Services
 
@@ -504,7 +504,7 @@ Sources: [accountId.ts](src/core/accountId.ts), [accountIdentityNative.ts](src/c
 
 Before the general search, an incremental fast path checks the store itself or its direct slots (up to 32) for one native `TOState`. Its semantic `user` field must point to a `User`; the path and schema are cached, and the loaded account publishes before the remaining graph is walked. Aliases of the same state are deduplicated; distinct states fall back to the general search. No generated property name is hardcoded. If the cached User becomes loaded between heartbeats, the next capture of the same store publishes it immediately without another search. An absent or changed native layout uses the bounded general search above.
 
-The account publishes before secondary friend discovery. `RemoteUserData` IDs are gathered separately in bounded slices (depth 5, up to 6,000 objects); another scan starts no sooner than five seconds after completion. A missing remote storage is rediscovered at five-second intervals without blocking the account. Unreadable native objects are skipped and recorded in diagnostics rather than repeatedly disabling the feature. Exact decimal strings preserve 64-bit IDs. No network request or root client-file read is involved. Snapshots publish once a second, when the fast path establishes the owner, and on discovery completion; Discord activity remains Electron-only. `window.__kaspAccountDebug.status()` exposes the cached account, discovery progress (including `direct`) and runtime status without a deep scan. Explicit `window.__kaspAccountDebug.inspect()` retains the bounded synchronous model diagnostics without passwords/tokens. Cleanup cancels discovery timers, the heartbeat and the request listener, and publishes an empty identity.
+The account publishes before secondary friend discovery. `RemoteUserData` IDs are gathered separately in bounded slices (depth 5, up to 6,000 objects); ordinary scans wait five seconds after completion. A same-page `kasp:account-identity:request` with boolean `refreshPlayers: true` can bypass that interval when a friend menu needs an ID, limited to once per second per reader. It reuses the same bounded incremental scan and does not interrupt one already running. A missing remote storage is rediscovered at five-second intervals without blocking the account. Unreadable native objects are skipped and recorded in diagnostics rather than repeatedly disabling the feature. Exact decimal strings preserve 64-bit IDs. No network request or root client-file read is involved. Snapshots publish once a second, on requests, when the fast path establishes the owner, and on discovery completion; Discord activity remains Electron-only. `window.__kaspAccountDebug.status()` exposes the cached account, discovery progress (including `direct`) and runtime status without a deep scan. Explicit `window.__kaspAccountDebug.inspect()` retains the bounded synchronous model diagnostics without passwords/tokens. Cleanup cancels discovery timers, the heartbeat and the request listener, and publishes an empty identity.
 
 ### Shared Modal Controller
 
@@ -712,7 +712,7 @@ Repeated garage calls reapply an existing non-empty query to newly rendered cont
 
 Source: [src/modules/customFriends.ts](src/modules/customFriends.ts).
 
-**Activation:** `k_friends`, with friends/invitation UI present and outside battle.
+**Activation:** `k_friends`, with friends/invitation UI present. The ordinary list/sidebar pass remains outside battle; the context-menu path checks actual native friend-list nodes even if screen classification is stale.
 
 The category sidebar offers All, Online, Offline, Clan, Purple, Yellow, and Red. `filtersConfig` supplies icon URLs and category identifiers.
 
@@ -729,9 +729,9 @@ The category sidebar offers All, Online, Offline, Clan, Purple, Yellow, and Red.
 
 Friend-list online/offline state uses native classes. Invitation state uses recognized text; clan membership uses the current clan tag's presence in card text. A custom color takes precedence over the clan badge.
 
-Assignments use `tankiCustomCategories_uid_<userId>` and map friend IDs to colors. Native remote data resolves the displayed friend; missing or ambiguous IDs defer custom controls. Toggling the same color removes the mapping. Owner and friend renames retain labels; switching owner changes the namespace. Legacy nickname keys remain untouched.
+Assignments use `tankiCustomCategories_uid_<userId>` and map friend IDs to colors. Native remote data resolves the displayed friend; missing or ambiguous IDs leave the three controls visible but disabled, with a localized pending tooltip. No nickname-based fallback authorizes a write. Toggling the same color removes the mapping. Owner and friend renames retain labels; switching owner changes the namespace. Legacy nickname keys remain untouched.
 
-Dataset flags prevent duplicate sidebars and context-menu augmentation. The context menu is repositioned if its new controls extend below the viewport. Context controls are rebound when owner/target IDs change; unresolved targets are retried on later updates.
+Dataset flags prevent duplicate sidebars and context-menu augmentation. The context menu is repositioned if its new controls extend below the viewport. Boot calls `friendContextMenu()` in the mutation microtask before its animation-frame/heavy-module pass, so opening/hydrating the native menu does not wait for the 150 ms throttle. Valid account-identity messages schedule a microtask refresh after identity listeners, reading the verified cache rather than trusting payload data. An unresolved menu requests fresh native player data at most once per second, with six attempts per menu/owner/nickname binding. A successful reply enables the current row without another native DOM mutation. Color diamonds are CSS pseudo-elements and need no CDN image requests. Unchanged replies retain the existing row; owner/target changes rebind it, and detached rows release their markers and DOM ownership.
 
 The module refreshes badges on repeated calls. Filtering is explicitly applied on sidebar clicks and category changes; it does not maintain an independent server-side list subscription.
 
@@ -1733,6 +1733,8 @@ Boot observers remain page-wide; feature scopes own module listeners, timers and
 
 Three errors within ten seconds disable a scope. The synchronous duration threshold is diagnostic only: 16 ms by default and 4 ms for native HUD indicators. Exceeding it updates `slowCalls`, `lastMs`, and `maxMs` without disabling the scope, releasing resources or throttling callbacks. Timing happens after return and cannot preempt a hang. See [MAINTENANCE.md](MAINTENANCE.md) for live settings, cleanup ownership, diagnostics, test commands, and manual adapter repair.
 
+DOM ownership has a separate sweep that continues when a screen-specific update stops. One shared one-second timer per execution world checks owned nodes and DOM listener targets. After at least one second observed disconnected, `preserve()` restores still-owned styles/classes and releases its snapshot, while `ownDOM(node, restore)` releases external caches such as paint/friend display maps and augment previews/live stats. Each scope has one DOM-registry cleanup instead of a permanent cleanup callback per decorated element. Brief detachment/reparenting retains ownership; repeated decoration rebases restoration on later native changes. Expired detached listeners go through `unlisten()`, which calls `removeEventListener()` and releases both their cleanup registrations and weak-index entries. Cached native fragments recreate extension buttons/search controls or reset initialization markers when revisited; native game handlers remain untouched. Window/document listeners retain their normal scope lifetime. The timer stops when no scope owns sweepable resources; background-tab timer throttling can postpone cleanup. Diagnostics expose `domNodes` and `listeners` as ownership/registration counters, not total browser heap counts. `npm run test:browser:dom-lifetime` checks garbage collection and reuse in isolated Chromium fixtures.
+
 `src/modules/battleHistory/unassigned.ts` holds at most 20 complete results without an owner in session storage, with a 2,000,000-character cap and 24-hour read filter. A result confirmed while the same native result remains open follows normal ID-scoped capture; older recovery entries are never assigned by nickname. Existing durable records remain unchanged during ID loss.
 
 ## Build and Packaging Implementation
@@ -1752,11 +1754,11 @@ esbuild consumes `src/kasp_main.ts` and `src/kasp_injector.ts`, bundles imports,
 | `check` | Strict type checking followed by the complete test suite |
 | `parse:client` | Development-only Acorn CLI in `tools/parser/client-parser.cjs`; local JS input, optional JSON AST export |
 | `prepare:<feature>` | Thirteen npm analyzer CLIs; one additional direction analyzer uses a direct Node command; none run automatically during build |
-| `build:js` | esbuild both entry points with bundle/IIFE/Chrome target flags |
-| `build:zip` | Run local checks, then execute the Node release script |
+| `build:js` | esbuild main, injector and network-gate entry points with bundle/IIFE/Chrome target flags |
+| `build:zip` | Run local checks, rebuild JavaScript, then execute the Node release script |
 | `build` | Type check → tests → bundle → package |
 | `release` | Invoke `build` |
-| `watch` | Watch/rebundle both entries; no separate typecheck/package step |
+| `watch` | Watch/rebundle all three entries; no separate typecheck/package step |
 
 `npm run parse:client -- <main.js> [--module] [--ast <output.json>]` parses a local file with Acorn (`ecmaVersion: latest`, source locations enabled) without evaluating it. The summary records input byte size/hash, parser and statement count. BigInt literals retain ESTree `bigint`/`raw`, with their non-serializable JS value replaced by null in JSON. Existing AST output is not overwritten. Missing paths are errors, not URLs to download. This inspection command does not prepare mappings; `--module` applies only to this parser CLI, not the script-mode preparation CLIs.
 
@@ -1773,7 +1775,7 @@ The full build and ZIP command stop on failed type checking or regression tests.
 
 ### Dependency Metadata
 
-The manifest, package, and lockfile package versions are 3.0.2. Both package files declare `UNLICENSED`; the package is marked `private: true`. Package/lockfile-root ranges agree: `@types/chrome` `^0.3.0`, esbuild `^0.28.2`, TypeScript `^7.0.2`, Acorn `^8.19.0`, acorn-walk `^8.3.5`, and Astring `^1.9.0`. The parser/walker/generator are development dependencies, not imports of the runtime entries.
+The manifest, package, and lockfile package versions are 3.0.3. Both package files declare `UNLICENSED`; the package is marked `private: true`. Package/lockfile-root ranges agree: `@types/chrome` `^0.3.0`, esbuild `^0.28.2`, TypeScript `^7.0.2`, Acorn `^8.19.0`, acorn-walk `^8.3.5`, and Astring `^1.9.0`. The parser/walker/generator are development dependencies, not imports of the runtime entries.
 
 Use `npm ci` to install the locked dependency graph. Dependency changes should update the manifest and lockfile together; `npm install` can rewrite the lockfile. The project does not declare a Node `engines` field; tooling requires APIs such as `fs.cpSync` and the built-in Node test runner.
 
@@ -1818,11 +1820,11 @@ Generated JSON is statically imported into `dist/kasp_injector.js`; it is not fe
 | `zipFolderContents(source, zip)` | Archive the folder contents directly for the Firefox-layout ZIP, with a root manifest. |
 | `main()` | Determine version, replace generated targets, copy configured inputs, check broad counts, archive, and log size. |
 
-Configured directories are `dist`, `styles`, `assets`, `database`, `_locales`, `templates` and `docs`. Configured root files are `manifest.json`, `LICENSE.txt`, `README.md`, `DOCUMENTATION.md`, and `MAINTENANCE.md`.
+Configured directories are `dist`, `styles`, `assets`, `database`, `_locales`, `templates` and `rules`. Configured root files are `manifest.json`, `LICENSE.txt`, `README.md`, `DOCUMENTATION.md`, and `MAINTENANCE.md`.
 
-For 3.0.2, the folder and archive names are `release/Kaspersky's Inventions 3.0.2/` and `release/Kaspersky's Inventions 3.0.2.zip`. The ordinary ZIP contains that outer versioned folder. A second `Kaspersky's Inventions 3.0.2-firefox.zip` contains its contents directly, including the root manifest. Both are unsigned distribution archives.
+For 3.0.3, the folder and archive names are `release/Kaspersky's Inventions 3.0.3/` and `release/Kaspersky's Inventions 3.0.3.zip`. The ordinary ZIP contains that outer versioned folder. A second `Kaspersky's Inventions 3.0.3-firefox.zip` contains its contents directly, including the root manifest. Both are unsigned distribution archives.
 
-The script removes the existing same-version output before recreating it. It throws if no directory or no root file was copied, but does not require every configured input to exist. `build:zip` can package stale bundles or partial resources if invoked without appropriate preparation.
+The script removes the existing same-version output before recreating it. It throws if no directory or no root file was copied, but does not require every configured input to exist. `build:zip` rebuilds all JavaScript entries first. Verify the gate bundle and `rules/game-bundle.json` are present; missing resources still require inspecting the package.
 
 Only README.md, DOCUMENTATION.md and MAINTENANCE.md are copied as Markdown documentation. `src/`, raw plan JSON, tools/tests, dependencies, root `main.js`, AST exports, and `archived/` are not configured copy inputs. `.gitignore` currently excludes `node_modules/`, `release/`, ZIPs, `archived/`, and root `main.js`; an already tracked file remains tracked despite an ignore entry.
 
@@ -2009,13 +2011,13 @@ Project use and distribution are governed by [LICENSE.txt](LICENSE.txt), which c
 
 ---
 
-Technical documentation aligned with source/manifest version **3.0.2**, updated **October 24, 2026**.
+Technical documentation aligned with source/manifest version **3.0.3**, updated **October 24, 2026**.
 
 <a id="weather-reference"></a>
 
 ## Weather Rendering and Audio Reference
 
-Extension 3.0.2 · Implementation review: October 25, 2026
+Extension 3.0.3 · Implementation review: October 25, 2026
 
 Enable **Settings → KASPERSKY → Visual changes → Random battle weather**. The feature is off by default and enables immediately. Two full-width sliders smoothly expand beneath its switch: **Thunder volume** and **Rain volume**, localized in English/Russian. Both range from 0% (muted) to 100% of the existing sound level, default to 100%, persist across sessions and apply live. Disabling collapses the controls and releases the weather renderer and audio without discarding volume preferences.
 
@@ -2075,7 +2077,7 @@ Only enabled, visible puddles allocate/copy scene colour and perform the extra d
 
 ### Surface Parameters
 
-The developer panel, its opening hotkey and authoring/export API have been removed. Ordinary in-game weather controls remain available; existing saved surface preferences remain compatible.
+The former rain developer panel, its Ctrl+Alt+W hotkey and rain authoring/export API have been removed; Snow has a separate Ctrl+Alt+S panel below. Ordinary in-game weather controls remain available; existing saved surface preferences remain compatible.
 
 Existing surface parameters are read from the versioned origin-local `k_rain_surface_tuning_v1` key. They apply live across presets, without shader recompilation, account data or extra particle meshes:
 
@@ -2105,7 +2107,7 @@ The supplied tuning export now defines defaults: ring radius/spacing divided by 
 
 The shared intensity is the sampled episode rain multiplied by `rainIntensity`. This one value drives the instanced streak count, rain-ring activation, splash spawning and rain-noise gain; user volume is an additional independent multiplier. Zero stops rain audio and droplets while clouds can remain. Ground emission is bounded to 60 candidate contacts per update. Up to 12 recently interpolated tanks participate. Native hull box descriptions supply local collision faces and the interpolated body matrix transforms rain-ray hits into world positions. These are rain impacts on a hull, not track wakes: stationary tanks emit too, independently of puddles and speed. Missing hull geometry emits nothing; captured map roofs above a contact suppress its spawn. Collision hulls can differ from visual skins and do not include a separately articulated turret. The particle pool is capped at 1,024, with one preallocated GPU buffer and one instanced call. The normal rain field is not read back to the CPU and ground impacts are statistical, not exact rain-particle collisions. Hull spray does not sample the puddle mask. The owned horizontal and bank collision meshes are uploaded once per captured map, and water mask depth is rasterized only when needed for visible puddles.
 
-`tools/ast/weather-scene-ast.cjs` adds eight validated scene capabilities: map collision capture, hull setup/interpolation, native LightingBlock upload, battle-ID/theme observation, static foliage, native skybox tone, native fog-strength suppression and drop-zone depth isolation. The upload wrapper always calls native code exactly once and restores only its own temporary CPU values in finally. The current plan contains 28 insertions and 57 evidence templates. Foliage edits wrap four vertex-source expressions without any per-draw wind callback. Fog and drop-zone edits scope temporary state around existing native uploads/dispatch. Original source assembly/program selection still executes once. DTO getters, list operations, coordinates and tank fields are derived from source evidence and adapted across renamed/minified bundles. Missing scene evidence never authorizes treating all depth as terrain. `status()` includes `environment`, `map`, `nativeLightingReady`, recent `tanks`, usable `tankSurfaces`, `splashes`, and per-renderer `mapError`/`splashError`. Live validation remains necessary for collision/visual-mesh differences on each map.
+`tools/ast/weather-scene-ast.cjs` adds eight validated scene capabilities: map collision capture, hull setup/interpolation, native LightingBlock upload, battle-ID/theme observation, static foliage, native skybox tone, native fog-strength suppression and drop-zone depth isolation. The upload wrapper always calls native code exactly once and restores only its own temporary CPU values in finally. The current plan contains 30 insertions and 61 evidence templates. Foliage edits wrap four vertex-source expressions without any per-draw wind callback. Fog and drop-zone edits scope temporary state around existing native uploads/dispatch. Original source assembly/program selection still executes once. DTO getters, list operations, coordinates and tank fields are derived from source evidence and adapted across renamed/minified bundles. Missing scene evidence never authorizes treating all depth as terrain. `status()` includes `environment`, `map`, `nativeLightingReady`, recent `tanks`, usable `tankSurfaces`, `splashes`, and per-renderer `mapError`/`splashError`. Live validation remains necessary for collision/visual-mesh differences on each map.
 
 ### Open edges, tree wind and map environment
 
@@ -2139,7 +2141,7 @@ Leaving the battle stops audio independently of the native render callback; a wa
 
 ### Native fog during rain
 
-The separate fog and enhanced dynamic-lighting features have been rolled back. There is no independent mist setting, 3D fog texture/pass, light-gain shader or atmospheric tuner section. The regular weather settings retain rain volumes, chance, duration, preset and the puddle switch. The developer panel and its surface/reflection/splash controls are removed. Old atmosphere/light preference keys are no longer read or exported.
+The separate fog and enhanced dynamic-lighting features have been rolled back. There is no independent mist setting, 3D fog texture/pass, light-gain shader or atmospheric tuner section. The regular weather settings retain rain volumes, chance, duration, preset and the puddle switch. The former rain developer panel and its surface/reflection/splash controls are removed; the Snow developer panel and snowbanks are also archived. Old atmosphere/light preference keys are no longer read or exported.
 
 Only during a rainy preset, both native common Fog binders receive a fading fog-strength cap and the separate SkyBox fog upload receives the same fading alpha. At full preset intensity they are zero, so native fog does not whiten distant geometry, foliage or the skybox. This is normalized per preset: drizzle and sunshower remove fog fully too. Fog colour, distance, shader source and saved graphics flags remain native. Existing zero strength remains zero. Each original strength expression is evaluated once; observer errors fall back to the original. Rain ending, disabling weather, zero precipitation, SPACE and leaving battle restore native uploads automatically, including graphics changes made by the player during rain. The cloud renderer follows the same suppression envelope. Native fog is not permanently disabled in game settings.
 
@@ -2158,7 +2160,7 @@ The inspected local `main.js` (SHA-256 `4ef9f256178c771071ce9cc0baf2a00d93907374
 
 ## Киллфид: исследование рендера и проверка символов
 
-Разбор локального `main.js` для расширения **3.0.2**, проверено **22 октября 2026 года**.
+Разбор локального `main.js` для расширения **3.0.3**, проверено **22 октября 2026 года**.
 
 SHA-256 исследованного бандла:
 `4ef9f256178c771071ce9cc0baf2a00d939073746badf40c8656c6d5760c3db4`.
@@ -2247,7 +2249,7 @@ AST-анализатор находит таблицу глифов в расч�
 
 Reference source files mentioned below are in `tools/client/discord/`. Deployment, building, verification and recovery are covered in [MAINTENANCE.md](MAINTENANCE.md#electron-client-maintenance).
 
-Extension integration reference: **3.0.2**, updated **October 24, 2026**. Client executable versioning and automatic updates belong to the separate Electron project.
+Extension integration reference: **3.0.3**, updated **October 24, 2026**. Client executable versioning and automatic updates belong to the separate Electron project.
 
 The extension reads the nickname and current screen and sends a heartbeat every three seconds. In a regular browser the module remains inactive. Discord labels are always in English, regardless of the game's interface language.
 
@@ -2301,4 +2303,20 @@ The visible UID line can be completely hidden in streamer mode without deleting 
 
 There is no per-feature Discord switch in the fifteen-option settings panel. Presence activates only when the client bridge/environment is available. In an ordinary browser, absence of Discord activity is expected. The bridge is not installed merely by importing a history backup or opening a client-source link.
 
-Weather continuity (2026-10-25): one runtime episode is owned by the battle, not individual native render scenes. Secondary/loading canvases before statistics arrives share the same seed, preset, start and fade. A late ID binds that episode to the existing battle cache; an actual different known ID selects its own cached/new episode. Verify full-battle rain at 60, 600 and 1,200 seconds while alternating two WebGL contexts, plus late-ID adoption without a new fade or chance roll.
+Weather continuity (2026-10-27): one runtime episode belongs to the native battle ID, not individual render scenes. Before a native map title or winter/space theme arrives no plan is generated. Missing optional lobby theme does not block ordinary-map rain. Once identified, secondary/loading canvases share the same seed, preset, start and fade. A different known ID selects its own matching cached/new episode. Verify full-battle precipitation beyond ten minutes across two contexts, late metadata, garage suspension/re-entry and migration of incompatible legacy precipitation.
+
+### Snowfall (October 26, 2026)
+
+`src/core/snowWeather/` contains fixed profiles in `config.ts`, snowfall GLSL in `shaders.ts` and public exports in `index.ts`. The shared Random battle weather switch selects precipitation from native map themes: WINTER_DAY/WINTER_NIGHT → snow; SUMMER_DAY/SUMMER_EVENING/SUMMER_NIGHT/AUTUMN_DAY → rain except Бойня/Massacre; SPACE → none. Missing theme no longer blocks ordinary maps: native map-title Space/Космос markers disable weather, Winter/Snow/Зима markers select snow, and other titles select rain except Massacre. An explicit native theme takes precedence. Only a missing map title and theme together keep planning pending. Legacy `k_weather_precipitation` is ignored. The common chance/duration/preset controls apply to new battle plans; matching cached episodes retain their seed/start on re-entry, while incompatible legacy cached modes are replaced. The five IDs remain sunny, overcast, drizzle, sunshower and storm; Random chooses a precipitating profile. Manual previews obey the same map restrictions and cannot force rain on winter maps.
+
+At full intensity the GPU draws at most 20,000 snow instances, with two crossing crystal planes (12 vertices) for calm snow; a blizzard splits the budget into 4,000 crystals and 16,000 six-vertex soft ribbons. Hash-based world positions, per-flake fall speeds, lateral flutter and common wind drift require no per-flake CPU mesh or texture downloads. The fragment shader uses an anti-aliased sixfold crystal with a soft low-resolution fallback. The camera-centred bounded emission volume wraps world-fixed trajectories at faded borders; native depth testing occludes flakes behind map geometry. Native state is restored after rendering; resources compile lazily and are disposed on disable/context loss. Shader failure is reported as `snowError` and does not substitute rain. Snow is not a simulated fluid or accumulation model: the snowfall renderer itself does not accumulate terrain snow, create liquid puddles/refraction, thunder or rain audio. Snowdrifts are archived and have no active pass. Saved puddle preferences cannot enable liquid effects during snow. Existing collision depth provides visual occlusion, not a full indoor precipitation-volume solution. Rain and snow are mutually exclusive within each episode.
+
+Blizzard motion (2026-10-26): 20,000 maximum flakes. Strong wind alone scales mean horizontal drift by 8 and fall speed by 1.8; bounded local flutter and faster tumbling distinguish a blizzard. Shared gusts use integrated sinusoidal displacement, not time multiplied by a changing velocity. The original calm/sunlit motion remains unchanged below the blizzard wind threshold.
+
+Dense blizzard ribbons (2026-10-26): a blizzard narrows its bounded emission volume to 46 × 46 × 34 metres, adds coherent drifting density bands and much faster nearly horizontal transport. Near crystals and cheap soft ribbons use separate lazy shaders; ribbons perform no crystal branches/angular texture calculation. Both follow world-space trajectories with analytic gust integration and native depth occlusion. A fixed ID partition prevents density fades from moving existing trajectories. The full blizzard issues 144,000 particle vertices rather than the former 240,000 (40% fewer); this is a geometry-work comparison, not a measured FPS improvement. Wider particle coverage can still increase fragment work. Unsupported ribbon shaders fall back to crystals. There is no new fullscreen fog or lighting pass.
+
+### Archived snow experiments (October 27, 2026)
+
+`archive/snowdrifts-and-snow-tuner-2026-10-27/` preserves the complete previous snow module, collision-based snowbanks, deformation/cache/mesh shaders, 102-control developer panel and tuning profiles, plus integration snapshots, AST observer/plan and related tests. These are recovery sources, not production modules. No active imports, settings row, storage reader, developer hotkey or `__kaspSnow` API remain. The snowbank-only TRACKED/HOVER observer is removed from the current prepared AST plan (28 edits / 57 evidence templates). Ordinary tank/hull capture remains for rain-impact spray. Neither the build entries nor release packaging include the archive.
+
+Rain/snow lifecycle still suspends immediately in the garage and resumes the same battle episode on return. During snow, the runtime sets puddle amount to zero, omits collision-map construction for liquid effects, clears spray and never warms reflection resources. The renderer independently rejects liquid reflections, puddles and spray for snow frames. This guard applies even to saved enabled rain-puddle preferences.

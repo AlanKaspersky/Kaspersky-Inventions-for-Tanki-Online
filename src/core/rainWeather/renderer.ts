@@ -1,3 +1,5 @@
+import { SNOW, SNOW_VERTEX, SNOW_FRAGMENT, SNOW_STREAK_VERTEX, SNOW_STREAK_FRAGMENT } from '../snowWeather';
+import type { Precipitation } from './schedule';
 import { WEATHER } from './schedule';
 import * as shader from './shaders';
 import { buildBolt } from './lightning';
@@ -26,6 +28,7 @@ type Program = { p: WebGLProgram; u: Record<string, WebGLUniformLocation | null>
 type CopyInfo = { format:number|null; samples:number; reason:string|null };
 export interface RainFrame {
     vp: Float32Array; camera: [number,number,number]; time: number; seed: number; fade: number;
+    precipitation?:Precipitation;
     rain: number; clouds: number; wind: number; flash: number; storm: number;
     fog: [number,number,number]; fogColor: [number,number,number,number];
     lightning?:LightningFrame;
@@ -47,6 +50,7 @@ export function createRainRenderer(gl: WebGL2RenderingContext) {
  let ready=false,disposed=false,vao:WebGLVertexArrayObject|null=null,cloudTex:WebGLTexture|null=null,cloudFbo:WebGLFramebuffer|null=null;
  let cw=0,ch=0,cloudAt=-Infinity;
  const cloudFloat=!!gl.getExtension('EXT_color_buffer_float');
+ let snow:Program|undefined,snowStreak:Program|undefined,snowError:string|null=null,snowStreakError:string|null=null,snowFlakes=0,snowCrystals=0,snowStreaks=0;
  let cloud:Program,composite:Program,rain:Program,atmosphere:Program,bolt:Program;
  let boltBuffer:WebGLBuffer|null=null,boltVao:WebGLVertexArrayObject|null=null,boltKey='',boltCount=0;
  const puddlePrograms:Partial<Record<PuddleDetail,Program>>={},puddleErrors:Partial<Record<PuddleDetail,string>>={};
@@ -385,6 +389,14 @@ export function createRainRenderer(gl: WebGL2RenderingContext) {
 
  const shared=['uInvVP','uCam','uTime','uRain','uCloud','uSeed','uFade','uFog','uFogColor','uDepth','uSkyDarkness'];
  function owned(vs:string,fs:string,names:string[]):Program {const p=program(vs,fs,names);programs.push(p);return p;}
+ function prepareSnow(){
+   if(!snow&&!snowError)try{snow=owned(SNOW_VERTEX,SNOW_FRAGMENT,[...shared,'uVP','uViewport','uWind','uCount','uIdOffset']);}catch(error){snowError=String(error);}
+   return snow;
+ }
+ function prepareSnowStreaks(){
+   if(!snowStreak&&!snowStreakError)try{snowStreak=owned(SNOW_STREAK_VERTEX,SNOW_STREAK_FRAGMENT,[...shared,'uVP','uViewport','uWind','uCount','uIdOffset']);}catch(error){snowStreakError=String(error);}
+   return snowStreak;
+ }
  function prepareReflections(detail:PuddleDetail):Program|undefined{
    if(puddlePrograms[detail])return puddlePrograms[detail];
    if(!puddleErrors[detail]){
@@ -402,15 +414,15 @@ export function createRainRenderer(gl: WebGL2RenderingContext) {
    releaseReflections();
    releaseMap();gl.deleteVertexArray(splashVao);gl.deleteBuffer(splashBuffer);
  }
- function warm(reflections=false,detail:PuddleDetail='low'){
-   if(disposed)return;if(ready){if(reflections)prepareReflections(detail);return;}const state=saveState();
+ function warm(reflections=false,detail:PuddleDetail='low',precipitation:Precipitation='rain'){
+   if(disposed)return;if(ready){if(reflections)prepareReflections(detail);if(precipitation==='snow')prepareSnow();return;}const state=saveState();
    try {
      cloud=owned(shader.FULL_VERTEX,shader.CLOUD_FRAGMENT,[...shared,'uSky','uCloudBase','uThickness','uCloudLow','uCloudHigh','uCloudHaze','uCloudTone']);
      composite=owned(shader.FULL_VERTEX,shader.COMPOSITE_FRAGMENT,['uSky','uCloudTexture','uFade','uInvVP','uBoltFlash','uBoltDirection']);
      atmosphere=owned(shader.FULL_VERTEX,shader.ATMOSPHERE_FRAGMENT,[...shared,'uSky','uStorm','uBoltFlash']);
      rain=owned(shader.RAIN_VERTEX,shader.RAIN_FRAGMENT,[...shared,'uVP','uViewport','uWind','uCount']);
      bolt=owned(shader.LIGHTNING_VERTEX,shader.LIGHTNING_FRAGMENT,['uVP','uViewport','uPower','uFade']);
-     if(reflections)prepareReflections(detail);
+     if(reflections)prepareReflections(detail);if(precipitation==='snow')prepareSnow();
      vao=gl.createVertexArray();cloudTex=gl.createTexture();cloudFbo=gl.createFramebuffer();ready=true;
      boltVao=gl.createVertexArray();boltBuffer=gl.createBuffer();
      if(!boltVao||!boltBuffer)throw Error('Cannot allocate lightning mesh');
@@ -430,8 +442,9 @@ export function createRainRenderer(gl: WebGL2RenderingContext) {
  }
  let frames=0,depthCopies=0,cloudFrames=0;
  function draw(f:RainFrame,stage:RainStage='all'){
+   snowFlakes=0;snowCrystals=0;snowStreaks=0;
    if(disposed||gl.isContextLost()||f.fade<=0)return;
-   warm();if(!ready||!invert4(f.vp,invVP))return;
+   warm(false,'low',f.precipitation);if(!ready||!invert4(f.vp,invVP))return;
    if(f.clouds<.001&&f.rain<.001&&f.storm<.001){releaseReflections();return;}
    const sky=stage!=='weather',weather=stage!=='sky';
    const state=saveState();
@@ -439,8 +452,8 @@ export function createRainRenderer(gl: WebGL2RenderingContext) {
      if(!boundHasDepth(state))return;
      const width=state.viewport[2],height=state.viewport[3];if(width<1||height<1)return;
      const refreshCloud=sky&&f.clouds>.001&&f.time-cloudAt>=1/WEATHER.cloudHz;
-     const wet=sky&&Math.max(0,Math.min(1,f.puddles??0))*f.rain*f.fade>.002;
-     const depthNeeded=weather&&f.rain>.03||wet;
+     const wet=sky&&f.precipitation!=='snow'&&Math.max(0,Math.min(1,f.puddles??0))*f.rain*f.fade>.002;
+     const depthNeeded=weather&&f.rain>.03&&f.precipitation!=='snow'||wet;
      const depth=depthNeeded&&copySceneDepth(state);if(depth)depthCopies++;
      gl.disable(gl.STENCIL_TEST);gl.disable(gl.SCISSOR_TEST);gl.disable(gl.CULL_FACE);
      gl.disable(gl.SAMPLE_ALPHA_TO_COVERAGE);gl.disable(gl.RASTERIZER_DISCARD);gl.disable(gl.POLYGON_OFFSET_FILL);
@@ -514,7 +527,7 @@ export function createRainRenderer(gl: WebGL2RenderingContext) {
      }
      if(weather&&f.rain>.001){
        // World-space droplets replace the old screen-space impact crowns.
-       const data=f.splashData;
+       const data=f.precipitation==='snow'?undefined:f.splashData;
        if(data?.length&&!splashError){
         try{
          if(!splashProgram){
@@ -531,16 +544,28 @@ export function createRainRenderer(gl: WebGL2RenderingContext) {
          gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);splashParticles=count;gl.drawArraysInstanced(gl.TRIANGLE_STRIP,0,4,splashParticles);
         }catch(error){splashError=String(error);}finally{gl.bindVertexArray(vao);}
        }else splashParticles=0;
-       gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);use(rain,f);
-       const count=Math.round(WEATHER.maxDrops*f.rain);
-       gl.uniformMatrix4fv(rain.u.uVP,false,f.vp);gl.uniform2f(rain.u.uViewport,width,height);
-       gl.uniform1f(rain.u.uWind,f.wind);gl.uniform1f(rain.u.uCount,count);
-       gl.drawArraysInstanced(gl.TRIANGLE_STRIP,0,4,count);
+       const snowy=f.precipitation==='snow',particle=snowy?prepareSnow():rain;
+       if(particle){
+        gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);
+        const count=Math.round((snowy?SNOW.maxFlakes:WEATHER.maxDrops)*Math.min(1,f.rain));
+        const streak=snowy&&f.wind>=.95?prepareSnowStreaks():undefined;
+        const streakCount=streak?Math.round(count*SNOW.blizzardStreakShare):0,crystalCount=count-streakCount;
+        const drawParticles=(program:Program,n:number,vertices:number,offset:number)=>{
+         if(!n)return;use(program,f);
+         gl.uniformMatrix4fv(program.u.uVP,false,f.vp);gl.uniform2f(program.u.uViewport,width,height);
+         gl.uniform1f(program.u.uWind,f.wind);gl.uniform1f(program.u.uCount,n);gl.uniform1f(program.u.uIdOffset??null,offset);
+         gl.drawArraysInstanced(snowy?gl.TRIANGLES:gl.TRIANGLE_STRIP,0,vertices,n);
+        };
+        drawParticles(particle,crystalCount,snowy?12:4,0);
+        // Fixed ID partitions keep trajectories stable while precipitation fades.
+        if(streak)drawParticles(streak,streakCount,6,SNOW.maxFlakes-Math.round(SNOW.maxFlakes*SNOW.blizzardStreakShare));
+        if(snowy){snowFlakes=count;snowCrystals=crystalCount;snowStreaks=streakCount;}
+       }
      }
      frames++;
    } finally {restoreState(state);}
  }
- return { warm,draw,dispose,clearReflections:()=>{releaseReflections();releaseMap();},status:()=>({ready,disposed,frames,depthCopies,cloudFrames,cloudSize:[cw,ch],cloudFloat,boltSegments:boltCount,depthFormat:info.depthFormat,
+ return { warm,draw,dispose,clearReflections:()=>{releaseReflections();releaseMap();},status:()=>({ready,disposed,frames,snowFlakes,snowCrystals,snowStreaks,snowError,snowStreakError,depthCopies,cloudFrames,cloudSize:[cw,ch],cloudFloat,boltSegments:boltCount,depthFormat:info.depthFormat,
    puddleFrames,surfaceRevision:PUDDLE_SURFACE_REVISION,puddleDetail:lastPuddleDetail,puddleErrors:{...puddleErrors},reflectionCopies,reflectionSize:sceneTex?[sw,sh]:null,
    sceneCopy:{...sceneCopy},depthCopy:{...depthCopy},mapFrames,mapTriangles:mapSource?.triangles??0,mapError,splashParticles,splashError}) };
 }

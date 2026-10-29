@@ -411,6 +411,7 @@ export function createHistoryNavigation(options: NavigationOptions) {
             }
         });
         footerList.appendChild(btn);
+        lifecycle.ownDOM(btn, element => element.remove());
     };
 
     const bindShortcuts = () => {

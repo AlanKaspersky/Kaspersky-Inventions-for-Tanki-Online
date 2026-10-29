@@ -155,3 +155,147 @@ test('presentation cleanup restores owned properties without overwriting later n
     assert.equal(values.get('width'),'10px'); assert.equal(values.get('height'),'50px');
     assert.equal(classes.has('custom'),false); assert.equal(classes.has('new-native'),true);
 });
+
+function styledNode() {
+    const node = new EventTarget(), values = new Map(), priorities = new Map(), classes = new Set();
+    node.isConnected = true;
+    node.style = {
+        getPropertyValue: key => values.get(key) || '', getPropertyPriority: key => priorities.get(key) || '',
+        setProperty: (key, value, priority = '') => { values.set(key, value); priorities.set(key, priority); },
+        removeProperty: key => { values.delete(key); priorities.delete(key); },
+    };
+    node.classList = { contains: key => classes.has(key), toggle: (key, on) => on ? classes.add(key) : classes.delete(key) };
+    return node;
+}
+
+function sweepTimers(f) {
+    // Like a browser timeout, remove the fired handle before the callback reschedules.
+    for (const [id, callback] of [...f.timers]) { f.timers.delete(id); callback(); }
+}
+
+test('detached presentation nodes are released without any subsequent feature tick', () => {
+    const f = fixture(), scope = f.featureScope('screen');
+    for (let cycle = 0; cycle < 5; cycle++) {
+        const nodes = Array.from({ length: 1000 }, styledNode);
+        for (const node of nodes) {
+            node.style.setProperty('display', 'grid');
+            const commit = scope.preserve(node, ['display']);
+            node.style.setProperty('display', 'none'); commit();
+            node.isConnected = false;
+        }
+        assert.equal(scope.status().domNodes, 1000);
+        assert.equal(scope.status().resources, 1, 'one cleanup registry per scope, not one callback per node');
+        assert.equal(f.timers.size, 1);
+        sweepTimers(f); f.advance(1001); sweepTimers(f);
+        assert.equal(scope.status().domNodes, 0);
+        assert.equal(scope.status().resources, 0);
+        assert.equal(f.timers.size, 0, 'idle scopes do not keep a sweeping timer');
+        assert.ok(nodes.every(node => node.style.getPropertyValue('display') === 'grid'));
+    }
+});
+
+test('temporary DOM reparenting retains ownership and later native styles are restored', () => {
+    const f = fixture(), scope = f.featureScope('reparent'), node = styledNode();
+    node.style.setProperty('display', 'grid');
+    let commit = scope.preserve(node, ['display']); node.style.setProperty('display', 'none'); commit();
+    node.isConnected = false; scope.pruneDOM(); f.advance(500);
+    node.isConnected = true; scope.pruneDOM();
+    assert.equal(scope.status().domNodes, 1);
+    node.style.setProperty('display', 'flex', 'important');
+    commit = scope.preserve(node, ['display']); node.style.setProperty('display', 'none'); commit();
+    scope.dispose();
+    assert.equal(node.style.getPropertyValue('display'), 'flex');
+    assert.equal(node.style.getPropertyPriority('display'), 'important');
+    assert.equal(f.timers.size, 0);
+});
+
+test('an old presentation commit cannot claim a released or disposed node again', () => {
+    const f = fixture(), scope = f.featureScope('stale'), node = styledNode();
+    const commit = scope.preserve(node, ['display']); node.style.setProperty('display', 'none'); commit();
+    scope.releaseDOM(node); node.style.setProperty('display', 'flex'); commit();
+    scope.dispose(); scope.preserve(node, ['display'])();
+    assert.equal(scope.status().domNodes, 0); assert.equal(scope.status().resources, 0);
+    assert.equal(node.style.getPropertyValue('display'), 'flex');
+});
+
+test('DOM cleanup deduplicates callbacks, tolerates failures and releases external caches', () => {
+    const f = fixture(), scope = f.featureScope('cache'), node = styledNode(), cache = new Map([[node, 1]]);
+    let restores = 0;
+    const restore = element => { cache.delete(element); restores++; };
+    scope.ownDOM(node, () => { throw Error('broken cleanup'); });
+    scope.ownDOM(node, restore); scope.ownDOM(node, restore);
+    node.isConnected = false; scope.pruneDOM(); f.advance(1000); scope.pruneDOM();
+    assert.equal(cache.size, 0); assert.equal(restores, 1); assert.equal(scope.status().cleanupErrors, 1);
+    assert.equal(scope.status().resources, 0); assert.equal(scope.status().domNodes, 0);
+});
+
+test('one shared timer sweeps multiple scopes and stops when the last owner is released', () => {
+    const f = fixture(), first = f.featureScope('first'), second = f.featureScope('second');
+    first.ownDOM(styledNode(), () => {}); second.ownDOM(styledNode(), () => {});
+    assert.equal(f.timers.size, 1);
+    first.dispose(); assert.equal(f.timers.size, 1);
+    second.dispose(); assert.equal(f.timers.size, 0);
+});
+
+test('expired detached listeners are removed from the target and both registries', () => {
+    const f = fixture(), scope = f.featureScope('listeners'), node = styledNode(); let calls = 0;
+    const callback = () => calls++;
+    scope.listen(node, 'click', callback); scope.listen(node, 'click', callback);
+    node.dispatchEvent(new Event('click')); assert.equal(calls, 1, 'duplicate registration is idempotent');
+    node.isConnected = false; sweepTimers(f); f.advance(1001); sweepTimers(f);
+    assert.equal(scope.status().listeners, 0); assert.equal(scope.status().resources, 0); assert.equal(f.timers.size, 0);
+    node.isConnected = true; node.dispatchEvent(new Event('click')); assert.equal(calls, 1);
+    scope.unlisten(node, 'click', callback); node.dispatchEvent(new Event('click')); assert.equal(calls, 1);
+    scope.listen(node, 'click', callback); node.dispatchEvent(new Event('click')); assert.equal(calls, 2);
+    scope.listen(node, 'click', callback); node.isConnected = false;
+    scope.pruneDOM(); f.advance(1001); scope.pruneDOM(); scope.dispose();
+    node.isConnected = true; node.dispatchEvent(new Event('click')); assert.equal(calls, 2);
+});
+
+test('three detach/rebind cycles on the same button do not leave ghost handlers', () => {
+    const f = fixture(), scope = f.featureScope('rebind'), node = styledNode();
+    let calls = 0, nativeCalls = 0, removals = 0;
+    node.addEventListener('click', () => nativeCalls++);
+    const remove = node.removeEventListener.bind(node);
+    node.removeEventListener = (...args) => { removals++; remove(...args); };
+    for (let cycle = 0; cycle < 3; cycle++) {
+        node.isConnected = true;
+        scope.listen(node, 'click', () => calls++);
+        node.isConnected = false; scope.pruneDOM(); f.advance(1001); scope.pruneDOM();
+        assert.equal(scope.status().listeners, 0); assert.equal(scope.status().resources, 0);
+        node.isConnected = true; node.dispatchEvent(new Event('click'));
+        assert.equal(calls, 0, 'an expired wrapper must not remain on the node');
+    }
+    assert.equal(removals, 3, 'removeEventListener really ran for each wrapper');
+    assert.equal(nativeCalls, 3, 'native game listeners remain untouched');
+    scope.listen(node, 'click', () => calls++);
+    node.dispatchEvent(new Event('click')); assert.equal(calls, 1);
+    scope.dispose(); assert.equal(removals, 4);
+    node.dispatchEvent(new Event('click')); assert.equal(calls, 1);
+});
+
+test('brief detachment preserves handlers and capture registrations are cleaned separately', () => {
+    const f = fixture(), scope = f.featureScope('capture'), node = styledNode(); let calls = 0;
+    const callback = () => calls++;
+    scope.listen(node, 'click', callback, { capture: true });
+    scope.listen(node, 'click', callback, false);
+    node.isConnected = false; scope.pruneDOM(); f.advance(500);
+    node.isConnected = true; scope.pruneDOM(); node.dispatchEvent(new Event('click'));
+    assert.equal(calls, 2); assert.equal(scope.status().listeners, 2);
+    node.isConnected = false; scope.pruneDOM(); f.advance(1001); scope.pruneDOM();
+    node.isConnected = true; node.dispatchEvent(new Event('click'));
+    assert.equal(calls, 2); assert.equal(scope.status().listeners, 0);
+});
+
+test('once listeners and window listeners still obey their lifetimes', () => {
+    const f = fixture(), scope = f.featureScope('once'), node = styledNode(); let calls = 0;
+    scope.listen(node, 'click', () => calls++, { once: true });
+    scope.listen(f.page, 'click', () => calls++);
+    node.dispatchEvent(new Event('click')); node.dispatchEvent(new Event('click'));
+    assert.equal(calls, 1);
+    node.isConnected = false; scope.pruneDOM(); f.advance(1001); scope.pruneDOM();
+    assert.equal(scope.status().listeners, 1, 'window listeners must remain registered');
+    node.isConnected = true; node.dispatchEvent(new Event('click')); node.dispatchEvent(new Event('click'));
+    f.page.dispatchEvent(new Event('click')); assert.equal(calls, 2);
+    scope.dispose(); f.page.dispatchEvent(new Event('click')); assert.equal(calls, 2);
+});

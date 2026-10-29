@@ -170,6 +170,21 @@
   });
 
   // src/core/featureRuntime.ts
+  function scheduleDOMSweep() {
+    if (domSweepTimer !== void 0 || !domSweepers.size) return;
+    domSweepTimer = window.setTimeout(() => {
+      domSweepTimer = void 0;
+      for (const sweep of [...domSweepers]) sweep();
+      scheduleDOMSweep();
+    }, 1e3);
+  }
+  function stopDOMSweep(sweep) {
+    domSweepers.delete(sweep);
+    if (!domSweepers.size && domSweepTimer !== void 0) {
+      window.clearTimeout(domSweepTimer);
+      domSweepTimer = void 0;
+    }
+  }
   function createFeatureScope(id, options = {}) {
     const now = options.now || (() => performance.now());
     const budget = options.budgetMs ?? 16;
@@ -184,7 +199,9 @@
       lastMs: 0,
       maxMs: 0,
       cleanupErrors: 0,
-      resources: 0
+      resources: 0,
+      domNodes: 0,
+      listeners: 0
     };
     const cleanups = /* @__PURE__ */ new Set();
     const failuresAt = [];
@@ -201,6 +218,7 @@
       }
       cleanups.clear();
       status.resources = 0;
+      stopDOMSweep(pruneDOM);
     };
     const onCleanup = (cleanup) => {
       if (status.disabled) {
@@ -262,27 +280,97 @@
       }
     };
     const listeners = /* @__PURE__ */ new Set();
-    let lastPrune = 0;
+    const listenerIndex = /* @__PURE__ */ new WeakMap();
+    const domEntries = /* @__PURE__ */ new Map();
+    let releaseDOMCleanup;
+    const removable = (target) => "isConnected" in target && (!("nodeType" in target) || target.nodeType !== 9);
+    const watchDOM = () => {
+      let needed = domEntries.size > 0;
+      if (!needed) {
+        for (const entry of listeners) if (removable(entry.target)) {
+          needed = true;
+          break;
+        }
+      }
+      if (!status.disabled && needed) {
+        domSweepers.add(pruneDOM);
+        scheduleDOMSweep();
+      } else stopDOMSweep(pruneDOM);
+    };
+    const releaseDOM = (element) => {
+      const entry = domEntries.get(element);
+      if (!entry) return;
+      domEntries.delete(element);
+      for (const cleanup of entry.callbacks.values()) {
+        try {
+          cleanup();
+        } catch {
+          status.cleanupErrors++;
+        }
+      }
+      entry.callbacks.clear();
+      if (!domEntries.size) {
+        releaseDOMCleanup?.();
+        releaseDOMCleanup = void 0;
+      }
+      watchDOM();
+    };
+    const ownDOM = (element, cleanup) => {
+      if (status.disabled) return () => {
+      };
+      let entry = domEntries.get(element);
+      if (!entry) {
+        entry = { callbacks: /* @__PURE__ */ new Map() };
+        domEntries.set(element, entry);
+      }
+      if (!entry.callbacks.has(cleanup)) entry.callbacks.set(cleanup, () => cleanup(element));
+      if (!releaseDOMCleanup) releaseDOMCleanup = onCleanup(() => {
+        for (const node of [...domEntries.keys()]) releaseDOM(node);
+      });
+      watchDOM();
+      return () => {
+        entry.callbacks.delete(cleanup);
+        if (!entry.callbacks.size && domEntries.get(element) === entry) domEntries.delete(element);
+        if (!domEntries.size) {
+          releaseDOMCleanup?.();
+          releaseDOMCleanup = void 0;
+        }
+        watchDOM();
+      };
+    };
+    function pruneDOM() {
+      const time = now();
+      const expired = (node, entry) => {
+        if (!("isConnected" in node) || node.isConnected !== false) {
+          entry.disconnectedAt = void 0;
+          return false;
+        }
+        entry.disconnectedAt ??= time;
+        return time - entry.disconnectedAt >= 1e3;
+      };
+      for (const [node, entry] of domEntries) if (expired(node, entry)) releaseDOM(node);
+      for (const entry of listeners) if (removable(entry.target) && expired(entry.target, entry)) {
+        unlisten(entry.target, entry.type, entry.original, entry.options);
+      }
+      watchDOM();
+    }
     const unlisten = (target, type, listener, options2) => {
       if (!target) return;
       const capture = typeof options2 === "boolean" ? options2 : !!options2?.capture;
-      for (const entry of listeners) if (entry.target === target && entry.type === type && entry.original === listener && (typeof entry.options === "boolean" ? entry.options : !!entry.options?.capture) === capture) {
+      const indexed = listenerIndex.get(target);
+      if (!indexed) return;
+      for (const entry of indexed) if (entry.type === type && entry.original === listener && (typeof entry.options === "boolean" ? entry.options : !!entry.options?.capture) === capture) {
         target.removeEventListener?.(type, entry.wrapped, entry.options);
         entry.release();
         listeners.delete(entry);
+        indexed.delete(entry);
       }
+      if (!indexed.size) listenerIndex.delete(target);
+      watchDOM();
     };
     const listen = (target, type, listener, options2) => {
       if (!target || status.disabled) return;
-      const time = now();
-      if (time - lastPrune > 1e3) {
-        lastPrune = time;
-        for (const entry2 of listeners) if (time - entry2.since > 1e3 && "isConnected" in entry2.target && entry2.target.isConnected === false) {
-          entry2.target.removeEventListener(entry2.type, entry2.wrapped, entry2.options);
-          entry2.release();
-          listeners.delete(entry2);
-        }
-      }
+      unlisten(target, type, listener, options2);
       if (listeners.size >= 4096) {
         dispose("listener-limit");
         return;
@@ -292,13 +380,22 @@
         return run(() => listener.call(target, event));
       };
       target.addEventListener(type, wrapped, options2);
-      const entry = { target, type, original: listener, wrapped, options: options2, since: time, release: () => {
+      const entry = { target, type, original: listener, wrapped, options: options2, release: () => {
       } };
+      let indexed = listenerIndex.get(target);
+      if (!indexed) {
+        indexed = /* @__PURE__ */ new Set();
+        listenerIndex.set(target, indexed);
+      }
+      indexed.add(entry);
       entry.release = onCleanup(() => {
         target.removeEventListener(type, wrapped, options2);
         listeners.delete(entry);
+        indexed.delete(entry);
+        watchDOM();
       });
       listeners.add(entry);
+      watchDOM();
     };
     const timeouts = /* @__PURE__ */ new Map(), intervals = /* @__PURE__ */ new Map(), frames = /* @__PURE__ */ new Map();
     const cancelTimeout = (handle) => {
@@ -375,12 +472,15 @@
     };
     const presentations = /* @__PURE__ */ new WeakMap();
     const preserve = (element, styles = [], classes = []) => {
+      if (status.disabled) return () => {
+      };
       let saved = presentations.get(element);
       if (!saved) {
         saved = { styles: /* @__PURE__ */ new Map(), classes: /* @__PURE__ */ new Map() };
         presentations.set(element, saved);
         const entry = saved;
-        onCleanup(() => {
+        ownDOM(element, () => {
+          presentations.delete(element);
           for (const [key, value] of entry.styles) if (element.style.getPropertyValue(key) === value.after && element.style.getPropertyPriority(key) === value.afterPriority) {
             if (value.before) element.style.setProperty(key, value.before, value.priority);
             else element.style.removeProperty(key);
@@ -388,14 +488,19 @@
           for (const [key, value] of entry.classes) if (element.classList.contains(key) === value.after) element.classList.toggle(key, value.before);
         });
       }
-      for (const key of styles) if (!saved.styles.has(key)) saved.styles.set(key, {
-        before: element.style.getPropertyValue(key),
-        priority: element.style.getPropertyPriority(key),
-        after: element.style.getPropertyValue(key),
-        afterPriority: element.style.getPropertyPriority(key)
-      });
-      for (const key of classes) if (!saved.classes.has(key)) saved.classes.set(key, { before: element.classList.contains(key), after: element.classList.contains(key) });
+      for (const key of styles) {
+        const current = element.style.getPropertyValue(key), priority = element.style.getPropertyPriority(key), previous = saved.styles.get(key);
+        if (!previous || current !== previous.after || priority !== previous.afterPriority) saved.styles.set(
+          key,
+          { before: current, priority, after: current, afterPriority: priority }
+        );
+      }
+      for (const key of classes) {
+        const current = element.classList.contains(key), previous = saved.classes.get(key);
+        if (!previous || current !== previous.after) saved.classes.set(key, { before: current, after: current });
+      }
       return () => {
+        if (status.disabled || presentations.get(element) !== saved) return;
         for (const key of styles) {
           const value = saved.styles.get(key);
           value.after = element.style.getPropertyValue(key);
@@ -422,10 +527,13 @@
       cancelInterval,
       cancelFrame,
       preserve,
+      ownDOM,
+      releaseDOM,
+      pruneDOM,
       get disabled() {
         return status.disabled;
       },
-      status: () => ({ ...status })
+      status: () => ({ ...status, domNodes: domEntries.size, listeners: listeners.size })
     };
   }
   function featureScope(id, options) {
@@ -447,10 +555,11 @@
     if (world === "page") target.__kaspPageModulesDebug = debug;
     else target.__kaspModulesDebug = debug;
   }
-  var scopes;
+  var domSweepers, domSweepTimer, scopes;
   var init_featureRuntime = __esm({
     "src/core/featureRuntime.ts"() {
       "use strict";
+      domSweepers = /* @__PURE__ */ new Set();
       scopes = /* @__PURE__ */ new Map();
     }
   });
@@ -506,6 +615,7 @@
           resultName: '#selfUserBg [class*="BattleKillBoardComponentStyle-col1"] span.-whiteSpaceNoWrap',
           privateHeaderFields: ".UserInfoContainerStyle-userNameRank, .UserInfoContainerStyle-progressValue",
           clientParameter: ".ClientInfoComponentStyle-parameterText",
+          clientInfo: ".ClientInfoComponentStyle-container",
           currencyIcon: ".HeaderCommonStyle-icons",
           currencyValues: ".UserScoreComponentStyle-coinBlock span, .HeaderCommonStyle-icons span",
           currencyHeader: ".BreadcrumbsComponentStyle-rightButtonsContainer",
@@ -523,6 +633,7 @@
           battleHud: ".BattleHudComponentStyle-hudContainer, .BattleHudComponentStyle-container, .BattleComponentStyle-canvasContainer",
           loadingBackground: ".ApplicationLoaderComponentStyle-container.-background",
           battleCanvas: ".BattleComponentStyle-canvasContainer",
+          weatherExcluded: ".GarageCommonStyle-garageContainer, .GarageCommonStyle-positionContent, .GarageMainScreenStyle-blockParameters, .GarageComponentStyle-tankPreview.TankPreviewComponentStyle-visible, .ContainerInfoComponentStyle-lootBoxContainer, .NewShopCommonComponentStyle-commonContainer",
           tankPreview: ".GarageComponentStyle-tankPreview",
           visibleTankPreview: ".GarageComponentStyle-tankPreview.TankPreviewComponentStyle-visible",
           garage: ".GarageCommonStyle-positionContent, .GarageItemComponent-container, .ContainerInfoComponentStyle-lootBoxContainer, .GarageMainScreenStyle-blockParameters, .SkinsAndAlterationsStyle-SkinsVerticalComponent",
@@ -552,7 +663,8 @@
           settingsIcon: ".PrimaryMenuItemComponentStyle-itemLiOption",
           primaryItemName: ".PrimaryMenuItemComponentStyle-itemName",
           settingsContent: ".SettingsComponentStyle-container",
-          footerList: ".FooterComponentStyle-footer ul"
+          footerList: ".FooterComponentStyle-footer ul",
+          footer: ".FooterComponentStyle-footer"
         },
         garage: {
           skinArt: [".GarageItemComponentStyle-mainImg", ".garage-item img", ".MountedItemsStyle-itemPreview"],
@@ -755,6 +867,7 @@
     const detail = message.detail;
     switch (message.type) {
       case "kasp:account-identity:request":
+        return message.refreshPlayers === void 0 || typeof message.refreshPlayers === "boolean";
       case "kasp:game-augments-request":
         return true;
       case "kasp:account-identity": {
@@ -832,13 +945,13 @@
   function setupAccountIdentity() {
     if (initialized) return;
     initialized = true;
-    const lifecycle29 = featureScope("accountIdentity");
-    lifecycle29.onCleanup(() => {
+    const lifecycle30 = featureScope("accountIdentity");
+    lifecycle30.onCleanup(() => {
       nativeAccount = null;
       players.clear();
       receivedAt = 0;
     });
-    lifecycle29.listen(window, "message", (event) => {
+    lifecycle30.listen(window, "message", (event) => {
       const message = readPageMessage(event, window, ACCOUNT_IDENTITY_MESSAGE);
       if (!message) return;
       const snapshot = message.snapshot;
@@ -967,11 +1080,70 @@
     }
   });
 
+  // src/core/snowWeather/config.ts
+  var SNOW_PRESETS, SNOW, SNOW_PALETTES;
+  var init_config = __esm({
+    "src/core/snowWeather/config.ts"() {
+      "use strict";
+      SNOW_PRESETS = Object.freeze({
+        "sunshower": {
+          "rain": 0.5,
+          "clouds": 0.4,
+          "wind": 0.2,
+          "storm": 0,
+          "sound": 0
+        },
+        "drizzle": {
+          "rain": 0.25,
+          "clouds": 0.65,
+          "wind": 0.15,
+          "storm": 0,
+          "sound": 0
+        },
+        "storm": {
+          "rain": 1,
+          "clouds": 1,
+          "wind": 1,
+          "storm": 0.65,
+          "sound": 0
+        },
+        "overcast": {
+          "rain": 0,
+          "clouds": 0.8,
+          "wind": 0.25,
+          "storm": 0,
+          "sound": 0
+        },
+        "sunny": {
+          "rain": 0,
+          "clouds": 0.15,
+          "wind": 0.1,
+          "storm": 0,
+          "sound": 0
+        }
+      });
+      SNOW = Object.freeze({ "maxFlakes": 2e4, "blizzardStreakShare": 0.8, "blizzardWindScale": 8, "blizzardFallScale": 1.8, "blizzardFlutterScale": 3.6 });
+      SNOW_PALETTES = {
+        storm: { low: [0.1, 0.13, 0.17], high: [0.26, 0.3, 0.37], haze: [0.19, 0.23, 0.29], fog: [0.2, 0.25, 0.31] },
+        drizzle: { low: [0.3, 0.35, 0.41], high: [0.6, 0.65, 0.71], haze: [0.46, 0.52, 0.6], fog: [0.43, 0.49, 0.56] },
+        overcast: { low: [0.32, 0.37, 0.43], high: [0.65, 0.7, 0.76], haze: [0.5, 0.56, 0.63], fog: [0.46, 0.52, 0.59] },
+        sunshower: { low: [0.48, 0.54, 0.61], high: [0.87, 0.91, 0.96], haze: [0.72, 0.79, 0.86], fog: [0.64, 0.71, 0.79] },
+        sunny: { low: [0.68, 0.74, 0.81], high: [0.94, 0.97, 1], haze: [0.81, 0.87, 0.94], fog: [0.71, 0.78, 0.86] }
+      };
+      Object.values(SNOW_PALETTES).forEach((p) => {
+        Object.values(p).forEach(Object.freeze);
+        Object.freeze(p);
+      });
+      Object.freeze(SNOW_PALETTES);
+    }
+  });
+
   // src/core/rainWeather/schedule.ts
   var WEATHER, RAIN_PRESETS, DEFAULT_WEATHER_GENERATION, rainyPresets;
   var init_schedule = __esm({
     "src/core/rainWeather/schedule.ts"() {
       "use strict";
+      init_config();
       WEATHER = Object.freeze({
         chance: 0.24,
         // Actual rain probability in random mode, preserving the previous ~24% default.
@@ -996,14 +1168,14 @@
         overcast: { rain: 0, clouds: 0.85, wind: 0.3, storm: 0, sound: 0 },
         sunny: { rain: 0, clouds: 0.2, wind: 0.2, storm: 0, sound: 0 }
       });
-      DEFAULT_WEATHER_GENERATION = Object.freeze({ chance: WEATHER.chance, preset: "random", duration: 0.3 });
+      DEFAULT_WEATHER_GENERATION = Object.freeze({ chance: WEATHER.chance, preset: "random", duration: 0.3, precipitation: "rain" });
       rainyPresets = Object.keys(RAIN_PRESETS).filter((name) => RAIN_PRESETS[name].rain > 0);
     }
   });
 
   // src/core/rainWeather/preferences.ts
   function readWeatherGeneration(storage) {
-    let chance = DEFAULT_WEATHER_GENERATION.chance, preset = DEFAULT_WEATHER_GENERATION.preset, duration = DEFAULT_WEATHER_GENERATION.duration;
+    let chance = DEFAULT_WEATHER_GENERATION.chance, preset = DEFAULT_WEATHER_GENERATION.preset, duration = DEFAULT_WEATHER_GENERATION.duration, precipitation = DEFAULT_WEATHER_GENERATION.precipitation;
     try {
       const raw = storage.getItem(WEATHER_GENERATION_KEYS.chance);
       const value = raw === null || raw.trim() === "" ? NaN : Number(raw);
@@ -1021,7 +1193,7 @@
       if (Number.isFinite(value)) duration = Math.max(0, Math.min(1, value));
     } catch {
     }
-    return { chance, preset, duration };
+    return { chance, preset, duration, precipitation };
   }
   function readWeatherVolumes(storage) {
     const read = (key) => {
@@ -1069,19 +1241,20 @@
             information: "\u0418\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044F",
             rainVolume: "\u0413\u0440\u043E\u043C\u043A\u043E\u0441\u0442\u044C \u0434\u043E\u0436\u0434\u044F",
             thunderVolume: "\u0413\u0440\u043E\u043C\u043A\u043E\u0441\u0442\u044C \u0433\u0440\u043E\u043C\u0430",
-            rainChance: "\u0428\u0430\u043D\u0441 \u0433\u0435\u043D\u0435\u0440\u0430\u0446\u0438\u0438 \u0434\u043E\u0436\u0434\u044F",
+            rainChance: "\u0428\u0430\u043D\u0441 \u0433\u0435\u043D\u0435\u0440\u0430\u0446\u0438\u0438 \u043E\u0441\u0430\u0434\u043A\u043E\u0432",
             rainPreset: "\u0416\u0435\u043B\u0430\u0435\u043C\u044B\u0439 \u043F\u0440\u0435\u0441\u0435\u0442",
-            rainDuration: "\u041F\u0440\u043E\u0434\u043E\u043B\u0436\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u044C \u0434\u043E\u0436\u0434\u044F",
+            rainDuration: "\u041F\u0440\u043E\u0434\u043E\u043B\u0436\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u044C \u043E\u0441\u0430\u0434\u043A\u043E\u0432",
             rainDurationHint: "\u0414\u043E\u043B\u044F \u043E\u0441\u0442\u0430\u0432\u0448\u0435\u0433\u043E\u0441\u044F \u0432\u0440\u0435\u043C\u0435\u043D\u0438 \u0431\u043E\u044F. 100% \u2014 \u0434\u043E \u043A\u043E\u043D\u0446\u0430 \u0431\u043E\u044F, \u043C\u0435\u043D\u044C\u0448\u0435 \u2014 \u0441\u043B\u0443\u0447\u0430\u0439\u043D\u044B\u0439 \u043F\u0440\u043E\u043C\u0435\u0436\u0443\u0442\u043E\u043A.",
+            mapWeatherHint: "\u0414\u043E\u0436\u0434\u044C \u2014 \u043D\u0430 \u043E\u0431\u044B\u0447\u043D\u044B\u0445 \u043A\u0430\u0440\u0442\u0430\u0445, \u043A\u0440\u043E\u043C\u0435 \xAB\u0411\u043E\u0439\u043D\u0438\xBB. \u0421\u043D\u0435\u0433 \u2014 \u0442\u043E\u043B\u044C\u043A\u043E \u043D\u0430 \u0437\u0438\u043C\u043D\u0438\u0445, \u0431\u0435\u0437 \u043B\u0443\u0436. \u0412 \u043A\u043E\u0441\u043C\u043E\u0441\u0435 \u043F\u043E\u0433\u043E\u0434\u044B \u043D\u0435\u0442.",
             rainNextBattle: "\u0428\u0430\u043D\u0441, \u043F\u0440\u043E\u0434\u043E\u043B\u0436\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u044C \u0438 \u043F\u0440\u0435\u0441\u0435\u0442 \u043F\u0440\u0438\u043C\u0435\u043D\u044F\u044E\u0442\u0441\u044F \u0441\u043E \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0435\u0439 \u0431\u0438\u0442\u0432\u044B.",
-            rainRandomHint: "\u0421\u043B\u0443\u0447\u0430\u0439\u043D\u044B\u0439 \u0432\u044B\u0431\u043E\u0440 \u2014 \u043E\u0434\u0438\u043D \u0438\u0437 \u0434\u043E\u0436\u0434\u043B\u0438\u0432\u044B\u0445 \u043F\u0440\u0435\u0441\u0435\u0442\u043E\u0432. \u042F\u0441\u043D\u043E \u0438 \u043E\u0431\u043B\u0430\u0447\u043D\u043E \u2014 \u0431\u0435\u0437 \u0434\u043E\u0436\u0434\u044F.",
+            rainRandomHint: "\u0421\u043B\u0443\u0447\u0430\u0439\u043D\u044B\u0439 \u0432\u044B\u0431\u043E\u0440 \u2014 \u043E\u0434\u0438\u043D \u0438\u0437 \u0442\u0440\u0451\u0445 \u043F\u0440\u0435\u0441\u0435\u0442\u043E\u0432 \u0441 \u043E\u0441\u0430\u0434\u043A\u0430\u043C\u0438. \u042F\u0441\u043D\u043E \u0438 \u043E\u0431\u043B\u0430\u0447\u043D\u043E \u2014 \u0431\u0435\u0437 \u043E\u0441\u0430\u0434\u043A\u043E\u0432.",
             presets: {
               random: "\u0421\u043B\u0443\u0447\u0430\u0439\u043D\u044B\u0439",
-              sunny: "\u042F\u0441\u043D\u043E (\u0431\u0435\u0437 \u0434\u043E\u0436\u0434\u044F)",
-              overcast: "\u041E\u0431\u043B\u0430\u0447\u043D\u043E (\u0431\u0435\u0437 \u0434\u043E\u0436\u0434\u044F)",
-              drizzle: "\u041C\u043E\u0440\u043E\u0441\u044C",
-              sunshower: "\u0421\u043E\u043B\u043D\u0435\u0447\u043D\u044B\u0439 \u0434\u043E\u0436\u0434\u044C",
-              storm: "\u0428\u0442\u043E\u0440\u043C"
+              sunny: "\u042F\u0441\u043D\u043E (\u0431\u0435\u0437 \u043E\u0441\u0430\u0434\u043A\u043E\u0432)",
+              overcast: "\u041E\u0431\u043B\u0430\u0447\u043D\u043E (\u0431\u0435\u0437 \u043E\u0441\u0430\u0434\u043A\u043E\u0432)",
+              drizzle: "\u041B\u0451\u0433\u043A\u0438\u0435 \u043E\u0441\u0430\u0434\u043A\u0438",
+              sunshower: "\u041E\u0441\u0430\u0434\u043A\u0438 \u043F\u0440\u0438 \u0441\u043E\u043B\u043D\u0446\u0435",
+              storm: "\u0428\u0442\u043E\u0440\u043C / \u043C\u0435\u0442\u0435\u043B\u044C"
             },
             accountNotice: "ID \u0430\u043A\u043A\u0430\u0443\u043D\u0442\u0430 \u043F\u043E\u043A\u0430 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D. \u0418\u0441\u0442\u043E\u0440\u0438\u044F \u0438 \u043B\u0438\u0447\u043D\u043E\u0435 \u0438\u0437\u0431\u0440\u0430\u043D\u043D\u043E\u0435 \u0432\u0440\u0435\u043C\u0435\u043D\u043D\u043E \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u044B; \u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u0435 \u0434\u0430\u043D\u043D\u044B\u0435 \u043E\u0441\u0442\u0430\u044E\u0442\u0441\u044F \u043D\u0430 \u043C\u0435\u0441\u0442\u0435."
           },
@@ -1090,26 +1263,27 @@
             information: "Information",
             rainVolume: "Rain volume",
             thunderVolume: "Thunder volume",
-            rainChance: "Rain chance",
+            rainChance: "Precipitation chance",
             rainPreset: "Preferred preset",
-            rainDuration: "Rain duration",
+            rainDuration: "Precipitation duration",
             rainDurationHint: "Share of the remaining battle time. 100% lasts until the battle ends; lower values use a random interval.",
+            mapWeatherHint: "Rain on nonwinter maps except Massacre. Snow on winter maps, without puddles. No weather in space.",
             rainNextBattle: "Chance, duration and preset apply from the next battle.",
-            rainRandomHint: "Random selects a rainy preset. Sunny and overcast have no rain.",
+            rainRandomHint: "Random selects one of three precipitation presets. Clear and overcast have no precipitation.",
             presets: {
               random: "Random",
-              sunny: "Sunny (no rain)",
-              overcast: "Overcast (no rain)",
-              drizzle: "Drizzle",
-              sunshower: "Sunshower",
-              storm: "Storm"
+              sunny: "Sunny (no precipitation)",
+              overcast: "Overcast (no precipitation)",
+              drizzle: "Light precipitation",
+              sunshower: "Sunlit precipitation",
+              storm: "Storm / Blizzard"
             },
             accountNotice: "Account ID is unavailable. History and personal favorites are temporarily unavailable; saved data is preserved."
           }
         };
         const puddleSetting = {
           id: "k_rain_puddles",
-          label: { RU: "\u042D\u043A\u0441\u043F\u0435\u0440\u0438\u043C\u0435\u043D\u0442\u0430\u043B\u044C\u043D\u044B\u0435 \u043B\u0443\u0436\u0438", EN: "Experimental puddles" },
+          label: { RU: "\u041B\u0443\u0436\u0438 \u0432\u043E \u0432\u0440\u0435\u043C\u044F \u0434\u043E\u0436\u0434\u044F", EN: "Puddles during rain" },
           description: { RU: "\u041E\u0442\u0440\u0430\u0436\u0435\u043D\u0438\u044F \u0432\u0438\u0434\u0438\u043C\u044B\u0445 \u043E\u0431\u044A\u0435\u043A\u0442\u043E\u0432 \u0432\u043E \u0432\u0440\u0435\u043C\u044F \u0434\u043E\u0436\u0434\u044F", EN: "Reflections of visible objects during rain" },
           default: false
         };
@@ -1186,7 +1360,7 @@
               {
                 id: "k_rain_weather",
                 label: { RU: "\u0421\u043B\u0443\u0447\u0430\u0439\u043D\u0430\u044F \u043F\u043E\u0433\u043E\u0434\u0430 \u0432 \u0431\u0438\u0442\u0432\u0435", EN: "Random battle weather" },
-                description: { RU: "\u0420\u0435\u0434\u043A\u0438\u0439 \u0434\u043E\u0436\u0434\u044C \u0438 \u0433\u0440\u043E\u0437\u0430 \u0441 \u043F\u043B\u0430\u0432\u043D\u043E\u0439 \u0441\u043C\u0435\u043D\u043E\u0439 \u043E\u0431\u043B\u0430\u043A\u043E\u0432", EN: "Occasional rain and storms with gradual cloud transitions" },
+                description: { RU: "\u0414\u043E\u0436\u0434\u044C \u0438\u043B\u0438 \u0441\u043D\u0435\u0433 \u0441 \u043F\u043B\u0430\u0432\u043D\u043E\u0439 \u0441\u043C\u0435\u043D\u043E\u0439 \u043E\u0431\u043B\u0430\u043A\u043E\u0432", EN: "Rain or snow with gradual cloud transitions" },
                 default: false
               }
             ]
@@ -1241,6 +1415,7 @@
             };
             const weatherControls = (enabled) => `<div class="kasp-weather-options ${enabled ? "kasp-expanded" : ""}" id="kasp-weather-options" ${enabled ? "" : "inert"}>
                 <div class="kasp-weather-options-inner">
+                <p class="kasp-weather-hint">${dict.mapWeatherHint}</p>
                 <label class="kasp-weather-volume"><span class="kasp-weather-volume-heading"><span>${dict.rainChance}</span><output>${Math.round(generation.chance * 100)}%</output></span>
                     <input type="range" min="0" max="100" step="1" value="${Math.round(generation.chance * 100)}" data-weather-chance aria-label="${dict.rainChance}" ${enabled ? "" : "disabled"}>
                 </label>
@@ -2225,11 +2400,17 @@
       lifecycle2 = featureScope("customPaints");
       customPaints = lifecycle2.initialize(() => {
         const displays = /* @__PURE__ */ new Map();
+        const restoreDisplay = (element) => {
+          const value = displays.get(element);
+          displays.delete(element);
+          if (value && element.style.display === value.after) element.style.display = value.before;
+        };
         const display = (element, value) => {
           const previous = displays.get(element);
           const before = previous && element.style.display === previous.after ? previous.before : element.style.display;
           displays.set(element, { before, after: value });
           element.style.display = value;
+          lifecycle2.ownDOM(element, restoreDisplay);
         };
         function normalizeText(text2) {
           if (!text2) return "";
@@ -2294,11 +2475,11 @@
           searchContainer.appendChild(searchInputDiv);
           searchWrapper.appendChild(searchContainer);
           parentBlock.appendChild(searchWrapper);
+          lifecycle2.ownDOM(searchWrapper, (element) => element.remove());
         }
         lifecycle2.onCleanup(() => {
           document.querySelectorAll(".kasp-search-wrapper").forEach((node) => node.remove());
-          for (const [element, value] of displays) if (element.style.display === value.after) element.style.display = value.before;
-          displays.clear();
+          for (const element of displays.keys()) restoreDisplay(element);
           document.querySelectorAll(".kasp-paints-container").forEach((node) => node.classList.remove("kasp-paints-container"));
         });
         return () => {
@@ -2362,6 +2543,7 @@
             });
             entry = { card, nodes, badge: cosmetic ? void 0 : nodes[1], title: nodes[nodes.length - 1], cosmetic };
             emptyCards.set(image, entry);
+            lifecycle3.ownDOM(image, restoreEmptyCard);
           }
           const cardClass = `kasp-unavailable-${cosmetic ? "cosmetic" : "device"}-card`;
           if (!card.classList.contains(cardClass)) card.classList.add(cardClass);
@@ -2514,6 +2696,7 @@
                 hoverTooltip.style.display = "none";
               });
               card.appendChild(btn);
+              lifecycle3.ownDOM(btn, (element) => element.remove());
             }
           };
           const cardsImgs = document.querySelectorAll(gameDOM.augments.cardImage);
@@ -2538,6 +2721,7 @@
               if (preview?.replacement !== data.previewIcon) {
                 const replacement = data.previewIcon;
                 previewImages.set(img, { original, replacement, id, section });
+                lifecycle3.ownDOM(img, restorePreview);
                 lifecycle3.listen(img, "error", () => {
                   if (previewImages.get(img)?.replacement !== replacement || img.src !== replacement) return;
                   failedPreviews.add(replacement);
@@ -2552,10 +2736,18 @@
             if (cosmeticSection) img.parentElement?.querySelector(".custom-card-specs-btn")?.remove();
             else applyButtonToCard(img.parentElement, original);
           });
-          for (const img of previewImages.keys()) if (!img.isConnected) previewImages.delete(img);
+          for (const img of previewImages.keys()) if (!img.isConnected) restorePreview(img);
           for (const img of emptyCards.keys()) if (!img.isConnected) restoreEmptyCard(img);
         };
         const liveStats = /* @__PURE__ */ new Map();
+        const restoreLiveStat = (original) => {
+          const entry = liveStats.get(original);
+          if (!entry) return;
+          liveStats.delete(original);
+          entry.replacement.remove();
+          original.classList.remove("hidden-by-script");
+          if (original.style.display === "none") original.style.display = entry.originalDisplay;
+        };
         function updateLiveStats() {
           if (!utils.getSetting("k_augments", false)) return;
           const activeValues = /* @__PURE__ */ new Set();
@@ -2596,6 +2788,7 @@
                     replacement.appendChild(value);
                     entry = { replacement, value, originalDisplay: original.style.display };
                     liveStats.set(original, entry);
+                    lifecycle3.ownDOM(original, restoreLiveStat);
                   }
                   const className = original.className.split(/\s+/).filter((name) => name && name !== "hidden-by-script").concat("custom-live-stat").join(" ");
                   if (entry.replacement.className !== className) entry.replacement.className = className;
@@ -2604,7 +2797,10 @@
                   const valueStyle = `color: ${color}; text-shadow: 0 0 5px ${color}40;`;
                   if (entry.value.getAttribute("style") !== valueStyle) entry.value.setAttribute("style", valueStyle);
                   if (!original.classList.contains("hidden-by-script")) original.classList.add("hidden-by-script");
-                  if (original.style.display !== "none") original.style.display = "none";
+                  if (original.style.display !== "none") {
+                    entry.originalDisplay = original.style.display;
+                    original.style.display = "none";
+                  }
                   if (original.nextSibling !== entry.replacement) {
                     original.parentNode?.insertBefore(entry.replacement, original.nextSibling);
                   }
@@ -2612,12 +2808,9 @@
               }
             }
           });
-          for (const [original, entry] of liveStats) {
+          for (const original of liveStats.keys()) {
             if (activeValues.has(original)) continue;
-            entry.replacement.remove();
-            original.classList.remove("hidden-by-script");
-            original.style.display = entry.originalDisplay;
-            liveStats.delete(original);
+            restoreLiveStat(original);
           }
         }
         const scheduleUpdate = () => {
@@ -2636,12 +2829,7 @@
         lifecycle3.onCleanup(() => {
           for (const img of previewImages.keys()) restorePreview(img);
           for (const img of emptyCards.keys()) restoreEmptyCard(img);
-          for (const [original, entry] of liveStats) {
-            entry.replacement.remove();
-            original.classList.remove("hidden-by-script");
-            original.style.display = entry.originalDisplay;
-          }
-          liveStats.clear();
+          for (const original of liveStats.keys()) restoreLiveStat(original);
           document.querySelectorAll(".custom-card-specs-btn").forEach((node) => node.remove());
           document.getElementById("kasp-specs-tooltip")?.remove();
         });
@@ -2649,12 +2837,7 @@
           if (!utils.getSetting("k_augments", false)) {
             for (const img of previewImages.keys()) restorePreview(img);
             for (const img of emptyCards.keys()) restoreEmptyCard(img);
-            for (const [original, entry] of liveStats) {
-              entry.replacement.remove();
-              original.classList.remove("hidden-by-script");
-              original.style.display = entry.originalDisplay;
-            }
-            liveStats.clear();
+            for (const original of liveStats.keys()) restoreLiveStat(original);
             document.querySelectorAll(".custom-card-specs-btn").forEach((button) => button.remove());
             const tooltip = document.getElementById("kasp-specs-tooltip");
             if (tooltip) tooltip.style.display = "none";
@@ -2975,8 +3158,12 @@
           quickWrapper.appendChild(row2);
           quickWrapper.appendChild(row3);
           if (playButton.parentElement) playButton.parentElement.appendChild(quickWrapper);
+          lifecycle4.ownDOM(quickWrapper, (element) => element.remove());
         }
         function applyStyles(playButton) {
+          lifecycle4.ownDOM(playButton, (element) => {
+            delete element.dataset.overridden;
+          });
           const container = playButton.closest(gameDOM.common.flexDiv) || playButton.parentElement?.parentElement;
           const mainMenu = document.querySelector(gameDOM.play.mainMenu);
           if (container) {
@@ -3095,7 +3282,7 @@
   });
 
   // src/modules/customFriends.ts
-  var lifecycle5, customFriends;
+  var lifecycle5, refreshMenus, friendContextMenu, customFriends;
   var init_customFriends = __esm({
     "src/modules/customFriends.ts"() {
       "use strict";
@@ -3104,11 +3291,31 @@
       init_state();
       init_utils();
       init_accountIdentity();
+      init_accountId();
+      init_pageMessages();
       lifecycle5 = featureScope("customFriends");
+      refreshMenus = () => {
+      };
+      friendContextMenu = lifecycle5.guard(() => refreshMenus());
       customFriends = lifecycle5.initialize(() => {
         const originalDisplays = /* @__PURE__ */ new Map();
+        const activeFilters = /* @__PURE__ */ new WeakMap();
+        const restoreDisplay = (element) => {
+          const value = originalDisplays.get(element);
+          originalDisplays.delete(element);
+          if (value && element.style.display === value.after) element.style.display = value.before;
+        };
+        const display = (element, value) => {
+          const previous = originalDisplays.get(element);
+          const before = previous && element.style.display === previous.after ? previous.before : element.style.display || "";
+          originalDisplays.set(element, { before, after: value });
+          element.style.display = value;
+          lifecycle5.ownDOM(element, restoreDisplay);
+        };
         let filterAccount = null;
         let filterRevision = -1;
+        let menuEventsReady = false;
+        const menuRequests = /* @__PURE__ */ new WeakMap();
         const filtersConfig = [
           { url: "https://s.eu.tankionline.com/static/images/allPaints.741c65e1.svg", type: "all" },
           { url: "https://s.eu.tankionline.com/static/images/uncommon.ca77d7da.svg", type: "online" },
@@ -3193,7 +3400,7 @@
             const el = node;
             updateCardBadge(el, isFriendsList);
             if (filterType === "all") {
-              el.style.display = "";
+              restoreDisplay(el);
               return;
             }
             const cardText = el.innerText || "";
@@ -3209,8 +3416,7 @@
               const friendId = getPlayerUserId(nickText);
               match = !!friendId && cats[friendId] === filterType;
             }
-            if (!originalDisplays.has(el)) originalDisplays.set(el, el.style.display);
-            el.style.display = match ? "" : "none";
+            display(el, match ? "" : "none");
           });
         };
         const injectCategoriesMenu = (menu) => {
@@ -3218,27 +3424,47 @@
           if (!rankItem) return;
           const nickname = getFriendNickname(rankItem);
           const ownerId = getCurrentUserId(), friendId = getPlayerUserId(nickname);
-          const binding = ownerId && friendId ? `${ownerId}:${friendId}` : "";
-          if (binding && menu.dataset.customCategoriesInjected === binding) return;
-          menu.querySelector(".custom-category-row")?.remove();
+          if (!nickname) return;
+          const pending = !ownerId || !friendId;
+          if (pending) {
+            let request = menuRequests.get(menu);
+            if (!request || request.nickname !== nickname || request.owner !== ownerId) {
+              request = { nickname, owner: ownerId, at: -Infinity, count: 0 };
+              menuRequests.set(menu, request);
+            }
+            if (request.count < 6 && Date.now() - request.at >= 1e3) {
+              request.at = Date.now();
+              request.count++;
+              postPageMessage(window, { type: ACCOUNT_IDENTITY_REQUEST, refreshPlayers: true });
+            }
+          }
+          const binding = pending ? `pending:${ownerId || ""}:${nickname}` : `${ownerId}:${friendId}`;
+          const existingRow = menu.querySelector(".custom-category-row");
+          if (menu.dataset.customCategoriesInjected === binding && existingRow) return;
+          if (existingRow) {
+            lifecycle5.releaseDOM(existingRow);
+            existingRow.remove();
+          }
           delete menu.dataset.customCategoriesInjected;
-          if (!ownerId || !friendId) return;
           menu.dataset.customCategoriesInjected = binding;
           const row = document.createElement("div");
-          row.className = "custom-category-row";
+          row.className = `custom-category-row${pending ? " custom-category-pending" : ""}`;
           const cats = getCustomCategories();
-          const currentColor = cats[friendId];
+          const currentColor = friendId ? cats[friendId] : void 0;
           const customButtons = [
-            { type: "purple", url: "https://s.eu.tankionline.com/static/images/iconEpicFiolet.d91b1151.svg" },
-            { type: "yellow", url: "https://s.eu.tankionline.com/static/images/iconLegendaryGold.7c76cb29.svg" },
-            { type: "red", url: "https://s.eu.tankionline.com/static/images/iconCustomiseRed.2b5c8828.svg" }
+            { type: "purple", color: "#b278ff" },
+            { type: "yellow", color: "#ffd600" },
+            { type: "red", color: "#ff4444" }
           ];
           customButtons.forEach((c) => {
             const btn = document.createElement("div");
             btn.className = `custom-category-menu-btn ${currentColor === c.type ? "active" : ""}`;
-            btn.innerHTML = `<img src="${c.url}">`;
+            btn.style.setProperty("--kasp-category-color", c.color);
+            btn.setAttribute("aria-disabled", String(pending));
+            if (pending) btn.title = state.lang === "RU" ? "\u041E\u043F\u0440\u0435\u0434\u0435\u043B\u044F\u0435\u043C ID \u0438\u0433\u0440\u043E\u043A\u0430\u2026" : "Resolving player ID\u2026";
             btn.onclick = lifecycle5.guard((e) => {
               e.stopPropagation();
+              if (!ownerId || !friendId) return;
               const currentRank = menu.querySelector(gameDOM.friends.contextPlayer);
               if (ownerId !== getCurrentUserId() || getPlayerUserId(getFriendNickname(currentRank)) !== friendId) return;
               setCustomCategory(ownerId, friendId, c.type);
@@ -3251,6 +3477,10 @@
             row.appendChild(btn);
           });
           menu.appendChild(row);
+          lifecycle5.ownDOM(row, (element) => {
+            if (menu.querySelector(".custom-category-row") === element) delete menu.dataset.customCategoriesInjected;
+            element.remove();
+          });
           lifecycle5.frame(() => {
             const rect = menu.getBoundingClientRect();
             const overflow = rect.bottom - window.innerHeight;
@@ -3259,6 +3489,18 @@
               menu.style.top = `${currentTop - overflow - 8}px`;
             }
           });
+        };
+        refreshMenus = () => {
+          if (!utils.getSetting("k_friends", false)) return;
+          if (!menuEventsReady) {
+            menuEventsReady = true;
+            lifecycle5.listen(window, "message", (event) => {
+              if (!readPageMessage(event, window, ACCOUNT_IDENTITY_MESSAGE)) return;
+              lifecycle5.microtask(friendContextMenu);
+            });
+          }
+          if (!document.querySelector(gameDOM.friends.lists)) return;
+          document.querySelectorAll(gameDOM.friends.contextMenu).forEach(injectCategoriesMenu);
         };
         const setupSidebar = (scrollBlock) => {
           if (scrollBlock.dataset.sidebarInjected === "true") return;
@@ -3274,21 +3516,27 @@
             wrapper.appendChild(scrollBlock);
             const sidebar = document.createElement("div");
             sidebar.className = "custom-friends-sidebar sidebar-friends";
-            filtersConfig.forEach((config, index) => {
+            filtersConfig.forEach((config) => {
               const btn = document.createElement("div");
               btn.className = "custom-filter-btn";
-              if (index === 0) btn.classList.add("active");
+              if (config.type === (activeFilters.get(scrollBlock) || "all")) btn.classList.add("active");
               const img = document.createElement("img");
               img.src = config.url;
               lifecycle5.listen(btn, "click", () => {
                 sidebar.querySelectorAll(".custom-filter-btn").forEach((b) => b.classList.remove("active"));
                 btn.classList.add("active");
+                activeFilters.set(scrollBlock, config.type);
                 applyFilter(scrollBlock, config.type);
               });
               btn.appendChild(img);
               sidebar.appendChild(btn);
             });
             wrapper.appendChild(sidebar);
+            lifecycle5.ownDOM(sidebar, (element) => {
+              element.remove();
+              delete scrollBlock.dataset.sidebarInjected;
+              wrapper.replaceWith(...Array.from(wrapper.childNodes));
+            });
           } else {
             const parent = scrollBlock.parentNode;
             if (!parent) return;
@@ -3297,27 +3545,33 @@
             }
             const sidebar = document.createElement("div");
             sidebar.className = "custom-friends-sidebar sidebar-invites";
-            filtersConfig.forEach((config, index) => {
+            filtersConfig.forEach((config) => {
               const btn = document.createElement("div");
               btn.className = "custom-filter-btn";
-              if (index === 0) btn.classList.add("active");
+              if (config.type === (activeFilters.get(scrollBlock) || "all")) btn.classList.add("active");
               const img = document.createElement("img");
               img.src = config.url;
               lifecycle5.listen(btn, "click", () => {
                 sidebar.querySelectorAll(".custom-filter-btn").forEach((b) => b.classList.remove("active"));
                 btn.classList.add("active");
+                activeFilters.set(scrollBlock, config.type);
                 applyFilter(scrollBlock, config.type);
               });
               btn.appendChild(img);
               sidebar.appendChild(btn);
             });
             parent.insertBefore(sidebar, scrollBlock);
+            lifecycle5.ownDOM(sidebar, (element) => {
+              element.remove();
+              delete scrollBlock.dataset.sidebarInjected;
+            });
           }
         };
         lifecycle5.onCleanup(() => {
+          refreshMenus = () => {
+          };
           document.querySelectorAll(".custom-friends-sidebar, .custom-rarity-badge, .custom-category-row").forEach((node) => node.remove());
-          for (const [row, display] of originalDisplays) row.style.display = display;
-          originalDisplays.clear();
+          for (const row of originalDisplays.keys()) restoreDisplay(row);
           document.querySelectorAll("[data-sidebar-injected]").forEach((node) => node.removeAttribute("data-sidebar-injected"));
           document.querySelectorAll(".custom-friends-wrapper").forEach((wrapper) => wrapper.replaceWith(...Array.from(wrapper.childNodes)));
         });
@@ -3335,17 +3589,18 @@
           scrollBlocks.forEach((node) => {
             const scrollBlock = node;
             if (scrollBlock.dataset.sidebarInjected !== "true") setupSidebar(scrollBlock);
+            const filter = activeFilters.get(scrollBlock);
+            if (filter && filter !== "all") {
+              applyFilter(scrollBlock, filter);
+              return;
+            }
             const isFriendsList = scrollBlock.classList.contains(gameDOM.classes.friendList);
             const itemSelector = isFriendsList ? gameDOM.friends.card : gameDOM.friends.invitationCard;
             scrollBlock.querySelectorAll(itemSelector).forEach((el) => {
               updateCardBadge(el, isFriendsList);
             });
           });
-          const contextMenus = document.querySelectorAll(gameDOM.friends.contextMenu);
-          contextMenus.forEach((node) => {
-            const menu = node;
-            injectCategoriesMenu(menu);
-          });
+          friendContextMenu();
         };
       }, () => {
       });
@@ -3521,13 +3776,13 @@
           EN: {
             version: `VERSION ${CURRENT_VERSION}`,
             intro: `Thank you so much for using Kaspersky's Inventions! We appreciate your support and will continue to delight you with new features in every update.`,
-            role1: `Idea Created By`,
+            role1: `Founded By`,
             role2: `Co-created By`,
             role3: `Quality Assessed By`,
-            role4: `Designers By`,
-            role5: `Testers By`,
-            role6: `Coders By`,
-            role7: "Assistants By",
+            role4: `Designed By`,
+            role5: `Tested By`,
+            role6: `Coded By`,
+            role7: "Assisted By",
             outro: `The project expresses huge gratitude to them!`,
             close: `CLOSE`
           }
@@ -4265,6 +4520,7 @@
       "use strict";
       init_featureRuntime();
       init_gameDOM();
+      init_state();
       lifecycle13 = featureScope("lobbyNavigation");
       lobbyNavigation = lifecycle13.initialize(() => {
         const cards = /* @__PURE__ */ new Map();
@@ -4274,6 +4530,47 @@
         let observer = null, resize = null;
         let observed = [];
         const art = `url(${JSON.stringify(chrome.runtime.getURL("assets/art3.jpg"))})`;
+        const links = [
+          { id: "esports", ru: "\u041A\u0438\u0431\u0435\u0440\u0441\u043F\u043E\u0440\u0442", en: "Esports", ruURL: "https://tankisport.com/", enURL: "https://tankisport.com/" },
+          { id: "forum", ru: "\u0424\u043E\u0440\u0443\u043C", en: "Forum", ruURL: "https://ru.tankiforum.com/", enURL: "https://en.tankiforum.com/" },
+          { id: "ratings", ru: "\u0420\u0435\u0439\u0442\u0438\u043D\u0433\u0438", en: "Ratings", ruURL: "https://ratings.tankionline.com/ru/", enURL: "https://ratings.tankionline.com/en" },
+          { id: "wiki", ru: "\u042D\u043D\u0446\u0438\u043A\u043B\u043E\u043F\u0435\u0434\u0438\u044F", en: "Wiki", ruURL: "https://ru.tankiwiki.com", enURL: "https://en.tankiwiki.com" }
+        ];
+        function syncLinks() {
+          const footer = root?.querySelector(gameDOM.navigation.footer);
+          if (!footer) return;
+          let list = footer.querySelector(".kasp-lobby-links");
+          if (!list) {
+            list = document.createElement("ul");
+            list.className = "kasp-lobby-links";
+            for (const link of links) {
+              const item = document.createElement("li");
+              item.className = gameDOM.classes.footerEntry + " kasp-lobby-link";
+              const anchor = document.createElement("a");
+              anchor.dataset.kaspLobbyLink = link.id;
+              anchor.target = "_blank";
+              anchor.rel = "noopener noreferrer";
+              const icon = document.createElement("span");
+              icon.className = "kasp-lobby-link-icon";
+              icon.setAttribute("aria-hidden", "true");
+              anchor.appendChild(icon);
+              item.appendChild(anchor);
+              list.appendChild(item);
+            }
+            footer.appendChild(list);
+          }
+          for (const link of links) {
+            const anchor = list.querySelector(`[data-kasp-lobby-link="${link.id}"]`);
+            if (!anchor) continue;
+            const label = state.lang === "RU" ? link.ru : link.en;
+            const url = state.lang === "RU" ? link.ruURL : link.enURL;
+            if (anchor.getAttribute("href") !== url) anchor.setAttribute("href", url);
+            if (anchor.title !== label) {
+              anchor.title = label;
+              anchor.setAttribute("aria-label", label);
+            }
+          }
+        }
         function releaseCard(card) {
           const record = cards.get(card);
           if (!record) return;
@@ -4286,6 +4583,7 @@
           resize?.disconnect();
           observed = [];
           for (const card of cards.keys()) releaseCard(card);
+          root?.querySelectorAll(".kasp-lobby-links").forEach((list) => list.remove());
           if (!hadRootClass) root?.classList.remove("kasp-lobby-left");
           if (!hadGroupClass) group?.classList.remove("kasp-left-play-group");
           root = group = null;
@@ -4329,6 +4627,7 @@
           if (!root) return;
           if (!root.classList.contains("kasp-lobby-left")) root.classList.add("kasp-lobby-left");
           if (group && !group.classList.contains("kasp-left-play-group")) group.classList.add("kasp-left-play-group");
+          syncLinks();
           const current = Array.from(root.querySelectorAll(gameDOM.lobbyNavigation.cards));
           for (const card of cards.keys()) if (!current.includes(card)) releaseCard(card);
           for (const card of current) {
@@ -5321,6 +5620,7 @@
             quickButtonsWrapper.appendChild(el);
           });
           panel.appendChild(quickButtonsWrapper);
+          lifecycle15.ownDOM(quickButtonsWrapper, (element) => element.remove());
         }
         lifecycle15.onCleanup(() => {
           finish();
@@ -6207,6 +6507,7 @@
             }
           });
           summaryRow.appendChild(btn);
+          lifecycle18.ownDOM(btn, (element) => element.remove());
         }
         function sync() {
           if (!document.querySelector(TAB_SELECTOR)) return;
@@ -7927,6 +8228,7 @@
         }
       });
       footerList.appendChild(btn);
+      lifecycle23.ownDOM(btn, (element) => element.remove());
     };
     const bindShortcuts = () => {
       if (shortcutsBound) return;
@@ -8671,6 +8973,7 @@
   // src/modules/cybersportSettings.ts
   function createCybersportSettings(schedule) {
     let root = null;
+    let releaseRootDOM;
     let observer = null;
     let writing2 = false;
     let closingButton = null;
@@ -8735,6 +9038,8 @@
     };
     const events = ["input", "change", "click", "mousedown", "keydown"];
     const clear = () => {
+      releaseRootDOM?.();
+      releaseRootDOM = void 0;
       finishRank(true);
       observer?.disconnect();
       observer = null;
@@ -8843,6 +9148,9 @@
         clear();
         root = panel;
         events.forEach((type) => lifecycle26.listen(panel, type, onInteraction, true));
+        releaseRootDOM = lifecycle26.ownDOM(panel, (element) => {
+          if (root === element) clear();
+        });
         observer = lifecycle26.observer(schedule);
         observer.observe(panel, {
           subtree: true,
@@ -8898,6 +9206,7 @@
       lifecycle27 = featureScope("cybersport");
       cybersport = lifecycle27.initialize(() => {
         let row = null;
+        let releaseRowDOM;
         let sport = null;
         let card = null;
         let observer = null;
@@ -9067,6 +9376,8 @@
           }
         };
         const cleanup = () => {
+          releaseRowDOM?.();
+          releaseRowDOM = void 0;
           observer?.disconnect();
           observer = null;
           lifecycle27.unlisten(row, "click", onNativeClick, true);
@@ -9133,6 +9444,9 @@
             });
             row.insertBefore(card, nativeSport.nextSibling);
             lifecycle27.listen(row, "click", onNativeClick, true);
+            releaseRowDOM = lifecycle27.ownDOM(row, (element) => {
+              if (row === element) cleanup();
+            });
             observer = lifecycle27.observer(schedule);
             observer.observe(row, {
               childList: true,
@@ -9179,6 +9493,29 @@
     }
   });
 
+  // src/modules/clientInfo.ts
+  var lifecycle28, clientInfo;
+  var init_clientInfo = __esm({
+    "src/modules/clientInfo.ts"() {
+      "use strict";
+      init_featureRuntime();
+      init_gameDOM();
+      lifecycle28 = featureScope("clientInfo");
+      clientInfo = lifecycle28.initialize(() => {
+        const version = chrome.runtime.getManifest().version;
+        lifecycle28.onCleanup(() => {
+          document.querySelectorAll("[data-kasp-ki-version]").forEach((element) => element.removeAttribute("data-kasp-ki-version"));
+        });
+        return () => {
+          document.querySelectorAll(gameDOM.account.clientInfo).forEach((element) => {
+            if (element.getAttribute("data-kasp-ki-version") !== version) element.setAttribute("data-kasp-ki-version", version);
+          });
+        };
+      }, () => {
+      });
+    }
+  });
+
   // src/modules/index.ts
   function protect(id, value) {
     const scope = featureScope(id);
@@ -9216,11 +9553,14 @@
       init_battleHistory();
       init_overdriveTimer();
       init_cybersport();
+      init_clientInfo();
       implementations = {
+        clientInfo,
         customPaints,
         augmentSpecs,
         customPlayButton,
         customFriends,
+        friendContextMenu,
         garageButtons,
         welcomeModal,
         hideNickname,
@@ -9406,6 +9746,8 @@
     };
     const masterObserver = new MutationObserver((records = []) => {
       if (records.length && records.every(isOwnStatisticsMutation)) return;
+      modules.clientInfo();
+      modules.friendContextMenu();
       syncLobbyPresentation();
       if (document.querySelector(gameDOM.statistics.container)) {
         modules.changeCounter.sync();
@@ -9451,6 +9793,8 @@
       state.lang = utils.getLang();
       modules.overdriveTimer.setup();
       masterObserver.observe(document.documentElement, { childList: true, subtree: true });
+      modules.clientInfo();
+      modules.friendContextMenu();
       syncLobbyPresentation();
       window.setInterval(() => modules.customGarageSkins(), 250);
       const langObserver = new MutationObserver(() => {
@@ -9515,7 +9859,7 @@
     };
     const screenLabels = new Map(Object.entries(labels));
     let battle = null, receivedAt2 = 0, end;
-    lifecycle28.listen(window, "message", (event) => {
+    lifecycle29.listen(window, "message", (event) => {
       const message = readPageMessage(event, window, BATTLE_PRESENCE_MESSAGE);
       if (!message) return;
       const next = message.battle;
@@ -9548,27 +9892,27 @@
     const start = () => {
       if (timer !== void 0) return;
       send();
-      timer = lifecycle28.interval(send, 3e3);
+      timer = lifecycle29.interval(send, 3e3);
     };
-    lifecycle28.onCleanup(() => {
+    lifecycle29.onCleanup(() => {
       postPageMessage(window, { type: "kasp:discord-presence", version: 1, presence: null });
     });
     start();
     const refreshPrivacy = () => {
       if (timer !== void 0) send();
     };
-    lifecycle28.listen(window, "kasp:settings-changed", refreshPrivacy);
-    lifecycle28.listen(window, "storage", (event) => {
+    lifecycle29.listen(window, "kasp:settings-changed", refreshPrivacy);
+    lifecycle29.listen(window, "storage", (event) => {
       if (event.key === "k_hideNicknameXP") refreshPrivacy();
     });
-    lifecycle28.listen(window, "pageshow", start);
-    lifecycle28.listen(window, "pagehide", () => {
-      lifecycle28.cancelInterval(timer);
+    lifecycle29.listen(window, "pageshow", start);
+    lifecycle29.listen(window, "pagehide", () => {
+      lifecycle29.cancelInterval(timer);
       timer = void 0;
       postPageMessage(window, { type: "kasp:discord-presence", version: 1, presence: null });
     });
   }
-  var lifecycle28;
+  var lifecycle29;
   var init_discordPresence = __esm({
     "src/modules/discordPresence.ts"() {
       "use strict";
@@ -9580,7 +9924,7 @@
       init_dataLoader();
       init_battlePresence();
       init_pageMessages();
-      lifecycle28 = featureScope("discordPresence");
+      lifecycle29 = featureScope("discordPresence");
     }
   });
 

@@ -10,6 +10,14 @@ const origin = 'https://tankionline.com';
 const page = { location: { origin } };
 const receive = data => readPageMessage({ source: page, origin, data }, page, data.type);
 
+test('friend identity refresh requests allow only a boolean demand flag', () => {
+    const type = 'kasp:account-identity:request';
+    assert.ok(receive({ type }));
+    assert.ok(receive({ type, refreshPlayers: true }));
+    assert.ok(receive({ type, refreshPlayers: false }));
+    for (const refreshPlayers of ['true', 1, {}, null]) assert.equal(receive({ type, refreshPlayers }), null);
+});
+
 test('page bridge requires the same window, exact origin and a supported message schema', () => {
     const data = { type: 'kasp:useraction', detail: ['TankUserActionLog', 'Игрок', 'CHANGE_EQUIPMENT', 'SELF'] };
     assert.equal(receive(data), data);

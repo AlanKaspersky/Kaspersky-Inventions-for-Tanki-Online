@@ -5,6 +5,7 @@ import { CYBERSPORT_ACTIVE, CYBERSPORT_SYNC } from '../core/cybersportNative';
 
 export function createCybersportSettings(schedule: () => void) {
     let root: HTMLElement | null = null;
+    let releaseRootDOM: (() => void) | undefined;
     let observer: MutationObserver | null = null;
     let writing = false;
     let closingButton: HTMLElement | null = null;
@@ -66,6 +67,7 @@ export function createCybersportSettings(schedule: () => void) {
     };
     const events = ['input', 'change', 'click', 'mousedown', 'keydown'] as const;
     const clear = () => {
+        releaseRootDOM?.(); releaseRootDOM = undefined;
         finishRank(true);
         observer?.disconnect(); observer = null;
         events.forEach(type => lifecycle.unlisten(root, type, onInteraction, true));
@@ -152,6 +154,7 @@ export function createCybersportSettings(schedule: () => void) {
         if (root !== panel) {
             clear(); root = panel;
             events.forEach(type => lifecycle.listen(panel, type, onInteraction, true));
+            releaseRootDOM = lifecycle.ownDOM(panel, element => { if (root === element) clear(); });
             observer = lifecycle.observer(schedule);
             observer.observe(panel, { subtree: true, childList: true, characterData: true,
                 attributes: true, attributeFilter: ['class', 'src', 'value', 'checked'] });

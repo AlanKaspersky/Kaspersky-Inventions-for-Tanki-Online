@@ -44,6 +44,7 @@ export const gameDOM = {
         resultName: '#selfUserBg [class*="BattleKillBoardComponentStyle-col1"] span.-whiteSpaceNoWrap',
         privateHeaderFields: ".UserInfoContainerStyle-userNameRank, .UserInfoContainerStyle-progressValue",
         clientParameter: ".ClientInfoComponentStyle-parameterText",
+        clientInfo: ".ClientInfoComponentStyle-container",
         currencyIcon: ".HeaderCommonStyle-icons",
         currencyValues: ".UserScoreComponentStyle-coinBlock span, .HeaderCommonStyle-icons span",
         currencyHeader: '.BreadcrumbsComponentStyle-rightButtonsContainer',
@@ -61,6 +62,7 @@ export const gameDOM = {
         battleHud: '.BattleHudComponentStyle-hudContainer, .BattleHudComponentStyle-container, .BattleComponentStyle-canvasContainer',
         loadingBackground: ".ApplicationLoaderComponentStyle-container.-background",
         battleCanvas: ".BattleComponentStyle-canvasContainer",
+        weatherExcluded: '.GarageCommonStyle-garageContainer, .GarageCommonStyle-positionContent, .GarageMainScreenStyle-blockParameters, .GarageComponentStyle-tankPreview.TankPreviewComponentStyle-visible, .ContainerInfoComponentStyle-lootBoxContainer, .NewShopCommonComponentStyle-commonContainer',
         tankPreview: ".GarageComponentStyle-tankPreview",
         visibleTankPreview: ".GarageComponentStyle-tankPreview.TankPreviewComponentStyle-visible",
         garage: ".GarageCommonStyle-positionContent, .GarageItemComponent-container, .ContainerInfoComponentStyle-lootBoxContainer, .GarageMainScreenStyle-blockParameters, .SkinsAndAlterationsStyle-SkinsVerticalComponent",
@@ -91,6 +93,7 @@ export const gameDOM = {
         primaryItemName: ".PrimaryMenuItemComponentStyle-itemName",
         settingsContent: ".SettingsComponentStyle-container",
         footerList: ".FooterComponentStyle-footer ul",
+        footer: ".FooterComponentStyle-footer",
     },
     garage: {
         skinArt: ['.GarageItemComponentStyle-mainImg', '.garage-item img', '.MountedItemsStyle-itemPreview'],

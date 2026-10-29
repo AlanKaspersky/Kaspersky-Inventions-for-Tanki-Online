@@ -88,3 +88,17 @@ img[class*="TankParametersStyle-iconGS"] {
 .TankParametersStyle-parametersBlockGear span {
     color: rgb(194 194 194) !important;
 }
+
+/* Keep native React children intact, including the private UID and its delimiter. */
+.ClientInfoComponentStyle-container[data-kasp-ki-version]::before {
+    content: "KI: " attr(data-kasp-ki-version) "\2002|\2002";
+    flex-shrink: 0;
+    white-space: pre;
+    font-family: BaseFontRegular, FallbackFontRegular;
+    font-style: normal;
+    font-weight: normal;
+    font-size: 0.9375em;
+    letter-spacing: 0.0375em;
+    text-transform: none;
+    color: rgba(255, 255, 255, 0.7);
+}

@@ -203,6 +203,8 @@ export function startBoot() {
 
     const masterObserver = new MutationObserver((records = []) => {
         if (records.length && records.every(isOwnStatisticsMutation)) return;
+        modules.clientInfo();
+        modules.friendContextMenu();
         syncLobbyPresentation();
         if (document.querySelector(gameDOM.statistics.container)) {
             modules.changeCounter.sync();
@@ -251,6 +253,8 @@ export function startBoot() {
         state.lang = utils.getLang();
         modules.overdriveTimer.setup();
         masterObserver.observe(document.documentElement, { childList: true, subtree: true });
+        modules.clientInfo();
+        modules.friendContextMenu();
         syncLobbyPresentation();
         window.setInterval(() => modules.customGarageSkins(), 250);
 

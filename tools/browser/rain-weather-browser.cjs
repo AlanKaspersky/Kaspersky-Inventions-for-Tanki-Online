@@ -6,7 +6,7 @@ process.chdir(playwright.root);
 const schema=require("../../src/generated/rain-weather.json").plans.at(-1).schema;
 const shaderSources=require('../validation/weather-tree-shaders.cjs'),nativeSource=fs.readFileSync(fs.existsSync('artifacts/native/main.289a5d50.js')?'artifacts/native/main.289a5d50.js':'main.js','utf8');
 const nativeTrees=shaderSources.nativeTreeShaders(nativeSource),nativeSkies=shaderSources.nativeSkyboxShaders(nativeSource),nativeMaps=shaderSources.nativeMapShaders(nativeSource),nativeFogCode=shaderSources.nativeFogFragment(nativeSource);
-const bundle=buildSync({stdin:{contents:`import {createRainRenderer} from './src/core/rainWeather/renderer';import {installRainWeather} from './src/core/rainWeather';import {createWeatherAudio} from './src/core/rainWeather/audio';import {coreSettings} from './src/core/coreSettings';import {state} from './src/core/state';import {COMMON,FULL_VERTEX,CLOUD_FRAGMENT} from './src/core/rainWeather/shaders';import {HIGH_PUDDLE_SURFACE} from './src/core/rainWeather/puddleSurface';import {DEFAULT_SURFACE_TUNING} from './src/core/rainWeather/tuning';import {treeWindShader} from './src/core/rainWeather/treeWind';import {skyboxShader,skyboxDarkness} from './src/core/rainWeather/skybox';import {weatherPalette,suppressNativeFog,suppressOverlayDepth} from './src/core/rainWeather/appearance';window.__rainQA={weatherPalette,suppressNativeFog,suppressOverlayDepth,skyboxShader,skyboxDarkness,treeWindShader,createRainRenderer,installRainWeather,createWeatherAudio,coreSettings,state,COMMON,FULL_VERTEX,CLOUD_FRAGMENT,HIGH_PUDDLE_SURFACE,DEFAULT_SURFACE_TUNING};`,resolveDir:path.resolve('.')},bundle:true,format:'iife',write:false}).outputFiles[0].text;
+const bundle=buildSync({stdin:{contents:`import {SNOW,SNOW_PALETTES,SNOW_VERTEX} from './src/core/snowWeather';import {createRainRenderer} from './src/core/rainWeather/renderer';import {installRainWeather} from './src/core/rainWeather';import {createWeatherAudio} from './src/core/rainWeather/audio';import {coreSettings} from './src/core/coreSettings';import {state} from './src/core/state';import {COMMON,FULL_VERTEX,CLOUD_FRAGMENT} from './src/core/rainWeather/shaders';import {HIGH_PUDDLE_SURFACE} from './src/core/rainWeather/puddleSurface';import {DEFAULT_SURFACE_TUNING} from './src/core/rainWeather/tuning';import {treeWindShader} from './src/core/rainWeather/treeWind';import {skyboxShader,skyboxDarkness} from './src/core/rainWeather/skybox';import {weatherPalette,suppressNativeFog,suppressOverlayDepth} from './src/core/rainWeather/appearance';window.__rainQA={SNOW,SNOW_PALETTES,SNOW_VERTEX,weatherPalette,suppressNativeFog,suppressOverlayDepth,skyboxShader,skyboxDarkness,treeWindShader,createRainRenderer,installRainWeather,createWeatherAudio,coreSettings,state,COMMON,FULL_VERTEX,CLOUD_FRAGMENT,HIGH_PUDDLE_SURFACE,DEFAULT_SURFACE_TUNING};`,resolveDir:path.resolve('.')},bundle:true,format:'iife',write:false}).outputFiles[0].text;
 const output=path.resolve('artifacts/qa/rain-weather');fs.mkdirSync(output,{recursive:true});
 const server=http.createServer((req,res)=>{if(req.url==='/qa.js'){res.setHeader('Content-Type','application/javascript');res.end(bundle);}else{res.setHeader('Content-Type','text/html');res.end('<!doctype html><body style="margin:0;background:#10151d"><div class="BattleComponentStyle-canvasContainer"><canvas width="800" height="500"></canvas></div><div class="BattleTimerComponentStyle-battleTimer">10:00</div><script src="/qa.js"></script>');}});
 (async()=>{
@@ -59,6 +59,8 @@ const server=http.createServer((req,res)=>{if(req.url==='/qa.js'){res.setHeader(
    if(localStorage.getItem('k_thunder_volume')!=='.25'&&localStorage.getItem('k_thunder_volume')!=='0.25')throw Error('Thunder volume not saved');
    if(localStorage.getItem('k_rain_volume')!=='0')throw Error('Rain mute not saved');
    const labels=sliders.map(input=>input.getAttribute('aria-label'));if(!labels.every(label=>lang==='RU'?label.includes('Громкость'):label.includes('volume')))throw Error('Volume localization missing');
+   if(options.querySelector('[data-weather-precipitation]')||content.querySelector('[data-id="k_snow_drifts"]'))throw Error('Archived controls remain');
+   if(!options.textContent.includes(lang==='RU'?'зимних':'winter maps'))throw Error('Automatic map policy hint missing');
    toggle.click();await settle();
    if(options.getBoundingClientRect().height>.1||[...sliders,chance,preset,puddles,duration].some(input=>!input.disabled))throw Error('Controls did not collapse: '+JSON.stringify({height:options.getBoundingClientRect().height,classes:options.className,rows:getComputedStyle(options).gridTemplateRows,checked:toggle.checked}));
    if(!puddles.checked||localStorage.getItem('k_rain_puddles')!=='true')throw Error('Disabling weather erased the puddle preference');
@@ -66,7 +68,7 @@ const server=http.createServer((req,res)=>{if(req.url==='/qa.js'){res.setHeader(
    return{lang,widths,labels,generation:{chance:chance.value,preset:preset.value,duration:duration.value},expanded:true,collapsed:true};
   },lang));
  }
- await page.evaluate(()=>{localStorage.removeItem('k_rain_volume');localStorage.removeItem('k_thunder_volume');localStorage.removeItem('k_rain_puddles');localStorage.removeItem('k_rain_puddle_detail');localStorage.removeItem('k_rain_duration');});
+ await page.evaluate(()=>{localStorage.removeItem('k_rain_volume');localStorage.removeItem('k_thunder_volume');localStorage.removeItem('k_rain_puddles');localStorage.removeItem('k_rain_puddle_detail');localStorage.removeItem('k_rain_duration');localStorage.removeItem('k_weather_precipitation');localStorage.removeItem('k_snow_drifts');});
  const defaultBufferCases=await page.evaluate(()=>{
   const results=[];
   for(const alpha of [false,true])for(const antialias of [false,true]){
@@ -126,8 +128,8 @@ const server=http.createServer((req,res)=>{if(req.url==='/qa.js'){res.setHeader(
  const report=await page.evaluate(async schema=>{
   const {createRainRenderer,installRainWeather}=window.__rainQA,canvas=document.querySelector('canvas'),g=canvas.getContext('webgl2',{depth:true,antialias:true,preserveDrawingBuffer:true});
   if(!g)throw Error('WebGL2 unavailable');
-  const drawCounts=[];for(const name of ['drawArrays','drawArraysInstanced','blitFramebuffer','texImage2D']){
-   const original=g[name].bind(g);g[name]=function(...args){const result=original(...args);if(name==='drawArraysInstanced')drawCounts.push(args[3]);const e=g.getError();if(e)throw Error(name+' WebGL error '+e);return result;};
+  const drawCounts=[],particleGeometry=[];for(const name of ['drawArrays','drawArraysInstanced','blitFramebuffer','texImage2D']){
+   const original=g[name].bind(g);g[name]=function(...args){const result=original(...args);if(name==='drawArraysInstanced'){drawCounts.push(args[3]);particleGeometry.push({vertices:args[2],instances:args[3]});}const e=g.getError();if(e)throw Error(name+' WebGL error '+e);return result;};
   }
   const norm=v=>{const n=Math.hypot(...v);return v.map(x=>x/n);},cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]],dot=(a,b)=>a.reduce((s,v,i)=>s+v*b[i],0);
   const eye=[2400,-4200,2200],target=[0,0,300],z=norm(eye.map((v,i)=>v-target[i])),x=norm(cross([0,0,1],z)),y=cross(z,x);
@@ -136,10 +138,10 @@ const server=http.createServer((req,res)=>{if(req.url==='/qa.js'){res.setHeader(
   for(let c=0;c<4;c++)for(let r=0;r<4;r++)for(let k=0;k<4;k++)vp[c*4+r]+=proj[k*4+r]*view[c*4+k];
   function program(vs,fs){const p=g.createProgram();for(const[type,src]of[[g.VERTEX_SHADER,vs],[g.FRAGMENT_SHADER,fs]]){const s=g.createShader(type);g.shaderSource(s,src);g.compileShader(s);if(!g.getShaderParameter(s,g.COMPILE_STATUS))throw Error(g.getShaderInfoLog(s));g.attachShader(p,s);g.deleteShader(s);}g.linkProgram(p);if(!g.getProgramParameter(p,g.LINK_STATUS))throw Error(g.getProgramInfoLog(p));return p;}
   const native=program(`#version 300 es
-precision highp float;uniform mat4 vp;out vec2 xy;void main(){vec2 p=vec2((gl_VertexID==1||gl_VertexID==2||gl_VertexID==4)?1.:-1.,(gl_VertexID==2||gl_VertexID==4||gl_VertexID==5)?1.:-1.);xy=p*16000.;gl_Position=vp*vec4(xy,0.,1.);}`,`#version 300 es
+precision highp float;uniform mat4 vp;uniform float extent;out vec2 xy;void main(){vec2 p=vec2((gl_VertexID==1||gl_VertexID==2||gl_VertexID==4)?1.:-1.,(gl_VertexID==2||gl_VertexID==4||gl_VertexID==5)?1.:-1.);xy=p*extent;gl_Position=vp*vec4(xy,0.,1.);}`,`#version 300 es
 precision highp float;in vec2 xy;out vec4 o;void main(){float line=max(step(.98,fract(xy.x/700.)),step(.98,fract(xy.y/700.)));o=vec4(vec3(.38,.40,.42)-line*.055,1.);}`);
   const vao=g.createVertexArray();
-  function ground(target=null){g.bindFramebuffer(g.FRAMEBUFFER,target);g.viewport(0,0,800,500);g.depthRange(0,1);g.disable(g.RASTERIZER_DISCARD);g.disable(g.SAMPLE_ALPHA_TO_COVERAGE);g.disable(g.SCISSOR_TEST);g.disable(g.CULL_FACE);g.disable(g.BLEND);g.enable(g.DEPTH_TEST);g.depthFunc(g.LEQUAL);g.depthMask(true);g.colorMask(true,true,true,true);g.clearColor(.54,.67,.82,1);g.clearDepth(1);g.clear(g.COLOR_BUFFER_BIT|g.DEPTH_BUFFER_BIT);g.useProgram(native);g.bindVertexArray(vao);g.uniformMatrix4fv(g.getUniformLocation(native,'vp'),false,vp);g.drawArrays(g.TRIANGLES,0,6);}
+  function ground(target=null,extent=16000){g.bindFramebuffer(g.FRAMEBUFFER,target);g.viewport(0,0,800,500);g.depthRange(0,1);g.disable(g.RASTERIZER_DISCARD);g.disable(g.SAMPLE_ALPHA_TO_COVERAGE);g.disable(g.SCISSOR_TEST);g.disable(g.CULL_FACE);g.disable(g.BLEND);g.enable(g.DEPTH_TEST);g.depthFunc(g.LEQUAL);g.depthMask(true);g.colorMask(true,true,true,true);g.clearColor(.54,.67,.82,1);g.clearDepth(1);g.clear(g.COLOR_BUFFER_BIT|g.DEPTH_BUFFER_BIT);g.useProgram(native);g.bindVertexArray(vao);g.uniformMatrix4fv(g.getUniformLocation(native,'vp'),false,vp);g.uniform1f(g.getUniformLocation(native,'extent'),extent);g.drawArrays(g.TRIANGLES,0,6);}
   function pixels(){const p=new Uint8Array(800*500*4);g.readPixels(0,0,800,500,g.RGBA,g.UNSIGNED_BYTE,p);return p;}
   function state(){const keys=['CURRENT_PROGRAM','VERTEX_ARRAY_BINDING','ACTIVE_TEXTURE','BLEND_SRC_RGB','BLEND_DST_RGB','BLEND_SRC_ALPHA','BLEND_DST_ALPHA','BLEND_EQUATION_RGB','BLEND_EQUATION_ALPHA','DEPTH_WRITEMASK','DEPTH_FUNC','DRAW_FRAMEBUFFER_BINDING','READ_FRAMEBUFFER_BINDING','VIEWPORT','COLOR_WRITEMASK','PIXEL_UNPACK_BUFFER_BINDING','UNPACK_ALIGNMENT','UNPACK_ROW_LENGTH','UNPACK_SKIP_PIXELS','UNPACK_SKIP_ROWS'];const s={};for(const k of keys){const v=g.getParameter(g[k]);s[k]=ArrayBuffer.isView(v)?[...v]:v;}for(const k of ['BLEND','DEPTH_TEST','CULL_FACE','STENCIL_TEST','SCISSOR_TEST','RASTERIZER_DISCARD','SAMPLE_ALPHA_TO_COVERAGE'])s[k]=g.isEnabled(g[k]);const unit=g.getParameter(g.ACTIVE_TEXTURE);for(let i=11;i<=15;i++){g.activeTexture(g.TEXTURE0+i);s['texture'+i]=g.getParameter(g.TEXTURE_BINDING_2D);s['texture3D'+i]=g.getParameter(g.TEXTURE_BINDING_3D);s['sampler'+i]=g.getParameter(g.SAMPLER_BINDING);}g.activeTexture(unit);return s;}
   const map={vertices:new Float32Array([-16000,-16000,0,16000,-16000,0,16000,16000,0,-16000,-16000,0,16000,16000,0,-16000,16000,0]),triangles:2,ground:(x,y)=>[x,y,0]};
@@ -158,6 +160,41 @@ precision highp float;in vec2 xy;out vec4 o;void main(){float line=max(step(.98,
   if(dark/base>.70)throw Error('Storm is not gloomy enough '+dark/base);
   ground();const nativeLit=pixels();gpu.draw({...frame,rain:0,nativeLighting:true},'weather');const litAfter=pixels();
   if(nativeLit.some((v,i)=>v!==litAfter[i]))throw Error('Late weather grading still darkens native dynamic/emissive colour');
+  const snowMotion=(()=>{
+   const previous={program:g.getParameter(g.CURRENT_PROGRAM),vao:g.getParameter(g.VERTEX_ARRAY_BINDING),feedback:g.getParameter(g.TRANSFORM_FEEDBACK_BINDING),buffer:g.getParameter(g.TRANSFORM_FEEDBACK_BUFFER_BINDING),discard:g.isEnabled(g.RASTERIZER_DISCARD)};
+   const p=g.createProgram(),buffer=g.createBuffer(),feedback=g.createTransformFeedback(),vao=g.createVertexArray(),n=512;
+   const vertex=window.__rainQA.SNOW_VERTEX.replace('out vec2 q;','out vec3 qaCenter;out vec2 q;').replace('vec3 center=relative+uCam;','vec3 center=relative+uCam;qaCenter=center;');
+   try{
+    for(const [type,source]of [[g.VERTEX_SHADER,vertex],[g.FRAGMENT_SHADER,'#version 300 es\nprecision highp float;out vec4 o;void main(){o=vec4(1.);}']]){
+     const shader=g.createShader(type);g.shaderSource(shader,source);g.compileShader(shader);if(!g.getShaderParameter(shader,g.COMPILE_STATUS))throw Error(g.getShaderInfoLog(shader));g.attachShader(p,shader);g.deleteShader(shader);
+    }
+    g.transformFeedbackVaryings(p,['qaCenter'],g.INTERLEAVED_ATTRIBS);g.linkProgram(p);if(!g.getProgramParameter(p,g.LINK_STATUS))throw Error(g.getProgramInfoLog(p));
+    g.useProgram(p);g.bindVertexArray(vao);g.bindTransformFeedback(g.TRANSFORM_FEEDBACK,feedback);g.bindBuffer(g.TRANSFORM_FEEDBACK_BUFFER,buffer);g.bufferData(g.TRANSFORM_FEEDBACK_BUFFER,n*3*4,g.DYNAMIC_READ);g.bindBufferBase(g.TRANSFORM_FEEDBACK_BUFFER,0,buffer);g.enable(g.RASTERIZER_DISCARD);
+    g.uniform3f(g.getUniformLocation(p,'uCam'),0,0,1500);g.uniform1f(g.getUniformLocation(p,'uSeed'),19027);
+    const sample=(time,wind)=>{g.uniform1f(g.getUniformLocation(p,'uTime'),time);g.uniform1f(g.getUniformLocation(p,'uWind'),wind);g.beginTransformFeedback(g.POINTS);g.drawArraysInstanced(g.POINTS,0,1,n);g.endTransformFeedback();const out=new Float32Array(n*3);g.getBufferSubData(g.TRANSFORM_FEEDBACK_BUFFER,0,out);return out;};
+    const velocity=wind=>{const a=sample(60,wind),b=sample(60.02,wind);let horizontal=0,fall=0,count=0;for(let i=0;i<a.length;i+=3){if(Math.abs(a[i]-b[i])>1000||Math.abs(a[i+1]-b[i+1])>1000||Math.abs(a[i+2]-b[i+2])>1000)continue;horizontal+=Math.abs(b[i]-a[i])/.02;fall+=(a[i+2]-b[i+2])/.02;count++;}if(count<480)throw Error('Too many wrapped snow probes');return{horizontal:horizontal/count,fall:fall/count,samples:count};};
+    const calm=velocity(.2),blizzard=velocity(1);if(blizzard.horizontal<3500||blizzard.horizontal>10000||blizzard.fall<calm.fall*2)throw Error('Blizzard is still gentle: '+JSON.stringify({calm,blizzard}));return{calm,blizzard};
+   }finally{
+    g.bindTransformFeedback(g.TRANSFORM_FEEDBACK,previous.feedback);g.bindBuffer(g.TRANSFORM_FEEDBACK_BUFFER,previous.buffer);g.bindVertexArray(previous.vao);g.useProgram(previous.program);if(previous.discard)g.enable(g.RASTERIZER_DISCARD);else g.disable(g.RASTERIZER_DISCARD);g.deleteTransformFeedback(feedback);g.deleteBuffer(buffer);g.deleteVertexArray(vao);g.deleteProgram(p);
+   }
+  })();
+  const snowfall=createRainRenderer(g),snowFrame={...frame,precipitation:'snow',nativeLighting:true,rain:1,clouds:0,storm:0,fog:[0,1000,5000],puddles:1};
+  const snowPixels=(time,fade=1,rain=1)=>{ground();snowfall.draw({...snowFrame,time,fade,rain},'weather');return pixels();};
+  const snowCalls=particleGeometry.length;const snowy=snowPixels(60);const snowDraws=particleGeometry.slice(snowCalls);let snowChanged=0;for(let i=0;i<snowy.length;i+=4)if(snowy[i]>nativeLit[i]+4||snowy[i+1]>nativeLit[i+1]+4||snowy[i+2]>nativeLit[i+2]+4)snowChanged++;
+  if(snowChanged<30||snowfall.status().snowError||snowfall.status().snowFlakes!==window.__rainQA.SNOW.maxFlakes)throw Error('Snowflakes failed to render: '+JSON.stringify({snowChanged,status:snowfall.status()}));
+  const mixed=snowfall.status();
+  if(mixed.snowCrystals!==4000||mixed.snowStreaks!==16000||mixed.snowStreakError)throw Error('Blizzard ribbon mixture missing: '+JSON.stringify(mixed));
+  const snowVertices=snowDraws.reduce((n,draw)=>n+draw.vertices*draw.instances,0);
+  if(snowVertices!==144000)throw Error('Blizzard did not reduce particle geometry: '+JSON.stringify(snowDraws));
+  const faded=snowPixels(60,0);if(faded.some((v,i)=>v!==nativeLit[i]))throw Error('Snow fade=0 changes the scene');
+  const movedSnow=snowPixels(61);let snowAnimated=0;for(let i=0;i<snowy.length;i+=4)if(snowy[i]!==movedSnow[i]||snowy[i+1]!==movedSnow[i+1])snowAnimated++;
+  if(snowAnimated<30)throw Error('Snow is static');
+  snowPixels(60,1,.25);if(snowfall.status().snowFlakes!==5000)throw Error('Snow density does not follow intensity');
+  ground();g.clearDepth(0);g.clear(g.DEPTH_BUFFER_BIT);const covered=pixels();snowfall.draw({...snowFrame,time:60},'weather');
+  if(pixels().some((v,i)=>v!==covered[i]))throw Error('Snow leaked through occluding geometry');
+  if(snowfall.status().reflectionCopies||snowfall.status().splashParticles)throw Error('Snow generated liquid water');
+  snowPixels(60);window.__rainCaptureSnow=canvas.toDataURL();
+  const snowReport={motion:snowMotion,crystals:mixed.snowCrystals,streaks:mixed.snowStreaks,vertices:snowVertices,visiblePixels:snowChanged,animatedPixels:snowAnimated,maxFlakes:window.__rainQA.SNOW.maxFlakes,occlusion:true,fade:true,noLiquidWater:true};snowfall.dispose();
   const noFog=createRainRenderer(g),withFog=createRainRenderer(g);
   ground();noFog.draw({...frame,rain:0,storm:0,fog:[0,1000,5000]});const low=pixels();
   ground();withFog.draw({...frame,rain:0,storm:0,fog:[1,1000,5000]});const high=pixels();let difference=0;for(let y=400;y<500;y++)for(let x=0;x<800;x++){const i=(y*800+x)*4;difference+=high[i]+high[i+1]+high[i+2]-low[i]-low[i+1]-low[i+2];}
@@ -387,7 +424,7 @@ precision highp float;in vec2 xy;out vec4 o;void main(){float line=max(step(.98,
   }
   localStorage.setItem('k_rain_weather','true');const episode={version:1,preset:'storm',start:Date.now()-60000,hold:100,seed:19027,fadeIn:24,fadeOut:30};sessionStorage.setItem('ki.rain-episodes.v1',JSON.stringify([['qa-match',episode]]));
   const contexts=[],AC=window.AudioContext;window.AudioContext=class extends AC{constructor(){super();contexts.push(this);}};
-  const api=installRainWeather(window);api.battle({loaded:true,id:'qa-match'},{battleLoaded:'loaded',battleId:'id'});
+  const api=installRainWeather(window);api.battle({loaded:true,id:'qa-match',map:'Year 2042 RGB'},{battleLoaded:'loaded',battleId:'id',mapName:'map'});
   const rawMap={boxes:[],planes:[{position:{x:0,y:0,z:0},rotation:{x:0,y:0,z:0},width:32000,length:32000}],triangles:[]};
   const mapSchema=Object.fromEntries(['boxes','planes','triangles','size','width','length','v0','v1','v2','x','y','z'].map(k=>[k,k]));
   Object.assign(mapSchema,{planePosition:'position',planeRotation:'rotation',boxPosition:'position',boxRotation:'rotation',trianglePosition:'position',triangleRotation:'rotation'});api.map(rawMap,mapSchema);
@@ -395,6 +432,7 @@ precision highp float;in vec2 xy;out vec4 o;void main(){float line=max(step(.98,
   const camera={[schema.vp]:vp,[schema.camera]:{[schema.x]:eye[0],[schema.y]:eye[1],[schema.z]:eye[2]}},scene={};
   ground();api.frame(renderer,scene,camera,schema);await new Promise(r=>setTimeout(r,300));ground();api.frame(renderer,scene,camera,schema);
   if(!contexts.length)throw Error('Scheduled rain audio did not start');
+  if(api.status().environment.theme!==null||api.status().precipitation!=='rain'||api.status().draws<1)throw Error('Missing lobby theme still blocks Year 2042 rain');
   localStorage.setItem('k_rain_volume','0');localStorage.setItem('k_thunder_volume','0.2');window.dispatchEvent(new Event('kasp:settings-changed'));
   if(api.status().sound.volumes.rain!==0||api.status().sound.volumes.thunder!==.2)throw Error('Live volume event did not reach active weather audio');
   localStorage.setItem('k_rain_puddles','true');localStorage.setItem('k_rain_puddle_detail','high');window.dispatchEvent(new Event('kasp:settings-changed'));
@@ -412,22 +450,22 @@ precision highp float;in vec2 xy;out vec4 o;void main(){float line=max(step(.98,
   if(api.status().renderers.some(r=>r.splashError||r.mapError)||!api.status().map.ready)throw Error('Native collision/splash bridge failed: '+JSON.stringify(api.status()));
   const root=document.querySelector('.BattleComponentStyle-canvasContainer');root.remove();await new Promise(r=>setTimeout(r,500));
   if(api.status().audio!=='off'||contexts.some(c=>c.state!=='closed'))throw Error('Rain audio survived exit');
-  document.body.append(root);api.battle({loaded:true,id:'qa-match'},{battleLoaded:'loaded',battleId:'id'});const returnedScene={};api.frame(renderer,returnedScene,camera,schema);
+  document.body.append(root);api.environment('qa-match','SUMMER_DAY');api.battle({loaded:true,id:'qa-match',map:'Rio'},{battleLoaded:'loaded',battleId:'id',mapName:'map'});const returnedScene={};api.frame(renderer,returnedScene,camera,schema);
   await new Promise(r=>setTimeout(r,200));ground();api.frame(renderer,returnedScene,camera,schema);
   if(JSON.stringify(api.status().episode)!==JSON.stringify(episode))throw Error('Re-entry rerolled weather');
   if(api.status().sound.volumes.rain!==0||api.status().sound.volumes.thunder!==.2)throw Error('Re-entry lost muted rain or thunder volume');
   localStorage.setItem('k_rain_chance','0');window.dispatchEvent(new Event('kasp:settings-changed'));ground();api.frame(renderer,returnedScene,camera,schema);
   if(JSON.stringify(api.status().episode)!==JSON.stringify(episode))throw Error('Chance change rerolled current weather');
-  api.battle({loaded:true,id:'qa-clear-match'},{battleLoaded:'loaded',battleId:'id'});const clearScene={};api.frame(renderer,clearScene,camera,schema);
+  api.environment('qa-clear-match','SUMMER_DAY');api.battle({loaded:true,id:'qa-clear-match',map:'Rio'},{battleLoaded:'loaded',battleId:'id',mapName:'map'});const clearScene={};api.frame(renderer,clearScene,camera,schema);
   if(api.status().episode.preset!==null)throw Error('0% did not prevent weather in the next battle');
   localStorage.setItem('k_rain_chance','1');localStorage.setItem('k_rain_preset','storm');window.dispatchEvent(new Event('kasp:settings-changed'));api.frame(renderer,clearScene,camera,schema);
   if(api.status().episode.preset!==null)throw Error('100% rerolled an already planned clear battle');
-  api.battle({loaded:true,id:'qa-selected-storm'},{battleLoaded:'loaded',battleId:'id'});api.frame(renderer,{},camera,schema);
+  api.environment('qa-selected-storm','SUMMER_DAY');api.battle({loaded:true,id:'qa-selected-storm',map:'Rio'},{battleLoaded:'loaded',battleId:'id',mapName:'map'});api.frame(renderer,{},camera,schema);
   if(api.status().episode.preset!=='storm')throw Error('New battle did not use 100% and selected storm');
   localStorage.setItem('k_rain_duration','1');window.dispatchEvent(new Event('kasp:settings-changed'));
-  api.battle({loaded:true,id:'qa-continuous-weather'},{battleLoaded:'loaded',battleId:'id'});
+  api.environment('qa-continuous-weather','SUMMER_DAY');api.battle({loaded:true,id:'qa-continuous-weather',map:'Rio'},{battleLoaded:'loaded',battleId:'id',mapName:'map'});
   const firstView={},secondView={},realNow=Date.now,baseNow=realNow();let weatherNow=baseNow;Date.now=()=>weatherNow;
-  const otherCanvas=document.createElement('canvas');otherCanvas.width=800;otherCanvas.height=500;document.body.append(otherCanvas);
+  const otherCanvas=document.createElement('canvas');otherCanvas.width=800;otherCanvas.height=500;root.append(otherCanvas);
   const otherGL=otherCanvas.getContext('webgl2'),otherRenderer={...renderer,[schema.gl]:{[schema.context]:otherGL}};
   try{
    ground();api.frame(renderer,firstView,camera,schema);const continuous=JSON.stringify(api.status().episode);
@@ -443,12 +481,27 @@ precision highp float;in vec2 xy;out vec4 o;void main(){float line=max(step(.98,
    if(otherGL.getError())throw Error('Continuous weather secondary context GL error');
   }finally{Date.now=realNow;otherCanvas.remove();}
 
+  localStorage.setItem('k_weather_precipitation','snow');localStorage.setItem('k_snow_drifts','true');window.dispatchEvent(new Event('kasp:settings-changed'));
+  api.environment('qa-snow-battle','WINTER_DAY');api.battle({loaded:true,id:'qa-snow-battle',map:'Rio'},{battleLoaded:'loaded',battleId:'id',mapName:'map'});
+  const snowScene={},normalNow=Date.now,snowNow=normalNow();let nowSnow=snowNow;Date.now=()=>nowSnow;
+  try{
+   ground();api.frame(renderer,snowScene,camera,schema);
+   for(const seconds of [30,600,3600]){
+    nowSnow=snowNow+seconds*1000;ground();api.frame(renderer,snowScene,camera,schema);const state=api.status();
+    if(state.precipitation!=='snow'||!state.episode.continuous||state.weather.rain!==1||state.weather.sound!==0||state.audio!=='off'||state.strikes.length||state.splashes.particles||state.puddleAmount||state.renderers.some(r=>r.snowError||r.snowStreakError))throw Error('Snow runtime produced rain effects or restarted: '+JSON.stringify(state));
+   }
+   const beforeGarage=api.status(),savedSnow=JSON.stringify(beforeGarage.episode),garage=document.createElement('div');garage.className='GarageCommonStyle-garageContainer';document.body.append(garage);garage.append(canvas);
+   ground();const garageDry=pixels();api.frame(renderer,{},camera,schema);const garageAfter=api.status();
+   if(pixels().some((v,i)=>v!==garageDry[i])||garageAfter.draws!==beforeGarage.draws||!garageAfter.suspended||garageAfter.audio!=='off')throw Error('Weather leaked into garage with stale battle HUD');
+   const light=new Float32Array(12).fill(1);if(api.nativeFogStrength(1)!==1||api.lighting(light)!==undefined||api.dropZones(g)!==undefined||api.force('storm').code!=='battle-not-visible')throw Error('Garage still receives weather uniforms');
+   root.append(canvas);garage.remove();ground();api.frame(renderer,snowScene,camera,schema);if(api.status().suspended||JSON.stringify(api.status().episode)!==savedSnow||api.status().draws<=beforeGarage.draws)throw Error('Returning from garage restarted or stopped the snow episode');
+  }finally{Date.now=normalNow;}
   localStorage.setItem('k_rain_weather','false');window.dispatchEvent(new Event('kasp:settings-changed'));
   if(api.status().enabled||api.status().renderers.length)throw Error('Live toggle did not release resources');
   if(api.status().runtime.failures)throw Error(JSON.stringify(api.status()));
   window.dispatchEvent(new PageTransitionEvent('pagehide'));
   const error=g.getError();if(error)throw Error('Final WebGL error '+error);
-  return{stateRestored:true,clearSceneUnchanged:true,stormBrightnessRatio:dark/base,fogHazeDifference:difference/(800*100*3),dropCounts:drawCounts,cloudSize:status.cloudSize,
+  return{snow:snowReport,garageSuspendsWeather:true,stateRestored:true,clearSceneUnchanged:true,stormBrightnessRatio:dark/base,fogHazeDifference:difference/(800*100*3),dropCounts:drawCounts,cloudSize:status.cloudSize,
    transitionFlicker,skyDifference,heightDifference,pinkExcess,brightBoltPixels,reflectedObjectPixels,wetWallPixels,highReflectedPixels,highWetWallPixels,animatedPixels,qualityDifference,rippleReport,opticsReport,rampReport,farReport,hoverReport,refractionGhostPixels,foregroundChanged,dropReport,collisionReport,edgeReport,shadowReport,cloudToneReport,stepReport,nativeLightingPreserved:true,reflectionsDisableLive:true,sharedIntensityControlsAudio:true,highShaderFailureFallsBack:true,transparentSpritePreserved:true,framebufferCases,nativeProgramPreserved:true,audioClosedAfterExit:true,reentryDoesNotReroll:true,generationAppliesNextBattle:true,liveToggleReleasesResources:true,developerPanelRemoved:true,continuousWeatherAcrossContexts:true,glError:error};
  },schema);
  const audioReport=await page.evaluate(async()=>{
@@ -474,7 +527,11 @@ precision highp float;in vec2 xy;out vec4 o;void main(){float line=max(step(.98,
  report.audio=audioReport;report.defaultBufferCases=defaultBufferCases;report.trees=treeReport;report.skybox=skyboxReport;report.palettes=paletteReport;
  await page.keyboard.press('Control+Alt+KeyW');
  assert.equal(await page.locator('[data-kasp-weather-tuner]').count(),0,'Removed developer panel opened');
+ await page.keyboard.press('Control+Alt+KeyS');
+ assert.equal(await page.locator('#ki-snow-developer').count(),0,'Archived snow tuner opened');
+ assert.equal(await page.evaluate(()=>typeof window.__kaspSnow),'undefined');
  if(errors.length)throw Error(errors.join('\n'));
+ const snowPNG=await page.evaluate(()=>window.__rainCaptureSnow);fs.writeFileSync(path.join(output,'snow.png'),Buffer.from(snowPNG.split(',')[1],'base64'));
  const png=await page.evaluate(()=>window.__rainCaptureStorm);fs.writeFileSync(path.join(output,'storm.png'),Buffer.from(png.split(',')[1],'base64'));
  const boltPNG=await page.evaluate(()=>window.__rainCaptureLightning);fs.writeFileSync(path.join(output,'lightning.png'),Buffer.from(boltPNG.split(',')[1],'base64'));
  const puddlesPNG=await page.evaluate(()=>window.__rainCapturePuddles);fs.writeFileSync(path.join(output,'puddles.png'),Buffer.from(puddlesPNG.split(',')[1],'base64'));
