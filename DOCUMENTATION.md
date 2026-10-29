@@ -1,4 +1,4 @@
-# Kaspersky's Inventions - Technical Documentation 
+# Kaspersky's Inventions - Technical Documentation  
 
 ## Complete Implementation Reference
 
