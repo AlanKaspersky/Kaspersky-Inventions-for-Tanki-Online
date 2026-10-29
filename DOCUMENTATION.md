@@ -66,13 +66,13 @@ The source implementation is authoritative. `dist/` contains generated browser e
 14. [Regression Test Reference](#regression-test-reference)
 15. [Maintenance Scenarios](#maintenance-scenarios)
 16. [Additional Native Presentation Contracts](#additional-native-presentation-contracts)
-   - [Supply Privacy](#supply-privacy-dom-and-webgl)
-   - [Kill-Feed Privacy and Font Safety](#kill-feed-privacy-and-font-safety)
+    - [Supply Privacy](#supply-privacy-dom-and-webgl)
+    - [Kill-Feed Privacy and Font Safety](#kill-feed-privacy-and-font-safety)
 17. [Weather Rendering and Audio Reference](#weather-reference)
 18. [Киллфид: исследование рендера](#kill-feed-rendering-investigation)
 19. [Discord Companion Client Integration](#electron-client-integration)
-   - [Box Pickup Visuals](#box-pickup-visuals)
-   - [Supported Features versus Diagnostics](#supported-features-versus-diagnostics)
+    - [Box Pickup Visuals](#box-pickup-visuals)
+    - [Supported Features versus Diagnostics](#supported-features-versus-diagnostics)
 17. [Implementation Limits and Project Terms](#implementation-limits-and-project-terms)
 
 ## Repository and Execution Model
