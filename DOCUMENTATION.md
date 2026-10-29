@@ -2,7 +2,7 @@
 
 ## Complete Implementation Reference
 
-**Extension version:** 3.0.3 (`manifest.json`)
+**Extension version:** 3.0.5 (`manifest.json`)
 
 **Documentation updated:** October 24, 2026
 
@@ -1775,7 +1775,7 @@ The full build and ZIP command stop on failed type checking or regression tests.
 
 ### Dependency Metadata
 
-The manifest, package, and lockfile package versions are 3.0.3. Both package files declare `UNLICENSED`; the package is marked `private: true`. Package/lockfile-root ranges agree: `@types/chrome` `^0.3.0`, esbuild `^0.28.2`, TypeScript `^7.0.2`, Acorn `^8.19.0`, acorn-walk `^8.3.5`, and Astring `^1.9.0`. The parser/walker/generator are development dependencies, not imports of the runtime entries.
+The manifest, package, and lockfile package versions are 3.0.5. Both package files declare `UNLICENSED`; the package is marked `private: true`. Package/lockfile-root ranges agree: `@types/chrome` `^0.3.0`, esbuild `^0.28.2`, TypeScript `^7.0.2`, Acorn `^8.19.0`, acorn-walk `^8.3.5`, and Astring `^1.9.0`. The parser/walker/generator are development dependencies, not imports of the runtime entries.
 
 Use `npm ci` to install the locked dependency graph. Dependency changes should update the manifest and lockfile together; `npm install` can rewrite the lockfile. The project does not declare a Node `engines` field; tooling requires APIs such as `fs.cpSync` and the built-in Node test runner.
 
@@ -1822,9 +1822,9 @@ Generated JSON is statically imported into `dist/kasp_injector.js`; it is not fe
 
 Configured directories are `dist`, `styles`, `assets`, `database`, `_locales`, `templates` and `rules`. Configured root files are `manifest.json`, `LICENSE.txt`, `README.md`, `DOCUMENTATION.md`, and `MAINTENANCE.md`.
 
-For 3.0.3, the folder and archive names are `release/Kaspersky's Inventions 3.0.3/` and `release/Kaspersky's Inventions 3.0.3.zip`. The ordinary ZIP contains that outer versioned folder. A second `Kaspersky's Inventions 3.0.3-firefox.zip` contains its contents directly, including the root manifest. Both are unsigned distribution archives.
+For 3.0.5, the folder and archive names are `release/Kaspersky's Inventions 3.0.5/` and `release/Kaspersky's Inventions 3.0.5.zip`. The ordinary ZIP contains that outer versioned folder. A second `Kaspersky's Inventions 3.0.5-firefox.zip` contains its contents directly, including the root manifest. Both are unsigned distribution archives.
 
-The script removes the existing same-version output before recreating it. It throws if no directory or no root file was copied, but does not require every configured input to exist. `build:zip` rebuilds all JavaScript entries first. Verify the gate bundle and `rules/game-bundle.json` are present; missing resources still require inspecting the package.
+Before replacing the existing same-version output, `tools/build/validate-runtime.cjs` verifies every declared content-script JS/CSS entry, nonempty gate and rule file, the gate's explicit web-accessible declaration and an enabled redirect to it. It repeats validation on the copied output before archiving. Missing or empty required runtime files stop packaging. Broad copy-count checks remain; optional root documentation/assets are not individually certified by this validator. `build:zip` rebuilds all JavaScript entries first.
 
 Only README.md, DOCUMENTATION.md and MAINTENANCE.md are copied as Markdown documentation. `src/`, raw plan JSON, tools/tests, dependencies, root `main.js`, AST exports, and `archived/` are not configured copy inputs. `.gitignore` currently excludes `node_modules/`, `release/`, ZIPs, `archived/`, and root `main.js`; an already tracked file remains tracked despite an ignore entry.
 
@@ -2011,13 +2011,13 @@ Project use and distribution are governed by [LICENSE.txt](LICENSE.txt), which c
 
 ---
 
-Technical documentation aligned with source/manifest version **3.0.3**, updated **October 24, 2026**.
+Technical documentation aligned with source/manifest version **3.0.5**, updated **October 24, 2026**.
 
 <a id="weather-reference"></a>
 
 ## Weather Rendering and Audio Reference
 
-Extension 3.0.3 · Implementation review: October 25, 2026
+Extension 3.0.5 · Implementation review: October 25, 2026
 
 Enable **Settings → KASPERSKY → Visual changes → Random battle weather**. The feature is off by default and enables immediately. Two full-width sliders smoothly expand beneath its switch: **Thunder volume** and **Rain volume**, localized in English/Russian. Both range from 0% (muted) to 100% of the existing sound level, default to 100%, persist across sessions and apply live. Disabling collapses the controls and releases the weather renderer and audio without discarding volume preferences.
 
@@ -2160,7 +2160,7 @@ The inspected local `main.js` (SHA-256 `4ef9f256178c771071ce9cc0baf2a00d93907374
 
 ## Киллфид: исследование рендера и проверка символов
 
-Разбор локального `main.js` для расширения **3.0.3**, проверено **22 октября 2026 года**.
+Разбор локального `main.js` для расширения **3.0.5**, проверено **22 октября 2026 года**.
 
 SHA-256 исследованного бандла:
 `4ef9f256178c771071ce9cc0baf2a00d939073746badf40c8656c6d5760c3db4`.
@@ -2249,7 +2249,7 @@ AST-анализатор находит таблицу глифов в расч�
 
 Reference source files mentioned below are in `tools/client/discord/`. Deployment, building, verification and recovery are covered in [MAINTENANCE.md](MAINTENANCE.md#electron-client-maintenance).
 
-Extension integration reference: **3.0.3**, updated **October 24, 2026**. Client executable versioning and automatic updates belong to the separate Electron project.
+Extension integration reference: **3.0.5**, updated **October 24, 2026**. Client executable versioning and automatic updates belong to the separate Electron project.
 
 The extension reads the nickname and current screen and sends a heartbeat every three seconds. In a regular browser the module remains inactive. Discord labels are always in English, regardless of the game's interface language.
 

@@ -13,4 +13,4 @@ else {
 }
 const edge = process.platform === 'win32' ? path.join(process.env['ProgramFiles(x86)'] || 'C:/Program Files (x86)', 'Microsoft/Edge/Application/msedge.exe') : '';
 const executablePath = process.env.PLAYWRIGHT_BROWSER_PATH || (edge && fs.existsSync(edge) ? edge : undefined);
-module.exports = { chromium: playwright.chromium, browserOptions: { headless: true, ...(executablePath ? { executablePath } : {}) }, root };
+module.exports = { chromium: playwright.chromium, electron: playwright._electron, browserOptions: { headless: true, ...(executablePath ? { executablePath } : {}) }, root };

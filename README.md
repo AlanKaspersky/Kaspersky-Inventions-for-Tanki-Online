@@ -2,7 +2,7 @@
 
 ## Complete Documentation
 
-**Extension version:** 3.0.3 (`manifest.json`)
+**Extension version:** 3.0.5 (`manifest.json`)
 
 **Documentation updated:** October 24, 2026
 
@@ -71,7 +71,7 @@ For implementation details, module logic, and workflows, see
 
 ## Start Here
 
-This repository documents extension **3.0.3**, reviewed against source on **October 24, 2026**. A feature described as implemented below has a corresponding runtime module; experimental console reports are not treated as shipped features.
+This repository documents extension **3.0.5**, reviewed against source on **October 24, 2026**. A feature described as implemented below has a corresponding runtime module; experimental console reports are not treated as shipped features.
 
 | Document | Audience and contents |
 | --- | --- |
@@ -930,6 +930,10 @@ The loader bounds bundle fetch/body reading and patch preparation to 15 seconds 
 
 Recovery can allow the game to load without the instrumentation. Features relying on intercepted game actions or battle identifiers can consequently have incomplete information. A successful HTTP response also does not guarantee that instrumentation patterns still match a changed game bundle or that every runtime/CSP condition is compatible.
 
+Electron needs the companion client's native request gate; its extension support does not reliably execute the browser's Manifest V3 network rules. Client 1.0.8 already supplies this gate. The loaded extension must include `dist/kasp_game_gate.js`: a missing file leaves the client gate inactive even when the injector/UI loads. `phase: "native"` with `reason: "network-gate-unavailable"` means the original game ran without interception; do not fetch and execute a second game bundle from that page. Fully restart the client after installing a complete extension package. Release packaging now rejects missing/empty content-script entries, CSS, rules or gate files, and checks that the gate is exposed and referenced by an enabled rule.
+
+The October 29, 2026 Electron checks used the client's Electron 44.8.0 runtime, isolated profiles and the real extension. Local regressions covered one game startup, NetworkFirst service-worker caches, settings, Friends, favorite trophies, DOM cleanup and weather WebGL/audio. The public game start screen also reached the patched `running` state on initial load and reload without signing in. These checks do not certify every live battle, GPU or other Electron client. Reproduce with `npm run test:electron`; set `KI_ELECTRON_PATH` and `KI_CLIENT_ROOT` as described in [MAINTENANCE.md](MAINTENANCE.md#electron-loader-qa).
+
 ### AST plans and compatibility
 
 Fifteen JSON plan sets under `src/generated/` are imported into the injector bundle. Known builds are selected by source length and SHA-256. An unknown hash triggers a compatibility attempt using templates generated from native AST evidence, with shared symbol checks, lexical filtering, expected match counts, and edit guards. A renamed `main.<hash>.js` URL does not by itself invalidate a plan.
@@ -1031,7 +1035,7 @@ After rebuilding, reload the unpacked extension and then reload the game page. A
 
 ### Version metadata
 
-The current manifest, package, and lockfile package versions are **3.0.3**. The browser, welcome window, and release-folder naming use the manifest version. Keep these metadata values aligned when preparing another version.
+The current manifest, package, and lockfile package versions are **3.0.5**. The browser, welcome window, and release-folder naming use the manifest version. Keep these metadata values aligned when preparing another version.
 
 ### Release output
 
@@ -1041,14 +1045,14 @@ For the current manifest version, output is:
 
 ```text
 release/
-├── Kaspersky's Inventions 3.0.3/
+├── Kaspersky's Inventions 3.0.5/
 │   ├── manifest.json
 │   ├── LICENSE.txt
 │   ├── README.md
 │   ├── DOCUMENTATION.md
 │   └── ... runtime directories
-├── Kaspersky's Inventions 3.0.3.zip
-└── Kaspersky's Inventions 3.0.3-firefox.zip
+├── Kaspersky's Inventions 3.0.5.zip
+└── Kaspersky's Inventions 3.0.5-firefox.zip
 ```
 
 The ordinary archive contains the versioned outer folder. The `-firefox.zip` archive instead contains `manifest.json` at its root; it is a packaging layout for submission/testing, not a Mozilla signature or an automatically signed XPI. Extract it and select the folder containing `manifest.json` when loading the extension. Source files, tests, `node_modules`, the local game bundle, and raw generated-plan JSON are not separately included. Only the three root Markdown guides are included; Electron integration instructions are sections of these guides, while the bridge source under `tools/` remains source-only.
@@ -1130,7 +1134,7 @@ Repeat the affected checks in Chromium and Firefox. Manifest support does not su
 - Ordinary critical-cycle indication supports the three specified weapon/augment pairs. Post-Supercharge phase assumptions require verification if the game changes its mechanics.
 - Device tooltips use mouse hover. Equivalent keyboard, gamepad, and mobile tooltip interaction is not implemented.
 - AST compatibility templates reduce dependence on symbol names but still depend on native structure. A runtime exception is not automatically rolled back by the injector's preparation guards.
-- An intermittent missing local tank after entering a loaded map has been reported. Its cause and relationship to the extension remain unconfirmed; it is not listed as fixed in 3.0.3.
+- An intermittent missing local tank after entering a loaded map has been reported. Its cause and relationship to the extension remain unconfirmed; it is not listed as fixed in 3.0.5.
 - Auto Upgrade depends on recognized native dialogs and stops on an unknown confirmation. Its local confirmation count is not an independently verified purchase ledger.
 - Third-party UI modifications can alter the same elements and introduce selector, style, or event conflicts.
 
@@ -1200,7 +1204,7 @@ Kaspersky's Inventions is an independent extension for the Tanki Online interfac
 
 ## Documentation Revision
 
-Reviewed against the **3.0.3** source and manifest on **October 24, 2026**. Build/fixture checks are distinct from live-game verification. Public full descriptions are maintained in the English/Russian publication sections of README.md; browser manifest descriptions remain short because they are separate metadata fields.
+Reviewed against the **3.0.5** source and manifest on **October 24, 2026**. Build/fixture checks are distinct from live-game verification. Public full descriptions are maintained in the English/Russian publication sections of README.md; browser manifest descriptions remain short because they are separate metadata fields.
 
 ## Consolidated Reader References
 
@@ -1214,7 +1218,7 @@ Reviewed against the **3.0.3** source and manifest on **October 24, 2026**. Buil
 
 ## Руководство пользователя (RU)
 
-Версия расширения **3.0.3**. Сверено с исходниками **24 октября 2026 года**.
+Версия расширения **3.0.5**. Сверено с исходниками **24 октября 2026 года**.
 
 Это руководство описывает локальную сборку проекта. Подробные технические контракты находятся в [DOCUMENTATION.md](DOCUMENTATION.md), ответы на 74 вопроса — в [FAQ](#faq). Условия использования изложены в английской [лицензии](LICENSE.txt).
 
@@ -1510,7 +1514,7 @@ Rich Presence работает только в совместимом Electron-�
 
 ## FAQ
 
-Source-reviewed edition for **3.0.3**, **October 24, 2026**. This local FAQ describes implemented behavior. The published Drive FAQ is a separately maintained publication; editing this file does not update it automatically.
+Source-reviewed edition for **3.0.5**, **October 24, 2026**. This local FAQ describes implemented behavior. The published Drive FAQ is a separately maintained publication; editing this file does not update it automatically.
 
 For installation and a complete feature reference, see [README](README.md). For Russian instructions, see [Руководство пользователя](#russian-user-guide). The governing English terms are in [LICENSE.txt](LICENSE.txt).
 
@@ -2014,7 +2018,7 @@ The full English and Russian publication descriptions reproduce the complete cur
 
 ## Full English Publication Description
 
-Full English publication description for extension **3.0.3**. Updated **October 24, 2026**.
+Full English publication description for extension **3.0.5**. Updated **October 24, 2026**.
 
 Kaspersky's Inventions brings equipment information, a redesigned lobby, local battle history and streamer controls into Tanki Online. It builds on the game's familiar interface: original navigation, game icons, account data and native actions remain the basis of the experience.
 
@@ -2151,7 +2155,7 @@ The following names and roles reproduce the current welcome window. AI names are
 
 ## Полное описание для публикации (RU)
 
-Полное русское описание для публикации. Версия расширения **3.0.3**, обновлено **24 октября 2026 года**.
+Полное русское описание для публикации. Версия расширения **3.0.5**, обновлено **24 октября 2026 года**.
 
 Kaspersky's Inventions дополняет «Танки Онлайн» информацией о вооружении, новым оформлением лобби, локальной историей битв и настройками для стримов. Расширение использует привычные разделы, оригинальные иконки и действия игры.
 

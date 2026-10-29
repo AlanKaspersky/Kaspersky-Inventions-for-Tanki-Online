@@ -21,17 +21,18 @@ const KEY = 'official-public-key', NAME = "Tanki Online: Kaspersky's Inventions"
 const base = path.resolve('profile', 'extensions');
 const item = (name, manifest) => ({ path: path.join(base, name), manifest });
 function fixture(installed = [], reserved = installed.map(extension => extension.path), updateFailure = null) {
-    const updated = [], loaded = [], logs = [], reads = [];
+    const updated = [], loaded = [], logs = [], reads = [], gates = [];
     const context = { Path:path, KASPERSKY_EXTENSION_KEY:KEY,
         FS:{existsSync:()=>true,mkdirSync(){throw Error('Unexpected write');},
             readdirSync:()=>reserved.map(directory=>({name:path.basename(directory),isDirectory:()=>true})),
             readFileSync:filename=>{reads.push(filename);const entry=installed.find(extension=>path.dirname(filename)===extension.path);if(!entry)throw Error('Invalid manifest');return JSON.stringify(entry.manifest);}},
-        log:{info:value=>logs.push(value),error:value=>logs.push(String(value))},
+        log:{info:value=>logs.push(value),warn:value=>logs.push(value),error:value=>logs.push(String(value))},
         updateExtension:async extension=>{updated.push(extension);if(updateFailure)throw updateFailure;},
-        session:{defaultSession:{extensions:{loadExtension:async directory=>{loaded.push(directory);}}}}
+        installKiGameGate:(_session,id)=>{gates.push(id);return 'chrome-extension://'+id+'/dist/kasp_game_gate.js';},
+        session:{defaultSession:{extensions:{loadExtension:async directory=>{loaded.push(directory);return {id:'a'.repeat(32)};}}}}
     };
     vm.runInNewContext(code, context);
-    return {context,updated,loaded,logs,reads,
+    return {context,updated,loaded,logs,reads,gates,
         select:()=>context.selectExtensions(installed,base,KEY,reserved),
         start:()=>context.updateAndLoadExtensions(path.dirname(base))};
 }
@@ -84,6 +85,14 @@ test('failed update check still loads the installed official copy and continues 
     const f=fixture([store,ordinary],undefined,new Error('Update endpoint offline'));
     await f.start();assert.deepEqual(f.loaded,[store.path,ordinary.path]);
     assert.equal(f.updated.length,2);assert.equal(f.logs.filter(line=>line.includes('Update endpoint offline')).length,2);
+});
+
+test('client 1.0.8 installs one native gate for the selected KI extension',async()=>{
+    if(!source.includes('installKiGameGate'))return;
+    const store=item('kaspersky-inventions',{key:KEY,name:NAME}),ordinary=item('other',{name:'Other'}),f=fixture([store,ordinary]);
+    await f.start();assert.deepEqual(f.gates,['a'.repeat(32)]);
+    assert.ok(f.logs.some(line=>line.includes('[KI Game Gate] Enabled:')));
+    assert.ok(!f.logs.some(line=>line.includes('Not active:')));
 });
 
 function updater(downloaded={name:NAME,version:'3.0.0'}, installFailure=false) {

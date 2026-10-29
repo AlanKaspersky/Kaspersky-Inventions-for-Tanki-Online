@@ -1,6 +1,6 @@
 {
   "name": "Kaspersky's Inventions",
-  "version": "3.0.3",
+  "version": "3.0.5",
   "description": "Interface tools for Tanki Online: battle history, augment stats, quick upgrades, privacy controls and lobby customization.",
   "private": true,
   "scripts": {
@@ -12,6 +12,7 @@
     "test:browser:dom-lifetime": "node tools/browser/dom-lifetime.cjs",
     "test:browser:friends": "node tools/browser/friend-menu.cjs",
     "test:client": "node tools/run-tests.cjs client",
+    "test:electron": "node tools/electron/run-tests.cjs",
     "check": "npm run typecheck && npm test",
     "typecheck": "tsc --noEmit",
     "parse:client": "node tools/parser/client-parser.cjs",

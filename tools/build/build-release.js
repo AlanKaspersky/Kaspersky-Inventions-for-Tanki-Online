@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { validateRuntime } = require('./validate-runtime.cjs');
 const {
     execSync
 } = require('child_process');
@@ -104,6 +105,7 @@ function zipFolderContents(sourceDir, zipPath) {
 }
 
 function main() {
+    validateRuntime(ROOT);
     const version = readVersion();
     const folderName = sanitize(`Kaspersky's Inventions ${version}`);
     const buildDir = path.join(OUT_DIR, folderName);
@@ -127,6 +129,7 @@ function main() {
     for (const f of FILES) {
         if (copyFile(path.join(ROOT, f), path.join(buildDir, f))) fileCount++;
     }
+    validateRuntime(buildDir);
 
     if (dirCount === 0) {
         throw new Error('Не скопировано ни одной папки — проверь DIRS в build-release.js');

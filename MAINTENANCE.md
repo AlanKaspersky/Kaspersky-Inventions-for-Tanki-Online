@@ -1,6 +1,6 @@
 # Failure isolation and manual maintenance
 
-Source reference: 3.0.3, October 24, 2026. This guide can be followed without AI.
+Source reference: 3.0.5, October 24, 2026. This guide can be followed without AI.
 
 ## Navigation
 
@@ -315,6 +315,30 @@ Validation includes schedule/lifecycle and independent volume-bus unit tests, na
 
 ## Electron Client Deployment and Verification
 
+<a id="electron-loader-qa"></a>
+
+### Game Loader Compatibility Checks
+
+Client 1.0.8 installs `installKiGameGate()` in its main process after the selected KI extension loads and before game navigation. Electron 44.8.0 does not apply this extension's MV3 static redirect on its own: the isolated no-client-gate regression deliberately reproduces `native / network-gate-unavailable`. The native gate uses the loaded extension ID and its `dist/kasp_game_gate.js`. An extension update cannot supply a missing main-process API to older clients. Do not restore a DOM-removal/replay workaround or loosen context isolation, CSP or node integration.
+
+Inspect the client's `[KI Game Gate]` log entries. `Missing packaged gate` means the selected extension directory is incomplete or old; `Not active` means interception was not installed. Updating a different unpacked copy does not repair the selected store copy. `Enabled` should precede `Redirect requested script/xhr`. A `running` loader state with `entered: true` and `nativeFallback: false` confirms controlled execution. A successful native load event confirms neither patch installation nor game-server connectivity.
+
+Run the separate-profile Electron suite against the same runtime and gate implementation as the client:
+
+```powershell
+$env:KI_ELECTRON_PATH = 'C:/Tanki Online with KI/node_modules/electron/dist/electron.exe'
+$env:KI_CLIENT_ROOT = 'C:/Tanki Online with KI'
+npm run test:electron
+$env:KI_CLIENT_SOURCE = "$env:KI_CLIENT_ROOT/src/main.ts"
+npm run test:client
+```
+
+`tools/electron/game-loader.cjs` loads the complete unpacked extension, compiles the client's actual gate and tests missing-gate behavior, single startup, NetworkFirst cold/warm responses and an old native cached bundle. Its fixtures use local Tanki-shaped hosts. `tools/electron/run-browser.cjs` reuses the existing settings, Friends, trophy, DOM-lifetime and weather assertions in a real Electron renderer. Test windows are hidden or fully transparent and cannot take focus; profiles and diagnostics go under ignored `artifacts/qa/`. Playwright is resolved through the shared browser runtime helper. The suite does not install Electron into the extension or change the installed client/profile.
+
+On October 29, 2026 the Electron 44.8.0 fixtures passed, including weather WebGL state restoration/zero GL errors and 300 DOM lifecycle cycles. A separate anonymous check of the public Tanki start screen reached patched `running` on first navigation and reload. Authenticated battles, hardware-specific behavior and other Electron versions still require separate verification. The installed client 1.0.8 already contains the native gate; no client source change was needed for these checks.
+
+Release packaging validates required runtime files both before replacing existing output and after copying it. Keep `dist/kasp_game_gate.js`, its web-accessible declaration and the enabled rule together; tests in `tools/tests/core/release-runtime.test.cjs` reject incomplete builds.
+
 Reference file names in this section are relative to `tools/client/discord/` in the extension source checkout. The bridge contract and configuration are documented in [DOCUMENTATION.md](DOCUMENTATION.md#electron-client-integration).
 
 <a id="electron-client-maintenance-build-and-run"></a>
@@ -381,13 +405,13 @@ The reference socket tests and local type declarations validate the bundled brid
 - [User FAQ](README.md#faq)
 - [License and Terms of Use](LICENSE.txt)
 
-Reference reviewed with extension **3.0.3** on **October 24, 2026**. These instructions are part of the root guides; the reference files in tools/client/discord/ are not an automatically installed companion executable.
+Reference reviewed with extension **3.0.5** on **October 24, 2026**. These instructions are part of the root guides; the reference files in tools/client/discord/ are not an automatically installed companion executable.
 
 <a id="documentation-publication"></a>
 
 ## Documentation Distribution and Publication
 
-Extension **3.0.3** · Source review **October 24, 2026**
+Extension **3.0.5** · Source review **October 24, 2026**
 
 | Reference / section | Purpose | Language |
 | --- | --- | --- |
