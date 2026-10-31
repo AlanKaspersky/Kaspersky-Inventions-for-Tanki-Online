@@ -461,6 +461,7 @@ test('battle overlay ignores foreign messages, resets between battles and remove
     let previewVisible = false;
     let lobby = false;
     let sectionContainer = null;
+    let tab = null;
     const listeners = {};
     const elements = [];
     const state = { lang: 'EN' };
@@ -475,10 +476,12 @@ test('battle overlay ignores foreign messages, resets between battles and remove
         children = [];
         classes = new Set();
         styles = new Map();
-        style = { setProperty: (name, value) => this.styles.set(name, value) };
+        style = { setProperty: (name, value) => this.styles.set(name, value), removeProperty: name => this.styles.delete(name) };
+        getClientRects() { return this.isConnected && this.style.display !== 'none' ? [{}] : []; }
+        matches(selector) { return this.kind === 'tab' && selector.includes('tab'); }
         classList = { toggle: (name, force) => force ? this.classes.add(name) : this.classes.delete(name) };
         append(...children) { for (const child of children) this.appendChild(child); }
-        appendChild(child) { child.parentElement = this; this.children.push(child); return child; }
+        appendChild(child) { child.remove(); child.parentElement = this; this.children.push(child); return child; }
         remove() {
             if (this.parentElement) this.parentElement.children = this.parentElement.children.filter(child => child !== this);
             this.parentElement = null;
@@ -497,6 +500,7 @@ test('battle overlay ignores foreign messages, resets between battles and remove
             if (selector === 'results') return results ? {} : null;
             if (selector === 'preview') return previewVisible ? {} : null;
             if (selector === 'lobby') return lobby ? {} : null;
+            if (selector === 'tab') return tab;
             return null;
         },
         createElement: () => { const element = new Element(); elements.push(element); return element; },
@@ -507,7 +511,7 @@ test('battle overlay ignores foreign messages, resets between battles and remove
         '../core/bonusPickup': bonus,
         '../core/overdriveDirection': direction,
         '../core/gameDOM': { gameDOM: { screens: { battleCanvas: 'canvas', visibleTankPreview: 'preview' },
-            common: { container: 'container' }, results: { status: 'results' }, play: { mainMenu: 'lobby' } } },
+            statistics: { container: 'tab' }, common: { container: 'container' }, results: { status: 'results' }, play: { mainMenu: 'lobby' } } },
         '../core/state': { state },
         '../core/utils': { utils: { getSetting: () => enabled } },
     }, { window, document, Date: { now: () => now }, getComputedStyle: element => element.style,
@@ -528,6 +532,23 @@ test('battle overlay ignores foreign messages, resets between battles and remove
     assert.equal(displayed(), '1:25');
     assert.equal(activePanel().parentElement, activePanel('kasp-overdrive-timers'));
     assert.equal(activePanel('kasp-overdrive-timers').children.length, 1);
+    const originalPanel = activePanel(), originalOverlay = activePanel('kasp-overdrive-timers');
+    tab = new Element(); tab.kind = 'tab'; document.body.appendChild(tab);
+    previewCallback([{ type: 'childList', addedNodes: [tab], removedNodes: [] }]);
+    assert.equal(originalOverlay.parentElement, tab);
+    assert.equal(activePanel(), originalPanel);
+    assert.equal(displayed(), '1:25');
+    tab.style.display = 'none';
+    previewCallback([{ type: 'attributes', target: tab }]);
+    assert.equal(originalOverlay.parentElement, document.body);
+    tab.style.display = 'flex';
+    previewCallback([{ type: 'attributes', target: tab }]);
+    assert.equal(originalOverlay.parentElement, tab);
+    const closedTab = tab; tab.remove(); tab = null;
+    previewCallback([{ type: 'childList', addedNodes: [], removedNodes: [closedTab] }]);
+    assert.equal(originalOverlay.parentElement, document.body);
+    assert.equal(activePanel(), originalPanel);
+    assert.equal(elements.filter(e => e.id === 'kasp-overdrive-timers').length, 1);
     now += 30_000; overdriveTimer.sync();
     assert.equal(displayed(), '0:55');
     send(bonus.OVERDRIVE_BOX_MODEL);

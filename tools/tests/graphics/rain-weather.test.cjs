@@ -171,7 +171,7 @@ function runtime({metadata=true,cache=[]}={}){
  api.battle=(value,schema)=>{if(metadata&&value?.[schema.battleId]){const id=String(value[schema.battleId]);if(!knownThemes.has(id))api.environment(id,'SUMMER_DAY');value={_fixtureMap:'Rio',...value};schema={mapName:'_fixtureMap',...schema};}return battle(value,schema);};
  const schema={gl:'gl',context:'ctx',vp:'vp',camera:'pos',x:'x',y:'y',z:'z'};
  const renderer={gl:{ctx:{isContextLost:()=>false,drawArraysInstanced(){}}}},camera={vp:new Float32Array(16),pos:{x:0,y:0,z:2000}};
- return {api,page,memory,prefs,frame:scene=>api.frame(renderer,scene,camera,schema),poll:()=>{for(const cb of timers.values())cb();},
+ return {api,page,memory,prefs,renderer,schema,frame:scene=>api.frame(renderer,scene,camera,schema),poll:()=>{for(const cb of timers.values())cb();},
   present:value=>{present=value;},garage:value=>{garage=value;},enabled:value=>{enabled=value;},puddles:value=>{puddles=value;},detail:value=>{detail=value;},advance:value=>{now+=value;}};
 }
 
@@ -369,7 +369,7 @@ test('removed unrelated weather systems and global rendering hooks stay absent',
 
 test('rain budget is restored to 25000 and scales with precipitation in one instanced draw',()=>{
  assert.equal(schedule.WEATHER.maxDrops,25000);
- const renderer=fs.readFileSync('src/core/rainWeather/renderer.ts','utf8');assert.ok(renderer.includes('SNOW.maxFlakes:WEATHER.maxDrops'),'snow and rain retain separate particle budgets');
+ const renderer=fs.readFileSync('src/core/rainWeather/renderer.ts','utf8');assert.ok(renderer.includes('graphics.snowFlakes:graphics.rainDrops'),'snow and rain retain separate configurable particle budgets');
 });
 
 
@@ -413,4 +413,53 @@ test('title-based space and winter maps never inherit rain or puddles when the t
   const f=runtime({metadata:false});f.puddles(true);f.poll();f.api.battle({loaded:true,id:'title-policy',map:name},{battleLoaded:'loaded',battleId:'id',mapName:'map'});f.frame({});
   assert.equal(f.api.status().precipitation,mode,name);assert.equal(f.api.status().puddlesAllowed,mode==='rain',name);if(mode!=='rain')assert.equal(f.api.status().puddleAmount,0);
  }
+});
+
+test('MM snow material corrects a plain Yorkshire title without rerolling or carrying liquid effects',()=>{
+ const f=runtime({metadata:false}),s={battleLoaded:'loaded',battleId:'id',mapName:'map'};
+ f.prefs.set('k_rain_chance','0');f.prefs.set('k_rain_duration','1');f.prefs.set('k_rain_preset','storm');f.puddles(true);f.poll();
+ f.api.map({},{});f.api.battle({loaded:true,id:'winter-mm',map:'Йоркшир SGE'},s);f.frame({});
+ const old=f.api.status().episode;assert.equal(old.precipitation,'rain');f.api.force('storm');const preview=f.api.status().override;
+ f.api.terrainSnow(f.renderer,f.schema);let status=f.api.status();
+ assert.equal(status.environment.theme,null);assert.equal(status.environment.terrainSnow,true);assert.equal(status.precipitation,'snow');
+ assert.equal(JSON.stringify({...status.episode,precipitation:'rain'}),JSON.stringify(old));
+ assert.equal(JSON.stringify({...status.override,precipitation:'rain'}),JSON.stringify(preview));
+ assert.equal(status.puddlesAllowed,false);assert.equal(status.puddleAmount,0);assert.equal(status.audio,'off');assert.equal(status.strikes.length,0);
+ f.api.clearOverride();f.frame({});f.advance(60000);f.frame({});assert.equal(f.api.status().weather.sound,0);
+ const corrected=JSON.stringify(f.api.status().episode);f.api.terrainSnow(f.renderer,f.schema);assert.equal(JSON.stringify(f.api.status().episode),corrected);
+ f.garage(true);f.poll();f.frame({});assert.equal(f.api.status().suspended,true);f.garage(false);f.poll();f.frame({});assert.equal(JSON.stringify(f.api.status().episode),corrected);
+ f.present(false);f.advance(1100);f.poll();f.present(true);f.poll();f.api.battle({loaded:true,id:'winter-mm',map:'Йоркшир SGE'},s);f.frame({});assert.equal(JSON.stringify(f.api.status().episode),corrected,JSON.stringify(f.api.status()));
+ f.api.battle({loaded:false},s);f.api.map({},{});f.api.battle({loaded:true,id:'summer-mm',map:'Йоркшир SGE'},s);f.frame({});status=f.api.status();
+ assert.equal(status.environment.terrainSnow,false);assert.equal(status.precipitation,'rain');assert.equal(status.episode.precipitation,'rain');
+});
+
+test('snow evidence can precede battle identity and is ignored outside a live map or in space',()=>{
+ const f=runtime({metadata:false}),s={battleLoaded:'loaded',battleId:'id',mapName:'map'};
+ f.api.terrainSnow(f.renderer,f.schema);assert.equal(f.api.status().environment.terrainSnow,false,'no map captured');
+ f.api.map({},{});f.garage(true);f.api.terrainSnow(f.renderer,f.schema);assert.equal(f.api.status().environment.terrainSnow,false);
+ f.garage(false);f.api.terrainSnow({},f.schema);assert.equal(f.api.status().environment.terrainSnow,false,'unknown renderer');
+ f.api.terrainSnow(f.renderer,f.schema);f.api.battle({loaded:true,id:'early-snow',map:'Yorkshire SGE'},s);f.frame({});assert.equal(f.api.status().episode.precipitation,'snow');
+ f.api.environment('early-snow','SPACE');assert.equal(f.api.status().precipitation,null);assert.equal(f.api.status().episode,null);
+ f.api.environment('early-snow','SUMMER_DAY');f.frame({});assert.equal(f.api.status().precipitation,'rain','explicit native theme wins');
+});
+
+test('snow metadata capture while disabled neither activates weather nor creates GPU resources',()=>{
+ const f=runtime({metadata:false});f.enabled(false);f.poll();f.api.map({},{});f.api.battle({loaded:true,id:'disabled-winter',map:'Yorkshire SGE'},{battleLoaded:'loaded',battleId:'id',mapName:'map'});
+ f.api.terrainSnow(f.renderer,f.schema);f.frame({});assert.equal(f.api.status().precipitation,'snow');assert.equal(f.api.status().episode,null);assert.equal(f.api.status().renderers.length,0);
+ f.enabled(true);f.poll();f.frame({});assert.equal(f.api.status().episode.precipitation,'snow');
+});
+
+test('map snow AST observes actual draws, adapts renamed fields and isolates observer errors',async()=>{
+ const extra=`var marker='CollisionGeometry [';function MapProgram(c){this.cfg=c;this.sampler=this.uniform('snowTexture',this.cfg.snow);this.label='BattleMapProgram_';}
+ function Material(){}Is(Material).bind=function(r,c,m){var p=this.program;if(p.cfg.snow){trace.push('snow');sample(p.sampler);}return 47;};window.Material=Material;`;
+ const source=fixture.replace('window.Renderer=R;',extra+'window.Renderer=R;'),plan=analyzeRain(source);
+ assert.equal(plan.scene.capabilities.terrainSeason,true,plan.scene.issues.join(','));assert.equal(plan.edits.length,3);
+ const changed=source.replace(/\.(cfg|sampler|snow)\b/g,(_,v)=>'.renamed'+v),adapted=await load('patch').selectRainPlan(changed,[plan]);assert.ok(adapted);
+ let patched=changed;for(const e of [...adapted.edits].reverse())patched=patched.slice(0,e.start)+e.text+patched.slice(e.end);parse(patched,{ecmaVersion:'latest'});
+ for(const snow of [false,true])for(const fails of [false,true]){
+  let observed=0,samples=0;const trace=[],page={__kaspRain:{terrainSnow:(r,s)=>{observed++;assert.equal(r,renderer);assert.equal(s.gl,'y39_1');if(fails)throw Error('observer');}}},renderer={};
+  vm.runInNewContext(patched,{window:page,trace,sample(){samples++;}});const material=new page.Material();material.program={renamedcfg:{renamedsnow:snow},renamedsampler:{}};
+  assert.equal(material.bind(renderer,{},{}),47);assert.equal(observed,Number(snow));assert.equal(samples,Number(snow));
+ }
+ const broken=analyzeRain(source.replace("'snowTexture'","'unknownTexture'"));assert.equal(broken.status.ready,true);assert.equal(broken.scene.capabilities.terrainSeason,false);assert.equal(broken.edits.length,2);
 });

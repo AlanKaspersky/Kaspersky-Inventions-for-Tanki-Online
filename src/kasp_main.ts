@@ -7,6 +7,7 @@ import { hideSupplies } from './modules/hideSupplies';
 import { setupDiscordPresence } from './modules/discordPresence';
 import { setupAccountIdentity } from './core/accountIdentity';
 import { featureScope, installFeatureDiagnostics } from './core/featureRuntime';
+import { setupBattleGraphics } from './core/battleGraphics';
 
 if (window === window.top) {
   installFeatureDiagnostics(window, 'content');
@@ -17,6 +18,7 @@ if (window === window.top) {
   document.documentElement.style.setProperty('--kasp-loader-bg', `url("${loaderBg}")`);
 
   state.lang = utils.getLang();
+  featureScope('battleGraphics').run(()=>setupBattleGraphics(window));
   featureScope('hideNickname').run(setupNicknamePrivacy);
   featureScope('hideSupplies').run(hideSupplies);
 

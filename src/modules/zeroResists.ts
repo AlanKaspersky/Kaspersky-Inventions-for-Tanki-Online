@@ -54,8 +54,8 @@ export const zeroResists = lifecycle.initialize(() => {
         return '';
     }
 
-    function injectCompactCells(readStyle: ReadStyle): void {
-        const cells = document.querySelectorAll(gameDOM.statistics.resistanceCell);
+    function prepareCompactCells(readStyle: ReadStyle, dirtyCells?: readonly Element[]): () => void {
+        const cells = dirtyCells ?? document.querySelectorAll(gameDOM.statistics.resistanceCell);
         const updates = Array.from(cells, cell => {
             const htmlCell = cell as HTMLElement;
             const labels = Array.from(htmlCell.children).filter(el =>
@@ -90,56 +90,61 @@ export const zeroResists = lifecycle.initialize(() => {
             return { htmlCell, compact, protectLabel, protectIsSpectrum, armadilloLabel, stateKey };
         });
 
-        for (const update of updates) {
-            const { htmlCell, protectLabel, protectIsSpectrum, armadilloLabel, stateKey } = update;
-            let { compact } = update;
-            if (compact && compact.dataset.kaspState === stateKey) continue;
-            if (!compact) {
-                compact = document.createElement('div');
-                compact.className = 'kasp-compact-cell';
-            }
+        return () => {
+            for (const update of updates) {
+                const { htmlCell, protectLabel, protectIsSpectrum, armadilloLabel, stateKey } = update;
+                let { compact } = update;
+                if (compact && compact.dataset.kaspState === stateKey) continue;
+                if (!compact) {
+                    compact = document.createElement('div');
+                    compact.className = 'kasp-compact-cell';
+                }
 
-            const slot1 = document.createElement('div');
-            slot1.className = 'kasp-slot';
-            if (protectLabel) {
-                const clone = protectLabel.cloneNode(true) as HTMLElement;
-                clone.classList.add('kasp-cloned-resist', 'kasp-protecting');
-                if (protectIsSpectrum) clone.classList.add('kasp-spectrum');
-                slot1.appendChild(clone);
+                const slot1 = document.createElement('div');
+                slot1.className = 'kasp-slot';
+                if (protectLabel) {
+                    const clone = protectLabel.cloneNode(true) as HTMLElement;
+                    clone.classList.add('kasp-cloned-resist', 'kasp-protecting');
+                    if (protectIsSpectrum) clone.classList.add('kasp-spectrum');
+                    slot1.appendChild(clone);
+                }
+                else {
+                    slot1.innerHTML = '<span class="kasp-dash">—</span>';
+                }
+                const slot2 = document.createElement('div');
+                slot2.className = 'kasp-slot';
+                if (armadilloLabel) {
+                    const clone = armadilloLabel.cloneNode(true) as HTMLElement;
+                    clone.classList.add('kasp-cloned-resist', 'kasp-armadillo');
+                    slot2.appendChild(clone);
+                }
+                else {
+                    slot2.innerHTML = '<span class="kasp-dash">—</span>';
+                }
+                compact.replaceChildren(slot1, slot2);
+                compact.dataset.kaspState = stateKey;
+                if (!compact.parentElement) htmlCell.prepend(compact);
             }
-            else {
-                slot1.innerHTML = '<span class="kasp-dash">—</span>';
-            }
-            const slot2 = document.createElement('div');
-            slot2.className = 'kasp-slot';
-            if (armadilloLabel) {
-                const clone = armadilloLabel.cloneNode(true) as HTMLElement;
-                clone.classList.add('kasp-cloned-resist', 'kasp-armadillo');
-                slot2.appendChild(clone);
-            }
-            else {
-                slot2.innerHTML = '<span class="kasp-dash">—</span>';
-            }
-            compact.replaceChildren(slot1, slot2);
-            compact.dataset.kaspState = stateKey;
-            if (!compact.parentElement) htmlCell.prepend(compact);
-        }
+        };
     }
 
-    function injectZeroSummary(readStyle: ReadStyle): void {
+    function prepareZeroSummary(readStyle: ReadStyle): () => void {
         const tabContainer = document.querySelector(TAB_SELECTOR);
-        if (!tabContainer) return;
+        if (!tabContainer) return () => {};
 
         let summaryRow = Array.from(tabContainer.children).find(el =>
             el.className.includes(gameDOM.classes.flexCenter) && !el.className.toLowerCase().includes(gameDOM.fragments.header)
         ) as HTMLElement;
 
+        let mountSummary: (() => void) | undefined;
         if (!summaryRow) {
             summaryRow = document.createElement('div');
             summaryRow.className = gameDOM.classes.flexCenter + ' kasp-custom-summary-row';
             const optionsContainer = tabContainer.querySelector(gameDOM.statistics.options);
-            if (optionsContainer) optionsContainer.before(summaryRow);
-            else tabContainer.appendChild(summaryRow);
+            mountSummary = () => {
+                if (optionsContainer) optionsContainer.before(summaryRow);
+                else tabContainer.appendChild(summaryRow);
+            };
         }
 
         const presentResistances = new Set<string>();
@@ -155,9 +160,10 @@ export const zeroResists = lifecycle.initialize(() => {
 
         const zeroBlocks = summaryRow.querySelectorAll('.kasp-zero-summary');
         const existingZeros = new Set<string>();
+        const staleZeros: Element[] = [];
         zeroBlocks.forEach(block => {
             const turret = block.getAttribute('data-turret');
-            if (turret && presentResistances.has(turret)) block.remove();
+            if (turret && presentResistances.has(turret)) staleZeros.push(block);
             else if (turret) existingZeros.add(turret);
         });
 
@@ -183,7 +189,11 @@ export const zeroResists = lifecycle.initialize(() => {
                 fragment.appendChild(zeroLabel);
             }
         });
-        if (fragment.childNodes.length) summaryRow.appendChild(fragment);
+        return () => {
+            mountSummary?.();
+            staleZeros.forEach(block => block.remove());
+            if (fragment.childNodes.length) summaryRow.appendChild(fragment);
+        };
     }
 
     function injectToggleButton() {
@@ -198,10 +208,6 @@ export const zeroResists = lifecycle.initialize(() => {
         const summaryRow = Array.from(tabContainer.children).find(el => el.className.includes(gameDOM.classes.flexCenter) && !el.className.toLowerCase().includes(gameDOM.fragments.header));
 
         if (!summaryRow || document.getElementById('kasp-tab-toggle-btn')) return;
-
-        if (window.getComputedStyle(summaryRow).position === 'static') {
-            (summaryRow as HTMLElement).style.position = 'relative';
-        }
 
         const btn = document.createElement('div');
         btn.id = 'kasp-tab-toggle-btn';
@@ -228,7 +234,7 @@ export const zeroResists = lifecycle.initialize(() => {
         lifecycle.ownDOM(btn, element => element.remove());
     }
 
-    function sync(): void {
+    function sync(dirtyCells?: readonly Element[]): void {
         if (!document.querySelector(TAB_SELECTOR)) return;
         const styles = new WeakMap<Element, CSSStyleDeclaration>();
         const readStyle: ReadStyle = element => {
@@ -239,9 +245,12 @@ export const zeroResists = lifecycle.initialize(() => {
             }
             return style;
         };
+        // Finish style reads before inserting headers, compact slots or summary labels.
+        const commitCells = prepareCompactCells(readStyle, dirtyCells);
+        const commitSummary = prepareZeroSummary(readStyle);
         injectHeaderShield();
-        injectCompactCells(readStyle);
-        injectZeroSummary(readStyle);
+        commitCells();
+        commitSummary();
         injectToggleButton();
     }
 

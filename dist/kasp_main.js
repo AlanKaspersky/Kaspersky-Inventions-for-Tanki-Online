@@ -122,7 +122,8 @@
         "k_critical_indicator",
         "k_box_pickup",
         "k_rain_weather",
-        "k_rain_puddles"
+        "k_rain_puddles",
+        "k_sun_rays"
       ];
       settingsCache = /* @__PURE__ */ new Map();
       for (const key of SETTINGS_KEYS) {
@@ -769,6 +770,7 @@
           teams: ".BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults",
           headerRows: ":is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults) table thead tr",
           resistanceCell: ".BattleTabStatisticComponentStyle-resistanceModuleCell",
+          scoreCells: ".BattleTabStatisticComponentStyle-gsCell, .BattleTabStatisticComponentStyle-scoreCell, .BattleTabStatisticComponentStyle-dlCell",
           options: ".BattleTabStatisticComponentStyle-commonContainerIconOptions"
         },
         results: {
@@ -840,10 +842,10 @@
     try {
       if (typeof value === "number" && !Number.isSafeInteger(value)) return null;
       if (!["string", "number", "bigint", "object"].includes(typeof value) || value === null) return null;
-      const text2 = String(value);
-      if (!/^-?[1-9]\d{0,19}$/.test(text2)) return null;
-      const id = BigInt(text2);
-      return id >= -(1n << 63n) && id < 1n << 64n ? text2 : null;
+      const text3 = String(value);
+      if (!/^-?[1-9]\d{0,19}$/.test(text3)) return null;
+      const id = BigInt(text3);
+      return id >= -(1n << 63n) && id < 1n << 64n ? text3 : null;
     } catch {
       return null;
     }
@@ -925,8 +927,8 @@
   });
 
   // src/core/accountIdentity.ts
-  function parseAccountIdentity(text2) {
-    const displayName = text2.trim();
+  function parseAccountIdentity(text3) {
+    const displayName = text3.trim();
     const clanTag = /^\[.*?\]/.exec(displayName)?.[0] || "";
     const nickname = displayName.replace(/^\[.*?\]\s*/, "").trim();
     return nickname ? { nickname, clanTag, displayName } : null;
@@ -1007,9 +1009,9 @@
   });
 
   // src/modules/hideNickname.ts
-  function setTooltip(element, text2) {
-    if (element.getAttribute("data-kasp-private-tooltip") !== text2) {
-      element.setAttribute("data-kasp-private-tooltip", text2);
+  function setTooltip(element, text3) {
+    if (element.getAttribute("data-kasp-private-tooltip") !== text3) {
+      element.setAttribute("data-kasp-private-tooltip", text3);
     }
   }
   function hideNickname() {
@@ -1077,6 +1079,53 @@
         privacyObserver?.disconnect();
         document.documentElement.classList.remove("kasp-hide-nickname");
       });
+    }
+  });
+
+  // src/core/rainWeather/tuning.ts
+  function sanitizeSurfaceTuning(value) {
+    const result = { ...DEFAULT_SURFACE_TUNING };
+    if (!value || typeof value !== "object" || Array.isArray(value)) return result;
+    for (const control2 of SURFACE_CONTROLS) {
+      const n = Object.getOwnPropertyDescriptor(value, control2.key)?.value;
+      if (typeof n === "number" && Number.isFinite(n)) result[control2.key] = Math.max(control2.min, Math.min(control2.max, n));
+    }
+    return result;
+  }
+  function readSurfaceTuning(storage) {
+    try {
+      return sanitizeSurfaceTuning(JSON.parse(storage.getItem(WEATHER_TUNING_KEY) || "null"));
+    } catch {
+      return { ...DEFAULT_SURFACE_TUNING };
+    }
+  }
+  var WEATHER_TUNING_KEY, SURFACE_CONTROLS, DEFAULT_SURFACE_TUNING;
+  var init_tuning = __esm({
+    "src/core/rainWeather/tuning.ts"() {
+      "use strict";
+      WEATHER_TUNING_KEY = "k_rain_surface_tuning_v1";
+      SURFACE_CONTROLS = [
+        { key: "rainIntensity", min: 0, max: 1, step: 0.01, value: 1 },
+        { key: "edgeInset", min: 0, max: 200, step: 5, value: 200 },
+        { key: "rippleSizeReduction", min: 1, max: 30, step: 0.5, value: 15 },
+        { key: "rippleDensity", min: 0, max: 1, step: 0.01, value: 1 },
+        { key: "rippleSpeed", min: 0.25, max: 8, step: 0.05, value: 8 },
+        { key: "rippleStrength", min: 0, max: 2, step: 0.05, value: 0.7 },
+        { key: "waveSizeReduction", min: 1, max: 30, step: 0.5, value: 16 },
+        { key: "waveSpeed", min: 0.25, max: 8, step: 0.05, value: 8 },
+        { key: "waveStrength", min: 0, max: 2, step: 0.05, value: 2 },
+        { key: "reflectionStrength", min: 0, max: 2, step: 0.05, value: 2 },
+        { key: "reflectionDistance", min: 1e3, max: 12e3, step: 100, value: 12e3 },
+        { key: "reflectionRoughness", min: 0, max: 1, step: 0.01, value: 1 },
+        { key: "refractionStrength", min: 0, max: 2, step: 0.05, value: 2 },
+        { key: "groundSplashDensity", min: 0, max: 4, step: 0.05, value: 4 },
+        { key: "tankSplashDensity", min: 0, max: 4, step: 0.05, value: 4 },
+        { key: "splashSpeed", min: 0.25, max: 4, step: 0.05, value: 4 },
+        { key: "splashSize", min: 0.25, max: 4, step: 0.05, value: 0.25 },
+        { key: "splashLifetime", min: 0.15, max: 1.5, step: 0.05, value: 1.5 },
+        { key: "splashGravity", min: 0.25, max: 3, step: 0.05, value: 3 }
+      ];
+      DEFAULT_SURFACE_TUNING = Object.freeze(Object.fromEntries(SURFACE_CONTROLS.map((c) => [c.key, c.value])));
     }
   });
 
@@ -1218,6 +1267,756 @@
     }
   });
 
+  // src/core/sunRays/config.ts
+  function readSunIntensity(storage) {
+    try {
+      const raw = storage.getItem("k_sun_rays_intensity");
+      if (raw === null || !raw.trim() || !Number.isFinite(Number(raw))) return DEFAULT_SUN_INTENSITY;
+      return Math.max(0, Number(raw));
+    } catch {
+      return DEFAULT_SUN_INTENSITY;
+    }
+  }
+  var DEFAULT_SUN_INTENSITY, SUN_RAYS;
+  var init_config2 = __esm({
+    "src/core/sunRays/config.ts"() {
+      "use strict";
+      DEFAULT_SUN_INTENSITY = 4;
+      SUN_RAYS = Object.freeze({
+        steps: 40,
+        // Samples of lit air along each camera ray.
+        maxWidth: 640,
+        // Maximum integration-buffer width; composite stays full resolution.
+        resolutionScale: 0.5,
+        // Half-size on smaller displays, capped by maxWidth on larger ones.
+        shadowSize: 2048,
+        // Static collision shadow map, rebuilt only for a new map/light direction.
+        maxShadowTriangles: 12e4,
+        distance: 3e4,
+        // Softly bounded 300 m atmospheric integration, not a visible cone end.
+        extinction: 18e-6,
+        // Light absorbed/scattered per centimetre of air.
+        anisotropy: 0.62,
+        // Forward scattering: shafts brighten naturally when looking toward the sun.
+        fadeSeconds: 2
+        // Smooth entry/enable transition.
+      });
+    }
+  });
+
+  // src/core/graphicsPreferences.ts
+  function sanitizeGraphicsTuning(input) {
+    const result = { ...DEFAULT_GRAPHICS_TUNING };
+    for (const c of GRAPHICS_CONTROLS) {
+      const value = input && typeof input === "object" ? Object.getOwnPropertyDescriptor(input, c.key)?.value : void 0;
+      if (typeof value === "number" && Number.isFinite(value)) {
+        const bounded = Math.max(c.min, Math.min(c.max, value));
+        result[c.key] = c.options ? c.options.reduce((a, b) => Math.abs(b - bounded) < Math.abs(a - bounded) ? b : a) : bounded;
+      }
+    }
+    for (const key of ["rainDrops", "snowFlakes", "snowFaces", "snowBranches", "sunSteps", "boxCount", "boxLimit"]) result[key] = Math.round(result[key]);
+    return result;
+  }
+  function readGraphicsTuning(storage) {
+    try {
+      return sanitizeGraphicsTuning(JSON.parse(storage.getItem(GRAPHICS_TUNING_KEY) || "null"));
+    } catch {
+      return { ...DEFAULT_GRAPHICS_TUNING };
+    }
+  }
+  function readGraphicsProfile(storage) {
+    const enabled = Object.fromEntries(Object.entries(GRAPHICS_FLAGS).map(([name, key]) => [name, storage.getItem(key) === "true"]));
+    const { chance, duration, preset } = readWeatherGeneration(storage);
+    return { format: "ki-graphics-settings", version: 1, settings: {
+      enabled,
+      generation: { chance, duration, preset },
+      volumes: readWeatherVolumes(storage),
+      surface: readSurfaceTuning(storage),
+      tuning: readGraphicsTuning(storage),
+      sunIntensity: readSunIntensity(storage)
+    } };
+  }
+  function applySunLook(profile, look) {
+    if (look !== "original" && look !== "cinematic" && look !== "warm-evening") throw Error("unknown-sun-look");
+    const next = structuredClone(profile), s = next.settings;
+    for (const c of GRAPHICS_CONTROLS) if (c.group === "sun") s.tuning[c.key] = look === "cinematic" ? c.value : ORIGINAL_SUN[c.key] ?? c.value;
+    s.sunIntensity = look === "original" ? 1 : look === "cinematic" ? 4 : 8;
+    if (look === "warm-evening") Object.assign(s.tuning, {
+      sunDistance: 600,
+      sunDensity: 0.55,
+      sunAnisotropy: 0.45,
+      sunSurface: 0.45,
+      sunHighlight: 0.18,
+      sunSky: 0.03,
+      sunSteps: 64,
+      sunResolution: 960,
+      sunTemperature: 4500,
+      sunHaze: 0.42,
+      sunHazeTemperature: 4800,
+      sunHazeStart: 40,
+      sunHazeDistance: 500,
+      sunSkyWarmth: 0.45,
+      sunExposure: 0.2,
+      sunContrast: 0.94,
+      sunSaturation: 0.94,
+      sunBloom: 0.2,
+      sunBloomRadius: 1.5,
+      sunShadowSoftness: 2,
+      sunShadowFill: 0.12,
+      sunToneCurve: 0.2
+    });
+    return next;
+  }
+  function parseGraphicsProfile(text3, storage) {
+    if (text3.length > 262144) throw Error("file-too-large");
+    const input = object2(JSON.parse(text3));
+    if (input.format !== "ki-graphics-settings" || input.version !== 1) throw Error("unsupported-format");
+    const src = object2(input.settings), result = readGraphicsProfile(storage), dst = result.settings;
+    const read = (value, min, max) => {
+      if (typeof value !== "number" || !Number.isFinite(value) || value < min || value > max) throw Error("invalid-number");
+      return value;
+    };
+    if (src.enabled !== void 0) for (const [key, value] of Object.entries(object2(src.enabled))) {
+      if (!Object.prototype.hasOwnProperty.call(GRAPHICS_FLAGS, key)) continue;
+      if (typeof value !== "boolean") throw Error("invalid-boolean");
+      dst.enabled[key] = value;
+    }
+    if (src.generation !== void 0) {
+      const g = object2(src.generation);
+      if (g.chance !== void 0) dst.generation.chance = read(g.chance, 0, 1);
+      if (g.duration !== void 0) dst.generation.duration = read(g.duration, 0, 1);
+      if (g.preset !== void 0) {
+        if (!["random", "sunny", "overcast", "drizzle", "sunshower", "storm"].includes(String(g.preset))) throw Error("invalid-preset");
+        dst.generation.preset = g.preset;
+      }
+    }
+    if (src.volumes !== void 0) for (const key of ["rain", "thunder"]) {
+      const v = object2(src.volumes);
+      if (v[key] !== void 0) dst.volumes[key] = read(v[key], 0, 1);
+    }
+    if (src.sunIntensity !== void 0) dst.sunIntensity = read(src.sunIntensity, 0, Number.MAX_VALUE);
+    if (src.surface !== void 0) {
+      const values = object2(src.surface);
+      for (const c of SURFACE_CONTROLS) if (values[c.key] !== void 0) dst.surface[c.key] = read(values[c.key], c.min, c.max);
+    }
+    if (src.tuning !== void 0) {
+      const values = object2(src.tuning);
+      for (const c of GRAPHICS_CONTROLS) if (values[c.key] !== void 0) {
+        const value = read(values[c.key], c.min, c.max);
+        if (c.options && !c.options.some((n) => n === value)) throw Error("invalid-option");
+        if (["rainDrops", "snowFlakes", "snowFaces", "snowBranches", "sunSteps", "boxCount", "boxLimit"].includes(c.key) && !Number.isInteger(value)) throw Error("invalid-integer");
+        dst.tuning[c.key] = value;
+      }
+    }
+    return result;
+  }
+  function saveGraphicsProfile(profile, storage) {
+    const s = parseGraphicsProfile(JSON.stringify(profile), storage).settings;
+    const entries = [
+      ...Object.entries(GRAPHICS_FLAGS).map(([name, key]) => [key, String(s.enabled[name])]),
+      [WEATHER_GENERATION_KEYS.chance, String(s.generation.chance)],
+      [WEATHER_GENERATION_KEYS.duration, String(s.generation.duration)],
+      [WEATHER_GENERATION_KEYS.preset, s.generation.preset],
+      [WEATHER_VOLUME_KEYS.rain, String(s.volumes.rain)],
+      [WEATHER_VOLUME_KEYS.thunder, String(s.volumes.thunder)],
+      [WEATHER_TUNING_KEY, JSON.stringify(s.surface)],
+      [GRAPHICS_TUNING_KEY, JSON.stringify(s.tuning)],
+      ["k_sun_rays_intensity", String(s.sunIntensity)]
+    ];
+    const changes = entries.map(([key, value]) => ({ key, value, previous: storage.getItem(key) })).filter((e) => e.previous !== e.value);
+    let written = 0;
+    try {
+      for (const { key, value } of changes) {
+        storage.setItem(key, value);
+        written++;
+      }
+    } catch (error) {
+      for (let i = written - 1; i >= 0; i--) try {
+        const c = changes[i];
+        if (c.previous === null) storage.removeItem(c.key);
+        else storage.setItem(c.key, c.previous);
+      } catch {
+      }
+      throw error;
+    }
+  }
+  function defaultGraphicsProfile() {
+    return readGraphicsProfile({ getItem: () => null });
+  }
+  var GRAPHICS_TUNING_KEY, control, GRAPHICS_CONTROLS, DEFAULT_GRAPHICS_TUNING, GRAPHICS_FLAGS, ORIGINAL_SUN, object2;
+  var init_graphicsPreferences = __esm({
+    "src/core/graphicsPreferences.ts"() {
+      "use strict";
+      init_tuning();
+      init_preferences();
+      init_config2();
+      GRAPHICS_TUNING_KEY = "k_graphics_tuning_v1";
+      control = (key, group, ru, en, value, min, max, step, unit = "", options) => ({ key, group, label: { RU: ru, EN: en }, value, min, max, step, unit, options });
+      GRAPHICS_CONTROLS = [
+        control("fadeIn", "weather", "\u041F\u043B\u0430\u0432\u043D\u043E\u0435 \u043D\u0430\u0447\u0430\u043B\u043E", "Fade in", 24, 1, 60, 1, "s"),
+        control("fadeOut", "weather", "\u041F\u043B\u0430\u0432\u043D\u043E\u0435 \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043D\u0438\u0435", "Fade out", 30, 1, 60, 1, "s"),
+        control("wind", "weather", "\u0421\u0438\u043B\u0430 \u0432\u0435\u0442\u0440\u0430", "Wind strength", 1, 0, 2, 0.05, "\xD7"),
+        control("darkness", "weather", "\u0417\u0430\u0442\u0435\u043C\u043D\u0435\u043D\u0438\u0435 \u043A\u0430\u0440\u0442\u044B \u0438 \u043D\u0435\u0431\u0430", "Map and sky darkening", 1, 0, 1.5, 0.05, "\xD7"),
+        control("fogRemoval", "weather", "\u041F\u043E\u0434\u0430\u0432\u043B\u0435\u043D\u0438\u0435 \u0438\u0433\u0440\u043E\u0432\u043E\u0433\u043E \u0442\u0443\u043C\u0430\u043D\u0430", "Native fog suppression", 1, 0, 1, 0.05, "\xD7"),
+        control("rainDrops", "rain", "\u041C\u0430\u043A\u0441\u0438\u043C\u0443\u043C \u043A\u0430\u043F\u0435\u043B\u044C", "Maximum raindrops", 25e3, 0, 6e4, 1e3),
+        control("rainSpeed", "rain", "\u0421\u043A\u043E\u0440\u043E\u0441\u0442\u044C \u043F\u0430\u0434\u0435\u043D\u0438\u044F", "Fall speed", 1, 0.25, 3, 0.05, "\xD7"),
+        control("rainSize", "rain", "\u0422\u043E\u043B\u0449\u0438\u043D\u0430 \u043A\u0430\u043F\u0435\u043B\u044C", "Drop width", 1, 0.25, 3, 0.05, "\xD7"),
+        control("rainLength", "rain", "\u0414\u043B\u0438\u043D\u0430 \u043A\u0430\u043F\u0435\u043B\u044C", "Drop length", 1, 0.25, 3, 0.05, "\xD7"),
+        control("rainOpacity", "rain", "\u0412\u0438\u0434\u0438\u043C\u043E\u0441\u0442\u044C \u043A\u0430\u043F\u0435\u043B\u044C", "Drop opacity", 1, 0, 2, 0.05, "\xD7"),
+        control("snowFlakes", "snow", "\u041C\u0430\u043A\u0441\u0438\u043C\u0443\u043C \u0441\u043D\u0435\u0436\u0438\u043D\u043E\u043A", "Maximum snowflakes", 2e4, 0, 4e4, 1e3),
+        control("snowSpeed", "snow", "\u0421\u043A\u043E\u0440\u043E\u0441\u0442\u044C \u0441\u043D\u0435\u0433\u043E\u043F\u0430\u0434\u0430", "Snowfall speed", 1, 0.25, 3, 0.05, "\xD7"),
+        control("snowSize", "snow", "\u0420\u0430\u0437\u043C\u0435\u0440 \u0441\u043D\u0435\u0436\u0438\u043D\u043E\u043A", "Flake size", 1, 0.25, 3, 0.05, "\xD7"),
+        control("snowOpacity", "snow", "\u0412\u0438\u0434\u0438\u043C\u043E\u0441\u0442\u044C \u0441\u043D\u0435\u0436\u0438\u043D\u043E\u043A", "Flake opacity", 1, 0, 2, 0.05, "\xD7"),
+        control("snowWind", "snow", "\u0423\u0441\u0438\u043B\u0435\u043D\u0438\u0435 \u0432\u0435\u0442\u0440\u0430 \u043C\u0435\u0442\u0435\u043B\u0438", "Blizzard wind multiplier", 1, 0, 3, 0.05, "\xD7"),
+        control("snowFlutter", "snow", "\u041A\u0440\u0443\u0436\u0435\u043D\u0438\u0435 \u0441\u043D\u0435\u0436\u0438\u043D\u043E\u043A", "Flake flutter", 1, 0, 3, 0.05, "\xD7"),
+        control("snowStreaks", "snow", "\u0414\u043E\u043B\u044F \u0441\u043D\u0435\u0436\u043D\u044B\u0445 \u043F\u043E\u043B\u043E\u0441 \u0432 \u043C\u0435\u0442\u0435\u043B\u044C", "Blizzard streak share", 0.8, 0, 1, 0.05, "\xD7"),
+        control("snowFaces", "snow", "\u041F\u043B\u043E\u0441\u043A\u043E\u0441\u0442\u0435\u0439 \u0443 \u0441\u043D\u0435\u0436\u0438\u043D\u043A\u0438", "Faces per snowflake", 2, 1, 3, 1),
+        control("snowBranches", "snow", "\u0414\u0435\u0442\u0430\u043B\u0438\u0437\u0430\u0446\u0438\u044F \u043A\u0440\u0438\u0441\u0442\u0430\u043B\u043B\u0430", "Crystal branches", 3, 0, 8, 1),
+        control("cloudAmount", "clouds", "\u041F\u043B\u043E\u0442\u043D\u043E\u0441\u0442\u044C \u043E\u0431\u043B\u0430\u043A\u043E\u0432", "Cloud coverage", 1, 0, 1.5, 0.05, "\xD7"),
+        control("cloudBrightness", "clouds", "\u042F\u0440\u043A\u043E\u0441\u0442\u044C \u043E\u0431\u043B\u0430\u043A\u043E\u0432", "Cloud brightness", 1, 0.25, 2, 0.05, "\xD7"),
+        control("cloudHeight", "clouds", "\u0412\u044B\u0441\u043E\u0442\u0430 \u043E\u0431\u043B\u0430\u043A\u043E\u0432", "Cloud base height", 110, 60, 250, 5, "m"),
+        control("cloudThickness", "clouds", "\u0422\u043E\u043B\u0449\u0438\u043D\u0430 \u043E\u0431\u043B\u0430\u0447\u043D\u043E\u0433\u043E \u0441\u043B\u043E\u044F", "Cloud layer thickness", 42, 10, 100, 2, "m"),
+        control("cloudResolution", "clouds", "\u0420\u0430\u0437\u0440\u0435\u0448\u0435\u043D\u0438\u0435 \u043E\u0431\u043B\u0430\u043A\u043E\u0432", "Cloud resolution", 1024, 256, 1536, 256, "px", [256, 512, 1024, 1536]),
+        control("cloudHz", "clouds", "\u041E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u0439 \u043E\u0431\u043B\u0430\u043A\u043E\u0432 \u0432 \u0441\u0435\u043A\u0443\u043D\u0434\u0443", "Cloud updates per second", 10, 2, 30, 1),
+        control("lightningFrequency", "lightning", "\u0427\u0430\u0441\u0442\u043E\u0442\u0430 \u043C\u043E\u043B\u043D\u0438\u0439", "Lightning frequency", 1, 0, 3, 0.1, "\xD7"),
+        control("lightningBrightness", "lightning", "\u042F\u0440\u043A\u043E\u0441\u0442\u044C \u043C\u043E\u043B\u043D\u0438\u0438", "Bolt brightness", 1, 0, 2, 0.05, "\xD7"),
+        control("lightningFlash", "lightning", "\u0412\u0441\u043F\u044B\u0448\u043A\u0430 \u043E\u0441\u0432\u0435\u0449\u0435\u043D\u0438\u044F", "Lighting flash", 1, 0, 1, 0.05, "\xD7"),
+        control("lightningDistance", "lightning", "\u0420\u0430\u0441\u0441\u0442\u043E\u044F\u043D\u0438\u0435 \u0434\u043E \u043C\u043E\u043B\u043D\u0438\u0439", "Lightning distance", 1, 0.5, 2, 0.05, "\xD7"),
+        control("sunDistance", "sun", "\u0414\u0430\u043B\u044C\u043D\u043E\u0441\u0442\u044C \u0440\u0430\u0441\u0441\u0435\u044F\u043D\u0438\u044F", "Scattering distance", 500, 50, 1500, 10, "m"),
+        control("sunDensity", "sun", "\u041F\u043B\u043E\u0442\u043D\u043E\u0441\u0442\u044C \u0441\u0432\u0435\u0442\u044F\u0449\u0435\u0433\u043E\u0441\u044F \u0432\u043E\u0437\u0434\u0443\u0445\u0430", "Air scattering density", 0.45, 0, 3, 0.05, "\xD7"),
+        control("sunAnisotropy", "sun", "\u041D\u0430\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u043D\u043E\u0441\u0442\u044C \u0440\u0430\u0441\u0441\u0435\u044F\u043D\u0438\u044F", "Forward scattering", 0.55, 0, 0.9, 0.01),
+        control("sunSurface", "sun", "\u0423\u0441\u0438\u043B\u0435\u043D\u0438\u0435 \u0441\u0432\u0435\u0442\u0430 \u043D\u0430 \u043F\u043E\u0432\u0435\u0440\u0445\u043D\u043E\u0441\u0442\u044F\u0445", "Surface light gain", 0.6, 0, 1, 0.01, "\xD7"),
+        control("sunHighlight", "sun", "\u041F\u0440\u0435\u0434\u0435\u043B \u0441\u0432\u0435\u0447\u0435\u043D\u0438\u044F \u0432\u043E\u0437\u0434\u0443\u0445\u0430", "Air highlight limit", 0.18, 0.01, 0.5, 0.01),
+        control("sunSky", "sun", "\u041F\u0440\u0435\u0434\u0435\u043B \u0441\u0432\u0435\u0447\u0435\u043D\u0438\u044F \u043D\u0435\u0431\u0430", "Sky highlight limit", 0.03, 0, 0.2, 0.01),
+        control("sunSteps", "sun", "\u0428\u0430\u0433\u043E\u0432 \u0440\u0430\u0441\u0447\u0451\u0442\u0430 \u0441\u0432\u0435\u0442\u0430", "Light sampling steps", 40, 12, 96, 4),
+        control("sunResolution", "sun", "\u0420\u0430\u0437\u0440\u0435\u0448\u0435\u043D\u0438\u0435 \u043E\u0431\u044A\u0451\u043C\u043D\u043E\u0433\u043E \u0441\u0432\u0435\u0442\u0430", "Volumetric light resolution", 640, 320, 1280, 160, "px"),
+        control("sunShadow", "sun", "\u0420\u0430\u0437\u0440\u0435\u0448\u0435\u043D\u0438\u0435 \u0442\u0435\u043D\u0435\u0439 \u043A\u0430\u0440\u0442\u044B", "Map shadow resolution", 2048, 512, 4096, 512, "px", [512, 1024, 2048, 4096]),
+        control("sunFade", "sun", "\u041F\u043B\u0430\u0432\u043D\u043E\u0441\u0442\u044C \u043F\u043E\u044F\u0432\u043B\u0435\u043D\u0438\u044F \u0441\u0432\u0435\u0442\u0430", "Light fade in", 2, 0.1, 10, 0.1, "s"),
+        control("sunTemperature", "sun", "\u0422\u0435\u043C\u043F\u0435\u0440\u0430\u0442\u0443\u0440\u0430 \u0441\u043E\u043B\u043D\u0435\u0447\u043D\u043E\u0433\u043E \u0441\u0432\u0435\u0442\u0430", "Sunlight temperature", 5200, 2500, 1e4, 100, "K"),
+        control("sunDiskSize", "sun", "\u0420\u0430\u0437\u043C\u0435\u0440 \u0441\u043E\u043B\u043D\u0435\u0447\u043D\u043E\u0433\u043E \u0434\u0438\u0441\u043A\u0430", "Sun disk diameter", 0.65, 0.1, 3, 0.05, "\xB0"),
+        control("sunDiskBrightness", "sun", "\u042F\u0440\u043A\u043E\u0441\u0442\u044C \u0441\u043E\u043B\u043D\u0435\u0447\u043D\u043E\u0433\u043E \u0434\u0438\u0441\u043A\u0430", "Sun disk brightness", 1, 0, 3, 0.05),
+        control("sunHalo", "sun", "\u0421\u0432\u0435\u0447\u0435\u043D\u0438\u0435 \u0432\u043E\u043A\u0440\u0443\u0433 \u0441\u043E\u043B\u043D\u0446\u0430", "Sun halo", 0.55, 0, 2, 0.05),
+        control("sunHaze", "sun", "\u041F\u043B\u043E\u0442\u043D\u043E\u0441\u0442\u044C \u0430\u0442\u043C\u043E\u0441\u0444\u0435\u0440\u043D\u043E\u0439 \u0434\u044B\u043C\u043A\u0438", "Atmospheric haze density", 0.24, 0, 1, 0.01),
+        control("sunHazeTemperature", "sun", "\u0422\u0435\u043C\u043F\u0435\u0440\u0430\u0442\u0443\u0440\u0430 \u0434\u044B\u043C\u043A\u0438", "Haze temperature", 5500, 2500, 1e4, 100, "K"),
+        control("sunHazeStart", "sun", "\u041D\u0430\u0447\u0430\u043B\u043E \u0434\u044B\u043C\u043A\u0438", "Haze start distance", 70, 0, 1e3, 10, "m"),
+        control("sunHazeDistance", "sun", "\u0414\u0430\u043B\u044C\u043D\u043E\u0441\u0442\u044C \u0441\u0433\u0443\u0449\u0435\u043D\u0438\u044F \u0434\u044B\u043C\u043A\u0438", "Haze buildup distance", 600, 50, 1500, 10, "m"),
+        control("sunSkyWarmth", "sun", "\u0422\u043E\u043D\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u0435 \u043D\u0435\u0431\u0430 \u0441\u0432\u0435\u0442\u043E\u043C", "Sky light tint", 0.2, 0, 1, 0.01),
+        control("sunExposure", "sun", "\u042D\u043A\u0441\u043F\u043E\u0437\u0438\u0446\u0438\u044F", "Exposure", 0.1, -2, 2, 0.05, "EV"),
+        control("sunContrast", "sun", "\u041A\u043E\u043D\u0442\u0440\u0430\u0441\u0442", "Contrast", 1.02, 0.5, 1.5, 0.01),
+        control("sunSaturation", "sun", "\u041D\u0430\u0441\u044B\u0449\u0435\u043D\u043D\u043E\u0441\u0442\u044C", "Saturation", 0.96, 0, 1.5, 0.01),
+        control("sunBloom", "sun", "\u041C\u044F\u0433\u043A\u043E\u0435 \u0441\u0432\u0435\u0447\u0435\u043D\u0438\u0435 \u044F\u0440\u043A\u0438\u0445 \u0443\u0447\u0430\u0441\u0442\u043A\u043E\u0432", "Bloom strength", 0.22, 0, 1, 0.01),
+        control("sunBloomThreshold", "sun", "\u041F\u043E\u0440\u043E\u0433 \u0441\u0432\u0435\u0447\u0435\u043D\u0438\u044F", "Bloom threshold", 0.72, 0.3, 1, 0.01),
+        control("sunBloomRadius", "sun", "\u0420\u0430\u0434\u0438\u0443\u0441 \u0441\u0432\u0435\u0447\u0435\u043D\u0438\u044F", "Bloom radius", 1.5, 0.5, 3, 0.1),
+        control("sunShadowSoftness", "sun", "\u041C\u044F\u0433\u043A\u043E\u0441\u0442\u044C \u0442\u0435\u043D\u0435\u0439 \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043D\u043E\u0433\u043E \u0441\u0432\u0435\u0442\u0430", "Added-light shadow softness", 1.5, 0, 4, 0.1),
+        control("sunShadowFill", "sun", "\u041F\u0440\u043E\u0445\u043B\u0430\u0434\u043D\u044B\u0439 \u0441\u0432\u0435\u0442 \u0432 \u0442\u0435\u043D\u044F\u0445", "Cool shadow fill", 0.12, 0, 0.4, 0.01),
+        control("sunToneCurve", "sun", "\u041A\u0438\u043D\u0435\u043C\u0430\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0447\u043D\u044B\u0439 \u0442\u043E\u043D", "Cinematic tone curve", 0.25, 0, 1, 0.01),
+        control("boxCount", "boxes", "\u041E\u0441\u043A\u043E\u043B\u043A\u043E\u0432 \u043E\u0442 \u043E\u0434\u043D\u043E\u0439 \u043A\u043E\u0440\u043E\u0431\u043A\u0438", "Shards per box", 14, 0, 40, 1),
+        control("boxLimit", "boxes", "\u041C\u0430\u043A\u0441\u0438\u043C\u0443\u043C \u043E\u0441\u043A\u043E\u043B\u043A\u043E\u0432 \u043D\u0430 \u043A\u0430\u0440\u0442\u0435", "Maximum active shards", 140, 10, 280, 10),
+        control("boxFadeStart", "boxes", "\u0412\u0440\u0435\u043C\u044F \u0434\u043E \u0438\u0441\u0447\u0435\u0437\u043D\u043E\u0432\u0435\u043D\u0438\u044F", "Time before fading", 2.2, 0, 10, 0.1, "s"),
+        control("boxFadeDuration", "boxes", "\u0414\u043B\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u044C \u0438\u0441\u0447\u0435\u0437\u043D\u043E\u0432\u0435\u043D\u0438\u044F", "Fade duration", 0.8, 0.1, 5, 0.1, "s"),
+        control("boxGravity", "boxes", "\u0413\u0440\u0430\u0432\u0438\u0442\u0430\u0446\u0438\u044F \u043E\u0441\u043A\u043E\u043B\u043A\u043E\u0432", "Shard gravity", 2400, 0, 5e3, 100),
+        control("boxSpeedH", "boxes", "\u0413\u043E\u0440\u0438\u0437\u043E\u043D\u0442\u0430\u043B\u044C\u043D\u0430\u044F \u0441\u043A\u043E\u0440\u043E\u0441\u0442\u044C", "Horizontal launch speed", 1, 0, 3, 0.05, "\xD7"),
+        control("boxSpeedV", "boxes", "\u0412\u0435\u0440\u0442\u0438\u043A\u0430\u043B\u044C\u043D\u0430\u044F \u0441\u043A\u043E\u0440\u043E\u0441\u0442\u044C", "Vertical launch speed", 1, 0, 3, 0.05, "\xD7"),
+        control("boxSize", "boxes", "\u0420\u0430\u0437\u043C\u0435\u0440 \u043E\u0441\u043A\u043E\u043B\u043A\u043E\u0432", "Shard size", 1, 0.25, 2, 0.05, "\xD7"),
+        control("boxSpin", "boxes", "\u0412\u0440\u0430\u0449\u0435\u043D\u0438\u0435 \u043E\u0441\u043A\u043E\u043B\u043A\u043E\u0432", "Shard spin", 1, 0, 3, 0.05, "\xD7"),
+        control("boxFlash", "boxes", "\u0414\u043B\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u044C \u0432\u0441\u043F\u044B\u0448\u043A\u0438", "Flash duration", 0.22, 0.05, 2, 0.01, "s"),
+        control("boxGlow", "boxes", "\u0414\u043B\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u044C \u0441\u0432\u0435\u0447\u0435\u043D\u0438\u044F", "Glow duration", 0.7, 0.1, 3, 0.05, "s"),
+        control("boxBounce", "boxes", "\u0421\u0438\u043B\u0430 \u043E\u0442\u0441\u043A\u043E\u043A\u0430", "Bounce strength", 0.36, 0, 0.9, 0.01)
+      ];
+      DEFAULT_GRAPHICS_TUNING = Object.freeze(Object.fromEntries(GRAPHICS_CONTROLS.map((c) => [c.key, c.value])));
+      GRAPHICS_FLAGS = { weather: "k_rain_weather", puddles: "k_rain_puddles", sunlight: "k_sun_rays", boxes: "k_box_pickup" };
+      ORIGINAL_SUN = {
+        sunDistance: 300,
+        sunDensity: 1,
+        sunAnisotropy: 0.62,
+        sunSurface: 0.55,
+        sunHighlight: 0.22,
+        sunSky: 0.06,
+        sunTemperature: 6500,
+        sunHalo: 0.35,
+        sunHaze: 0,
+        sunHazeTemperature: 6500,
+        sunHazeStart: 60,
+        sunHazeDistance: 600,
+        sunSkyWarmth: 0,
+        sunExposure: 0,
+        sunContrast: 1,
+        sunSaturation: 1,
+        sunBloom: 0,
+        sunShadowSoftness: 0,
+        sunShadowFill: 0,
+        sunToneCurve: 0
+      };
+      object2 = (value) => {
+        if (!value || typeof value !== "object" || Array.isArray(value)) throw Error("invalid-object");
+        return value;
+      };
+    }
+  });
+
+  // src/core/graphicsSettings.ts
+  function controls(profile, lang) {
+    const d = labels[lang], s = profile.settings;
+    return [
+      ...GRAPHICS_CONTROLS.map((c) => ({ ...c, field: `tuning.${c.key}`, label: c.label[lang], value: s.tuning[c.key] })),
+      ...SURFACE_CONTROLS.map((c) => ({ ...c, field: `surface.${c.key}`, label: surfaceLabels[c.key][lang === "RU" ? 0 : 1], value: s.surface[c.key] })),
+      { field: "generation.chance", label: d.chance, min: 0, max: 100, step: 1, value: s.generation.chance * 100, scale: 100, unit: "%" },
+      { field: "generation.duration", label: d.duration, min: 0, max: 100, step: 1, value: s.generation.duration * 100, scale: 100, unit: "%" },
+      { field: "volumes.rain", label: d.rainVolume, min: 0, max: 100, step: 1, value: s.volumes.rain * 100, scale: 100, unit: "%" },
+      { field: "volumes.thunder", label: d.thunderVolume, min: 0, max: 100, step: 1, value: s.volumes.thunder * 100, scale: 100, unit: "%" },
+      { field: "sunIntensity", label: d.sunIntensity, min: 0, max: Math.max(40, s.sunIntensity), step: 0.1, value: s.sunIntensity, unlimited: true }
+    ];
+  }
+  function numeric(c, lang, namespace) {
+    const unit = c.unit === "s" ? lang === "RU" ? "\u0441" : "s" : c.unit === "m" ? lang === "RU" ? "\u043C" : "m" : c.unit || "";
+    const attr = `data-graphics-field="${c.field}" aria-label="${text2(c.label)}"`;
+    if (c.options) return `<label class="kasp-gfx-control"><span>${text2(c.label)}</span><select ${attr}>${c.options.map((v) => `<option value="${v}" ${v === c.value ? "selected" : ""}>${v} ${unit}</option>`).join("")}</select></label>`;
+    return `<div class="kasp-gfx-control"><div class="kasp-gfx-control-heading"><label for="${namespace}-${c.field}">${text2(c.label)}</label>
+        <span class="kasp-gfx-value"><input id="${namespace}-${c.field}" type="number" min="${c.min}" ${c.unlimited ? "" : `max="${c.max}"`} step="${c.step}" value="${round(c.value)}" ${attr}><span>${unit}</span></span></div>
+        <input type="range" min="${c.min}" max="${c.max}" step="${c.step}" value="${round(c.value)}" ${attr}></div>`;
+  }
+  function renderGraphicsSettings(lang, namespace = "kasp-gfx") {
+    const d = labels[lang], profile = readGraphicsProfile(localStorage), all = controls(profile, lang);
+    const cols = (left, right) => `<div class="kasp-gfx-columns"><div class="kasp-gfx-col">${left}</div><div class="kasp-gfx-col">${right}</div></div>`;
+    const group = (name, fields, extra = "") => `<details class="kasp-gfx-group"><summary><span>${name}</span><span class="kasp-gfx-group-count">${fields.length}${extra ? "+" : ""}</span></summary><div class="kasp-gfx-fields">${fields.map((field) => numeric(all.find((c) => c.field === field), lang, namespace)).join("")}${extra}</div></details>`;
+    const keys = (name) => GRAPHICS_CONTROLS.filter((c) => c.group === name).map((c) => `tuning.${c.key}`);
+    const surface = (names) => names.map((n) => `surface.${n}`);
+    const toggle = (key, title) => `<label class="kasp-gfx-toggle" data-id="${GRAPHICS_FLAGS[key]}"><input type="checkbox" class="kasp-toggle-switch" role="switch" data-graphics-enabled="${key}" aria-label="${title}" ${profile.settings.enabled[key] ? "checked" : ""}><span data-graphics-status="${key}">${profile.settings.enabled[key] ? d.enable : d.disable}</span></label>`;
+    const card = (id, number, title, hint, body) => `<article class="kasp-gfx-card kasp-gfx-${id}"><header><span class="kasp-gfx-index">${number}</span><div><h4>${title}</h4><p>${hint}</p></div>${toggle(id, title)}</header>
+        <details class="kasp-gfx-config"><summary>${d.details}<span aria-hidden="true">\u2304</span></summary><div class="kasp-gfx-config-body">${body}<button type="button" class="kasp-gfx-reset-card" data-graphics-reset="${id}">${d.resetCard}</button></div></details></article>`;
+    const preset = `<label class="kasp-gfx-control kasp-gfx-wide"><span>${d.preset}</span><select data-graphics-preset aria-label="${d.preset}">${Object.entries(d.presets).map(([key, label]) => `<option value="${key}" ${profile.settings.generation.preset === key ? "selected" : ""}>${label}</option>`).join("")}</select></label>`;
+    const atmosphere = ["sunHaze", "sunHazeTemperature", "sunHazeStart", "sunHazeDistance", "sunSkyWarmth", "sunExposure", "sunContrast", "sunSaturation"].map((k) => "tuning." + k);
+    const quality = ["tuning.sunSteps", "tuning.sunResolution", "tuning.sunShadow"];
+    const finishing = ["sunBloom", "sunBloomThreshold", "sunBloomRadius", "sunShadowSoftness", "sunShadowFill", "sunToneCurve"].map((k) => "tuning." + k);
+    return `<div class="kasp-graphics-editor"><div class="kasp-gfx-toolbar"><div><h4>${d.intro}</h4><p>${d.introHint}</p></div><div class="kasp-gfx-actions">
+        <button type="button" data-graphics-action="export">${d.export}</button><button type="button" data-graphics-action="import">${d.import}</button><button type="button" data-graphics-action="reset">${d.reset}</button></div></div>
+        <input type="file" accept=".json,application/json" data-graphics-file hidden><p class="kasp-gfx-message" role="status" aria-live="polite"></p><div class="kasp-gfx-cards">
+        ${card(
+      "weather",
+      "01",
+      d.weather,
+      d.weatherHint,
+      `<p class="kasp-gfx-note">${d.policy}</p>` + group(d.schedule, ["generation.chance", "generation.duration"], preset) + `<p class="kasp-gfx-note">${d.timing}</p>` + cols(
+        group(d.weatherMotion, ["surface.rainIntensity", ...keys("weather")]) + group(d.snow, keys("snow")) + group(d.lightning, [...keys("lightning"), "volumes.thunder", "volumes.rain"]),
+        group(d.rain, keys("rain")) + group(d.clouds, keys("clouds"))
+      )
+    )}
+        ${card(
+      "puddles",
+      "02",
+      d.puddles,
+      d.puddlesHint,
+      cols(
+        group(d.water, surface(["rippleSizeReduction", "rippleDensity", "rippleSpeed", "rippleStrength", "waveSizeReduction", "waveSpeed", "waveStrength"])) + group(d.splashes, surface(["groundSplashDensity", "tankSplashDensity", "splashSpeed", "splashSize", "splashLifetime", "splashGravity"])),
+        group(d.reflections, surface(["edgeInset", "reflectionStrength", "reflectionDistance", "reflectionRoughness", "refractionStrength"]))
+      )
+    )}
+        ${card("sunlight", "03", d.sun, d.sunHint, `<p class="kasp-gfx-note">${d.sunNote}</p><div class="kasp-gfx-look"><span>${d.sunLook}</span><div class="kasp-gfx-actions"><button type="button" data-graphics-sun-look="cinematic">${d.cinematicLook}</button><button type="button" data-graphics-sun-look="original">${d.originalLook}</button><button type="button" data-graphics-sun-look="warm-evening">${d.warmLook}</button></div></div>` + cols(
+      group(d.light, ["sunIntensity", ...keys("sun").filter((k) => ![...quality, ...atmosphere, ...finishing].includes(k))]) + group(d.finishing, finishing),
+      group(d.atmosphere, atmosphere) + group(d.quality, quality)
+    ))}
+        ${card(
+      "boxes",
+      "04",
+      d.boxes,
+      d.boxesHint,
+      cols(
+        group(d.fragments, keys("boxes").filter((k) => !["tuning.boxFadeStart", "tuning.boxFadeDuration", "tuning.boxFlash", "tuning.boxGlow"].includes(k))),
+        group(d.fading, ["tuning.boxFlash", "tuning.boxGlow", "tuning.boxFadeStart", "tuning.boxFadeDuration"])
+      )
+    )}
+        </div></div>`;
+  }
+  function animateAccordion(details) {
+    const summary = details.querySelector("summary");
+    const content = details.querySelector(":scope > :not(summary)");
+    if (!summary || !content) return;
+    if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      details.open = !details.open;
+      return;
+    }
+    const state2 = details.getAttribute("data-state");
+    const isOpening = state2 === "closing" ? true : state2 === "opening" ? false : !details.open;
+    const existing = details._anim;
+    if (existing) {
+      existing.cancel();
+      details._anim = null;
+    }
+    const comp = window.getComputedStyle(content);
+    const pt = comp.paddingTop, pb = comp.paddingBottom, currentH = content.getBoundingClientRect().height;
+    if (isOpening) {
+      details.open = true;
+      details.setAttribute("data-state", "opening");
+      const targetH = content.getBoundingClientRect().height;
+      const startH = state2 === "closing" ? currentH : 0;
+      const startPt = state2 === "closing" ? comp.paddingTop : "0px";
+      const startPb = state2 === "closing" ? comp.paddingBottom : "0px";
+      const anim = content.animate([
+        { height: `${startH}px`, paddingTop: startPt, paddingBottom: startPb, opacity: "0", transform: "translateY(-6px)", overflow: "hidden" },
+        { height: `${targetH}px`, paddingTop: pt, paddingBottom: pb, opacity: "1", transform: "translateY(0)", overflow: "hidden" }
+      ], { duration: 280, easing: "cubic-bezier(0.2, 0, 0.2, 1)" });
+      details._anim = anim;
+      const cleanup = () => {
+        details._anim = null;
+        details.removeAttribute("data-state");
+        content.style.height = "";
+        content.style.paddingTop = "";
+        content.style.paddingBottom = "";
+        content.style.overflow = "";
+        content.style.opacity = "";
+        content.style.transform = "";
+      };
+      anim.onfinish = cleanup;
+      anim.oncancel = cleanup;
+    } else {
+      details.setAttribute("data-state", "closing");
+      const anim = content.animate([
+        { height: `${currentH}px`, paddingTop: pt, paddingBottom: pb, opacity: "1", transform: "translateY(0)", overflow: "hidden" },
+        { height: "0px", paddingTop: "0px", paddingBottom: "0px", opacity: "0", transform: "translateY(-6px)", overflow: "hidden" }
+      ], { duration: 250, easing: "cubic-bezier(0.2, 0, 0.2, 1)" });
+      details._anim = anim;
+      const cleanup = (closed) => {
+        details._anim = null;
+        details.removeAttribute("data-state");
+        content.style.height = "";
+        content.style.paddingTop = "";
+        content.style.paddingBottom = "";
+        content.style.overflow = "";
+        content.style.opacity = "";
+        content.style.transform = "";
+        if (closed) details.open = false;
+      };
+      anim.onfinish = () => cleanup(true);
+      anim.oncancel = () => cleanup(false);
+    }
+  }
+  function bindGraphicsSettings(root, lang) {
+    const d = labels[lang], editor = root.querySelector(".kasp-graphics-editor");
+    if (!editor) return () => {
+    };
+    let profile = readGraphicsProfile(localStorage), alive = true;
+    const message = (value, error = false) => {
+      const node = editor.querySelector(".kasp-gfx-message");
+      node.textContent = value;
+      node.classList.toggle("kasp-gfx-error", error);
+    };
+    function refresh() {
+      const all = controls(profile, lang);
+      for (const input of editor.querySelectorAll("[data-graphics-field]")) {
+        const c = all.find((c2) => c2.field === input.dataset.graphicsField);
+        if (c.unlimited && input instanceof HTMLInputElement && input.type === "range") input.max = String(c.max);
+        input.value = String(round(c.value));
+      }
+      editor.querySelector("[data-graphics-preset]").value = profile.settings.generation.preset;
+      for (const input of editor.querySelectorAll("[data-graphics-enabled]")) {
+        const key = input.dataset.graphicsEnabled;
+        input.checked = profile.settings.enabled[key];
+        const status = editor.querySelector(`[data-graphics-status="${key}"]`), value = input.checked ? d.enable : d.disable;
+        if (status.textContent !== value) status.textContent = value;
+      }
+    }
+    function save(next) {
+      try {
+        saveGraphicsProfile(next, localStorage);
+        profile = next;
+        for (const key of Object.values(GRAPHICS_FLAGS)) invalidateSetting(key);
+        window.dispatchEvent(new Event("kasp:settings-changed"));
+        refresh();
+        message("");
+        return true;
+      } catch {
+        profile = readGraphicsProfile(localStorage);
+        refresh();
+        message(d.storageError, true);
+        return false;
+      }
+    }
+    const onInput = (event) => {
+      const input = event.target;
+      if (!(input instanceof HTMLInputElement || input instanceof HTMLSelectElement)) return;
+      const field = input.dataset.graphicsField;
+      if (!field) return;
+      const c = controls(profile, lang).find((c2) => c2.field === field);
+      if (!c) return;
+      if (input.value.trim() === "" || !Number.isFinite(Number(input.value))) return;
+      const raw = Number(input.value);
+      if (raw < c.min || !c.unlimited && raw > c.max) {
+        input.setCustomValidity(lang === "RU" ? "\u0417\u043D\u0430\u0447\u0435\u043D\u0438\u0435 \u0432\u043D\u0435 \u0434\u0438\u0430\u043F\u0430\u0437\u043E\u043D\u0430" : "Value outside range");
+        return;
+      }
+      if (input instanceof HTMLInputElement && input.validity.stepMismatch) return;
+      input.setCustomValidity("");
+      const next = structuredClone(profile), value = round(raw) / (c.scale || 1);
+      if (field === "sunIntensity") next.settings.sunIntensity = value;
+      else {
+        const [section, key] = field.split(".");
+        next.settings[section][key] = value;
+      }
+      save(next);
+    };
+    const onChange = (event) => {
+      const input = event.target;
+      if (!(input instanceof HTMLInputElement || input instanceof HTMLSelectElement)) return;
+      if (input.dataset.graphicsField) {
+        if (!input.checkValidity()) {
+          refresh();
+          input.setCustomValidity("");
+        } else onInput(event);
+        return;
+      }
+      if (input.dataset.graphicsEnabled) {
+        const next = structuredClone(profile);
+        next.settings.enabled[input.dataset.graphicsEnabled] = input.checked;
+        save(next);
+        return;
+      }
+      if (input.hasAttribute("data-graphics-preset")) {
+        const next = structuredClone(profile);
+        next.settings.generation.preset = input.value;
+        save(next);
+        return;
+      }
+      if (input.hasAttribute("data-graphics-file")) void (async () => {
+        const file = input.files?.[0];
+        if (!file) return;
+        try {
+          if (file.size > 262144) {
+            message(d.tooLarge, true);
+            return;
+          }
+          message(d.loading);
+          const raw = await file.text();
+          if (!alive) return;
+          const next = parseGraphicsProfile(raw, localStorage);
+          if (save(next)) message(d.importDone);
+        } catch {
+          if (alive) message(d.invalid, true);
+        } finally {
+          input.value = "";
+        }
+      })();
+    };
+    const onClick = (event) => {
+      const summary = event.target.closest("summary");
+      if (summary && editor.contains(summary)) {
+        const details = summary.parentElement;
+        if (details instanceof HTMLDetailsElement) {
+          event.preventDefault();
+          animateAccordion(details);
+          return;
+        }
+      }
+      const button = event.target.closest("button");
+      if (!button || !editor.contains(button)) return;
+      const action = button.dataset.graphicsAction;
+      if (action === "import") {
+        editor.querySelector("[data-graphics-file]").click();
+        return;
+      }
+      if (action === "export") {
+        const url = URL.createObjectURL(new Blob([JSON.stringify(readGraphicsProfile(localStorage), null, 2) + "\n"], { type: "application/json" }));
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "KI-graphics-settings.json";
+        link.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1e3);
+        message(d.exported);
+        return;
+      }
+      if (action === "reset") {
+        if (save(defaultGraphicsProfile())) message(d.resetDone);
+        return;
+      }
+      const look = button.dataset.graphicsSunLook;
+      if (look === "original" || look === "cinematic" || look === "warm-evening") {
+        if (save(applySunLook(profile, look))) message(d.sunLookDone);
+        return;
+      }
+      const card = button.dataset.graphicsReset;
+      if (!card) return;
+      const next = structuredClone(profile), defaults = defaultGraphicsProfile().settings;
+      const groups = { weather: ["weather", "rain", "snow", "clouds", "lightning"], sunlight: ["sun"], boxes: ["boxes"], puddles: [] };
+      for (const c of GRAPHICS_CONTROLS) if (groups[card]?.includes(c.group)) next.settings.tuning[c.key] = c.value;
+      if (card === "weather") {
+        next.settings.generation = defaults.generation;
+        next.settings.volumes = defaults.volumes;
+        next.settings.surface.rainIntensity = defaults.surface.rainIntensity;
+      }
+      if (card === "puddles") {
+        for (const c of SURFACE_CONTROLS) if (c.key !== "rainIntensity") next.settings.surface[c.key] = c.value;
+      }
+      if (card === "sunlight") next.settings.sunIntensity = defaults.sunIntensity;
+      if (save(next)) message(d.resetCardDone);
+    };
+    editor.addEventListener("input", onInput);
+    editor.addEventListener("change", onChange);
+    editor.addEventListener("click", onClick);
+    const external = () => {
+      profile = readGraphicsProfile(localStorage);
+      refresh();
+    };
+    window.addEventListener("storage", external);
+    window.addEventListener("kasp:settings-changed", external);
+    return () => {
+      alive = false;
+      editor.removeEventListener("input", onInput);
+      editor.removeEventListener("change", onChange);
+      editor.removeEventListener("click", onClick);
+      window.removeEventListener("storage", external);
+      window.removeEventListener("kasp:settings-changed", external);
+    };
+  }
+  var labels, surfaceLabels, text2, round;
+  var init_graphicsSettings = __esm({
+    "src/core/graphicsSettings.ts"() {
+      "use strict";
+      init_graphicsPreferences();
+      init_tuning();
+      init_settings();
+      labels = {
+        RU: {
+          intro: "\u0413\u0440\u0430\u0444\u0438\u043A\u0430 \u043F\u043E\u0434 \u0442\u0435\u0431\u044F",
+          introHint: "\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044E\u0442\u0441\u044F \u0430\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438. \u0412 \u0431\u0438\u0442\u0432\u0435: Ctrl+Alt+G.",
+          export: "\u042D\u043A\u0441\u043F\u043E\u0440\u0442 JSON",
+          import: "\u0418\u043C\u043F\u043E\u0440\u0442 JSON",
+          reset: "\u0421\u0431\u0440\u043E\u0441\u0438\u0442\u044C \u0432\u0441\u0451",
+          resetCard: "\u0421\u0442\u0430\u043D\u0434\u0430\u0440\u0442\u043D\u044B\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F",
+          details: "\u041D\u0430\u0441\u0442\u0440\u043E\u0438\u0442\u044C",
+          enable: "\u0412\u043A\u043B\u044E\u0447\u0435\u043D\u043E",
+          disable: "\u0412\u044B\u043A\u043B\u044E\u0447\u0435\u043D\u043E",
+          boxes: "\u041F\u043E\u0434\u0431\u043E\u0440 \u043A\u043E\u0440\u043E\u0431\u043E\u043A",
+          boxesHint: "\u041E\u0441\u043A\u043E\u043B\u043A\u0438, \u0432\u0441\u043F\u044B\u0448\u043A\u0430 \u0438 \u0434\u0432\u0438\u0436\u0435\u043D\u0438\u0435",
+          sun: "\u0428\u0435\u0439\u0434\u0435\u0440 \u043E\u0441\u0432\u0435\u0449\u0435\u043D\u0438\u044F",
+          sunHint: "\u0413\u043E\u0442\u043E\u0432\u043E\u0435 \u043E\u0444\u043E\u0440\u043C\u043B\u0435\u043D\u0438\u0435 \u0441\u0432\u0435\u0442\u0430, \u043D\u0435\u0431\u0430 \u0438 \u0430\u0442\u043C\u043E\u0441\u0444\u0435\u0440\u044B",
+          weather: "\u0421\u043B\u0443\u0447\u0430\u0439\u043D\u0430\u044F \u043F\u043E\u0433\u043E\u0434\u0430",
+          weatherHint: "\u0414\u043E\u0436\u0434\u044C \u043D\u0430 \u043E\u0431\u044B\u0447\u043D\u044B\u0445 \u043A\u0430\u0440\u0442\u0430\u0445, \u0441\u043D\u0435\u0433 \u043D\u0430 \u0437\u0438\u043C\u043D\u0438\u0445",
+          puddles: "\u041B\u0443\u0436\u0438",
+          puddlesHint: "\u0422\u043E\u043B\u044C\u043A\u043E \u0432\u043E \u0432\u0440\u0435\u043C\u044F \u0434\u043E\u0436\u0434\u044F, \u0431\u0435\u0437 \u043F\u043E\u043A\u0440\u044B\u0442\u0438\u044F \u0442\u0430\u043D\u043A\u043E\u0432 \u0438 \u043A\u043E\u0440\u043E\u0431\u043E\u043A",
+          schedule: "\u0420\u0430\u0441\u043F\u0438\u0441\u0430\u043D\u0438\u0435 \u043E\u0441\u0430\u0434\u043A\u043E\u0432",
+          weatherMotion: "\u041F\u0435\u0440\u0435\u0445\u043E\u0434\u044B \u0438 \u0430\u0442\u043C\u043E\u0441\u0444\u0435\u0440\u0430",
+          rain: "\u041A\u0430\u043F\u043B\u0438 \u0434\u043E\u0436\u0434\u044F",
+          snow: "\u0421\u043D\u0435\u0433 \u0438 \u043C\u0435\u0442\u0435\u043B\u044C",
+          clouds: "\u041E\u0431\u043B\u0430\u043A\u0430",
+          lightning: "\u041C\u043E\u043B\u043D\u0438\u0438 \u0438 \u0437\u0432\u0443\u043A",
+          water: "\u0412\u043E\u043B\u043D\u044B \u0438 \u0440\u044F\u0431\u044C",
+          reflections: "\u041E\u0442\u0440\u0430\u0436\u0435\u043D\u0438\u044F \u0438 \u043A\u0440\u0430\u044F",
+          splashes: "\u0411\u0440\u044B\u0437\u0433\u0438",
+          light: "\u0421\u0432\u0435\u0442 \u0438 \u044F\u0440\u043A\u043E\u0441\u0442\u044C",
+          quality: "\u041A\u0430\u0447\u0435\u0441\u0442\u0432\u043E \u0440\u0430\u0441\u0447\u0451\u0442\u0430",
+          fragments: "\u041E\u0441\u043A\u043E\u043B\u043A\u0438 \u0438 \u0434\u0432\u0438\u0436\u0435\u043D\u0438\u0435",
+          fading: "\u0412\u0441\u043F\u044B\u0448\u043A\u0430 \u0438 \u0438\u0441\u0447\u0435\u0437\u043D\u043E\u0432\u0435\u043D\u0438\u0435",
+          atmosphere: "\u0414\u044B\u043C\u043A\u0430 \u0438 \u0446\u0432\u0435\u0442",
+          finishing: "\u0421\u0432\u0435\u0447\u0435\u043D\u0438\u0435 \u0438 \u0442\u0435\u043D\u0438",
+          sunLook: "\u041E\u0444\u043E\u0440\u043C\u043B\u0435\u043D\u0438\u0435 \u0441\u0432\u0435\u0442\u0430",
+          cinematicLook: "\u041A\u0438\u043D\u0435\u043C\u0430\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0447\u043D\u044B\u0439",
+          originalLook: "\u0418\u0441\u0445\u043E\u0434\u043D\u043E\u0435",
+          warmLook: "\u0422\u0451\u043F\u043B\u044B\u0439 \u0432\u0435\u0447\u0435\u0440",
+          sunLookDone: "\u041E\u0444\u043E\u0440\u043C\u043B\u0435\u043D\u0438\u0435 \u043F\u0440\u0438\u043C\u0435\u043D\u0435\u043D\u043E. \u0414\u043B\u044F \u043E\u0442\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u044F \u0432\u043A\u043B\u044E\u0447\u0438 \xAB\u0428\u0435\u0439\u0434\u0435\u0440 \u043E\u0441\u0432\u0435\u0449\u0435\u043D\u0438\u044F\xBB.",
+          chance: "\u0428\u0430\u043D\u0441 \u043E\u0441\u0430\u0434\u043A\u043E\u0432",
+          duration: "\u0427\u0430\u0441\u0442\u044C \u0431\u0438\u0442\u0432\u044B \u0441 \u043E\u0441\u0430\u0434\u043A\u0430\u043C\u0438",
+          preset: "\u041F\u0440\u0435\u0441\u0435\u0442 \u043F\u043E\u0433\u043E\u0434\u044B",
+          rainVolume: "\u0413\u0440\u043E\u043C\u043A\u043E\u0441\u0442\u044C \u0434\u043E\u0436\u0434\u044F",
+          thunderVolume: "\u0413\u0440\u043E\u043C\u043A\u043E\u0441\u0442\u044C \u0433\u0440\u043E\u043C\u0430",
+          intensity: "\u0418\u043D\u0442\u0435\u043D\u0441\u0438\u0432\u043D\u043E\u0441\u0442\u044C \u043E\u0441\u0430\u0434\u043A\u043E\u0432",
+          sunIntensity: "\u0421\u0438\u043B\u0430 \u0441\u043E\u043B\u043D\u0435\u0447\u043D\u043E\u0433\u043E \u0441\u0432\u0435\u0442\u0430",
+          policy: "\u0412 \u043A\u043E\u0441\u043C\u043E\u0441\u0435 \u043F\u043E\u0433\u043E\u0434\u044B \u043D\u0435\u0442; \u043D\u0430 \xAB\u0411\u043E\u0439\u043D\u0435\xBB \u043D\u0435\u0442 \u0434\u043E\u0436\u0434\u044F. \u041F\u0440\u0438 \u0441\u043D\u0435\u0433\u043E\u043F\u0430\u0434\u0435 \u043B\u0443\u0436\u0438 \u043E\u0442\u043A\u043B\u044E\u0447\u0435\u043D\u044B. \u042D\u0442\u0438 \u043F\u0440\u0430\u0432\u0438\u043B\u0430 \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044E\u0442\u0441\u044F \u043F\u0440\u0438 \u0438\u043C\u043F\u043E\u0440\u0442\u0435.",
+          timing: "\u0428\u0430\u043D\u0441, \u043F\u0440\u043E\u0434\u043E\u043B\u0436\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u044C, \u043F\u0440\u0435\u0441\u0435\u0442 \u0438 \u0432\u0440\u0435\u043C\u044F \u043F\u0435\u0440\u0435\u0445\u043E\u0434\u043E\u0432 \u043F\u0440\u0438\u043C\u0435\u043D\u044F\u044E\u0442\u0441\u044F \u0441\u043E \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0435\u0439 \u0431\u0438\u0442\u0432\u044B. \u041E\u0441\u0442\u0430\u043B\u044C\u043D\u044B\u0435 \u043F\u0430\u0440\u0430\u043C\u0435\u0442\u0440\u044B \u043C\u0435\u043D\u044F\u044E\u0442\u0441\u044F \u0431\u0435\u0437 \u043F\u0435\u0440\u0435\u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438; \u043E\u0431\u044A\u0435\u043A\u0442\u044B, \u0443\u0436\u0435 \u0437\u0430\u043F\u0443\u0449\u0435\u043D\u043D\u044B\u0435 \u0432 \u0430\u043D\u0438\u043C\u0430\u0446\u0438\u044E, \u043C\u043E\u0433\u0443\u0442 \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u043F\u0440\u0435\u0436\u043D\u0438\u0439 \u0432\u0438\u0434 \u0434\u043E \u0435\u0451 \u043A\u043E\u043D\u0446\u0430.",
+          sunNote: "\u0414\u043B\u044F \u043D\u043E\u0432\u044B\u0445 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043A \u0443\u0436\u0435 \u043F\u043E\u0434\u043E\u0431\u0440\u0430\u043D\u043E \u043A\u0438\u043D\u0435\u043C\u0430\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0447\u043D\u043E\u0435 \u043E\u0444\u043E\u0440\u043C\u043B\u0435\u043D\u0438\u0435. \u0421\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F \u043D\u0435 \u043F\u0435\u0440\u0435\u0437\u0430\u043F\u0438\u0441\u044B\u0432\u0430\u044E\u0442\u0441\u044F. \u041F\u043E\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0441\u043E\u043B\u043D\u0446\u0430 \u0438 \u0437\u0430\u043F\u0435\u0447\u0451\u043D\u043D\u044B\u0435 \u0442\u0435\u043D\u0438 \u043E\u0441\u0442\u0430\u044E\u0442\u0441\u044F \u0440\u043E\u0434\u043D\u044B\u043C\u0438; \u0441\u0438\u043B\u0430 \u0441\u0432\u0435\u0442\u0430 \u043D\u0435 \u043E\u0433\u0440\u0430\u043D\u0438\u0447\u0435\u043D\u0430 \u0441\u0432\u0435\u0440\u0445\u0443.",
+          importDone: "\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u0438\u043C\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u043D\u044B.",
+          exported: "JSON \u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D. \u0415\u0433\u043E \u043C\u043E\u0436\u043D\u043E \u043E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u044C \u0434\u0440\u0443\u0433\u043E\u043C\u0443 \u0438\u0433\u0440\u043E\u043A\u0443.",
+          resetDone: "\u0413\u0440\u0430\u0444\u0438\u0447\u0435\u0441\u043A\u0438\u0435 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u0441\u0431\u0440\u043E\u0448\u0435\u043D\u044B, \u0444\u0443\u043D\u043A\u0446\u0438\u0438 \u0432\u044B\u043A\u043B\u044E\u0447\u0435\u043D\u044B.",
+          resetCardDone: "\u041F\u0430\u0440\u0430\u043C\u0435\u0442\u0440\u044B \u0444\u0443\u043D\u043A\u0446\u0438\u0438 \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u044B.",
+          invalid: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0438\u043C\u043F\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C: \u043F\u0440\u043E\u0432\u0435\u0440\u044C \u0444\u043E\u0440\u043C\u0430\u0442, \u0432\u0435\u0440\u0441\u0438\u044E \u0438 \u0434\u0438\u0430\u043F\u0430\u0437\u043E\u043D\u044B \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0439 JSON.",
+          storageError: "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438. \u041F\u0440\u043E\u0432\u0435\u0440\u044C \u0434\u043E\u0441\u0442\u0443\u043F \u043A \u0445\u0440\u0430\u043D\u0438\u043B\u0438\u0449\u0443 \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0430.",
+          loading: "\u0427\u0442\u0435\u043D\u0438\u0435 \u0444\u0430\u0439\u043B\u0430\u2026",
+          tooLarge: "\u0424\u0430\u0439\u043B \u0441\u043B\u0438\u0448\u043A\u043E\u043C \u0431\u043E\u043B\u044C\u0448\u043E\u0439 (\u043C\u0430\u043A\u0441\u0438\u043C\u0443\u043C 256 \u041A\u0411).",
+          presets: { random: "\u0421\u043B\u0443\u0447\u0430\u0439\u043D\u044B\u0439", sunny: "\u042F\u0441\u043D\u043E", overcast: "\u041E\u0431\u043B\u0430\u0447\u043D\u043E", drizzle: "\u041B\u0451\u0433\u043A\u0438\u0435 \u043E\u0441\u0430\u0434\u043A\u0438", sunshower: "\u041E\u0441\u0430\u0434\u043A\u0438 \u043F\u0440\u0438 \u0441\u043E\u043B\u043D\u0446\u0435", storm: "\u0428\u0442\u043E\u0440\u043C / \u043C\u0435\u0442\u0435\u043B\u044C" }
+        },
+        EN: {
+          intro: "Make it your atmosphere",
+          introHint: "Changes save automatically. In battle: Ctrl+Alt+G.",
+          export: "Export JSON",
+          import: "Import JSON",
+          reset: "Reset all",
+          resetCard: "Restore defaults",
+          details: "Configure",
+          enable: "Enabled",
+          disable: "Disabled",
+          boxes: "Box pickup",
+          boxesHint: "Fragments, flashes and motion",
+          sun: "Lighting shader",
+          sunHint: "Ready-made lighting, sky and atmosphere",
+          weather: "Random weather",
+          weatherHint: "Rain on regular maps, snow on winter maps",
+          puddles: "Puddles",
+          puddlesHint: "Only during rain; never on tanks or supply boxes",
+          schedule: "Precipitation schedule",
+          weatherMotion: "Transitions and atmosphere",
+          rain: "Raindrops",
+          snow: "Snow and blizzard",
+          clouds: "Clouds",
+          lightning: "Lightning and audio",
+          water: "Waves and ripples",
+          reflections: "Reflections and edges",
+          splashes: "Splashes",
+          light: "Light and brightness",
+          quality: "Rendering quality",
+          fragments: "Fragments and motion",
+          fading: "Flash and fading",
+          atmosphere: "Haze and colour",
+          finishing: "Glow and shadows",
+          sunLook: "Lighting look",
+          cinematicLook: "Cinematic",
+          originalLook: "Original",
+          warmLook: "Warm evening",
+          sunLookDone: "Lighting look applied. Enable Lighting shader to see it.",
+          chance: "Precipitation chance",
+          duration: "Share of battle with precipitation",
+          preset: "Weather preset",
+          rainVolume: "Rain volume",
+          thunderVolume: "Thunder volume",
+          intensity: "Precipitation intensity",
+          sunIntensity: "Sunlight strength",
+          policy: "No weather in space; no rain on Massacre. Snowfall never produces puddles. Importing a profile preserves these rules.",
+          timing: "Chance, duration, preset and transition times apply from the next battle. Other controls apply without reloading; animations already in progress may retain their previous appearance until they finish.",
+          sunNote: "New settings start with a cinematic look. Saved values are preserved. The native sun direction and baked shadows remain; sunlight strength has no upper limit.",
+          importDone: "Settings imported.",
+          exported: "JSON saved. You can share it with other players.",
+          resetDone: "Graphics settings reset; features disabled.",
+          resetCardDone: "Feature parameters restored.",
+          invalid: "Could not import: check the JSON format, version and value ranges.",
+          storageError: "Could not save settings. Check browser storage access.",
+          loading: "Reading file\u2026",
+          tooLarge: "File too large (maximum 256 KB).",
+          presets: { random: "Random", sunny: "Clear", overcast: "Overcast", drizzle: "Light precipitation", sunshower: "Sunlit precipitation", storm: "Storm / Blizzard" }
+        }
+      };
+      surfaceLabels = {
+        rainIntensity: ["\u0418\u043D\u0442\u0435\u043D\u0441\u0438\u0432\u043D\u043E\u0441\u0442\u044C \u043E\u0441\u0430\u0434\u043A\u043E\u0432", "Precipitation intensity"],
+        edgeInset: ["\u041E\u0442\u0441\u0442\u0443\u043F \u043E\u0442 \u043E\u0431\u0440\u044B\u0432\u043E\u0432 (\u0441\u043C)", "Drop-off inset (cm)"],
+        rippleSizeReduction: ["\u0423\u043C\u0435\u043D\u044C\u0448\u0435\u043D\u0438\u0435 \u043A\u0440\u0443\u0433\u043E\u0432 \u043E\u0442 \u043A\u0430\u043F\u0435\u043B\u044C", "Rain ripple size reduction"],
+        rippleDensity: ["\u041A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u043E \u043A\u0440\u0443\u0433\u043E\u0432", "Ripple density"],
+        rippleSpeed: ["\u0421\u043A\u043E\u0440\u043E\u0441\u0442\u044C \u043A\u0440\u0443\u0433\u043E\u0432", "Ripple speed"],
+        rippleStrength: ["\u0421\u0438\u043B\u0430 \u043A\u0440\u0443\u0433\u043E\u0432", "Ripple strength"],
+        waveSizeReduction: ["\u0423\u043C\u0435\u043D\u044C\u0448\u0435\u043D\u0438\u0435 \u0432\u043E\u043B\u043D", "Wave size reduction"],
+        waveSpeed: ["\u0421\u043A\u043E\u0440\u043E\u0441\u0442\u044C \u0432\u043E\u043B\u043D", "Wave speed"],
+        waveStrength: ["\u0421\u0438\u043B\u0430 \u0432\u043E\u043B\u043D", "Wave strength"],
+        reflectionStrength: ["\u0421\u0438\u043B\u0430 \u043E\u0442\u0440\u0430\u0436\u0435\u043D\u0438\u0439", "Reflection strength"],
+        reflectionDistance: ["\u0414\u0430\u043B\u044C\u043D\u043E\u0441\u0442\u044C \u043E\u0442\u0440\u0430\u0436\u0435\u043D\u0438\u0439 (\u0441\u043C)", "Reflection distance (cm)"],
+        reflectionRoughness: ["\u0428\u0435\u0440\u043E\u0445\u043E\u0432\u0430\u0442\u043E\u0441\u0442\u044C \u0432\u043E\u0434\u044B", "Water roughness"],
+        refractionStrength: ["\u041F\u0440\u0435\u043B\u043E\u043C\u043B\u0435\u043D\u0438\u0435", "Refraction strength"],
+        groundSplashDensity: ["\u0411\u0440\u044B\u0437\u0433\u0438 \u043E\u0442 \u0437\u0435\u043C\u043B\u0438", "Ground splash density"],
+        tankSplashDensity: ["\u0411\u0440\u044B\u0437\u0433\u0438 \u043E\u0442 \u043A\u0430\u043F\u0435\u043B\u044C \u043D\u0430 \u0442\u0430\u043D\u043A\u0435", "Raindrop splashes on tanks"],
+        splashSpeed: ["\u0421\u043A\u043E\u0440\u043E\u0441\u0442\u044C \u0431\u0440\u044B\u0437\u0433", "Splash speed"],
+        splashSize: ["\u0420\u0430\u0437\u043C\u0435\u0440 \u0431\u0440\u044B\u0437\u0433", "Splash size"],
+        splashLifetime: ["\u0412\u0440\u0435\u043C\u044F \u0436\u0438\u0437\u043D\u0438 \u0431\u0440\u044B\u0437\u0433 (\u0441)", "Splash lifetime (s)"],
+        splashGravity: ["\u0413\u0440\u0430\u0432\u0438\u0442\u0430\u0446\u0438\u044F \u0431\u0440\u044B\u0437\u0433", "Splash gravity"]
+      };
+      text2 = (v) => v.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+      round = (n) => Number(n.toFixed(5));
+    }
+  });
+
   // src/core/coreSettings.ts
   var coreSettings;
   var init_coreSettings = __esm({
@@ -1228,56 +2027,23 @@
       init_utils();
       init_hideNickname();
       init_accountIdentity();
-      init_preferences();
+      init_graphicsSettings();
       coreSettings = (() => {
         let needsReload = false;
         let active = false;
         let stopArt = null;
-        const liveSettings = /* @__PURE__ */ new Set(["k_arcade_reload", "k_critical_indicator", "k_hideSupplies", "k_box_pickup", "k_rain_weather", "k_rain_puddles"]);
+        let stopGraphics = null;
+        const liveSettings = /* @__PURE__ */ new Set(["k_arcade_reload", "k_critical_indicator", "k_hideSupplies", "k_box_pickup", "k_rain_weather", "k_rain_puddles", "k_sun_rays"]);
         let initialSettingsState = {};
         const t = {
           RU: {
             tooltip: "\u0422\u0440\u0435\u0431\u0443\u0435\u0442\u0441\u044F \u043F\u0435\u0440\u0435\u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0430",
             information: "\u0418\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044F",
-            rainVolume: "\u0413\u0440\u043E\u043C\u043A\u043E\u0441\u0442\u044C \u0434\u043E\u0436\u0434\u044F",
-            thunderVolume: "\u0413\u0440\u043E\u043C\u043A\u043E\u0441\u0442\u044C \u0433\u0440\u043E\u043C\u0430",
-            rainChance: "\u0428\u0430\u043D\u0441 \u0433\u0435\u043D\u0435\u0440\u0430\u0446\u0438\u0438 \u043E\u0441\u0430\u0434\u043A\u043E\u0432",
-            rainPreset: "\u0416\u0435\u043B\u0430\u0435\u043C\u044B\u0439 \u043F\u0440\u0435\u0441\u0435\u0442",
-            rainDuration: "\u041F\u0440\u043E\u0434\u043E\u043B\u0436\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u044C \u043E\u0441\u0430\u0434\u043A\u043E\u0432",
-            rainDurationHint: "\u0414\u043E\u043B\u044F \u043E\u0441\u0442\u0430\u0432\u0448\u0435\u0433\u043E\u0441\u044F \u0432\u0440\u0435\u043C\u0435\u043D\u0438 \u0431\u043E\u044F. 100% \u2014 \u0434\u043E \u043A\u043E\u043D\u0446\u0430 \u0431\u043E\u044F, \u043C\u0435\u043D\u044C\u0448\u0435 \u2014 \u0441\u043B\u0443\u0447\u0430\u0439\u043D\u044B\u0439 \u043F\u0440\u043E\u043C\u0435\u0436\u0443\u0442\u043E\u043A.",
-            mapWeatherHint: "\u0414\u043E\u0436\u0434\u044C \u2014 \u043D\u0430 \u043E\u0431\u044B\u0447\u043D\u044B\u0445 \u043A\u0430\u0440\u0442\u0430\u0445, \u043A\u0440\u043E\u043C\u0435 \xAB\u0411\u043E\u0439\u043D\u0438\xBB. \u0421\u043D\u0435\u0433 \u2014 \u0442\u043E\u043B\u044C\u043A\u043E \u043D\u0430 \u0437\u0438\u043C\u043D\u0438\u0445, \u0431\u0435\u0437 \u043B\u0443\u0436. \u0412 \u043A\u043E\u0441\u043C\u043E\u0441\u0435 \u043F\u043E\u0433\u043E\u0434\u044B \u043D\u0435\u0442.",
-            rainNextBattle: "\u0428\u0430\u043D\u0441, \u043F\u0440\u043E\u0434\u043E\u043B\u0436\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u044C \u0438 \u043F\u0440\u0435\u0441\u0435\u0442 \u043F\u0440\u0438\u043C\u0435\u043D\u044F\u044E\u0442\u0441\u044F \u0441\u043E \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0435\u0439 \u0431\u0438\u0442\u0432\u044B.",
-            rainRandomHint: "\u0421\u043B\u0443\u0447\u0430\u0439\u043D\u044B\u0439 \u0432\u044B\u0431\u043E\u0440 \u2014 \u043E\u0434\u0438\u043D \u0438\u0437 \u0442\u0440\u0451\u0445 \u043F\u0440\u0435\u0441\u0435\u0442\u043E\u0432 \u0441 \u043E\u0441\u0430\u0434\u043A\u0430\u043C\u0438. \u042F\u0441\u043D\u043E \u0438 \u043E\u0431\u043B\u0430\u0447\u043D\u043E \u2014 \u0431\u0435\u0437 \u043E\u0441\u0430\u0434\u043A\u043E\u0432.",
-            presets: {
-              random: "\u0421\u043B\u0443\u0447\u0430\u0439\u043D\u044B\u0439",
-              sunny: "\u042F\u0441\u043D\u043E (\u0431\u0435\u0437 \u043E\u0441\u0430\u0434\u043A\u043E\u0432)",
-              overcast: "\u041E\u0431\u043B\u0430\u0447\u043D\u043E (\u0431\u0435\u0437 \u043E\u0441\u0430\u0434\u043A\u043E\u0432)",
-              drizzle: "\u041B\u0451\u0433\u043A\u0438\u0435 \u043E\u0441\u0430\u0434\u043A\u0438",
-              sunshower: "\u041E\u0441\u0430\u0434\u043A\u0438 \u043F\u0440\u0438 \u0441\u043E\u043B\u043D\u0446\u0435",
-              storm: "\u0428\u0442\u043E\u0440\u043C / \u043C\u0435\u0442\u0435\u043B\u044C"
-            },
             accountNotice: "ID \u0430\u043A\u043A\u0430\u0443\u043D\u0442\u0430 \u043F\u043E\u043A\u0430 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D. \u0418\u0441\u0442\u043E\u0440\u0438\u044F \u0438 \u043B\u0438\u0447\u043D\u043E\u0435 \u0438\u0437\u0431\u0440\u0430\u043D\u043D\u043E\u0435 \u0432\u0440\u0435\u043C\u0435\u043D\u043D\u043E \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u044B; \u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u0435 \u0434\u0430\u043D\u043D\u044B\u0435 \u043E\u0441\u0442\u0430\u044E\u0442\u0441\u044F \u043D\u0430 \u043C\u0435\u0441\u0442\u0435."
           },
           EN: {
             tooltip: "Requires reload",
             information: "Information",
-            rainVolume: "Rain volume",
-            thunderVolume: "Thunder volume",
-            rainChance: "Precipitation chance",
-            rainPreset: "Preferred preset",
-            rainDuration: "Precipitation duration",
-            rainDurationHint: "Share of the remaining battle time. 100% lasts until the battle ends; lower values use a random interval.",
-            mapWeatherHint: "Rain on nonwinter maps except Massacre. Snow on winter maps, without puddles. No weather in space.",
-            rainNextBattle: "Chance, duration and preset apply from the next battle.",
-            rainRandomHint: "Random selects one of three precipitation presets. Clear and overcast have no precipitation.",
-            presets: {
-              random: "Random",
-              sunny: "Sunny (no precipitation)",
-              overcast: "Overcast (no precipitation)",
-              drizzle: "Light precipitation",
-              sunshower: "Sunlit precipitation",
-              storm: "Storm / Blizzard"
-            },
             accountNotice: "Account ID is unavailable. History and personal favorites are temporarily unavailable; saved data is preserved."
           }
         };
@@ -1362,6 +2128,12 @@
                 label: { RU: "\u0421\u043B\u0443\u0447\u0430\u0439\u043D\u0430\u044F \u043F\u043E\u0433\u043E\u0434\u0430 \u0432 \u0431\u0438\u0442\u0432\u0435", EN: "Random battle weather" },
                 description: { RU: "\u0414\u043E\u0436\u0434\u044C \u0438\u043B\u0438 \u0441\u043D\u0435\u0433 \u0441 \u043F\u043B\u0430\u0432\u043D\u043E\u0439 \u0441\u043C\u0435\u043D\u043E\u0439 \u043E\u0431\u043B\u0430\u043A\u043E\u0432", EN: "Rain or snow with gradual cloud transitions" },
                 default: false
+              },
+              {
+                id: "k_sun_rays",
+                label: { RU: "\u0428\u0435\u0439\u0434\u0435\u0440 \u043E\u0441\u0432\u0435\u0449\u0435\u043D\u0438\u044F", EN: "Lighting shader" },
+                description: { RU: "\u0413\u043E\u0442\u043E\u0432\u043E\u0435 \u043E\u0444\u043E\u0440\u043C\u043B\u0435\u043D\u0438\u0435 \u0441\u0432\u0435\u0442\u0430, \u0434\u044B\u043C\u043A\u0438 \u0438 \u043D\u0435\u0431\u0430", EN: "Ready-made lighting, haze and sky" },
+                default: false
               }
             ]
           }
@@ -1400,8 +2172,6 @@
             stopArt = null;
             const lang = state.lang;
             const dict = t[lang] || t.EN;
-            const volumes = readWeatherVolumes(localStorage);
-            const generation = readWeatherGeneration(localStorage);
             const settingRow = (setting, enabled = true) => {
               const checked = utils.getSetting(setting.id, setting.default);
               if (!(setting.id in initialSettingsState)) initialSettingsState[setting.id] = checked;
@@ -1413,28 +2183,6 @@
                     <input type="checkbox" role="switch" class="kasp-toggle-switch" ${checked ? "checked" : ""} ${enabled ? "" : "disabled"} aria-label="${setting.label[lang]}">
                 </label>`;
             };
-            const weatherControls = (enabled) => `<div class="kasp-weather-options ${enabled ? "kasp-expanded" : ""}" id="kasp-weather-options" ${enabled ? "" : "inert"}>
-                <div class="kasp-weather-options-inner">
-                <p class="kasp-weather-hint">${dict.mapWeatherHint}</p>
-                <label class="kasp-weather-volume"><span class="kasp-weather-volume-heading"><span>${dict.rainChance}</span><output>${Math.round(generation.chance * 100)}%</output></span>
-                    <input type="range" min="0" max="100" step="1" value="${Math.round(generation.chance * 100)}" data-weather-chance aria-label="${dict.rainChance}" ${enabled ? "" : "disabled"}>
-                </label>
-                <label class="kasp-weather-volume"><span class="kasp-weather-volume-heading"><span>${dict.rainDuration}</span><output>${Math.round(generation.duration * 100)}%</output></span>
-                    <input type="range" min="0" max="100" step="1" value="${Math.round(generation.duration * 100)}" data-weather-duration aria-label="${dict.rainDuration}" ${enabled ? "" : "disabled"}>
-                </label>
-                <p class="kasp-weather-hint">${dict.rainDurationHint}</p>
-                <label class="kasp-weather-volume"><span class="kasp-weather-volume-heading"><span>${dict.rainPreset}</span></span>
-                    <select class="kasp-weather-preset" data-weather-preset aria-label="${dict.rainPreset}" ${enabled ? "" : "disabled"}>${Object.keys(dict.presets).map((preset) => `<option value="${preset}" ${generation.preset === preset ? "selected" : ""}>${dict.presets[preset]}</option>`).join("")}</select>
-                </label>
-                <p class="kasp-weather-hint">${dict.rainNextBattle}<br>${dict.rainRandomHint}</p>
-                ${["thunder", "rain"].map((kind) => {
-              const label = kind === "rain" ? dict.rainVolume : dict.thunderVolume;
-              const value = Math.round(volumes[kind] * 100);
-              return `<label class="kasp-weather-volume"><span class="kasp-weather-volume-heading"><span>${label}</span><output>${value}%</output></span>
-                        <input type="range" min="0" max="100" step="1" value="${value}" data-weather-volume="${kind}" aria-label="${label}" ${enabled ? "" : "disabled"}>
-                    </label>`;
-            }).join("")}${settingRow(puddleSetting, enabled)}
-                </div></div>`;
             let tooltip = document.getElementById("kaspersky-reload-tooltip");
             if (!tooltip) {
               tooltip = document.createElement("div");
@@ -1460,9 +2208,8 @@
                             <h3 id="kasp-settings-${group.id}-title">${group.title[lang]}</h3>
                             <p>${group.description[lang]}</p>
                         </header>
-                        <div class="kasp-settings-rows">${group.settings.map((setting) => {
-              const checked = utils.getSetting(setting.id, setting.default);
-              return `${settingRow(setting)}${setting.id === "k_rain_weather" ? weatherControls(checked) : ""}`;
+                        <div class="kasp-settings-rows">${group.id === "graphics" ? renderGraphicsSettings(lang) : group.settings.map((setting) => {
+              return settingRow(setting);
             }).join("")}</div>
                     </section>`).join("")}
                     <section class="kasp-settings-panel kasp-settings-information" aria-labelledby="kasp-settings-information-title">
@@ -1547,15 +2294,6 @@
               row.addEventListener("mouseleave", () => tooltip?.classList.add("kasp-hidden"));
               switchBtn.addEventListener("change", () => {
                 const checked = switchBtn.checked;
-                if (id === "k_rain_weather" || id === "k_rain_puddles") {
-                  const options = kContent.querySelector("#kasp-weather-options");
-                  const weatherEnabled = kContent.querySelector('[data-id="k_rain_weather"] input').checked;
-                  options.classList.toggle("kasp-expanded", weatherEnabled);
-                  options.inert = !weatherEnabled;
-                  options.querySelectorAll("input, select").forEach((input) => {
-                    input.disabled = !weatherEnabled;
-                  });
-                }
                 row.classList.toggle("kasp-active", checked);
                 utils.setSetting(id, checked);
                 needsReload = settings.some((setting) => !liveSettings.has(setting.id) && utils.getSetting(setting.id, setting.default) !== initialSettingsState[setting.id]);
@@ -1565,47 +2303,8 @@
                 }
               });
             });
-            kContent.querySelectorAll("[data-weather-volume]").forEach((input) => {
-              input.addEventListener("input", () => {
-                const kind = input.dataset.weatherVolume;
-                const percent = Math.max(0, Math.min(100, Number(input.value)));
-                input.closest("label").querySelector("output").textContent = `${percent}%`;
-                try {
-                  localStorage.setItem(WEATHER_VOLUME_KEYS[kind], String(percent / 100));
-                } catch {
-                }
-                window.dispatchEvent(new Event("kasp:settings-changed"));
-              });
-            });
-            const rainChance = kContent.querySelector("[data-weather-chance]");
-            rainChance.addEventListener("input", () => {
-              const percent = Math.max(0, Math.min(100, Number(rainChance.value)));
-              rainChance.closest("label").querySelector("output").textContent = `${percent}%`;
-              try {
-                localStorage.setItem(WEATHER_GENERATION_KEYS.chance, String(percent / 100));
-              } catch {
-              }
-              window.dispatchEvent(new Event("kasp:settings-changed"));
-            });
-            const rainPreset = kContent.querySelector("[data-weather-preset]");
-            rainPreset.addEventListener("change", () => {
-              if (!Object.prototype.hasOwnProperty.call(dict.presets, rainPreset.value)) return;
-              try {
-                localStorage.setItem(WEATHER_GENERATION_KEYS.preset, rainPreset.value);
-              } catch {
-              }
-              window.dispatchEvent(new Event("kasp:settings-changed"));
-            });
-            const rainDuration = kContent.querySelector("[data-weather-duration]");
-            rainDuration.addEventListener("input", () => {
-              const percent = Math.max(0, Math.min(100, Number(rainDuration.value)));
-              rainDuration.closest("label").querySelector("output").textContent = `${percent}%`;
-              try {
-                localStorage.setItem(WEATHER_GENERATION_KEYS.duration, String(percent / 100));
-              } catch {
-              }
-              window.dispatchEvent(new Event("kasp:settings-changed"));
-            });
+            stopGraphics?.();
+            stopGraphics = bindGraphicsSettings(kContent, lang);
             const show = () => {
               active = true;
               ulMenu.querySelectorAll(gameDOM.settings.nativeTabs).forEach((tab) => tab.classList.remove(gameDOM.classes.settingsActive));
@@ -1638,6 +2337,8 @@
             if (active) show();
           },
           onClose: () => {
+            stopGraphics?.();
+            stopGraphics = null;
             stopArt?.();
             stopArt = null;
             document.getElementById("kaspersky-reload-tooltip")?.classList.add("kasp-hidden");
@@ -1668,13 +2369,13 @@
   // src/core/augmentLabels.ts
   function augmentPropertyLabel(property, language) {
     if (language === "RU" && russian[property]) return russian[property];
-    const text2 = property.replace(/^ISIS_/, "ISIDA_").replace(/^MACHINE_GUN_/, "VULCAN_").replace(/^SHOTGUN_/, "HAMMER_").replace(/^ROCKET_LAUNCHER_/, "STRIKER_").replace(/^SCORPIO_/, "SCORPION_").toLowerCase().replace(/_/g, " ");
-    return text2.charAt(0).toUpperCase() + text2.slice(1);
+    const text3 = property.replace(/^ISIS_/, "ISIDA_").replace(/^MACHINE_GUN_/, "VULCAN_").replace(/^SHOTGUN_/, "HAMMER_").replace(/^ROCKET_LAUNCHER_/, "STRIKER_").replace(/^SCORPIO_/, "SCORPION_").toLowerCase().replace(/_/g, " ");
+    return text3.charAt(0).toUpperCase() + text3.slice(1);
   }
   function resolveAugmentProperty(input) {
-    const text2 = input.trim();
-    if (/^[A-Z][A-Z0-9_]{0,100}$/.test(text2)) return text2;
-    const normalized = text2.toLowerCase().replace(/\s+/g, " ");
+    const text3 = input.trim();
+    if (/^[A-Z][A-Z0-9_]{0,100}$/.test(text3)) return text3;
+    const normalized = text3.toLowerCase().replace(/\s+/g, " ");
     const matches = Object.keys(russian).filter((property) => ["RU", "EN"].some((language) => augmentPropertyLabel(property, language).toLowerCase().replace(/\s+/g, " ") === normalized));
     return matches.length === 1 ? matches[0] : null;
   }
@@ -2412,9 +3113,9 @@
           element.style.display = value;
           lifecycle2.ownDOM(element, restoreDisplay);
         };
-        function normalizeText(text2) {
-          if (!text2) return "";
-          return text2.toLowerCase().replace(/ё/g, "\u0435");
+        function normalizeText(text3) {
+          if (!text3) return "";
+          return text3.toLowerCase().replace(/ё/g, "\u0435");
         }
         function applySearch() {
           if (!DataLoader.isReady()) return;
@@ -2757,11 +3458,11 @@
           const allSpans = modifiers ? Array.from(document.querySelectorAll("span")).filter((s) => !s.closest(".custom-live-stat")) : [];
           allSpans.forEach((nameSpan) => {
             if (!modifiers) return;
-            const text2 = nameSpan.textContent?.trim().toLowerCase() || "";
+            const text3 = nameSpan.textContent?.trim().toLowerCase() || "";
             let matchedTag = null;
             for (const [tag, translations] of Object.entries(STAT_DICT)) {
               const allVariants = [translations.RU, translations.EN].flat().filter(Boolean).map((s) => s.toLowerCase());
-              if (tag in modifiers && allVariants.includes(text2)) {
+              if (tag in modifiers && allVariants.includes(text3)) {
                 matchedTag = tag;
                 break;
               }
@@ -2933,8 +3634,8 @@
           el.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true }));
           return true;
         }
-        function matchText(text2, names) {
-          const upper = text2.trim().toUpperCase();
+        function matchText(text3, names) {
+          const upper = text3.trim().toUpperCase();
           return names.some((n) => upper === n.toUpperCase());
         }
         function clickSpecificCard(modeNames) {
@@ -3106,13 +3807,13 @@
             const img = document.createElement("div");
             img.className = "mode-icon-el";
             img.style.cssText = `width: 1.8em; height: 1.8em; pointer-events: none; flex-shrink: 0; -webkit-mask-image: url(${mode.icon}); -webkit-mask-size: contain; -webkit-mask-position: center; -webkit-mask-repeat: no-repeat; mask-image: url(${mode.icon}); mask-size: contain; mask-position: center; mask-repeat: no-repeat; transition: background-color 0.2s ease-in-out;`;
-            const text2 = document.createElement("span");
-            text2.className = "wide-mode-btn-text";
-            text2.dataset.index = index.toString();
-            text2.textContent = mode.labels[currentLang];
-            text2.style.cssText = "font-size: 1.2em; font-weight: 500; font-family: BaseFontMedium, FallbackFontMedium; transition: color 0.2s ease-in-out;";
+            const text3 = document.createElement("span");
+            text3.className = "wide-mode-btn-text";
+            text3.dataset.index = index.toString();
+            text3.textContent = mode.labels[currentLang];
+            text3.style.cssText = "font-size: 1.2em; font-weight: 500; font-family: BaseFontMedium, FallbackFontMedium; transition: color 0.2s ease-in-out;";
             contentWrapper.appendChild(img);
-            contentWrapper.appendChild(text2);
+            contentWrapper.appendChild(text3);
             el.appendChild(contentWrapper);
             lifecycle4.listen(el, "mouseenter", () => {
               if (!isSearching()) el.style.boxShadow = "rgb(255, 255, 255) 0 0 0 0.2em";
@@ -3357,8 +4058,8 @@
         const getFriendNickname = (element) => {
           if (!element) return "";
           const label = Array.from(element.querySelectorAll("span")).find((span) => span.className.includes(gameDOM.fragments.nicknameText));
-          const text2 = label?.textContent ?? (element.innerText || "").split("\n")[0];
-          return parseAccountIdentity(text2)?.nickname || "";
+          const text3 = label?.textContent ?? (element.innerText || "").split("\n")[0];
+          return parseAccountIdentity(text3)?.nickname || "";
         };
         const updateCardBadge = (el, isFriendsList) => {
           const cardText = el.innerText || "";
@@ -3637,12 +4338,12 @@
           return "default";
         }
         function computeButtonSig(btn, category) {
-          const text2 = (btn.textContent || "").trim().slice(0, 80);
+          const text3 = (btn.textContent || "").trim().slice(0, 80);
           const kidCount = btn.children.length;
           const hasIcon = btn.querySelector(gameDOM.common.icon) ? 1 : 0;
           const hasKaspActive = btn.classList.contains("kasp-active-btn") ? 1 : 0;
           const hasKaspDisabled = btn.classList.contains("kasp-disabled-btn") ? 1 : 0;
-          return `${text2}|${category}|${kidCount}|${hasIcon}|${hasKaspActive}|${hasKaspDisabled}`;
+          return `${text3}|${category}|${kidCount}|${hasIcon}|${hasKaspActive}|${hasKaspDisabled}`;
         }
         function applyButtonFixes() {
           const buttons = document.querySelectorAll(gameDOM.garage.styledActions);
@@ -3867,7 +4568,7 @@
         }
         function processSpan(span) {
           if (span.closest("#kasp-tankoin-balance")) return;
-          const text2 = span.textContent?.trim() || "";
+          const text3 = span.textContent?.trim() || "";
           const targetText = getHiddenText();
           const parent = span.closest(gameDOM.account.currencyIcon) || span.parentElement;
           if (!parent) return;
@@ -3876,11 +4577,11 @@
             restore(span);
             record = void 0;
           }
-          if (/\d/.test(text2)) {
-            if (record) record.value = text2;
+          if (/\d/.test(text3)) {
+            if (record) record.value = text3;
             else {
               record = {
-                value: text2,
+                value: text3,
                 parent,
                 tooltip: parent.getAttribute("data-tooltip"),
                 hadClass: parent.classList.contains("currency-masked")
@@ -3997,8 +4698,8 @@
 
   // src/modules/tankoinBalance.ts
   function parseBalance(value) {
-    const text2 = value?.trim() || "";
-    return text2.length <= 64 && /^\d[\d\s]*$/.test(text2) ? text2 : null;
+    const text3 = value?.trim() || "";
+    return text3.length <= 64 && /^\d[\d\s]*$/.test(text3) ? text3 : null;
   }
   function readBalance(element) {
     return parseBalance(element?.textContent) ?? parseBalance(element?.dataset.originalValue);
@@ -4115,8 +4816,8 @@
           if (account) presentedOwners.add(account.userId);
           if (image.getAttribute("src") !== iconUrl2) image.src = iconUrl2;
           const hidden = utils.getSetting("k_hideCurrency", false) && balance !== null;
-          const text2 = hidden ? state.lang === "RU" ? "\u0421\u043A\u0440\u044B\u0442\u043E" : "Hidden" : balance ?? "\u2014";
-          if (value.textContent !== text2) value.textContent = text2;
+          const text3 = hidden ? state.lang === "RU" ? "\u0421\u043A\u0440\u044B\u0442\u043E" : "Hidden" : balance ?? "\u2014";
+          if (value.textContent !== text3) value.textContent = text3;
           if (hidden) {
             value.dataset.originalValue = balance;
             if (iconContainer.getAttribute("data-tooltip") !== balance) iconContainer.setAttribute("data-tooltip", balance);
@@ -4175,8 +4876,8 @@
           removeTimer = lifecycle11.timeout(remove, 200);
         }
         function caption() {
-          const text2 = state.lang === "RU" ? "\u041F\u043E\u0438\u0441\u043A ID \u0430\u043A\u043A\u0430\u0443\u043D\u0442\u0430" : "Searching for account ID";
-          if (label && label.textContent !== text2) label.textContent = text2;
+          const text3 = state.lang === "RU" ? "\u041F\u043E\u0438\u0441\u043A ID \u0430\u043A\u043A\u0430\u0443\u043D\u0442\u0430" : "Searching for account ID";
+          if (label && label.textContent !== text3) label.textContent = text3;
         }
         function show() {
           showTimer = null;
@@ -4240,9 +4941,12 @@
   // src/modules/lobbyPasses.ts
   function readStarProgress(value) {
     const match = /^(\d+)\/(\d+)$/.exec(value.replace(/\s/g, ""));
-    if (!match || +match[2] <= 0) return null;
-    const percent = +match[1] / +match[2] * 100;
-    return Number.isFinite(percent) ? Math.min(100, Math.max(0, percent)) : null;
+    if (!match) return null;
+    const earned = Number(match[1]), nextLevel = Number(match[2]);
+    if (!Number.isSafeInteger(earned) || !Number.isSafeInteger(nextLevel) || nextLevel <= 0) return null;
+    const starsPerLevel = 5;
+    const levelStart = Math.max(0, nextLevel - starsPerLevel);
+    return Math.min(100, Math.max(0, (earned - levelStart) / starsPerLevel * 100));
   }
   function readCircleProgress(circle) {
     const halves = circle?.children?.[1]?.children;
@@ -4680,8 +5384,8 @@
   });
 
   // src/core/trophyData.ts
-  function readTrophyProgress(text2) {
-    const clean = text2.trim().replace(/\s+/g, " ");
+  function readTrophyProgress(text3) {
+    const clean = text3.trim().replace(/\s+/g, " ");
     const integer = (value) => {
       const trimmed = value.trim();
       return /^(?:\d+|\d{1,3}([ ,.'’])\d{3}(?:\1\d{3})*)$/.test(trimmed) ? Number(trimmed.replace(/[ ,.'’]/g, "")) : NaN;
@@ -4731,9 +5435,9 @@
     }
     return result;
   }
-  function matchTrophy(text2, dictionary) {
+  function matchTrophy(text3, dictionary) {
     const normalize = (value) => value.toLowerCase().replace(/ё/g, "\u0435");
-    const normalized = normalize(text2);
+    const normalized = normalize(text3);
     const matches = /* @__PURE__ */ new Map();
     for (const [alias, entry] of Object.entries(dictionary)) {
       const word = normalize(alias);
@@ -5337,8 +6041,8 @@
           }
           const btn = document.querySelector(gameDOM.dialogs.confirmation);
           if (!btn) return false;
-          const text2 = btn.textContent?.toLowerCase() || "";
-          if (text2.includes("\u0437\u0430 ") || text2.includes("for ") || text2.includes("\u0440\u0443\u0431\u0438\u043D") || text2.includes("ruby") || text2.includes("\u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C") || text2.includes("get")) return true;
+          const text3 = btn.textContent?.toLowerCase() || "";
+          if (text3.includes("\u0437\u0430 ") || text3.includes("for ") || text3.includes("\u0440\u0443\u0431\u0438\u043D") || text3.includes("ruby") || text3.includes("\u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C") || text3.includes("get")) return true;
           const rubyImg = btn.querySelector(gameDOM.dialogs.rubyImage);
           if (rubyImg) return true;
           return false;
@@ -5360,8 +6064,8 @@
           const buttons = document.querySelectorAll(gameDOM.dialogs.contents);
           for (let i = 0; i < buttons.length; i++) {
             const el = buttons[i];
-            const text2 = el.textContent?.trim().toLowerCase() || "";
-            if (text2 === "\u043E\u0442\u043C\u0435\u043D\u0430" || text2 === "cancel") {
+            const text3 = el.textContent?.trim().toLowerCase() || "";
+            if (text3 === "\u043E\u0442\u043C\u0435\u043D\u0430" || text3 === "cancel") {
               el.click();
               return true;
             }
@@ -5379,8 +6083,8 @@
             const btn = btns[i];
             const span = btn.querySelector(gameDOM.common.boldSpan);
             if (span) {
-              const text2 = span.textContent?.trim().toUpperCase() || "";
-              if (text2 === "\u0417\u0410\u0412\u0415\u0420\u0428\u0415\u041D\u041E" || text2 === "COMPLETED") return true;
+              const text3 = span.textContent?.trim().toUpperCase() || "";
+              if (text3 === "\u0417\u0410\u0412\u0415\u0420\u0428\u0415\u041D\u041E" || text3 === "COMPLETED") return true;
             }
           }
           return false;
@@ -5391,8 +6095,8 @@
             const btn = btns[i];
             if (btn.closest(gameDOM.garage.mountContainer))
               continue;
-            const text2 = (btn.textContent || "").toLowerCase();
-            if (text2.includes("\u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u043E") || text2.includes("unavailable"))
+            const text3 = (btn.textContent || "").toLowerCase();
+            if (text3.includes("\u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u043E") || text3.includes("unavailable"))
               return true;
           }
           return false;
@@ -5401,10 +6105,10 @@
           if (document.querySelector(gameDOM.garage.established)) return true;
           const titleNodes = document.querySelectorAll(gameDOM.garage.upgradeTitles);
           for (let i = 0; i < titleNodes.length; i++) {
-            const text2 = titleNodes[i].textContent?.trim().toUpperCase() || "";
-            if (/(MK|МК)7[- ]?20/.test(text2)) return true;
-            if (/(УР|LVL)[- ]?(20|45)/.test(text2)) return true;
-            if (text2.includes("MAX")) return true;
+            const text3 = titleNodes[i].textContent?.trim().toUpperCase() || "";
+            if (/(MK|МК)7[- ]?20/.test(text3)) return true;
+            if (/(УР|LVL)[- ]?(20|45)/.test(text3)) return true;
+            if (text3.includes("MAX")) return true;
           }
           const maxBtn = document.querySelector(gameDOM.garage.maxPriceTitle);
           if (maxBtn && maxBtn.textContent?.trim().toUpperCase() === "MAX") return true;
@@ -6223,94 +6927,15 @@
 
   // src/modules/tabExpansion.ts
   function createTabExpansion(scope) {
-    const panes = /* @__PURE__ */ new Set();
-    let timer = 0;
-    const clear = () => {
-      scope.cancelTimeout(timer);
-      timer = 0;
-      for (const pane of panes) {
-        pane.removeAttribute("data-kasp-tab-animating");
-        pane.removeAttribute("data-kasp-tab-measuring");
-        for (const key of Array.from(pane.style)) if (key.startsWith("--kasp-tab-")) pane.style.removeProperty(key);
-      }
-      panes.clear();
-    };
-    const snapshot = (pane) => {
-      const row = (selector) => {
-        const native = Array.from(pane.querySelectorAll(selector)).find((row2) => row2.children.length >= 7);
-        return {
-          width: native?.getBoundingClientRect().width ?? 0,
-          cells: Array.from(native?.children ?? []).slice(0, 8).map((cell) => cell.getBoundingClientRect().width)
-        };
-      };
-      return {
-        width: parseFloat(window.getComputedStyle(pane).width),
-        header: row("table > thead > tr"),
-        body: row("table > tbody > tr")
-      };
-    };
     const setExpanded = (expanded) => {
-      const body = document.body;
-      const previous = body.classList.contains("kasp-tab-expanded");
-      if (previous === expanded) return;
-      const roots = Array.from(document.querySelectorAll(gameDOM.statistics.teams));
-      if (!roots.length) {
-        body.classList.toggle("kasp-tab-expanded", expanded);
-        return;
-      }
-      if (!roots.every((root) => panes.has(root))) {
-        clear();
-        try {
-          roots.forEach((root) => {
-            panes.add(root);
-            root.setAttribute("data-kasp-tab-measuring", "");
-          });
-          body.classList.remove("kasp-tab-expanded");
-          const collapsed = roots.map(snapshot);
-          body.classList.add("kasp-tab-expanded");
-          const opened = roots.map(snapshot);
-          body.classList.toggle("kasp-tab-expanded", previous);
-          roots.forEach((root, index) => {
-            const from = collapsed[index], to = opened[index];
-            if (!Number.isFinite(from.width) || !Number.isFinite(to.width) || from.width <= 0 || to.width <= 0) return;
-            if (from.header.cells.length < 7 || from.body.cells.length < 7 || from.header.cells.length !== to.header.cells.length || from.body.cells.length !== to.body.cells.length) return;
-            root.style.setProperty("--kasp-tab-from", `${from.width}px`);
-            root.style.setProperty("--kasp-tab-to", `${to.width}px`);
-            for (const group of ["header", "body"]) {
-              root.style.setProperty(`--kasp-tab-${group}-row-from`, `${from[group].width}px`);
-              root.style.setProperty(`--kasp-tab-${group}-row-to`, `${to[group].width}px`);
-              from[group].cells.forEach((width, column) => {
-                root.style.setProperty(`--kasp-tab-${group}-${column}-from`, `${width}px`);
-                root.style.setProperty(`--kasp-tab-${group}-${column}-to`, `${to[group].cells[column] ?? width}px`);
-              });
-            }
-            root.style.setProperty("--kasp-tab-progress", previous ? "1" : "0");
-            root.setAttribute("data-kasp-tab-animating", "");
-          });
-          roots.forEach((root) => {
-            void window.getComputedStyle(root).width;
-          });
-        } catch (error) {
-          clear();
-          throw error;
-        } finally {
-          body.classList.toggle("kasp-tab-expanded", previous);
-          roots.forEach((root) => root.removeAttribute("data-kasp-tab-measuring"));
-        }
-      }
-      body.classList.toggle("kasp-tab-expanded", expanded);
-      roots.forEach((root) => root.style.removeProperty("--kasp-tab-progress"));
-      scope.cancelTimeout(timer);
-      timer = scope.timeout(clear, 240);
+      document.body?.classList.toggle("kasp-tab-expanded", expanded);
     };
-    scope.listen(window, "resize", clear);
-    scope.onCleanup(clear);
+    scope.onCleanup(() => setExpanded(false));
     return { setExpanded };
   }
   var init_tabExpansion = __esm({
     "src/modules/tabExpansion.ts"() {
       "use strict";
-      init_gameDOM();
     }
   });
 
@@ -6364,17 +6989,17 @@
           if (img) return (img.src || "").toLowerCase();
           return "";
         }
-        function injectCompactCells(readStyle) {
-          const cells = document.querySelectorAll(gameDOM.statistics.resistanceCell);
+        function prepareCompactCells(readStyle, dirtyCells) {
+          const cells = dirtyCells ?? document.querySelectorAll(gameDOM.statistics.resistanceCell);
           const updates = Array.from(cells, (cell) => {
             const htmlCell = cell;
-            const labels = Array.from(htmlCell.children).filter(
+            const labels2 = Array.from(htmlCell.children).filter(
               (el) => el.classList.contains(gameDOM.classes.defenceLabel) && !el.closest(".kasp-compact-cell")
             );
             let redLabel = null;
             let spectrumLabel = null;
             const criticalLabels = [];
-            for (const lbl of labels) {
+            for (const lbl of labels2) {
               const iconDiv = lbl.querySelector("div");
               const url = getIconUrl(lbl, iconDiv, readStyle);
               if (!spectrumLabel && url.includes("all_resistance")) spectrumLabel = lbl;
@@ -6392,50 +7017,56 @@
             const compact = htmlCell.querySelector(".kasp-compact-cell");
             return { htmlCell, compact, protectLabel, protectIsSpectrum, armadilloLabel, stateKey };
           });
-          for (const update2 of updates) {
-            const { htmlCell, protectLabel, protectIsSpectrum, armadilloLabel, stateKey } = update2;
-            let { compact } = update2;
-            if (compact && compact.dataset.kaspState === stateKey) continue;
-            if (!compact) {
-              compact = document.createElement("div");
-              compact.className = "kasp-compact-cell";
+          return () => {
+            for (const update2 of updates) {
+              const { htmlCell, protectLabel, protectIsSpectrum, armadilloLabel, stateKey } = update2;
+              let { compact } = update2;
+              if (compact && compact.dataset.kaspState === stateKey) continue;
+              if (!compact) {
+                compact = document.createElement("div");
+                compact.className = "kasp-compact-cell";
+              }
+              const slot1 = document.createElement("div");
+              slot1.className = "kasp-slot";
+              if (protectLabel) {
+                const clone = protectLabel.cloneNode(true);
+                clone.classList.add("kasp-cloned-resist", "kasp-protecting");
+                if (protectIsSpectrum) clone.classList.add("kasp-spectrum");
+                slot1.appendChild(clone);
+              } else {
+                slot1.innerHTML = '<span class="kasp-dash">\u2014</span>';
+              }
+              const slot2 = document.createElement("div");
+              slot2.className = "kasp-slot";
+              if (armadilloLabel) {
+                const clone = armadilloLabel.cloneNode(true);
+                clone.classList.add("kasp-cloned-resist", "kasp-armadillo");
+                slot2.appendChild(clone);
+              } else {
+                slot2.innerHTML = '<span class="kasp-dash">\u2014</span>';
+              }
+              compact.replaceChildren(slot1, slot2);
+              compact.dataset.kaspState = stateKey;
+              if (!compact.parentElement) htmlCell.prepend(compact);
             }
-            const slot1 = document.createElement("div");
-            slot1.className = "kasp-slot";
-            if (protectLabel) {
-              const clone = protectLabel.cloneNode(true);
-              clone.classList.add("kasp-cloned-resist", "kasp-protecting");
-              if (protectIsSpectrum) clone.classList.add("kasp-spectrum");
-              slot1.appendChild(clone);
-            } else {
-              slot1.innerHTML = '<span class="kasp-dash">\u2014</span>';
-            }
-            const slot2 = document.createElement("div");
-            slot2.className = "kasp-slot";
-            if (armadilloLabel) {
-              const clone = armadilloLabel.cloneNode(true);
-              clone.classList.add("kasp-cloned-resist", "kasp-armadillo");
-              slot2.appendChild(clone);
-            } else {
-              slot2.innerHTML = '<span class="kasp-dash">\u2014</span>';
-            }
-            compact.replaceChildren(slot1, slot2);
-            compact.dataset.kaspState = stateKey;
-            if (!compact.parentElement) htmlCell.prepend(compact);
-          }
+          };
         }
-        function injectZeroSummary(readStyle) {
+        function prepareZeroSummary(readStyle) {
           const tabContainer = document.querySelector(TAB_SELECTOR);
-          if (!tabContainer) return;
+          if (!tabContainer) return () => {
+          };
           let summaryRow = Array.from(tabContainer.children).find(
             (el) => el.className.includes(gameDOM.classes.flexCenter) && !el.className.toLowerCase().includes(gameDOM.fragments.header)
           );
+          let mountSummary;
           if (!summaryRow) {
             summaryRow = document.createElement("div");
             summaryRow.className = gameDOM.classes.flexCenter + " kasp-custom-summary-row";
             const optionsContainer = tabContainer.querySelector(gameDOM.statistics.options);
-            if (optionsContainer) optionsContainer.before(summaryRow);
-            else tabContainer.appendChild(summaryRow);
+            mountSummary = () => {
+              if (optionsContainer) optionsContainer.before(summaryRow);
+              else tabContainer.appendChild(summaryRow);
+            };
           }
           const presentResistances = /* @__PURE__ */ new Set();
           const children = Array.from(summaryRow.children);
@@ -6449,9 +7080,10 @@
           });
           const zeroBlocks = summaryRow.querySelectorAll(".kasp-zero-summary");
           const existingZeros = /* @__PURE__ */ new Set();
+          const staleZeros = [];
           zeroBlocks.forEach((block) => {
             const turret = block.getAttribute("data-turret");
-            if (turret && presentResistances.has(turret)) block.remove();
+            if (turret && presentResistances.has(turret)) staleZeros.push(block);
             else if (turret) existingZeros.add(turret);
           });
           const fragment = document.createDocumentFragment();
@@ -6473,7 +7105,11 @@
               fragment.appendChild(zeroLabel);
             }
           });
-          if (fragment.childNodes.length) summaryRow.appendChild(fragment);
+          return () => {
+            mountSummary?.();
+            staleZeros.forEach((block) => block.remove());
+            if (fragment.childNodes.length) summaryRow.appendChild(fragment);
+          };
         }
         function injectToggleButton() {
           if (isTabExpanded && !initialExpandedSet && document.body) {
@@ -6484,9 +7120,6 @@
           if (!tabContainer) return;
           const summaryRow = Array.from(tabContainer.children).find((el) => el.className.includes(gameDOM.classes.flexCenter) && !el.className.toLowerCase().includes(gameDOM.fragments.header));
           if (!summaryRow || document.getElementById("kasp-tab-toggle-btn")) return;
-          if (window.getComputedStyle(summaryRow).position === "static") {
-            summaryRow.style.position = "relative";
-          }
           const btn = document.createElement("div");
           btn.id = "kasp-tab-toggle-btn";
           btn.className = isTabExpanded ? "kasp-active-toggle" : "";
@@ -6509,7 +7142,7 @@
           summaryRow.appendChild(btn);
           lifecycle18.ownDOM(btn, (element) => element.remove());
         }
-        function sync() {
+        function sync(dirtyCells) {
           if (!document.querySelector(TAB_SELECTOR)) return;
           const styles = /* @__PURE__ */ new WeakMap();
           const readStyle = (element) => {
@@ -6520,9 +7153,11 @@
             }
             return style;
           };
+          const commitCells = prepareCompactCells(readStyle, dirtyCells);
+          const commitSummary = prepareZeroSummary(readStyle);
           injectHeaderShield();
-          injectCompactCells(readStyle);
-          injectZeroSummary(readStyle);
+          commitCells();
+          commitSummary();
           injectToggleButton();
         }
         function update() {
@@ -7681,9 +8316,9 @@
   });
 
   // src/modules/battleHistory/validation.ts
-  function parseHistoryImport(text2, userId) {
+  function parseHistoryImport(text3, userId) {
     if (normalizeAccountId(userId) !== userId) throw new Error("account-id-required");
-    const data = JSON.parse(text2);
+    const data = JSON.parse(text3);
     if (!Array.isArray(data) || data.length === 0) throw new Error("empty-or-invalid-list");
     return data.map((value) => {
       const battle = validateImportedBattle(value);
@@ -7772,9 +8407,9 @@
     const button = document.createElement("button");
     button.type = "button";
     button.className = "kasp-modal-button" + (secondary ? " kasp-modal-button--secondary" : "");
-    const text2 = document.createElement("span");
-    text2.textContent = label;
-    button.appendChild(text2);
+    const text3 = document.createElement("span");
+    text3.textContent = label;
+    button.appendChild(text3);
     return button;
   }
   function createHistoryActions(account, renderBattleList) {
@@ -7999,8 +8634,8 @@
         const titleEl = document.querySelector(
           gameDOM.navigation.title
         );
-        const text2 = (titleEl?.textContent?.trim() ?? "").toUpperCase();
-        if (text2 === "SETTINGS" || text2 === "\u041D\u0410\u0421\u0422\u0420\u041E\u0419\u041A\u0418") {
+        const text3 = (titleEl?.textContent?.trim() ?? "").toUpperCase();
+        if (text3 === "SETTINGS" || text3 === "\u041D\u0410\u0421\u0422\u0420\u041E\u0419\u041A\u0418") {
           disarmReturnWatcher();
           showFakeLoader();
           const finishLoading = () => {
@@ -8511,18 +9146,18 @@
       init_unassigned();
       parseMapAndMode = (rawMapText) => {
         if (!rawMapText) return { map: "Unknown Map", mode: "MM" };
-        let text2 = rawMapText.trim();
+        let text3 = rawMapText.trim();
         const modesList = ["CTF", "TDM", "DM", "CP", "SGE", "RGB", "JGR", "TJR", "ASL", "AR"];
         let foundMode = "MM";
-        const parts = text2.split(/\s+/);
+        const parts = text3.split(/\s+/);
         if (parts.length > 0) {
           const lastWord = parts[parts.length - 1].toUpperCase();
           if (modesList.includes(lastWord)) {
             foundMode = parts.pop() || "MM";
-            text2 = parts.join(" ");
+            text3 = parts.join(" ");
           }
         }
-        const cleanMapName = text2.replace(/\s+/g, " ").trim();
+        const cleanMapName = text3.replace(/\s+/g, " ").trim();
         return { map: cleanMapName || "Unknown", mode: foundMode };
       };
     }
@@ -8890,11 +9525,23 @@
             return;
           }
           if (!document.body) return;
-          if (!overlay?.isConnected) {
+          if (!overlay) {
             overlay = document.createElement("div");
             overlay.id = "kasp-overdrive-timers";
             overlay.className = "kasp-overdrive-timers";
             document.body.appendChild(overlay);
+          }
+          const tab = document.querySelector(gameDOM.statistics.container);
+          const host = tab && tab.getClientRects().length && getComputedStyle(tab).visibility !== "hidden" ? tab : document.body;
+          if (overlay.parentElement !== host || !overlay.isConnected) {
+            if (host === document.body) {
+              host.appendChild(overlay);
+              overlay.style.removeProperty("font-size");
+            } else {
+              const size = getComputedStyle(overlay).fontSize;
+              if (size) overlay.style.fontSize = size;
+              host.appendChild(overlay);
+            }
           }
           if (!timer.panel?.isConnected) {
             timer.panel = document.createElement("div");
@@ -8940,7 +9587,7 @@
           lifecycle25.listen(window, "storage", render);
           previewObserver = lifecycle25.observer((records) => {
             if (!utils.getSetting("k_overdrive_timer", false)) return;
-            const selector = `${gameDOM.screens.tankPreview}, ${gameDOM.common.container}`;
+            const selector = `${gameDOM.screens.tankPreview}, ${gameDOM.common.container}, ${gameDOM.statistics.container}`;
             if (records.some((record) => record.type === "childList" ? [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)].some((node) => node.matches?.(selector) || node.querySelector?.(selector)) : record.target.matches(selector))) render();
           });
           render();
@@ -9006,8 +9653,8 @@
       locks.clear();
     };
     const toggleDropdown = (dropdown) => {
-      const control = dropdown.querySelector(dom.dropdownControl);
-      control?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
+      const control2 = dropdown.querySelector(dom.dropdownControl);
+      control2?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }));
     };
     const finishRank = (close = false) => {
       if (rankTimer !== null) lifecycle26.cancelTimeout(rankTimer);
@@ -9231,11 +9878,11 @@
           "/634/136431/332/233/31627506673770/image.webp",
           "/601/107774/13/55/30061777053474/image.webp"
         ]);
-        const labels = {
+        const labels2 = {
           RU: { name: "\u041A\u0438\u0431\u0435\u0440\u0441\u043F\u043E\u0440\u0442", select: "\u0412\u044B\u0431\u0440\u0430\u0442\u044C", selected: "\u0412\u044B\u0431\u0440\u0430\u043D\u043E" },
           EN: { name: "Esports", select: "Choose", selected: "Chosen" }
         };
-        const text2 = (element, value) => {
+        const text3 = (element, value) => {
           if (element && element.textContent !== value) element.textContent = value;
         };
         const findSport = (container) => {
@@ -9460,17 +10107,17 @@
           if (nativeSelected) selectionUntil = 0;
           else if (Date.now() >= selectionUntil) cancelEsports();
           const active = chosen && nativeSelected;
-          const label = labels[state.lang];
-          text2(card.querySelector(gameDOM.battleCreate.formatName), label.name);
-          text2(
+          const label = labels2[state.lang];
+          text3(card.querySelector(gameDOM.battleCreate.formatName), label.name);
+          text3(
             card.querySelector(gameDOM.battleCreate.formatDescription),
             sport.querySelector(gameDOM.battleCreate.formatDescription)?.textContent || ""
           );
-          text2(
+          text3(
             card.querySelector(gameDOM.battleCreate.formatCount),
             sport.querySelector(gameDOM.battleCreate.formatCount)?.textContent || ""
           );
-          text2(card.lastElementChild?.querySelector("h2") || null, active ? label.selected : label.select);
+          text3(card.lastElementChild?.querySelector("h2") || null, active ? label.selected : label.select);
           card.classList.toggle(gameDOM.classes.formatSelected, active);
           card.classList.toggle(gameDOM.classes.formatUnselected, !active);
           const pressed = String(active);
@@ -9744,16 +10391,30 @@
       if (record.removedNodes.length) return false;
       return record.addedNodes.length > 0 && Array.from(record.addedNodes).every((node) => node.nodeType === 1 && node.matches(statisticsPresentation));
     };
+    const mutationElement = (record) => record.target.nodeType === 1 ? record.target : record.target.parentElement;
+    const affectsStatistics = (record) => {
+      const target = mutationElement(record);
+      if (target?.closest(gameDOM.statistics.container)) {
+        return !target.closest(gameDOM.statistics.scoreCells);
+      }
+      return [...Array.from(record.addedNodes ?? []), ...Array.from(record.removedNodes ?? [])].some((node) => node.nodeType === 1 && (node.matches(gameDOM.statistics.container) || !!node.querySelector(gameDOM.statistics.container)));
+    };
     const masterObserver = new MutationObserver((records = []) => {
       if (records.length && records.every(isOwnStatisticsMutation)) return;
       modules.clientInfo();
       modules.friendContextMenu();
       syncLobbyPresentation();
-      if (document.querySelector(gameDOM.statistics.container)) {
-        modules.changeCounter.sync();
-        modules.zeroResists.sync();
-        modules.enemyWeapons.sync();
-        modules.equipmentTracker.sync();
+      const statisticsRecords = records.filter((record) => !isOwnStatisticsMutation(record) && affectsStatistics(record));
+      if ((!records.length || statisticsRecords.length) && document.querySelector(gameDOM.statistics.container)) {
+        const cells = statisticsRecords.map((record) => mutationElement(record)?.closest(gameDOM.statistics.resistanceCell));
+        if (cells.length && cells.every((cell) => !!cell)) {
+          modules.zeroResists.sync([...new Set(cells)]);
+        } else {
+          modules.changeCounter.sync();
+          modules.zeroResists.sync();
+          modules.enemyWeapons.sync();
+          modules.equipmentTracker.sync();
+        }
       }
       if (document.querySelector(gameDOM.garage.actionContainer)) {
         modules.autoUpgrade();
@@ -9850,14 +10511,14 @@
   // src/modules/discordPresence.ts
   function setupDiscordPresence() {
     if (!isElectronClient()) return;
-    const labels = {
+    const labels2 = {
       loading: "Loading the game",
       lobby: "In the lobby",
       garage: "In the garage",
       battle: "In a battle",
       match_results: "Battle results"
     };
-    const screenLabels = new Map(Object.entries(labels));
+    const screenLabels = new Map(Object.entries(labels2));
     let battle = null, receivedAt2 = 0, end;
     lifecycle29.listen(window, "message", (event) => {
       const message = readPageMessage(event, window, BATTLE_PRESENCE_MESSAGE);
@@ -9876,7 +10537,7 @@
       const rawMap = active?.map.replace(/\s+(?:TDM|DM|CTF|CP|SGE|RGB|JGR|TJR|ASL|AR|AS|RUGBY|SUR|HOLIDAY|TAR|TUTORIAL)$/i, "").trim();
       const translated = rawMap ? DataLoader.translateMap(rawMap, "EN") : null;
       const mode = active?.mode || /\s+(TDM|DM|CTF|CP|SGE|RGB|JGR|TJR|ASL|AR|AS|RUGBY|SUR|HOLIDAY|TAR|TUTORIAL)$/i.exec(active?.map || "")?.[1]?.toUpperCase();
-      const details = translated && !/[\u0400-\u04ff]/.test(translated) ? `${translated}${mode ? ` ${mode}` : ""}` : screenLabels.get(state.currentScreen) || labels.lobby;
+      const details = translated && !/[\u0400-\u04ff]/.test(translated) ? `${translated}${mode ? ` ${mode}` : ""}` : screenLabels.get(state.currentScreen) || labels2.lobby;
       postPageMessage(window, {
         type: "kasp:discord-presence",
         version: 1,
@@ -9928,6 +10589,152 @@
     }
   });
 
+  // src/core/battleGraphics.ts
+  function setupBattleGraphics(page) {
+    let instance = instances.get(page);
+    if (!instance) {
+      instance = createBattleGraphics(page);
+      instances.set(page, instance);
+    }
+    return instance;
+  }
+  function createBattleGraphics(page) {
+    const scope = featureScope("battleGraphics");
+    let panel, unbind;
+    let returnFocus, language;
+    const heldOutside = /* @__PURE__ */ new Set(), blockedUps = /* @__PURE__ */ new Set();
+    const battle = () => !!document.querySelector(gameDOM.screens.battleHud) && !document.querySelector([gameDOM.screens.weatherExcluded, gameDOM.screens.loader, gameDOM.settings.root, gameDOM.results.status].join(","));
+    const words = () => utils.getLang() === "RU" ? { title: "\u0413\u0440\u0430\u0444\u0438\u0447\u0435\u0441\u043A\u0438\u0435 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438", close: "\u0417\u0430\u043A\u0440\u044B\u0442\u044C", hint: "Ctrl+Alt+G \u2014 \u043E\u0442\u043A\u0440\u044B\u0442\u044C / \u0437\u0430\u043A\u0440\u044B\u0442\u044C \xB7 Esc \u2014 \u0437\u0430\u043A\u0440\u044B\u0442\u044C" } : { title: "Graphics settings", close: "Close", hint: "Ctrl+Alt+G \u2014 open / close \xB7 Esc \u2014 close" };
+    function close(restoreFocus = true) {
+      unbind?.();
+      unbind = void 0;
+      panel?.remove();
+      panel = void 0;
+      language = void 0;
+      if (restoreFocus && returnFocus?.isConnected) returnFocus.focus({ preventScroll: true });
+      returnFocus = void 0;
+    }
+    function open() {
+      if (scope.disabled || !battle() || !document.body) return false;
+      if (panel?.isConnected) return true;
+      close(false);
+      returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : void 0;
+      const d = words(), lang = utils.getLang(), root = document.createElement("section");
+      root.id = "kasp-battle-graphics";
+      root.setAttribute("role", "dialog");
+      root.setAttribute("aria-modal", "false");
+      root.setAttribute("aria-labelledby", "kasp-battle-graphics-title");
+      root.innerHTML = '<header class="kasp-battle-gfx-header"><div><h2 id="kasp-battle-graphics-title"></h2><p></p></div><button type="button" class="kasp-battle-gfx-close">\xD7</button></header><div class="kasp-battle-gfx-scroll"></div>';
+      root.querySelector("h2").textContent = d.title;
+      root.querySelector("p").textContent = d.hint;
+      const dismiss = root.querySelector(".kasp-battle-gfx-close");
+      dismiss.setAttribute("aria-label", d.close);
+      dismiss.onclick = () => close();
+      root.querySelector(".kasp-battle-gfx-scroll").innerHTML = renderGraphicsSettings(lang, "kasp-battle-gfx");
+      for (const type of ["mousedown", "pointerdown", "click"]) root.addEventListener(type, (event) => event.stopPropagation());
+      root.addEventListener("wheel", (event) => event.stopPropagation(), { passive: true });
+      document.body.append(root);
+      panel = root;
+      language = lang;
+      unbind = bindGraphicsSettings(root, lang);
+      try {
+        document.exitPointerLock?.();
+      } catch {
+      }
+      dismiss.focus({ preventScroll: true });
+      return true;
+    }
+    function sync() {
+      if (scope.disabled) return;
+      if (!battle() || !document.body) {
+        close(false);
+        return;
+      }
+      if (panel && (!panel.isConnected || language !== utils.getLang())) close(false);
+    }
+    const inside = (target) => !!panel && target instanceof Node && panel.contains(target);
+    const consume = (event) => {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+    scope.listen(page, "keydown", (event) => {
+      const target = event.target instanceof Element ? event.target : document.activeElement;
+      const typing = !!target?.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"]),[role="textbox"]');
+      if (event.code === "KeyG" && event.ctrlKey && event.altKey && !event.metaKey && !event.shiftKey && battle() && (!typing || inside(target))) {
+        consume(event);
+        blockedUps.add("KeyG");
+        if (!event.repeat) {
+          if (panel) close();
+          else open();
+        }
+        return;
+      }
+      if (!panel) {
+        if (event.code && heldOutside.size < 64) heldOutside.add(event.code);
+        return;
+      }
+      if (!battle()) {
+        close(false);
+        return;
+      }
+      if (event.key === "Escape") {
+        consume(event);
+        blockedUps.add(event.code);
+        close();
+        return;
+      }
+      if (!inside(target)) {
+        if (event.code && heldOutside.size < 64) heldOutside.add(event.code);
+        return;
+      }
+      if (event.key === "Tab") {
+        const focusable = [...panel.querySelectorAll('button,input:not([type="file"]),select,summary')].filter((n) => n.getClientRects().length && !n.hasAttribute("disabled"));
+        const index = focusable.indexOf(document.activeElement);
+        if (focusable.length && (event.shiftKey ? index <= 0 : index === focusable.length - 1)) {
+          event.preventDefault();
+          focusable[event.shiftKey ? focusable.length - 1 : 0].focus();
+        }
+      }
+      event.stopImmediatePropagation();
+    }, true);
+    scope.listen(page, "keyup", (event) => {
+      if (blockedUps.delete(event.code)) {
+        consume(event);
+        return;
+      }
+      if (heldOutside.delete(event.code)) return;
+      if (inside(event.target)) event.stopImmediatePropagation();
+    }, true);
+    scope.listen(page, "keypress", (event) => {
+      if (inside(event.target)) event.stopImmediatePropagation();
+    }, true);
+    scope.listen(page, "pagehide", () => {
+      close(false);
+      heldOutside.clear();
+      blockedUps.clear();
+    });
+    scope.listen(document, "visibilitychange", sync);
+    scope.onCleanup(() => {
+      close(false);
+      heldOutside.clear();
+      blockedUps.clear();
+    });
+    scope.interval(sync, 500);
+    sync();
+    return { open, close, sync, isOpen: () => !!panel?.isConnected };
+  }
+  var instances;
+  var init_battleGraphics = __esm({
+    "src/core/battleGraphics.ts"() {
+      "use strict";
+      init_featureRuntime();
+      init_gameDOM();
+      init_utils();
+      init_graphicsSettings();
+      instances = /* @__PURE__ */ new WeakMap();
+    }
+  });
+
   // src/kasp_main.ts
   var require_kasp_main = __commonJS({
     "src/kasp_main.ts"() {
@@ -9940,6 +10747,7 @@
       init_discordPresence();
       init_accountIdentity();
       init_featureRuntime();
+      init_battleGraphics();
       if (window === window.top) {
         installFeatureDiagnostics(window, "content");
         featureScope("accountIdentity").run(setupAccountIdentity);
@@ -9947,6 +10755,7 @@
         const loaderBg = chrome.runtime.getURL("assets/background.png");
         document.documentElement.style.setProperty("--kasp-loader-bg", `url("${loaderBg}")`);
         state.lang = utils.getLang();
+        featureScope("battleGraphics").run(() => setupBattleGraphics(window));
         featureScope("hideNickname").run(setupNicknamePrivacy);
         featureScope("hideSupplies").run(hideSupplies);
         startBoot();

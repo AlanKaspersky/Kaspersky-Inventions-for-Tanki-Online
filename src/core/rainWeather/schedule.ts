@@ -24,10 +24,13 @@ const rainyPresets = (Object.keys(RAIN_PRESETS) as RainPreset[]).filter(name => 
 export interface RainEpisode { version: 1; preset: RainPreset | null; start: number; hold: number; seed: number; fadeIn: number; fadeOut: number; continuous?: boolean; precipitation?: Precipitation; }
 export const smooth = (x: number) => { const t = Math.max(0, Math.min(1, x)); return t * t * (3 - 2 * t); };
 export function planRain(now: number, remaining: number | undefined, random: () => number,
-    generation: Readonly<WeatherGeneration> = DEFAULT_WEATHER_GENERATION): RainEpisode {
+    generation: Readonly<WeatherGeneration> = DEFAULT_WEATHER_GENERATION,
+    transitions: {fadeIn:number;fadeOut:number} = WEATHER): RainEpisode {
+    const entryFade = Number.isFinite(transitions.fadeIn) ? Math.max(1,Math.min(60,transitions.fadeIn)) : WEATHER.fadeIn;
+    const exitFade = Number.isFinite(transitions.fadeOut) ? Math.max(1,Math.min(60,transitions.fadeOut)) : WEATHER.fadeOut;
     const seconds = Number.isFinite(remaining) ? Math.max(0, Math.min(WEATHER.maxBattleSeconds, remaining!)) : WEATHER.unknownBattleSeconds;
     const fraction = Number.isFinite(generation.duration) ? Math.max(0, Math.min(1, generation.duration)) : DEFAULT_WEATHER_GENERATION.duration;
-    const empty: RainEpisode = { version: 1, preset: null, start: now, hold: 0, seed: Math.floor(random() * 0xffffff), fadeIn: WEATHER.fadeIn, fadeOut: WEATHER.fadeOut, precipitation: generation.precipitation==='snow'?'snow':'rain' };
+    const empty: RainEpisode = { version: 1, preset: null, start: now, hold: 0, seed: Math.floor(random() * 0xffffff), fadeIn: entryFade, fadeOut: exitFade, precipitation: generation.precipitation==='snow'?'snow':'rain' };
     if (random() >= generation.chance || seconds <= 0 || fraction <= 0) return empty;
     const preset = generation.preset === 'random'
         ? rainyPresets[Math.min(rainyPresets.length - 1, Math.floor(random() * rainyPresets.length))]
@@ -36,7 +39,7 @@ export function planRain(now: number, remaining: number | undefined, random: () 
     // Its battle-owned plan ends on native battle exit, never an estimated timeout.
     if (fraction === 1) return { ...empty, preset, hold: seconds, continuous: true };
     const total = seconds * fraction;
-    const fadeIn = Math.min(WEATHER.fadeIn, total * .3), fadeOut = Math.min(WEATHER.fadeOut, total * .3);
+    const fadeIn = Math.min(entryFade, total * .3), fadeOut = Math.min(exitFade, total * .3);
     const hold = Math.max(0, total - fadeIn - fadeOut);
     const delay = random() * Math.max(0, seconds - total);
     return { ...empty, preset, hold, fadeIn, fadeOut, start: now + delay * 1000 };

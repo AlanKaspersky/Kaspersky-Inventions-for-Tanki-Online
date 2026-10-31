@@ -1,6 +1,5 @@
-import { SNOW, SNOW_VERTEX, SNOW_FRAGMENT, SNOW_STREAK_VERTEX, SNOW_STREAK_FRAGMENT } from '../snowWeather';
+import { SNOW_VERTEX, SNOW_FRAGMENT, SNOW_STREAK_VERTEX, SNOW_STREAK_FRAGMENT } from '../snowWeather';
 import type { Precipitation } from './schedule';
-import { WEATHER } from './schedule';
 import * as shader from './shaders';
 import { buildBolt } from './lightning';
 import type { LightningFrame } from './lightning';
@@ -13,6 +12,10 @@ import { MAP_VERTEX,MAP_FRAGMENT,SPLASH_VERTEX,SPLASH_FRAGMENT } from './splashS
 import { SPLASHES } from './splashes';
 import { WEATHER_PALETTES } from './appearance';
 import type { WeatherPalette } from './appearance';
+import { createSunPass } from '../sunRays/pass';
+import type { SunFrame } from '../sunRays/pass';
+import { DEFAULT_GRAPHICS_TUNING } from '../graphicsPreferences';
+import type { GraphicsTuning } from '../graphicsPreferences';
 // Only values read from this same context are restored.
 type GLState = {
  prog:WebGLProgram|null;vao:WebGLVertexArrayObject|null;arrayBuffer:WebGLBuffer|null;unit:number;
@@ -27,6 +30,7 @@ type GLState = {
 type Program = { p: WebGLProgram; u: Record<string, WebGLUniformLocation | null> };
 type CopyInfo = { format:number|null; samples:number; reason:string|null };
 export interface RainFrame {
+    graphics?:Readonly<GraphicsTuning>;
     vp: Float32Array; camera: [number,number,number]; time: number; seed: number; fade: number;
     precipitation?:Precipitation;
     rain: number; clouds: number; wind: number; flash: number; storm: number;
@@ -60,6 +64,7 @@ export function createRainRenderer(gl: WebGL2RenderingContext) {
  const mapPasses:MapPass[]=Array.from({length:2},()=>({vao:null,buffer:null,texture:null,fbo:null,width:0,height:0}));
  let mapProgram:Program|undefined,mapSource:CollisionSurface|undefined,mapFrames=0,mapError:string|null=null;
  let splashProgram:Program|undefined,splashVao:WebGLVertexArrayObject|null=null,splashBuffer:WebGLBuffer|null=null,splashError:string|null=null,splashParticles=0;
+ let sunlight:ReturnType<typeof createSunPass>|undefined,sunError:string|null=null,sunSkip:string|null=null;
  function releaseMap(){for(const p of mapPasses){gl.deleteVertexArray(p.vao);gl.deleteBuffer(p.buffer);gl.deleteTexture(p.texture);gl.deleteFramebuffer(p.fbo);Object.assign(p,{vao:null,buffer:null,texture:null,fbo:null,width:0,height:0,source:undefined});}mapSource=undefined;}
  function drawMap(f:RainFrame,S:GLState){
   if(!f.map?.vertices.length||mapError)return false;
@@ -387,7 +392,7 @@ export function createRainRenderer(gl: WebGL2RenderingContext) {
     }
   }
 
- const shared=['uInvVP','uCam','uTime','uRain','uCloud','uSeed','uFade','uFog','uFogColor','uDepth','uSkyDarkness'];
+ const shared=['uInvVP','uCam','uTime','uRain','uCloud','uSeed','uFade','uFog','uFogColor','uDepth','uSkyDarkness','uParticle','uSnowMotion','uDarkness'];
  function owned(vs:string,fs:string,names:string[]):Program {const p=program(vs,fs,names);programs.push(p);return p;}
  function prepareSnow(){
    if(!snow&&!snowError)try{snow=owned(SNOW_VERTEX,SNOW_FRAGMENT,[...shared,'uVP','uViewport','uWind','uCount','uIdOffset']);}catch(error){snowError=String(error);}
@@ -407,6 +412,7 @@ export function createRainRenderer(gl: WebGL2RenderingContext) {
    return detail==='high'?prepareReflections('low'):undefined;
  }
  function dispose(){
+   sunlight?.dispose();
    disposed=true;for(const p of programs.splice(0))gl.deleteProgram(p.p);
    gl.deleteVertexArray(vao);gl.deleteTexture(cloudTex);gl.deleteFramebuffer(cloudFbo);
    gl.deleteVertexArray(boltVao);gl.deleteBuffer(boltBuffer);
@@ -434,14 +440,31 @@ export function createRainRenderer(gl: WebGL2RenderingContext) {
    gl.useProgram(p.p);const u=p.u;
    gl.uniformMatrix4fv(u.uInvVP??null,false,invVP);gl.uniform3fv(u.uCam??null,f.camera);
    gl.uniform1f(u.uTime??null,f.time);gl.uniform1f(u.uRain??null,f.rain);gl.uniform1f(u.uCloud??null,f.clouds);
-   gl.uniform3fv(u.uCloudTone??null,f.cloudTone??[1,1,1]);gl.uniform3fv(u.uSunDirection??null,f.sunDirection??[0,0,1]);
+   gl.uniform3fv(u.uCloudTone??null,(f.cloudTone??[1,1,1]).map(v=>v*(f.graphics||DEFAULT_GRAPHICS_TUNING).cloudBrightness));gl.uniform3fv(u.uSunDirection??null,f.sunDirection??[0,0,1]);
    gl.uniform1f(u.uSkyDarkness??null,f.skyDarkness??0);
+   gl.uniform1f(u.uDarkness??null,(f.graphics||DEFAULT_GRAPHICS_TUNING).darkness-1);
    gl.uniform1f(u.uSeed??null,f.seed);gl.uniform1f(u.uFade??null,f.fade);
    gl.uniform3fv(u.uFog??null,f.fog);gl.uniform4fv(u.uFogColor??null,f.fogColor);gl.uniform1i(u.uDepth??null,DUNIT);
    gl.uniform1f(u.uSky??null,0);
  }
  let frames=0,depthCopies=0,cloudFrames=0;
+ function drawSun(f:SunFrame){
+   if(disposed||sunError||gl.isContextLost()||f.fade<=0||f.intensity<=0)return;
+   const state=saveState();sunSkip=null;
+   try{
+     if(state.drawBuffers){sunSkip='multiple-colour-targets';return;}
+     if(state.viewport[2]<1||state.viewport[3]<1||state.depthRange[0]!==0||state.depthRange[1]!==1||state.dfunc===gl.GREATER||state.dfunc===gl.GEQUAL){sunSkip='unsupported-depth-convention';return;}
+     if(!invert4(f.vp,invVP)){sunSkip='invalid-camera';return;}
+     if(!copySceneDepth(state)||!curRes.depthTex){sunSkip=depthCopy.reason||'scene-depth-unavailable';return;}
+     if(!copySceneColor(state)||!sceneTex){sunSkip=sceneCopy.reason||'scene-colour-unavailable';return;}
+     gl.activeTexture(gl.TEXTURE0+VUNIT);gl.bindSampler(VUNIT,null);gl.bindTexture(gl.TEXTURE_2D,sceneTex);
+     sunlight??=createSunPass(gl,owned,f.graphics);
+     sunlight.draw(f,invVP,curRes.depthTex,state.viewport,state.fb);
+   }catch(error){sunError=String(error);sunlight?.dispose();}
+   finally{restoreState(state);}
+ }
  function draw(f:RainFrame,stage:RainStage='all'){
+   const graphics=f.graphics||DEFAULT_GRAPHICS_TUNING;
    snowFlakes=0;snowCrystals=0;snowStreaks=0;
    if(disposed||gl.isContextLost()||f.fade<=0)return;
    warm(false,'low',f.precipitation);if(!ready||!invert4(f.vp,invVP))return;
@@ -451,7 +474,7 @@ export function createRainRenderer(gl: WebGL2RenderingContext) {
    try {
      if(!boundHasDepth(state))return;
      const width=state.viewport[2],height=state.viewport[3];if(width<1||height<1)return;
-     const refreshCloud=sky&&f.clouds>.001&&f.time-cloudAt>=1/WEATHER.cloudHz;
+     const refreshCloud=sky&&f.clouds>.001&&f.time-cloudAt>=1/graphics.cloudHz;
      const wet=sky&&f.precipitation!=='snow'&&Math.max(0,Math.min(1,f.puddles??0))*f.rain*f.fade>.002;
      const depthNeeded=weather&&f.rain>.03&&f.precipitation!=='snow'||wet;
      const depth=depthNeeded&&copySceneDepth(state);if(depth)depthCopies++;
@@ -464,7 +487,7 @@ export function createRainRenderer(gl: WebGL2RenderingContext) {
      gl.activeTexture(gl.TEXTURE0+DUNIT);gl.bindTexture(gl.TEXTURE_2D,curRes.depthTex);
      gl.activeTexture(gl.TEXTURE0+VUNIT);gl.bindTexture(gl.TEXTURE_2D,cloudTex);
      if(refreshCloud){
-       const w=WEATHER.cloudWidth,h=WEATHER.cloudHeight;
+       const w=graphics.cloudResolution,h=Math.round(w/4);
        if(cw!==w||ch!==h){
          cw=w;ch=h;uploadClean(()=>gl.texImage2D(gl.TEXTURE_2D,0,cloudFloat?gl.RGBA16F:gl.RGBA8,w,h,0,gl.RGBA,cloudFloat?gl.HALF_FLOAT:gl.UNSIGNED_BYTE,null));
          gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
@@ -476,7 +499,7 @@ export function createRainRenderer(gl: WebGL2RenderingContext) {
        // A low resolution cloud pass never samples its own attached colour texture.
        gl.bindTexture(gl.TEXTURE_2D,null);use(cloud,f);
        const palette=f.cloudPalette||WEATHER_PALETTES.storm;gl.uniform3fv(cloud.u.uCloudLow,palette.low);gl.uniform3fv(cloud.u.uCloudHigh,palette.high);gl.uniform3fv(cloud.u.uCloudHaze,palette.haze);
-       gl.uniform1f(cloud.u.uCloudBase,WEATHER.cloudBase);gl.uniform1f(cloud.u.uThickness,WEATHER.cloudThickness);
+       gl.uniform1f(cloud.u.uCloudBase,graphics.cloudHeight*100);gl.uniform1f(cloud.u.uThickness,graphics.cloudThickness*100);
        gl.drawArrays(gl.TRIANGLES,0,3);cloudAt=f.time;cloudFrames++;
        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,state.fb);gl.viewport(state.viewport[0],state.viewport[1],state.viewport[2],state.viewport[3]);
        gl.activeTexture(gl.TEXTURE0+VUNIT);gl.bindTexture(gl.TEXTURE_2D,cloudTex);
@@ -489,14 +512,14 @@ export function createRainRenderer(gl: WebGL2RenderingContext) {
        gl.uniform1f(composite.u.uSky,1);gl.uniform1i(composite.u.uCloudTexture,VUNIT);
        gl.uniform1f(composite.u.uBoltFlash,f.lightning?.flash??0);
        const strike=f.lightning;
-       const direction=strike?[strike.origin[0]+Math.cos(strike.strike.azimuth)*strike.strike.radius-f.camera[0],strike.origin[1]+Math.sin(strike.strike.azimuth)*strike.strike.radius-f.camera[1],WEATHER.cloudBase-f.camera[2]]:[0,0,1];
+       const direction=strike?[strike.origin[0]+Math.cos(strike.strike.azimuth)*strike.strike.radius-f.camera[0],strike.origin[1]+Math.sin(strike.strike.azimuth)*strike.strike.radius-f.camera[1],graphics.cloudHeight*100-f.camera[2]]:[0,0,1];
        const length=Math.hypot(...direction);gl.uniform3f(composite.u.uBoltDirection,direction[0]/length,direction[1]/length,direction[2]/length);
        gl.drawArrays(gl.TRIANGLES,0,3);
      }
      if(sky&&f.lightning&&f.lightning.power>.001){
        const {strike,origin,power}=f.lightning,key=`${strike.seed}:${origin[0]}:${origin[1]}`;
        gl.bindVertexArray(boltVao);gl.bindBuffer(gl.ARRAY_BUFFER,boltBuffer);
-       if(key!==boltKey){const data=buildBolt(strike,origin);gl.bufferData(gl.ARRAY_BUFFER,data,gl.STATIC_DRAW);boltCount=data.length/8;boltKey=key;}
+       if(key!==boltKey){const data=buildBolt(strike,origin,(graphics.cloudHeight+graphics.cloudThickness*.9)*100);gl.bufferData(gl.ARRAY_BUFFER,data,gl.STATIC_DRAW);boltCount=data.length/8;boltKey=key;}
        use(bolt,f);gl.uniformMatrix4fv(bolt.u.uVP,false,f.vp);gl.uniform2f(bolt.u.uViewport,width,height);gl.uniform1f(bolt.u.uPower,power);
        gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.blendFuncSeparate(gl.ONE,gl.ONE,gl.ZERO,gl.ONE);
        gl.drawArraysInstanced(gl.TRIANGLE_STRIP,0,4,boltCount);
@@ -547,25 +570,28 @@ export function createRainRenderer(gl: WebGL2RenderingContext) {
        const snowy=f.precipitation==='snow',particle=snowy?prepareSnow():rain;
        if(particle){
         gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);
-        const count=Math.round((snowy?SNOW.maxFlakes:WEATHER.maxDrops)*Math.min(1,f.rain));
+        const count=Math.round((snowy?graphics.snowFlakes:graphics.rainDrops)*Math.min(1,f.rain));
         const streak=snowy&&f.wind>=.95?prepareSnowStreaks():undefined;
-        const streakCount=streak?Math.round(count*SNOW.blizzardStreakShare):0,crystalCount=count-streakCount;
+        const streakCount=streak?Math.round(count*graphics.snowStreaks):0,crystalCount=count-streakCount;
         const drawParticles=(program:Program,n:number,vertices:number,offset:number)=>{
          if(!n)return;use(program,f);
+         gl.uniform1f(program.u.uTime,f.time*(snowy?graphics.snowSpeed:graphics.rainSpeed));
+         gl.uniform4f(program.u.uParticle,(snowy?graphics.snowSize:graphics.rainSize)-1,graphics.rainLength-1,(snowy?graphics.snowOpacity:graphics.rainOpacity)-1,0);
+         gl.uniform4f(program.u.uSnowMotion,graphics.snowWind-1,graphics.snowFlutter-1,graphics.snowBranches-3,0);
          gl.uniformMatrix4fv(program.u.uVP,false,f.vp);gl.uniform2f(program.u.uViewport,width,height);
          gl.uniform1f(program.u.uWind,f.wind);gl.uniform1f(program.u.uCount,n);gl.uniform1f(program.u.uIdOffset??null,offset);
          gl.drawArraysInstanced(snowy?gl.TRIANGLES:gl.TRIANGLE_STRIP,0,vertices,n);
         };
-        drawParticles(particle,crystalCount,snowy?12:4,0);
+        drawParticles(particle,crystalCount,snowy?graphics.snowFaces*6:4,0);
         // Fixed ID partitions keep trajectories stable while precipitation fades.
-        if(streak)drawParticles(streak,streakCount,6,SNOW.maxFlakes-Math.round(SNOW.maxFlakes*SNOW.blizzardStreakShare));
+        if(streak)drawParticles(streak,streakCount,6,graphics.snowFlakes-Math.round(graphics.snowFlakes*graphics.snowStreaks));
         if(snowy){snowFlakes=count;snowCrystals=crystalCount;snowStreaks=streakCount;}
        }
      }
      frames++;
    } finally {restoreState(state);}
  }
- return { warm,draw,dispose,clearReflections:()=>{releaseReflections();releaseMap();},status:()=>({ready,disposed,frames,snowFlakes,snowCrystals,snowStreaks,snowError,snowStreakError,depthCopies,cloudFrames,cloudSize:[cw,ch],cloudFloat,boltSegments:boltCount,depthFormat:info.depthFormat,
+ return { warm,draw,drawSun,dispose,clearReflections:()=>{releaseReflections();releaseMap();},status:()=>({ready,disposed,frames,sunlight:sunlight?.status()??null,sunError,sunSkip,snowFlakes,snowCrystals,snowStreaks,snowError,snowStreakError,depthCopies,cloudFrames,cloudSize:[cw,ch],cloudFloat,boltSegments:boltCount,depthFormat:info.depthFormat,
    puddleFrames,surfaceRevision:PUDDLE_SURFACE_REVISION,puddleDetail:lastPuddleDetail,puddleErrors:{...puddleErrors},reflectionCopies,reflectionSize:sceneTex?[sw,sh]:null,
    sceneCopy:{...sceneCopy},depthCopy:{...depthCopy},mapFrames,mapTriangles:mapSource?.triangles??0,mapError,splashParticles,splashError}) };
 }

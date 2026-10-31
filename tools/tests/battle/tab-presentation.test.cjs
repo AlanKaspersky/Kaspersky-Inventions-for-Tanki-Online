@@ -120,7 +120,7 @@ function fixture() {
     return {
         root, summary, cells, label, operations, styleReads,
         cell(...labels) { const cell = new Element('td'); root.appendChild(cell); for (const node of labels) cell.appendChild(node); cells.push(cell); return cell; },
-        sync() { operations.length = 0; module.exports.zeroResists.sync(); },
+        sync(cells) { operations.length = 0; module.exports.zeroResists.sync(cells); },
         writes: () => writes,
     };
 }
@@ -168,6 +168,22 @@ test('TAB refreshes reused native cells with unchanged counts, including Spectru
     f.sync();
     assert.equal(compact.children[0].textContent, '50');
     assert.ok(!compact.children[0].children[0].classList.contains('kasp-spectrum'));
+});
+
+test('a dirty resistance cell refreshes without reading or rewriting the other players', () => {
+    const f = fixture();
+    const first = f.cell(f.label('all', '40'));
+    const changed = f.label('all', '20');
+    const second = f.cell(changed);
+    f.sync();
+    const untouched = first.querySelector('.kasp-compact-cell');
+    changed.querySelector('h3').textContent = '50';
+    f.styleReads.clear();
+    f.sync([second]);
+    assert.equal(first.querySelector('.kasp-compact-cell'), untouched);
+    assert.equal(second.querySelector('.kasp-compact-cell').children[0].textContent, '50');
+    assert.equal(f.styleReads.has(first.children.find(node => node.classList.contains(gameDOM.classes.defenceLabel)).querySelector('div')), false);
+    assert.equal(f.styleReads.get(changed.querySelector('div')), 1);
 });
 
 test('zero summary is inserted as one batch and follows changing native resistance types', () => {

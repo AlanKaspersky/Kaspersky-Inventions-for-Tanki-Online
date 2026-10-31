@@ -2,7 +2,9 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const { transformSync } = require('esbuild');
+const { transformSync, buildSync } = require('esbuild');
+const graphicsPreferencesCode = () => buildSync({ entryPoints: [path.join(__dirname, '../../../src/core/graphicsPreferences.ts')], bundle: true, platform: 'node', format: 'cjs', write: false }).outputFiles[0].text;
+let compiledGraphicsPreferences;
 module.exports = function runFeatureContext(code, context, options) {
     const original = context.require;
     const cache = new Map();
@@ -14,6 +16,12 @@ module.exports = function runFeatureContext(code, context, options) {
         if (['clearTimeout', 'clearInterval', 'cancelAnimationFrame', 'addEventListener', 'removeEventListener'].includes(key)) return () => {};
     } });
     const resolve = name => {
+        if (/(?:^|\/)graphicsPreferences$/.test(name)) {
+            if (cache.has('graphicsPreferences')) return cache.get('graphicsPreferences');
+            const module = { exports: {} };
+            vm.runInNewContext(compiledGraphicsPreferences ??= graphicsPreferencesCode(), { module, exports: module.exports });
+            cache.set('graphicsPreferences', module.exports); return module.exports;
+        }
         if (!/(?:^|\/)(featureRuntime|nativeFeature|unassigned|imageUrl|pageMessages)$/.test(name)) return original(name);
         const file = name.split('/').pop();
         if (cache.has(file)) return cache.get(file);

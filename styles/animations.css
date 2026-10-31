@@ -171,7 +171,9 @@
 .bh-detailed-view .toolbar .button:hover::after,
 .ModalStyle-shaded .DialogContainerComponentStyle-footerContainer > div:hover::after,
 .kasp-modal-close:hover::after,
-.kasp-modal-button:hover:not(:disabled)::after {
+.kasp-modal-button:hover:not(:disabled)::after,
+:is(#kaspersky-settings-content,#kasp-battle-graphics) .kasp-graphics-editor button:hover::after,
+#kasp-battle-graphics .kasp-battle-gfx-close:hover::after {
     animation: kasp-metal-shine 0.6s ease-in-out;
 }
 

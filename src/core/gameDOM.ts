@@ -198,6 +198,7 @@ export const gameDOM = {
         teams: ".BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults",
         headerRows: ":is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults) table thead tr",
         resistanceCell: ".BattleTabStatisticComponentStyle-resistanceModuleCell",
+        scoreCells: '.BattleTabStatisticComponentStyle-gsCell, .BattleTabStatisticComponentStyle-scoreCell, .BattleTabStatisticComponentStyle-dlCell',
         options: ".BattleTabStatisticComponentStyle-commonContainerIconOptions",
     },
     results: {

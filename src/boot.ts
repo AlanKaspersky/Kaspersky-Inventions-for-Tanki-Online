@@ -201,16 +201,37 @@ export function startBoot() {
             node.nodeType === 1 && (node as Element).matches(statisticsPresentation));
     };
 
+    const mutationElement = (record: MutationRecord): Element | null =>
+        record.target.nodeType === 1 ? record.target as Element : record.target.parentElement;
+    const affectsStatistics = (record: MutationRecord): boolean => {
+        const target = mutationElement(record);
+        if (target?.closest(gameDOM.statistics.container)) {
+            // Scores do not change resistance clones, equipment snapshots or controls.
+            return !target.closest(gameDOM.statistics.scoreCells);
+        }
+        // Only a native TAB mount/removal outside the root needs a full TAB pass.
+        return [...Array.from(record.addedNodes ?? []), ...Array.from(record.removedNodes ?? [])].some(node =>
+            node.nodeType === 1 && ((node as Element).matches(gameDOM.statistics.container) ||
+                !!(node as Element).querySelector(gameDOM.statistics.container)));
+    };
+
     const masterObserver = new MutationObserver((records = []) => {
         if (records.length && records.every(isOwnStatisticsMutation)) return;
         modules.clientInfo();
         modules.friendContextMenu();
         syncLobbyPresentation();
-        if (document.querySelector(gameDOM.statistics.container)) {
-            modules.changeCounter.sync();
-            modules.zeroResists.sync();
-            modules.enemyWeapons.sync();
-            modules.equipmentTracker.sync();
+        const statisticsRecords = records.filter(record => !isOwnStatisticsMutation(record) && affectsStatistics(record));
+        if ((!records.length || statisticsRecords.length) && document.querySelector(gameDOM.statistics.container)) {
+            const cells = statisticsRecords.map(record => mutationElement(record)?.closest(gameDOM.statistics.resistanceCell));
+            // A resistance-only update must not read the computed styles of every player.
+            if (cells.length && cells.every((cell): cell is Element => !!cell)) {
+                modules.zeroResists.sync([...new Set(cells)]);
+            } else {
+                modules.changeCounter.sync();
+                modules.zeroResists.sync();
+                modules.enemyWeapons.sync();
+                modules.equipmentTracker.sync();
+            }
         }
         if (document.querySelector(gameDOM.garage.actionContainer)) {
             modules.autoUpgrade();

@@ -26,13 +26,14 @@ export function cloudTone(theme:MapTheme|undefined):[number,number,number]{
  * lobby BattleCreateParameters/theme event never fires. Missing theme is not
  * a reason to block rain. Titles here come from BattleStatistics, not a custom
  * battle name. Explicit native themes take precedence over title markers. */
-export function mapWeather(theme:MapTheme|undefined,name:unknown):'rain'|'snow'|null|undefined{
+export function mapWeather(theme:MapTheme|undefined,name:unknown,nativeSnow=false):'rain'|'snow'|null|undefined{
  if(theme==='SPACE')return null;
  if(theme==='WINTER_DAY'||theme==='WINTER_NIGHT')return 'snow';
  if(typeof name!=='string'||!name.trim())return undefined;
  if(!theme){
   const words=name.normalize('NFKC').toLowerCase().split(/[^a-zа-яё]+/u);
   if(words.some(word=>['space','космос','космический','космическая'].includes(word)))return null;
+  if(nativeSnow===true)return 'snow';
   if(words.some(word=>['winter','snow','snowy','зима','зимний','зимняя','зимнее','зимние','снег','снежный','снежная','снежное'].includes(word)))return 'snow';
  }
  return mapAllowsPuddles(name)?'rain':null;

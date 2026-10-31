@@ -2,7 +2,7 @@
 
 ## Complete Documentation
 
-**Extension version:** 3.0.5 (`manifest.json`)
+**Extension version:** 3.0.6 (`manifest.json`)
 
 **Documentation updated:** October 24, 2026
 
@@ -71,7 +71,7 @@ For implementation details, module logic, and workflows, see
 
 ## Start Here
 
-This repository documents extension **3.0.5**, reviewed against source on **October 24, 2026**. A feature described as implemented below has a corresponding runtime module; experimental console reports are not treated as shipped features.
+This repository documents extension **3.0.6**, reviewed against source on **October 24, 2026**. A feature described as implemented below has a corresponding runtime module; experimental console reports are not treated as shipped features.
 
 | Document | Audience and contents |
 | --- | --- |
@@ -243,6 +243,7 @@ Nickname privacy also updates its root CSS state immediately when switched on or
 | `k_box_pickup` | Modified box pickup animation in battle | Disabled | Visual changes category; flash and fading fragments for observed pickups by any player; live switch |
 | `k_rain_weather` | Random battle weather | Disabled | Rare finite rain/cloud episodes; live switch and independent rain/thunder volume sliders |
 | `k_rain_puddles` | Experimental puddles | Disabled | Live; screen-space reflections during active rain; requires battle weather |
+| `k_sun_rays` | Volumetric sun rays — prototype | Disabled | Live and independent of weather; world-space scattering with static collision shadows |
 
 The Russian label for `k_augments` is **«Характеристики устройств»**, with the description **«Включая недоступные предметы»**. The English interface currently uses **Augment specifications**. Both labels control the same setting and storage key.
 
@@ -257,11 +258,11 @@ The tab has four feature categories and an Information panel. History belongs to
 | Standard features / Функции обычной серьёзности | Friend tags; Augment specifications; Quick upgrades; Enhanced Play button; Smart paint search; Battle history |
 | Streamer mode / Режим стримера | Hide nickname and XP; Hide currency; Hide supplies |
 | Advanced features / Функции повышенной серьёзности | Overdrive box timer; Arcade reload indicator; Critical shot indicator |
-| Visual changes / Графические изменения | Modified box pickup animation in battle; Random battle weather (Experimental puddles inside its controls) |
+| Visual changes / Графические изменения | Modified box pickup animation in battle; Random battle weather (Experimental puddles inside its controls); Volumetric sun rays — prototype |
 
-There are **15 switches**: only arcade reload and critical indication default to enabled. These labels organize the interface; they do not describe official approval or promise a particular performance cost.
+There are **16 switches**: only arcade reload and critical indication default to enabled. These labels organize the interface; they do not describe official approval or promise a particular performance cost.
 
-Random weather enables immediately and reveals full-width rain and thunder volume sliders beneath its switch. Both apply live and retain their values. Rain chance (0–100%, default 24%), Rain duration (0–100%, default 30%) and Preferred preset (Random, Sunny, Overcast, Drizzle, Sunshower, Storm) are also saved. Generation changes apply to the next newly planned battle; existing battle plans are retained. Random chooses only rainy presets, while Sunny and Overcast are explicit dry choices. By default, eligible battles have a 24% chance of precipitation, with at most one episode and one preset per known battle ID. Storms use up to 25,000 instanced rain streaks, native ambient/sun darkening, clouds and low storm ambience; onset and clearing are gradual. The cloud sky is world-aligned, independent of camera height, and reprojected for the current view each frame. World-space branched lightning and delayed rolling thunder occur only during full-strength storms: first after 8–18 seconds, then every 20–35 seconds (at most seven strikes per episode); rain audio has a stable, slightly quieter background level. Puddles during rain are available as a default-off switch inside the expanded weather controls, using reflections of visible opaque objects. Puddles remain visible up to 300 metres, fading gradually between 195 and 300 metres. Puddles are limited to visible, horizontal collision faces from the map. Inclines, noncolliding scenery and moving tank/supply-box surfaces are excluded by a separate collision-depth mask. Puddles always request High detail: organic shores, rain rings, wind waves and refracted/absorbed ground colour. The quality slider is removed and old Low preferences are ignored; Low remains only as a shader-compatibility fallback. Shallow water preserves the ground colour with limited absorption and bounded reflections, reducing opaque black patches on dark maps. The supplied tuning export is now the default surface profile: rings 15 times smaller, wind wavelengths 16 times smaller, both animated eight times faster. Drop-zone markers temporarily stop writing depth while puddles are visible, preserving terrain/tank depth and the native marker colour; this avoids square dry holes and angle-dependent seams. Clouds use a dark default storm palette, with lighter colours for Drizzle, Overcast, Sunshower and Sunny. The adjustable open-edge inset defaults to 2 metres beside drops/lower levels; raised banks and same-height neighbours preserve water contact. Different levels have separate water surfaces. Rain and puddles are disabled on nonwinter Бойня (Massacre). Tree and bush animation is disabled in every validated foliage path, including the native breeze; the native skybox darkens with weather and native fog fades out during rain; direct distance-based grading of remastered materials has been removed, clouds use captured seasonal/day/evening/night themes, and known Space battles exclude weather. The former rain developer panel, its opening hotkey and tuning/export commands have been removed; the Snow developer panel is also archived. Existing saved surface values remain compatible. Rain rings require High detail. Off-screen objects cannot be reflected; bounded rain-impact spray off tank hulls is included, while fluid simulation is absent. Fluid wakes, rainbow and birds remain removed; rain hits on stationary or moving tank hulls can produce ballistic droplets independently of puddles; high-detail puddles include small wind waves and rain rings. Disable the old Tampermonkey weather script. See [weather behavior and limitations](DOCUMENTATION.md#weather-reference).
+Random weather enables immediately and reveals full-width rain and thunder volume sliders beneath its switch. Both apply live and retain their values. Rain chance (0–100%, default 24%), Rain duration (0–100%, default 30%) and Preferred preset (Random, Sunny, Overcast, Drizzle, Sunshower, Storm) are also saved. Generation changes apply to the next newly planned battle; existing battle plans are retained. Random chooses only rainy presets, while Sunny and Overcast are explicit dry choices. By default, eligible battles have a 24% chance of precipitation, with at most one episode and one preset per known battle ID. Storms use up to 25,000 instanced rain streaks, native ambient/sun darkening, clouds and low storm ambience; onset and clearing are gradual. The cloud sky is world-aligned, independent of camera height, and reprojected for the current view each frame. World-space branched lightning and delayed rolling thunder occur only during full-strength storms: first after 8–18 seconds, then every 20–35 seconds (at most seven strikes per episode); rain audio has a stable, slightly quieter background level. Puddles during rain are available as a default-off switch in their own graphics card, using reflections of visible opaque objects. Puddles remain visible up to 300 metres, fading gradually between 195 and 300 metres. Puddles are limited to visible, horizontal collision faces from the map. Inclines, noncolliding scenery and moving tank/supply-box surfaces are excluded by a separate collision-depth mask. Puddles always request High detail: organic shores, rain rings, wind waves and refracted/absorbed ground colour. The quality slider is removed and old Low preferences are ignored; Low remains only as a shader-compatibility fallback. Shallow water preserves the ground colour with limited absorption and bounded reflections, reducing opaque black patches on dark maps. The supplied tuning export is now the default surface profile: rings 15 times smaller, wind wavelengths 16 times smaller, both animated eight times faster. Drop-zone markers temporarily stop writing depth while puddles are visible, preserving terrain/tank depth and the native marker colour; this avoids square dry holes and angle-dependent seams. Clouds use a dark default storm palette, with lighter colours for Drizzle, Overcast, Sunshower and Sunny. The adjustable open-edge inset defaults to 2 metres beside drops/lower levels; raised banks and same-height neighbours preserve water contact. Different levels have separate water surfaces. Rain and puddles are disabled on nonwinter Бойня (Massacre). Tree and bush animation is disabled in every validated foliage path, including the native breeze; the native skybox darkens with weather and native fog fades out during rain; direct distance-based grading of remastered materials has been removed, clouds use captured seasonal/day/evening/night themes, and known Space battles exclude weather. The former rain developer panel, its opening hotkey and tuning/export commands have been removed; the Snow developer panel is also archived. Existing saved surface values remain compatible. Rain rings require High detail. Off-screen objects cannot be reflected; bounded rain-impact spray off tank hulls is included, while fluid simulation is absent. Fluid wakes, rainbow and birds remain removed; rain hits on stationary or moving tank hulls can produce ballistic droplets independently of puddles; high-detail puddles include small wind waves and rain rings. Disable the old Tampermonkey weather script. See [weather behavior and limitations](DOCUMENTATION.md#weather-reference).
 
 The standard panel occupies the left column; streamer and advanced panels share the right column. Visual changes and Information span the content width. Narrow content uses one column. Each column's artwork uses a shared image origin rather than restarting the same picture on every card. The left navigation likewise shows successive slices of one image across all nine buttons, including KASPERSKY.
 
@@ -611,7 +612,7 @@ The cache is cleared on detected departure from a battle canvas or a battle-ID r
 
 The module adds a shield heading, compact equipment/resistance cells, and zero-count summary entries for configured types absent from the native summary. These entries do not independently measure every player's resistance percentage.
 
-A shield toggle switches between compact presentation and always showing all modules. State is saved under `kasp_tab_expanded`. Zero entries are removed when the corresponding resistance appears in the native summary. There is no separate settings switch.
+Hovering a player row instantly reveals its full resistances inside a fixed column; other statistics do not move. A shield toggle pins this view for every row. State is saved under `kasp_tab_expanded`. Zero entries are removed when the corresponding resistance appears in the native summary. There is no separate settings switch.
 
 The adjacent turret button opens an **Enemy weapons** popup directly above its button on hover (or keyboard focus). It counts the opposite team's current weapon icons, using the same icons as the resistance summary and sorting by count. DM counts everyone except the local player. Counts refresh while the popup is open; leaving the button or closing TAB hides it. An unidentified local team produces an explicit message, and unreadable weapons are grouped as unknown. The feature reads the displayed TAB only and adds no native hooks or game requests.
 
@@ -1035,7 +1036,7 @@ After rebuilding, reload the unpacked extension and then reload the game page. A
 
 ### Version metadata
 
-The current manifest, package, and lockfile package versions are **3.0.5**. The browser, welcome window, and release-folder naming use the manifest version. Keep these metadata values aligned when preparing another version.
+The current manifest, package, and lockfile package versions are **3.0.6**. The browser, welcome window, and release-folder naming use the manifest version. Keep these metadata values aligned when preparing another version.
 
 ### Release output
 
@@ -1045,14 +1046,14 @@ For the current manifest version, output is:
 
 ```text
 release/
-├── Kaspersky's Inventions 3.0.5/
+├── Kaspersky's Inventions 3.0.6/
 │   ├── manifest.json
 │   ├── LICENSE.txt
 │   ├── README.md
 │   ├── DOCUMENTATION.md
 │   └── ... runtime directories
-├── Kaspersky's Inventions 3.0.5.zip
-└── Kaspersky's Inventions 3.0.5-firefox.zip
+├── Kaspersky's Inventions 3.0.6.zip
+└── Kaspersky's Inventions 3.0.6-firefox.zip
 ```
 
 The ordinary archive contains the versioned outer folder. The `-firefox.zip` archive instead contains `manifest.json` at its root; it is a packaging layout for submission/testing, not a Mozilla signature or an automatically signed XPI. Extract it and select the folder containing `manifest.json` when loading the extension. Source files, tests, `node_modules`, the local game bundle, and raw generated-plan JSON are not separately included. Only the three root Markdown guides are included; Electron integration instructions are sections of these guides, while the bridge source under `tools/` remains source-only.
@@ -1134,7 +1135,7 @@ Repeat the affected checks in Chromium and Firefox. Manifest support does not su
 - Ordinary critical-cycle indication supports the three specified weapon/augment pairs. Post-Supercharge phase assumptions require verification if the game changes its mechanics.
 - Device tooltips use mouse hover. Equivalent keyboard, gamepad, and mobile tooltip interaction is not implemented.
 - AST compatibility templates reduce dependence on symbol names but still depend on native structure. A runtime exception is not automatically rolled back by the injector's preparation guards.
-- An intermittent missing local tank after entering a loaded map has been reported. Its cause and relationship to the extension remain unconfirmed; it is not listed as fixed in 3.0.5.
+- An intermittent missing local tank after entering a loaded map has been reported. Its cause and relationship to the extension remain unconfirmed; it is not listed as fixed in 3.0.6.
 - Auto Upgrade depends on recognized native dialogs and stops on an unknown confirmation. Its local confirmation count is not an independently verified purchase ledger.
 - Third-party UI modifications can alter the same elements and introduce selector, style, or event conflicts.
 
@@ -1204,7 +1205,7 @@ Kaspersky's Inventions is an independent extension for the Tanki Online interfac
 
 ## Documentation Revision
 
-Reviewed against the **3.0.5** source and manifest on **October 24, 2026**. Build/fixture checks are distinct from live-game verification. Public full descriptions are maintained in the English/Russian publication sections of README.md; browser manifest descriptions remain short because they are separate metadata fields.
+Reviewed against the **3.0.6** source and manifest on **October 24, 2026**. Build/fixture checks are distinct from live-game verification. Public full descriptions are maintained in the English/Russian publication sections of README.md; browser manifest descriptions remain short because they are separate metadata fields.
 
 ## Consolidated Reader References
 
@@ -1218,7 +1219,7 @@ Reviewed against the **3.0.5** source and manifest on **October 24, 2026**. Buil
 
 ## Руководство пользователя (RU)
 
-Версия расширения **3.0.5**. Сверено с исходниками **24 октября 2026 года**.
+Версия расширения **3.0.6**. Сверено с исходниками **24 октября 2026 года**.
 
 Это руководство описывает локальную сборку проекта. Подробные технические контракты находятся в [DOCUMENTATION.md](DOCUMENTATION.md), ответы на 74 вопроса — в [FAQ](#faq). Условия использования изложены в английской [лицензии](LICENSE.txt).
 
@@ -1514,7 +1515,7 @@ Rich Presence работает только в совместимом Electron-�
 
 ## FAQ
 
-Source-reviewed edition for **3.0.5**, **October 24, 2026**. This local FAQ describes implemented behavior. The published Drive FAQ is a separately maintained publication; editing this file does not update it automatically.
+Source-reviewed edition for **3.0.6**, **October 24, 2026**. This local FAQ describes implemented behavior. The published Drive FAQ is a separately maintained publication; editing this file does not update it automatically.
 
 For installation and a complete feature reference, see [README](README.md). For Russian instructions, see [Руководство пользователя](#russian-user-guide). The governing English terms are in [LICENSE.txt](LICENSE.txt).
 
@@ -2018,7 +2019,7 @@ The full English and Russian publication descriptions reproduce the complete cur
 
 ## Full English Publication Description
 
-Full English publication description for extension **3.0.5**. Updated **October 24, 2026**.
+Full English publication description for extension **3.0.6**. Updated **October 24, 2026**.
 
 Kaspersky's Inventions brings equipment information, a redesigned lobby, local battle history and streamer controls into Tanki Online. It builds on the game's familiar interface: original navigation, game icons, account data and native actions remain the basis of the experience.
 
@@ -2155,7 +2156,7 @@ The following names and roles reproduce the current welcome window. AI names are
 
 ## Полное описание для публикации (RU)
 
-Полное русское описание для публикации. Версия расширения **3.0.5**, обновлено **24 октября 2026 года**.
+Полное русское описание для публикации. Версия расширения **3.0.6**, обновлено **24 октября 2026 года**.
 
 Kaspersky's Inventions дополняет «Танки Онлайн» информацией о вооружении, новым оформлением лобби, локальной историей битв и настройками для стримов. Расширение использует привычные разделы, оригинальные иконки и действия игры.
 
@@ -2317,3 +2318,35 @@ The roles and spelling below reproduce `templates/welcome-modal.html`, interpret
 | Testing | safwan, Tenobyte, KOCMOHABTUK, ItzBoddish, Master |
 | Coding | safwan, Tenobyte, Shiya |
 | Assistants | Niced, Master |
+
+### Volumetric sun rays — prototype
+
+Enable the separate **Visual changes → Lighting shader** switch (**Графические изменения → Шейдер освещения**). It is disabled by default and applies live after this extension build has been loaded. The effect calculates light scattering through air, with smooth world-space density, native sunlight direction/colour and static collision shadows, including roofs outside the camera view. It works without rain; strong precipitation suppresses it, and known night/Space maps exclude it. The bounded low-resolution integration is reconstructed with camera depth to reduce halos around foreground geometry.
+
+This experimental feature adds GPU work. It does not provide DLSS/RTX, replace native material lighting or calculate dynamic tank/foliage shadows. Inspect `window.__kaspSunRays.status()` if the effect is unavailable. For a brighter/dimmer test, `window.__kaspSunRays.setIntensity(1.4)` accepts any finite nonnegative value without an upper limit; default is 1. Local automated WebGL checks validate rendering and cleanup, while final appearance and FPS need evaluation on real maps/hardware.
+
+
+Solar prototype v2: a full-resolution, depth-normal directional enhancement now follows map surfaces and collision shadows independently of camera distance. A guarded native colour copy preserves surface colour. The intensity override remains uncapped, while surface gain approaches a bounded maximum and atmospheric/sky radiance have separate highlight compression (including intensity 40). Artificial procedural apertures were removed. This remains an approximate enhancement of the already rendered scene, not material-aware global illumination; GPU work now includes a scene-colour copy and full-resolution surface processing.
+
+
+### Personal graphics profiles
+
+Visual changes now contains four compact cards: Weather, Puddles, Lighting shader, and Box pickup. Expand Configure, then the relevant parameter group. Sliders have matching numeric inputs; settings save automatically and work in Russian and English. Weather controls cover scheduling, transitions, wind, darkening, native fog suppression, raindrop/snowflake counts, appearance and motion, snow geometry, cloud quality, lightning and audio. Puddles expose ripples, waves, reflections, edge inset and splashes. Sunlight separates surface gain, air/sky brightness, distance and sampling/shadow quality; its numeric strength remains uncapped. Box pickup exposes fragment counts, size, motion, gravity, bounce, flashes and fading.
+
+Use Export JSON to share a graphics-only profile, Import JSON to load one, Restore defaults to reset one function's parameters, or Reset all to restore all graphics defaults and switch the four effects off. Per-function reset preserves its enabled state. Invalid/unsupported files are rejected before changing settings. Profiles contain no account, nickname, currency, history or friend data. Imported weather obeys the same map rules: no weather in space, snow only on winter maps, rain on other maps except Massacre, and no puddles during snowfall. Chance, duration, preset and transition times apply to the next battle; other parameters apply live. Existing animations can finish with their previous appearance.
+
+Matchmaking winter variants are also recognized from the native map snow material, even when the map title has no winter marker and the lobby supplies no theme. Reload the game after updating to install the added draw observer.
+
+### Warm evening sunlight look
+
+Open Visual changes → Lighting shader → Configure and choose **Warm evening** (**Тёплый вечер**), then enable Sunlight. Original restores the neutral sunlight parameters. The look buttons preserve other graphics features and the sunlight enable switch. The look adds warm air/surface light, distance haze, sky tint and restrained exposure/contrast. Temperature, haze density/colour/start/distance, sky tint, exposure, contrast and saturation can be adjusted separately and are included in graphics JSON import/export. Sun direction, sky geometry and baked shadows remain native; this does not turn a midday map into a physically relit sunset. Strong weather still suppresses the sunlight effect.
+
+### Graphics while in battle and visible sun
+
+In battle, press **Ctrl+Alt+G** to open the same graphics editor in a side panel. Escape or the close button dismisses it; the battle is not paused. Presets, live controls and JSON import/export use the same saved preferences as the main settings page. The panel closes when leaving the battlefield.
+
+Sunlight now includes a visible solar disk and a soft halo in the direction of the native sunlight. It is hidden behind foreground geometry and follows the existing weather/entry fade. Look toward the game light direction to see it. Sun disk diameter, brightness and halo are adjustable in the Sunlight controls and exported with graphics JSON; zero disk brightness hides the disk and halo without disabling the other sunlight effects.
+
+### Ready-made cinematic lighting
+
+The Lighting shader card (**Шейдер освещения**) now offers **Cinematic / Кинематографичный**, **Original / Исходное**, and **Warm evening / Тёплый вечер**. New profiles start with a prepared cinematic combination of warm directional light, cool shadow fill, soft added-light shadows, atmospheric depth, restrained bloom and a luminance tone curve. The switch stays off by default. Existing saved numeric preferences are retained: choose Cinematic once to apply the whole new look. This is a Tanki-specific implementation inspired by shader-pack techniques, not an imported Minecraft pack or RTX/DLSS. The side panel opens only with Ctrl+Alt+G; no Graphics button remains on the battlefield.

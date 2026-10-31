@@ -90,7 +90,7 @@ void main(){
 export const RAIN_VERTEX = `#version 300 es
 precision highp float;precision highp int;
 uniform mat4 uVP;uniform vec3 uCam;uniform vec2 uViewport;
-uniform float uTime,uRain,uSeed,uWind,uCount;
+uniform float uTime,uRain,uSeed,uWind,uCount;uniform vec4 uParticle;
 out vec2 q;out float opacity;out float distance_;
 uint pcg(uint v){uint s=v*747796405u+2891336453u;uint w=((s>>((s>>28u)+4u))^s)*277803737u;return(w>>22u)^w;}
 float h(uint id,uint salt){return float(pcg(id+pcg(salt+uint(uSeed))))*(1./4294967296.);}
@@ -105,18 +105,18 @@ void main(){
  vec3 axis=normalize(velocity);vec3 side=cross(axis,view);if(length(side)<.001)side=vec3(1.,0.,0.);side=normalize(side);
  vec4 clip=uVP*vec4(head,1.),delta=uVP*vec4(side,0.);
  float pixels=length((delta.xy*clip.w-clip.xy*delta.w)/max(clip.w*clip.w,.001)*uViewport*.5);
- float width=max(.9+size*.7,.6/max(pixels,.0001));
+ float width=max(.9+size*.7,.6/max(pixels,.0001))*(1.+uParticle.x);
  float sign_=float(gl_VertexID&1)*2.-1.,along=float(gl_VertexID>>1);
- vec3 p=head-axis*speed*mix(.012,.026,uRain)*along+side*sign_*width;
+ vec3 p=head-axis*speed*mix(.012,.026,uRain)*along*(1.+uParticle.y)+side*sign_*width;
  gl_Position=uVP*vec4(p,1.);q=vec2(sign_,along);
  float rim=1.-smoothstep(.62,1.,length((xy-uCam.xy)/5000.));
  opacity=(.24+.30*size)*rim*smoothstep(.0,.08,phase)*(1.-smoothstep(.92,1.,phase))
    *smoothstep(150.,550.,distance_)*smoothstep(0.,64.,uCount-float(gl_InstanceID));
 }`;
 export const ATMOSPHERE_FRAGMENT = `#version 300 es
-precision highp float;uniform float uStorm,uRain,uFade,uBoltFlash;out vec4 o;
+precision highp float;uniform float uStorm,uRain,uFade,uBoltFlash,uDarkness;out vec4 o;
 void main(){
- float dark=clamp(uStorm*.57+uRain*.075,0.,.62);
+ float dark=clamp(clamp(uStorm*.57+uRain*.075,0.,.62)*(1.+uDarkness),0.,.85);
  // A continuous uniform colour grade, independent of depth-cache cadence and
  // transparent billboards. It must be applied to every presentation frame.
  dark*=1.-uBoltFlash*.85;
@@ -145,9 +145,10 @@ void main(){float halo=exp(-q.x*q.x*4.)*.32,core=exp(-q.x*q.x*90.)*2.4;
 }`;
 export const RAIN_FRAGMENT = `#version 300 es
 precision highp float;in vec2 q;in float opacity;in float distance_;uniform float uFade;
+uniform vec4 uParticle;
 uniform vec3 uFog;uniform vec4 uFogColor;out vec4 o;
 void main(){float aa=max(fwidth(q.x),.04);float edge=1.-smoothstep(1.-aa,1.,abs(q.x));
-float core=exp(-q.x*q.x*5.);float a=opacity*edge*pow(1.-q.y,1.5)*(.25+.75*core)*uFade;
+float core=exp(-q.x*q.x*5.);float a=opacity*edge*pow(1.-q.y,1.5)*(.25+.75*core)*uFade*(1.+uParticle.z);
 vec3 color=mix(vec3(.57,.70,.79),vec3(.94,.97,1.),core);
 float fog=uFog.x*smoothstep(uFog.y,uFog.z,distance_)*uFogColor.a;
 o=vec4(mix(color,uFogColor.rgb,fog)*a,a);}`;

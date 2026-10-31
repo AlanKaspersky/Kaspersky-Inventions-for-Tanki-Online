@@ -1,4 +1,3 @@
-import { state } from './state';
 import { getSettingRaw, setSettingRaw } from './settings';
 
 export const utils = {

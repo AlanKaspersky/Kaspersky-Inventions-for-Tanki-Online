@@ -11,6 +11,12 @@
     pointer-events: none;
 }
 
+/* The extension's overlay joins TAB below its actual dimming plane (-1).
+   The yellow/red/green timer colours themselves remain unchanged. */
+.BattleTabStatisticComponentStyle-container > .kasp-overdrive-timers {
+    z-index: -2;
+}
+
 .kasp-overdrive-timer {
     position: relative;
     grid-row: 1;

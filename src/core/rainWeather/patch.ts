@@ -6,7 +6,7 @@ export interface RainSchema {
     fogColor:string; red:string;green:string;blue:string;alpha:string;
 }
 export interface RainPlan extends PreparedPatchPlan { format:'ki-rain-v2';status:{ready:boolean;issues:string[]};schema:RainSchema;
-    scene?:{capabilities:{map?:boolean;lighting?:boolean;tanks?:boolean;environment?:boolean;treeWind?:boolean;skyTone?:boolean;fogSuppression?:boolean;dropZones?:boolean};issues:string[]}; }
+    scene?:{capabilities:{map?:boolean;lighting?:boolean;tanks?:boolean;environment?:boolean;terrainSeason?:boolean;treeWind?:boolean;skyTone?:boolean;fogSuppression?:boolean;dropZones?:boolean};issues:string[]}; }
 export async function selectRainPlan(code:string,plans:readonly RainPlan[]):Promise<RainPlan|undefined>{
     const supported=plans.filter(p=>p.format==='ki-rain-v2'&&p.status.ready);
     if(supported.some(p=>p.sourceLength===code.length)){

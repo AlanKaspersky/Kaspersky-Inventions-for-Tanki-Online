@@ -1079,6 +1079,7 @@ function statisticsMutationFixture() {
     const noop = Object.assign(() => {}, { onTick() {}, sync() {}, setup() {} });
     function element(selector = '', parentElement = null) {
         return { nodeType: 1, parentElement,
+            querySelector: () => null,
             matches: selectors => selectors.split(',').some(value => value.trim() === selector),
             closest(selectors) {
                 for (let node = this; node; node = node.parentElement) if (node.matches(selectors)) return node;
@@ -1154,7 +1155,6 @@ test('boot retains mixed batches, native changes in summary wrappers and removal
         [f.mutation(f.row, [compact], [f.element('td')])],
         [f.mutation(summary, [f.element('div', summary)])],
         [f.mutation(f.tab, [summary])],
-        [f.mutation(outside, [f.element('.kasp-zero-summary', outside)])],
         [{ type: 'characterData', target: { nodeType: 3, parentElement: f.row } }],
         [{ type: 'attributes', target: f.row }],
     ];
@@ -1163,6 +1163,23 @@ test('boot retains mixed batches, native changes in summary wrappers and removal
         assert.equal(f.calls.length, (index + 1) * 3, `native evidence must not be skipped: case ${index}`);
     });
     assert.equal(f.frames.length, 1, 'general work remains coalesced');
+    const before = f.calls.length;
+    f.deliver([f.mutation(outside, [f.element('.kasp-zero-summary', outside)])]);
+    assert.equal(f.calls.length, before, 'unrelated page changes do not rescan the open TAB');
+});
+
+test('open TAB ignores timer/score updates and synchronizes only a changed resistance cell', () => {
+    const f = statisticsMutationFixture();
+    const timer = f.element('div');
+    for (let i = 0; i < 500; i++) f.deliver([f.mutation(timer, [{ nodeType: 3 }], [{ nodeType: 3 }])]);
+    const score = f.element('.BattleTabStatisticComponentStyle-scoreCell', f.row);
+    f.deliver([f.mutation(score, [{ nodeType: 3 }], [{ nodeType: 3 }])]);
+    assert.deepEqual(f.calls, [], 'neither unrelated timers nor scores need TAB equipment/style reads');
+    const resistance = f.element('.BattleTabStatisticComponentStyle-resistanceModuleCell', f.row);
+    f.deliver([f.mutation(resistance, [f.element('div', resistance)])]);
+    assert.deepEqual(f.calls, ['zeroResists']);
+    f.deliver([f.mutation(f.row, [f.element('td', f.row)])]);
+    assert.deepEqual(f.calls, ['zeroResists', 'changeCounter', 'zeroResists', 'equipmentTracker']);
 });
 
 test('boot refreshes quick upgrade buttons immediately as native garage controls mount or change', () => {

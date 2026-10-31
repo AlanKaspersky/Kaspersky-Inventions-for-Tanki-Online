@@ -22,12 +22,19 @@ const { readStarProgress, readCircleProgress } = moduleValue.exports;
 const circle = (...angles) => ({ children: [{}, { children: angles.map(angle => typeof angle === 'string'
     ? { style: { transform: angle } } : angle) }] });
 
-test('challenge progress uses native star totals, including zero, whitespace and completion', () => {
-    assert.equal(readStarProgress('16/20'), 80);
+test('challenge bar fills only the five stars of the current level, preserving native cumulative targets', () => {
+    for (let stars = 65; stars <= 70; stars++) {
+        assert.equal(readStarProgress(`${stars}/70`), (stars - 65) * 20);
+    }
+    assert.equal(readStarProgress('70/75'), 0, 'next level resets the meter');
+    assert.equal(readStarProgress('71/75'), 20);
+    assert.equal(readStarProgress('16/20'), 20);
     assert.equal(readStarProgress('0 / 20'), 0);
-    assert.equal(readStarProgress('1\u00a0000 / 2\u00a0000'), 50);
+    assert.equal(readStarProgress('3 / 5'), 60);
+    assert.equal(readStarProgress('5 / 5'), 100);
+    assert.equal(readStarProgress('1\u00a0003 / 1\u00a0005'), 60);
     assert.equal(readStarProgress('25 / 20'), 100);
-    for (const input of ['20', '', '16/0', 'not ready', '-1/20']) assert.equal(readStarProgress(input), null);
+    for (const input of ['20', '', '16/0', 'not ready', '-1/20', '1.5/5', '1/9007199254740992']) assert.equal(readStarProgress(input), null);
 });
 
 test('elite ring reads both native half-ring ranges and distinguishes zero from a full turn', () => {

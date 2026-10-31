@@ -6,7 +6,7 @@ process.chdir(playwright.root);
 const schema=require("../../src/generated/rain-weather.json").plans.at(-1).schema;
 const shaderSources=require('../validation/weather-tree-shaders.cjs'),nativeSource=fs.readFileSync(fs.existsSync('artifacts/native/main.289a5d50.js')?'artifacts/native/main.289a5d50.js':'main.js','utf8');
 const nativeTrees=shaderSources.nativeTreeShaders(nativeSource),nativeSkies=shaderSources.nativeSkyboxShaders(nativeSource),nativeMaps=shaderSources.nativeMapShaders(nativeSource),nativeFogCode=shaderSources.nativeFogFragment(nativeSource);
-const bundle=buildSync({stdin:{contents:`import {SNOW,SNOW_PALETTES,SNOW_VERTEX} from './src/core/snowWeather';import {createRainRenderer} from './src/core/rainWeather/renderer';import {installRainWeather} from './src/core/rainWeather';import {createWeatherAudio} from './src/core/rainWeather/audio';import {coreSettings} from './src/core/coreSettings';import {state} from './src/core/state';import {COMMON,FULL_VERTEX,CLOUD_FRAGMENT} from './src/core/rainWeather/shaders';import {HIGH_PUDDLE_SURFACE} from './src/core/rainWeather/puddleSurface';import {DEFAULT_SURFACE_TUNING} from './src/core/rainWeather/tuning';import {treeWindShader} from './src/core/rainWeather/treeWind';import {skyboxShader,skyboxDarkness} from './src/core/rainWeather/skybox';import {weatherPalette,suppressNativeFog,suppressOverlayDepth} from './src/core/rainWeather/appearance';window.__rainQA={SNOW,SNOW_PALETTES,SNOW_VERTEX,weatherPalette,suppressNativeFog,suppressOverlayDepth,skyboxShader,skyboxDarkness,treeWindShader,createRainRenderer,installRainWeather,createWeatherAudio,coreSettings,state,COMMON,FULL_VERTEX,CLOUD_FRAGMENT,HIGH_PUDDLE_SURFACE,DEFAULT_SURFACE_TUNING};`,resolveDir:path.resolve('.')},bundle:true,format:'iife',write:false}).outputFiles[0].text;
+const bundle=buildSync({stdin:{contents:`import {DEFAULT_GRAPHICS_TUNING} from './src/core/graphicsPreferences';import {SNOW,SNOW_PALETTES,SNOW_VERTEX} from './src/core/snowWeather';import {createRainRenderer} from './src/core/rainWeather/renderer';import {installRainWeather} from './src/core/rainWeather';import {createWeatherAudio} from './src/core/rainWeather/audio';import {coreSettings} from './src/core/coreSettings';import {state} from './src/core/state';import {COMMON,FULL_VERTEX,CLOUD_FRAGMENT} from './src/core/rainWeather/shaders';import {HIGH_PUDDLE_SURFACE} from './src/core/rainWeather/puddleSurface';import {DEFAULT_SURFACE_TUNING} from './src/core/rainWeather/tuning';import {treeWindShader} from './src/core/rainWeather/treeWind';import {skyboxShader,skyboxDarkness} from './src/core/rainWeather/skybox';import {weatherPalette,suppressNativeFog,suppressOverlayDepth} from './src/core/rainWeather/appearance';window.__rainQA={DEFAULT_GRAPHICS_TUNING,SNOW,SNOW_PALETTES,SNOW_VERTEX,weatherPalette,suppressNativeFog,suppressOverlayDepth,skyboxShader,skyboxDarkness,treeWindShader,createRainRenderer,installRainWeather,createWeatherAudio,coreSettings,state,COMMON,FULL_VERTEX,CLOUD_FRAGMENT,HIGH_PUDDLE_SURFACE,DEFAULT_SURFACE_TUNING};`,resolveDir:path.resolve('.')},bundle:true,format:'iife',write:false}).outputFiles[0].text;
 const output=path.resolve('artifacts/qa/rain-weather');fs.mkdirSync(output,{recursive:true});
 const server=http.createServer((req,res)=>{if(req.url==='/qa.js'){res.setHeader('Content-Type','application/javascript');res.end(bundle);}else{res.setHeader('Content-Type','text/html');res.end('<!doctype html><body style="margin:0;background:#10151d"><div class="BattleComponentStyle-canvasContainer"><canvas width="800" height="500"></canvas></div><div class="BattleTimerComponentStyle-battleTimer">10:00</div><script src="/qa.js"></script>');}});
 (async()=>{
@@ -21,51 +21,24 @@ const server=http.createServer((req,res)=>{if(req.url==='/qa.js'){res.setHeader(
   settingsReport.push(await page.evaluate(async lang=>{
    const {coreSettings,state}=window.__rainQA;state.lang=lang;
    window.chrome.runtime={getURL:()=> 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>'};
-   const root=document.createElement('div');root.className='SettingsComponentStyle-containerBlock';root.innerHTML='<ul></ul>';document.body.append(root);
-   // Use the exact settings root binding, with a native scroll area kept beside it.
-   root.className='SettingsComponentStyle-blockContentOptions';
-   coreSettings.inject();
-   const tab=document.querySelector('#kaspersky-tab');if(!tab)throw Error('Settings fixture root not found');tab.click();
+   const root=document.createElement('div');root.className='SettingsComponentStyle-blockContentOptions';root.innerHTML='<ul></ul>';document.body.append(root);
+   coreSettings.inject();document.querySelector('#kaspersky-tab').click();
    const content=document.querySelector('#kaspersky-settings-content');content.style.cssText='position:relative;width:760px;height:auto;margin:0;';
-   const toggle=content.querySelector('[data-id="k_rain_weather"] input'),options=content.querySelector('#kasp-weather-options');
-   const puddles=content.querySelector('[data-id="k_rain_puddles"] input');
-   const duration=options.querySelector('[data-weather-duration]');if(options.querySelector('[data-puddle-detail]'))throw Error('Removed quality slider remains');
-   const settle=async()=>{options.getBoundingClientRect();await Promise.all(options.getAnimations().map(animation=>animation.finished));};
-   if(toggle.checked||options.getBoundingClientRect().height>.1||!options.inert)throw Error('Disabled weather controls visible');
-   if(!puddles||!options.contains(puddles)||!puddles.disabled)throw Error('Puddles must be inside disabled weather controls');
-   if(!duration||duration.type!=='range'||duration.min!=='0'||duration.max!=='100'||!duration.disabled||duration.value!==(lang==='RU'?'30':'100'))throw Error('Duration default/persistence missing');
-   toggle.click();if(!toggle.checked||document.querySelector('[role="alertdialog"]'))throw Error('Weather still asks for confirmation');
-   if(puddles.disabled||puddles.checked!==(lang==='EN'))throw Error('Puddles preference missing or not persisted');
-   if(lang==='RU')puddles.click();
-   for(const value of ['0','50','100']){duration.value=value;duration.dispatchEvent(new Event('input',{bubbles:true}));if(localStorage.getItem('k_rain_duration')!==String(Number(value)/100)||duration.closest('label').querySelector('output').textContent!==value+'%')throw Error('Duration value/label not saved');}
-   if(Math.abs(duration.getBoundingClientRect().width-duration.closest('label').getBoundingClientRect().width)>.5)throw Error('Duration slider is not full width');
-   if(localStorage.getItem('k_rain_puddles')!=='true')throw Error('Puddles preference was not saved');
-   await settle();
-   if(options.getBoundingClientRect().height<60||options.inert)throw Error('Controls did not expand: '+JSON.stringify({height:options.getBoundingClientRect().height,classes:options.className,rows:getComputedStyle(options).gridTemplateRows,checked:toggle.checked,inner:options.firstElementChild.scrollHeight,display:getComputedStyle(options).display}));
-   const sliders=[...options.querySelectorAll('[data-weather-volume]')];
-   const chance=options.querySelector('[data-weather-chance]'),preset=options.querySelector('[data-weather-preset]');
-   if(chance.disabled||preset.disabled||preset.options.length!==6)throw Error('Weather generation controls missing');
-   if(chance.value!==(lang==='RU'?'24':'100')||preset.value!==(lang==='RU'?'random':'storm'))throw Error('Generation preferences did not persist');
-   chance.value='0';chance.dispatchEvent(new Event('input',{bubbles:true}));
-   if(localStorage.getItem('k_rain_chance')!=='0'||chance.closest('label').querySelector('output').textContent!=='0%')throw Error('Zero rain chance was not saved');
-   chance.value='100';chance.dispatchEvent(new Event('input',{bubbles:true}));preset.value='storm';preset.dispatchEvent(new Event('change',{bubbles:true}));
-   if(localStorage.getItem('k_rain_chance')!=='1'||localStorage.getItem('k_rain_preset')!=='storm')throw Error('Storm preferences were not saved');
-   const inner=options.firstElementChild;if(inner.scrollHeight>options.getBoundingClientRect().height+1)throw Error('Expanded weather options are clipped');
-   const presetRect=preset.getBoundingClientRect();if(Math.abs(presetRect.width-preset.closest('label').getBoundingClientRect().width)>.5)throw Error('Preset is not full width');
-   if(lang==='EN'&&(sliders[0].value!=='25'||sliders[1].value!=='0'))throw Error('Reopening settings lost volume preferences');
-   const widths=sliders.map(input=>{const row=input.closest('label');return{slider:input.getBoundingClientRect().width,row:row.getBoundingClientRect().width};});
-   if(widths.some(item=>item.slider<300||Math.abs(item.slider-item.row)>.5))throw Error('Sliders are not full width: '+JSON.stringify(widths));
-   sliders[0].value='25';sliders[0].dispatchEvent(new Event('input',{bubbles:true}));sliders[1].value='0';sliders[1].dispatchEvent(new Event('input',{bubbles:true}));
-   if(localStorage.getItem('k_thunder_volume')!=='.25'&&localStorage.getItem('k_thunder_volume')!=='0.25')throw Error('Thunder volume not saved');
-   if(localStorage.getItem('k_rain_volume')!=='0')throw Error('Rain mute not saved');
-   const labels=sliders.map(input=>input.getAttribute('aria-label'));if(!labels.every(label=>lang==='RU'?label.includes('Громкость'):label.includes('volume')))throw Error('Volume localization missing');
-   if(options.querySelector('[data-weather-precipitation]')||content.querySelector('[data-id="k_snow_drifts"]'))throw Error('Archived controls remain');
-   if(!options.textContent.includes(lang==='RU'?'зимних':'winter maps'))throw Error('Automatic map policy hint missing');
-   toggle.click();await settle();
-   if(options.getBoundingClientRect().height>.1||[...sliders,chance,preset,puddles,duration].some(input=>!input.disabled))throw Error('Controls did not collapse: '+JSON.stringify({height:options.getBoundingClientRect().height,classes:options.className,rows:getComputedStyle(options).gridTemplateRows,checked:toggle.checked}));
-   if(!puddles.checked||localStorage.getItem('k_rain_puddles')!=='true')throw Error('Disabling weather erased the puddle preference');
+   const editor=content.querySelector('.kasp-graphics-editor');if(editor.querySelectorAll('.kasp-gfx-card').length!==4)throw Error('Graphics cards missing');
+   const toggle=editor.querySelector('[data-graphics-enabled="weather"]'),puddles=editor.querySelector('[data-graphics-enabled="puddles"]');
+   if(toggle.checked)throw Error('Weather should start disabled');toggle.click();if(!toggle.checked||document.querySelector('[role="alertdialog"]'))throw Error('Weather toggle failed');
+   if(!puddles.checked)puddles.click();
+   editor.querySelectorAll('details').forEach(e=>e.open=true);
+   const set=(field,value)=>{const e=editor.querySelector('[data-graphics-field="'+field+'"][type="range"]');e.value=String(value);e.dispatchEvent(new Event('input',{bubbles:true}));return e;};
+   for(const value of [0,50,100]){const e=set('generation.duration',value);if(localStorage.getItem('k_rain_duration')!==String(value/100))throw Error('Duration not persisted');if(Math.abs(e.getBoundingClientRect().width-e.closest('.kasp-gfx-control').getBoundingClientRect().width)>.5)throw Error('Slider not full width');}
+   set('generation.chance',100);set('volumes.thunder',25);set('volumes.rain',0);
+   const preset=editor.querySelector('[data-graphics-preset]');preset.value='storm';preset.dispatchEvent(new Event('change',{bubbles:true}));
+   if(localStorage.getItem('k_rain_preset')!=='storm'||localStorage.getItem('k_rain_chance')!=='1')throw Error('Generation not saved');
+   if(editor.querySelector('[data-puddle-detail]')||editor.querySelector('[data-weather-precipitation]'))throw Error('Archived controls returned');
+   if(!editor.textContent.includes(lang==='RU'?'зимних':'winter maps'))throw Error('Map policy missing');
+   toggle.click();if(localStorage.getItem('k_rain_weather')!=='false'||localStorage.getItem('k_rain_puddles')!=='true')throw Error('Disabling weather erased puddle preference');
    coreSettings.onClose();root.remove();document.querySelector('#kaspersky-reload-tooltip')?.remove();
-   return{lang,widths,labels,generation:{chance:chance.value,preset:preset.value,duration:duration.value},expanded:true,collapsed:true};
+   return{lang,cards:4,sliders:true,persistence:true};
   },lang));
  }
  await page.evaluate(()=>{localStorage.removeItem('k_rain_volume');localStorage.removeItem('k_thunder_volume');localStorage.removeItem('k_rain_puddles');localStorage.removeItem('k_rain_puddle_detail');localStorage.removeItem('k_rain_duration');localStorage.removeItem('k_weather_precipitation');localStorage.removeItem('k_snow_drifts');});
@@ -194,6 +167,14 @@ precision highp float;in vec2 xy;out vec4 o;void main(){float line=max(step(.98,
   if(pixels().some((v,i)=>v!==covered[i]))throw Error('Snow leaked through occluding geometry');
   if(snowfall.status().reflectionCopies||snowfall.status().splashParticles)throw Error('Snow generated liquid water');
   snowPixels(60);window.__rainCaptureSnow=canvas.toDataURL();
+  const customized=createRainRenderer(g),graphics={...window.__rainQA.DEFAULT_GRAPHICS_TUNING,rainDrops:1000,rainOpacity:0,darkness:0,snowFlakes:1200,snowStreaks:0,snowFaces:1};
+  ground();const customBaseline=pixels(),beginCalls=particleGeometry.length;
+  customized.draw({...frame,rain:1,clouds:0,storm:0,nativeLighting:true,graphics},'weather');
+  if(pixels().some((v,i)=>v!==customBaseline[i])||!particleGeometry.slice(beginCalls).some(d=>d.instances===1000&&d.vertices===4))throw Error('Rain tuning did not reach draw count/opacity');
+  ground();const snowBegin=particleGeometry.length;customized.draw({...snowFrame,graphics},'weather');
+  if(customized.status().snowFlakes!==1200||!particleGeometry.slice(snowBegin).some(d=>d.instances===1200&&d.vertices===6))throw Error('Snow tuning did not reach polygon/particle budgets');
+  ground();customized.draw({...frame,graphics:{...graphics,cloudResolution:256},clouds:1},'sky');
+  if(JSON.stringify(customized.status().cloudSize)!==JSON.stringify([256,64]))throw Error('Cloud resolution setting ignored');customized.dispose();
   const snowReport={motion:snowMotion,crystals:mixed.snowCrystals,streaks:mixed.snowStreaks,vertices:snowVertices,visiblePixels:snowChanged,animatedPixels:snowAnimated,maxFlakes:window.__rainQA.SNOW.maxFlakes,occlusion:true,fade:true,noLiquidWater:true};snowfall.dispose();
   const noFog=createRainRenderer(g),withFog=createRainRenderer(g);
   ground();noFog.draw({...frame,rain:0,storm:0,fog:[0,1000,5000]});const low=pixels();
@@ -481,6 +462,11 @@ precision highp float;in vec2 xy;out vec4 o;void main(){float line=max(step(.98,
    if(otherGL.getError())throw Error('Continuous weather secondary context GL error');
   }finally{Date.now=realNow;otherCanvas.remove();}
 
+  api.map(rawMap,mapSchema);api.battle({loaded:true,id:'qa-mm-winter',map:'Йоркшир SGE'},{battleLoaded:'loaded',battleId:'id',mapName:'map'});
+  ground();api.frame(renderer,{},camera,schema);const mmRain=api.status().episode;
+  api.terrainSnow(renderer,schema);const mmSnow=api.status();
+  if(mmSnow.environment.theme!==null||!mmSnow.environment.terrainSnow||mmSnow.precipitation!=='snow'||mmSnow.audio!=='off'||mmSnow.puddlesAllowed||mmSnow.puddleAmount||mmSnow.renderers.length||JSON.stringify({...mmSnow.episode,precipitation:'rain'})!==JSON.stringify(mmRain))throw Error('MM winter evidence did not correct rain without rerolling: '+JSON.stringify(mmSnow));
+  ground();api.frame(renderer,{},camera,schema);if(api.status().weather.sound||api.status().strikes.length||g.getError())throw Error('MM snowfall retained rain resources');
   localStorage.setItem('k_weather_precipitation','snow');localStorage.setItem('k_snow_drifts','true');window.dispatchEvent(new Event('kasp:settings-changed'));
   api.environment('qa-snow-battle','WINTER_DAY');api.battle({loaded:true,id:'qa-snow-battle',map:'Rio'},{battleLoaded:'loaded',battleId:'id',mapName:'map'});
   const snowScene={},normalNow=Date.now,snowNow=normalNow();let nowSnow=snowNow;Date.now=()=>nowSnow;
@@ -496,12 +482,14 @@ precision highp float;in vec2 xy;out vec4 o;void main(){float line=max(step(.98,
    const light=new Float32Array(12).fill(1);if(api.nativeFogStrength(1)!==1||api.lighting(light)!==undefined||api.dropZones(g)!==undefined||api.force('storm').code!=='battle-not-visible')throw Error('Garage still receives weather uniforms');
    root.append(canvas);garage.remove();ground();api.frame(renderer,snowScene,camera,schema);if(api.status().suspended||JSON.stringify(api.status().episode)!==savedSnow||api.status().draws<=beforeGarage.draws)throw Error('Returning from garage restarted or stopped the snow episode');
   }finally{Date.now=normalNow;}
+  api.map(rawMap,mapSchema);api.battle({loaded:true,id:'qa-mm-summer',map:'Йоркшир SGE'},{battleLoaded:'loaded',battleId:'id',mapName:'map'});ground();api.frame(renderer,{},camera,schema);
+  if(api.status().environment.terrainSnow||api.status().precipitation!=='rain')throw Error('Winter material evidence leaked to the next summer variant');
   localStorage.setItem('k_rain_weather','false');window.dispatchEvent(new Event('kasp:settings-changed'));
   if(api.status().enabled||api.status().renderers.length)throw Error('Live toggle did not release resources');
   if(api.status().runtime.failures)throw Error(JSON.stringify(api.status()));
   window.dispatchEvent(new PageTransitionEvent('pagehide'));
   const error=g.getError();if(error)throw Error('Final WebGL error '+error);
-  return{snow:snowReport,garageSuspendsWeather:true,stateRestored:true,clearSceneUnchanged:true,stormBrightnessRatio:dark/base,fogHazeDifference:difference/(800*100*3),dropCounts:drawCounts,cloudSize:status.cloudSize,
+  return{matchmakingSnowMaterial:true,customGraphicsBudgets:true,snow:snowReport,garageSuspendsWeather:true,stateRestored:true,clearSceneUnchanged:true,stormBrightnessRatio:dark/base,fogHazeDifference:difference/(800*100*3),dropCounts:drawCounts,cloudSize:status.cloudSize,
    transitionFlicker,skyDifference,heightDifference,pinkExcess,brightBoltPixels,reflectedObjectPixels,wetWallPixels,highReflectedPixels,highWetWallPixels,animatedPixels,qualityDifference,rippleReport,opticsReport,rampReport,farReport,hoverReport,refractionGhostPixels,foregroundChanged,dropReport,collisionReport,edgeReport,shadowReport,cloudToneReport,stepReport,nativeLightingPreserved:true,reflectionsDisableLive:true,sharedIntensityControlsAudio:true,highShaderFailureFallsBack:true,transparentSpritePreserved:true,framebufferCases,nativeProgramPreserved:true,audioClosedAfterExit:true,reentryDoesNotReroll:true,generationAppliesNextBattle:true,liveToggleReleasesResources:true,developerPanelRemoved:true,continuousWeatherAcrossContexts:true,glError:error};
  },schema);
  const audioReport=await page.evaluate(async()=>{

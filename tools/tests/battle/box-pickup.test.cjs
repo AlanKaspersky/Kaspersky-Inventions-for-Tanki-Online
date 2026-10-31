@@ -51,6 +51,7 @@ function fixture(initial=false,options={}){
     const pickup=()=>{const anim={[s.world]:world,[s.box]:original};bridge.start(anim,original,s);return anim;};
     return {page,bridge,api:module.exports,original,world,frames,timers,spawned,canvas,log,pickup,
         setTime(value){now=value;},
+        tune(value){storage.set('k_graphics_tuning_v1',JSON.stringify(value));page.dispatchEvent(new Event('kasp:settings-changed'));},
         tick(value){now=value;const pending=[...frames.values()];frames.clear();pending.forEach(cb=>cb(now));},
         toggle(value,event=true){enabled=value;if(event)page.dispatchEvent(new Event('kasp:settings-changed'));else [...timers.values()].forEach(cb=>cb());},
         disable(){page.__kaspPageModulesDebug.disable('boxPickup');}
@@ -77,6 +78,15 @@ test('toggle clears owned renderers and restores the flash; page-world polling h
     assert.equal(f.bridge.status().pieces,0);assert.equal(f.bridge.status().flashes,0);assert.equal(f.log.released,14);
     assert.equal(f.original.scale,1);assert.equal(f.original.alpha,1);assert.equal(f.frames.size,0);
     f.toggle(true);f.pickup();assert.equal(f.bridge.status().pieces,14);
+});
+
+test('player graphics settings change shard count, geometry scale, flash duration and lifetime without changing native completion',()=>{
+    const f=fixture(true);f.tune({boxCount:3,boxSize:.25,boxFlash:.05,boxFadeStart:0,boxFadeDuration:.1});
+    const anim=f.pickup();assert.equal(f.log.created,3);
+    const scale=f.spawned[0][schema.render][schema.scale][schema.x];assert.ok(scale>=.045&&scale<=.125);
+    let completed=0;f.setTime(51);assert.equal(f.bridge.frame(anim,()=>completed++),true);assert.equal(completed,1);
+    assert.equal(f.bridge.frame(anim,()=>completed++),false);assert.equal(completed,1);
+    f.tick(110);assert.equal(f.bridge.status().pieces,0);assert.equal(f.log.released,3);assert.equal(f.frames.size,0);
 });
 test('world changes, canvas removal, pagehide and feature guard dispose every owned renderer',()=>{
     for(const action of ['world','canvas','pagehide','disable']){

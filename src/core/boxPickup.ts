@@ -3,6 +3,7 @@ import { clientSourceHash, resolveTemplateEdits, validatePatchEdits } from './cl
 import type { PreparedPatchPlan } from './clientPatches';
 import { readPageMessage } from './pageMessages';
 import { gameDOM } from './gameDOM';
+import { readGraphicsTuning } from './graphicsPreferences';
 
 export interface BoxPickupPlan extends PreparedPatchPlan {
     format: 'ki-box-pickup-v1';
@@ -65,6 +66,12 @@ const wrap = (value: number) => Math.atan2(Math.sin(value), Math.cos(value));
 /** Uses native pooled renderers and native opacity, and restores owned geometry before pooling. */
 export function installBoxPickup(page: Window) {
     const scope = featureScope('boxPickup', { budgetMs: 4 });
+    let tuning = readGraphicsTuning(localStorage);
+    let visual = { ...BOX_PICKUP, count:tuning.boxCount, maxShards:tuning.boxLimit,
+        fadeStart:tuning.boxFadeStart, fadeDuration:tuning.boxFadeDuration, gravity:tuning.boxGravity,
+        speedHMin:350*tuning.boxSpeedH, speedHMax:950*tuning.boxSpeedH,
+        speedVMin:650*tuning.boxSpeedV, speedVMax:1500*tuning.boxSpeedV,
+        flashSec:tuning.boxFlash, glowSec:tuning.boxGlow, bounce:tuning.boxBounce };
     const pieces: Piece[] = [], flashes = new Map<Native, Flash>();
     const meshes = new WeakMap<object, Native | null>();
     let enabled = false, frame = 0, last = 0, world: Native | null = null;
@@ -96,6 +103,13 @@ export function installBoxPickup(page: Window) {
         hit = origin = direction = null; rayDisabled = false;
     };
     const sync = () => {
+        tuning = readGraphicsTuning(localStorage);
+        visual = { ...visual, count:tuning.boxCount, maxShards:tuning.boxLimit,
+            fadeStart:tuning.boxFadeStart, fadeDuration:tuning.boxFadeDuration, gravity:tuning.boxGravity,
+            speedHMin:350*tuning.boxSpeedH, speedHMax:950*tuning.boxSpeedH,
+            speedVMin:650*tuning.boxSpeedV, speedVMax:1500*tuning.boxSpeedV,
+            flashSec:tuning.boxFlash, glowSec:tuning.boxGlow, bounce:tuning.boxBounce };
+        while (pieces.length > visual.maxShards) remove(pieces.shift()!);
         let next = false;
         try { next = localStorage.getItem('k_box_pickup') === 'true'; } catch { }
         if (enabled && !next) clear();
@@ -183,20 +197,20 @@ export function installBoxPickup(page: Window) {
     };
     const step = (p: Piece, dt: number, now: number): boolean => {
         const age = (now - p.born) / 1000;
-        if (age >= BOX_PICKUP.fadeStart + BOX_PICKUP.fadeDuration) return true;
+        if (age >= visual.fadeStart + visual.fadeDuration) return true;
         const s = p.schema, render = child(p.box, s.render);
         if (!p.rest) {
-            p.vz -= BOX_PICKUP.gravity * dt;
+            p.vz -= visual.gravity * dt;
             p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
-            if (p.vz < 0 && p.z - p.sz * BOX_PICKUP.boxHalf < p.ground + 300 && now >= p.probeAt && rays < BOX_PICKUP.rayBudget) {
-                rays++; p.probeAt = now + BOX_PICKUP.rayInterval;
+            if (p.vz < 0 && p.z - p.sz * visual.boxHalf < p.ground + 300 && now >= p.probeAt && rays < visual.rayBudget) {
+                rays++; p.probeAt = now + visual.rayInterval;
                 const value = ground(p.world, child(render, s.position), s, p.x, p.y, p.z + 30);
                 if (value !== null) p.ground = value;
             }
-            const floor = p.ground + p.sz * BOX_PICKUP.boxHalf;
+            const floor = p.ground + p.sz * visual.boxHalf;
             if (p.z <= floor) {
                 p.z = floor; p.landed = true;
-                if (p.vz < -140) { p.vz *= -BOX_PICKUP.bounce; p.vx *= .6; p.vy *= .6; p.wx *= .5; p.wy *= .5; p.wz *= .6; }
+                if (p.vz < -140) { p.vz *= -visual.bounce; p.vx *= .6; p.vy *= .6; p.wx *= .5; p.wy *= .5; p.wz *= .6; }
                 else {
                     p.vz = 0;
                     const friction = Math.max(0, 1 - 6 * dt);
@@ -213,10 +227,10 @@ export function installBoxPickup(page: Window) {
         } else { p.rx += p.wx * dt; p.ry += p.wy * dt; p.rz += p.wz * dt; }
         invoke(child(render, s.position), s.vectorSet, p.x, p.y, p.z);
         invoke(child(render, s.rotation), s.vectorSet, p.rx, p.ry, p.rz);
-        const glow = Math.max(0, 1 - age / BOX_PICKUP.glowSec);
-        if (age <= BOX_PICKUP.glowSec + dt) tint(p.box, s, glow);
-        if (age >= BOX_PICKUP.fadeStart) {
-            const t = Math.min(1, (age - BOX_PICKUP.fadeStart) / BOX_PICKUP.fadeDuration), scale = 1 - t * t * (3 - 2 * t);
+        const glow = Math.max(0, 1 - age / visual.glowSec);
+        if (age <= visual.glowSec + dt) tint(p.box, s, glow);
+        if (age >= visual.fadeStart) {
+            const t = Math.min(1, (age - visual.fadeStart) / visual.fadeDuration), scale = 1 - t * t * (3 - 2 * t);
             invoke(child(render, s.scale), s.vectorSet, p.sx * scale, p.sy * scale, p.sz * scale);
             invoke(p.box, s.opacity, scale);
         }
@@ -252,20 +266,22 @@ export function installBoxPickup(page: Window) {
                 if (flashes.size >= 64) return;
                 canvas = page.document?.querySelector(gameDOM.screens.battleCanvas) || null;
                 const born = performance.now(), x = position[s.x] as number, y = position[s.y] as number, z = position[s.z] as number;
-                const gz = ground(world!, position, s, x, y, z) ?? z - BOX_PICKUP.groundOffset;
-                const count = pieces.length > BOX_PICKUP.maxShards * .8 ? Math.ceil(BOX_PICKUP.count / 2) : BOX_PICKUP.count;
+                const gz = ground(world!, position, s, x, y, z) ?? z - visual.groundOffset;
+                const count = pieces.length > visual.maxShards * .8 ? Math.ceil(visual.count / 2) : visual.count;
                 for (let i = 0; i < count; i++) {
-                    while (pieces.length >= BOX_PICKUP.maxShards) remove(pieces.shift()!);
+                    while (pieces.length >= visual.maxShards) remove(pieces.shift()!);
                     const fragment = invoke(child(box, s.pool), s.acquire) as Native;
                     if (!fragment || fragment === box) continue;
                     const roll = Math.random(), sides = roll < .36 ? 3 : roll < .68 ? 4 : Math.floor(random(5,8));
-                    const angle = random(0, Math.PI * 2), speed = random(BOX_PICKUP.speedHMin, BOX_PICKUP.speedHMax);
+                    const angle = random(0, Math.PI * 2), speed = random(visual.speedHMin, visual.speedHMax);
                     const p: Piece = { box: fragment, schema: s, world: nextWorld, born,
-                        x:x+random(-.4,.4)*BOX_PICKUP.boxHalf, y:y+random(-.4,.4)*BOX_PICKUP.boxHalf, z:z+random(-.2,.4)*BOX_PICKUP.boxHalf,
-                        vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,vz:random(BOX_PICKUP.speedVMin,BOX_PICKUP.speedVMax),
+                        x:x+random(-.4,.4)*visual.boxHalf, y:y+random(-.4,.4)*visual.boxHalf, z:z+random(-.2,.4)*visual.boxHalf,
+                        vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,vz:random(visual.speedVMin,visual.speedVMax),
                         rx:random(-3,3),ry:random(-3,3),rz:random(-3,3),wx:random(-14,14),wy:random(-14,14),wz:random(-14,14),
                         tx:random(-.09,.09),ty:random(-.09,.09),sx:random(.18,.5),sy:random(.16,.4),sz:random(.04,.15),
-                        ground:gz,probeAt:born+BOX_PICKUP.rayInterval,landed:false,rest:false,released:false };
+                        ground:gz,probeAt:born+visual.rayInterval,landed:false,rest:false,released:false };
+                    p.sx*=tuning.boxSize;p.sy*=tuning.boxSize;p.sz*=tuning.boxSize;
+                    p.wx*=tuning.boxSpin;p.wy*=tuning.boxSpin;p.wz*=tuning.boxSpin;
                     try {
                         invoke(fragment, s.reset); p.restoreGeometry = shape(fragment, sides); invoke(fragment, s.attach, nextWorld);
                         const object = child(fragment, s.render);
@@ -284,7 +300,7 @@ export function installBoxPickup(page: Window) {
             const record = flashes.get(anim);
             if (!record || !enabled || scope.disabled) return false;
             try {
-                const progress = (performance.now() - record.born) / (BOX_PICKUP.flashSec * 1000);
+                const progress = (performance.now() - record.born) / (visual.flashSec * 1000);
                 if (progress < 1) {
                     invoke(record.box, record.schema.uniformScale, 1 + 1.1 * (1 - (1 - progress) ** 2));
                     invoke(record.box, record.schema.opacity, 1 - progress * progress); tint(record.box,record.schema,1-progress,.85,.45);

@@ -164,11 +164,25 @@ export const overdriveTimer = lifecycle.initialize(() => {
             return;
         }
         if (!document.body) return;
-        if (!overlay?.isConnected) {
+        if (!overlay) {
             overlay = document.createElement('div');
             overlay.id = 'kasp-overdrive-timers';
             overlay.className = 'kasp-overdrive-timers';
             document.body.appendChild(overlay);
+        }
+        const tab = document.querySelector<HTMLElement>(gameDOM.statistics.container);
+        const host = tab && tab.getClientRects().length && getComputedStyle(tab).visibility !== 'hidden'
+            ? tab : document.body;
+        if (overlay.parentElement !== host || !overlay.isConnected) {
+            if (host === document.body) {
+                host.appendChild(overlay);
+                overlay.style.removeProperty('font-size');
+            } else {
+                // Preserve body-relative sizing while moving only our own overlay.
+                const size = getComputedStyle(overlay).fontSize;
+                if (size) overlay.style.fontSize = size;
+                host.appendChild(overlay);
+            }
         }
         if (!timer.panel?.isConnected) {
             timer.panel = document.createElement('div');
@@ -212,7 +226,7 @@ export const overdriveTimer = lifecycle.initialize(() => {
         lifecycle.listen(window, 'storage', render);
         previewObserver = lifecycle.observer(records => {
             if (!utils.getSetting('k_overdrive_timer', false)) return;
-            const selector = `${gameDOM.screens.tankPreview}, ${gameDOM.common.container}`;
+            const selector = `${gameDOM.screens.tankPreview}, ${gameDOM.common.container}, ${gameDOM.statistics.container}`;
             if (records.some(record => record.type === 'childList'
                 ? [...Array.from(record.addedNodes), ...Array.from(record.removedNodes)].some(node =>
                     (node as Element).matches?.(selector) || (node as Element).querySelector?.(selector))

@@ -7,15 +7,16 @@ export type Point=[number,number,number];
 export interface Strike {id:number;at:number;seed:number;azimuth:number;radius:number;delay:number;}
 export interface LightningFrame {strike:Strike;age:number;power:number;flash:number;origin:Point;}
 export function seeded(seed:number){let state=seed>>>0||1;return()=>{state^=state<<13;state^=state>>>17;state^=state<<5;return(state>>>0)/4294967296;};}
-export function stormStrikes(plan:RainEpisode):Strike[]{
-    if(plan.preset!=='storm'||plan.precipitation==='snow')return[];
+export function stormStrikes(plan:RainEpisode,tuning={lightningFrequency:1,lightningDistance:1}):Strike[]{
+    if(plan.preset!=='storm'||plan.precipitation==='snow'||tuning.lightningFrequency<=0)return[];
     const random=seeded(plan.seed^0x71e64ad9),out:Strike[]=[];
-    let seconds=plan.fadeIn+LIGHTNING.firstMin+random()*(LIGHTNING.firstMax-LIGHTNING.firstMin);
-    while(seconds<plan.fadeIn+plan.hold-8&&out.length<LIGHTNING.maxStrikes){
-        const radius=LIGHTNING.radiusMin+random()*(LIGHTNING.radiusMax-LIGHTNING.radiusMin);
+    const frequency=Math.max(.1,Math.min(3,tuning.lightningFrequency));
+    let seconds=plan.fadeIn+(LIGHTNING.firstMin+random()*(LIGHTNING.firstMax-LIGHTNING.firstMin))/frequency;
+    while(seconds<plan.fadeIn+plan.hold-8&&out.length<Math.ceil(LIGHTNING.maxStrikes*frequency)){
+        const radius=(LIGHTNING.radiusMin+random()*(LIGHTNING.radiusMax-LIGHTNING.radiusMin))*tuning.lightningDistance;
         out.push({id:out.length,at:plan.start+seconds*1000,seed:Math.floor(random()*0xffffff),
             azimuth:random()*Math.PI*2,radius,delay:radius/LIGHTNING.unitsPerMetre/LIGHTNING.soundSpeed});
-        seconds+=LIGHTNING.gapMin+random()*(LIGHTNING.gapMax-LIGHTNING.gapMin);
+        seconds+=(LIGHTNING.gapMin+random()*(LIGHTNING.gapMax-LIGHTNING.gapMin))/frequency;
     }
     return out;
 }
@@ -27,9 +28,9 @@ export function strikeLight(age:number){
     return {power,flash};
 }
 /** Real world-space branches, generated once per strike; no camera-facing image. */
-export function buildBolt(strike:Strike,origin:Point):Float32Array{
+export function buildBolt(strike:Strike,origin:Point,cloudTop:number=WEATHER.cloudBase+WEATHER.cloudThickness*.9):Float32Array{
     const random=seeded(strike.seed),segments:number[]=[],base:Point=[origin[0]+Math.cos(strike.azimuth)*strike.radius,origin[1]+Math.sin(strike.azimuth)*strike.radius,0];
-    const top:Point=[base[0]+(random()-.5)*2200,base[1]+(random()-.5)*2200,WEATHER.cloudBase+WEATHER.cloudThickness*.9];
+    const top:Point=[base[0]+(random()-.5)*2200,base[1]+(random()-.5)*2200,cloudTop];
     const bottom:Point=[base[0],base[1],250];
     const path=(a:Point,b:Point,levels:number,displacement:number):Point[]=>{
         if(!levels)return[a,b];

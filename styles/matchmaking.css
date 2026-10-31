@@ -8,7 +8,7 @@
     align-items: center !important;
     justify-content: flex-start !important;
     gap: 1.5em;
-    width: min(58em, calc(100vw - 2em)) !important;
+    width: min(52em, calc(100vw - 2em)) !important;
     height: auto !important;
     min-height: 5.25em;
     margin: 0 !important;

@@ -6,9 +6,14 @@ const lifecycle = featureScope('lobbyPasses');
 const selectors = gameDOM.lobbyPasses;
 export function readStarProgress(value: string): number | null {
     const match = /^(\d+)\/(\d+)$/.exec(value.replace(/\s/g, ''));
-    if (!match || +match[2] <= 0) return null;
-    const percent = +match[1] / +match[2] * 100;
-    return Number.isFinite(percent) ? Math.min(100, Math.max(0, percent)) : null;
+    if (!match) return null;
+    const earned = Number(match[1]), nextLevel = Number(match[2]);
+    if (!Number.isSafeInteger(earned) || !Number.isSafeInteger(nextLevel) || nextLevel <= 0) return null;
+    // The native denominator is the next level's cumulative target (e.g. 68/70).
+    // Only the last five stars fill this level; the native counter stays unchanged.
+    const starsPerLevel = 5;
+    const levelStart = Math.max(0, nextLevel - starsPerLevel);
+    return Math.min(100, Math.max(0, (earned - levelStart) / starsPerLevel * 100));
 }
 
 export function readCircleProgress(circle: Element | null): number | null {

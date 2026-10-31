@@ -68,7 +68,7 @@ test('production bundles cannot include archived snowbanks or developer controls
 
 test('every shipped native-bundle plan omits the archived chassis observer',()=>{
  const plans=require('../../../src/generated/rain-weather.json').plans;assert.ok(plans.length>=1);
- for(const plan of plans){assert.equal(plan.status.ready,true);assert.equal(plan.edits.length,28);assert.equal(plan.templates.length,57);assert.doesNotMatch(JSON.stringify(plan),/__kaspRain\?\.chassis|_kiChassis|chassisComponentClass|chassisEnum/);}
+ for(const plan of plans){assert.equal(plan.status.ready,true);assert.equal(plan.edits.length,29);assert.equal(plan.templates.length,59);assert.equal(plan.scene.capabilities.terrainSeason,true);assert.doesNotMatch(JSON.stringify(plan),/__kaspRain\?\.chassis|_kiChassis|chassisComponentClass|chassisEnum/);}
 });
 
 
@@ -77,4 +77,13 @@ test('only the native map title fallback is classified, with exact seasonal word
  for(const name of ['Space RGB','Космос CTF'])assert.equal(environment.mapWeather(undefined,name),null);
  for(const name of ['Sandbox Winter CTF','Песочница (Зима) CTF','Snow REMASTER DM'])assert.equal(environment.mapWeather(undefined,name),'snow');
  assert.equal(environment.mapWeather('SUMMER_DAY','Sandbox Winter CTF'),'rain');assert.equal(environment.mapWeather(undefined,'Spaceport CTF'),'rain');
+});
+
+test('actual snowy terrain identifies winter MM variants without changing summer or space policy',()=>{
+ for(const name of ['Йоркшир SGE','Yorkshire CTF','Rio']){
+  assert.equal(environment.mapWeather(undefined,name,true),'snow');assert.equal(environment.mapWeather(undefined,name,false),'rain');
+  assert.equal(environment.mapWeather('SUMMER_DAY',name,true),'rain');assert.equal(environment.mapWeather('SPACE',name,true),null);
+ }
+ assert.equal(environment.mapWeather(undefined,'Space RGB',true),null);assert.equal(environment.mapWeather(undefined,'Космос CTF',true),null);
+ assert.equal(environment.mapWeather(undefined,'Yorkshire',1),'rain');assert.equal(environment.mapWeather(undefined,undefined,true),undefined);
 });

@@ -121,6 +121,18 @@ function weatherScene(source,{methods,functions,scopes,renderer,schema:rain}){
   const arg=capture.arguments[2],id=source.slice(capture.arguments[0].start,capture.arguments[0].end);
   add(arg.start,`((_kiParams)=>{try{window.__kaspRain?.environment(String(${id}),String(_kiParams.${theme}));}catch(_kiEnvironmentError){}return _kiParams;})(`);add(arg.end,')');
  });
+ capability('terrainSeason',({role,observe,add})=>{
+  // Match the map's actual snow-material branch, not program construction:
+  // programs are cached across summer/winter maps and do not prove a draw.
+  const ctor=unique(functions.filter(f=>nodes(f,'Literal').some(n=>n.value==='BattleMapProgram_')),'map-program');
+  const sampler=unique(nodes(ctor,'AssignmentExpression').filter(n=>own(n.left)&&n.right.type==='CallExpression'&&n.right.arguments[0]?.value==='snowTexture'),'map-snow-sampler');
+  const flag=sampler.right.arguments[1];
+  if(!own(flag?.object))throw Error('map-snow-flag');
+  role('mapProgram',ctor.id.name,'identifier');role('mapSnowSampler',prop(sampler.left));role('mapProgramSettings',prop(flag.object));role('mapSnowFlag',prop(flag));observe(ctor);
+  const bind=unique(methods.filter(m=>scopes.get(m.right)===scopes.get(ctor)&&m.right.params.length===3&&nodes(m.right,'MemberExpression').some(n=>prop(n)===prop(sampler.left))),'map-snow-bind');
+  const branch=unique(nodes(bind.right,'IfStatement').filter(n=>n.consequent.type==='BlockStatement'&&nodes(n.test,'MemberExpression').some(p=>prop(p)===prop(flag)&&prop(p.object)===prop(flag.object))&&nodes(n.consequent,'MemberExpression').some(p=>prop(p)===prop(sampler.left))),'map-snow-draw-branch');
+  observe(bind);add(branch.consequent.start+1,';try{window.__kaspRain?.terrainSnow(arguments[0],__KI_RAIN_SCHEMA__);}catch(_kiSeasonError){}');
+ });
  capability('treeWind',({role,observe,add,shared})=>{
   shared.set('property:'+rain.gl,'gl');shared.set('property:'+rain.context,'context');
   const shaderMethods=methods.filter(m=>nodes(m.right,'Literal').some(n=>typeof n.value==='string'&&(n.value.includes('getPositionModifiedByWind')||n.value.includes('const float windStrength = 10.'))));

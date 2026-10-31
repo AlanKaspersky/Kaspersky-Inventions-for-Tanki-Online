@@ -5851,6 +5851,7 @@
           teams: ".BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults",
           headerRows: ":is(.BattleTabStatisticComponentStyle-containerInsideTeams, .BattleTabStatisticComponentStyle-containerInsideResults) table thead tr",
           resistanceCell: ".BattleTabStatisticComponentStyle-resistanceModuleCell",
+          scoreCells: ".BattleTabStatisticComponentStyle-gsCell, .BattleTabStatisticComponentStyle-scoreCell, .BattleTabStatisticComponentStyle-dlCell",
           options: ".BattleTabStatisticComponentStyle-commonContainerIconOptions"
         },
         results: {
@@ -11519,13 +11520,13 @@
   }
   function installCriticalIndicator(target) {
     const engine = createCriticalIndicator((id) => target.__kaspAugmentsDebug?.device?.(id) ?? null);
-    const control = createNativeFeature(target, "criticalIndicator", "k_critical_indicator");
-    control.track(engine, engine.suspend);
+    const control2 = createNativeFeature(target, "criticalIndicator", "k_critical_indicator");
+    control2.track(engine, engine.suspend);
     let mapping = null;
     target.__kaspCriticalBridge = Object.fromEntries(Object.entries(engine.bridge).map(([key, method]) => [
       key,
       (...args) => {
-        if (!control.active() && !["configure", "attach", "detach", "equipment", "eventType", "juggernaut"].includes(key)) return;
+        if (!control2.active() && !["configure", "attach", "detach", "equipment", "eventType", "juggernaut"].includes(key)) return;
         if (key === "detach") {
           try {
             return method(...args);
@@ -11533,7 +11534,7 @@
             return;
           }
         }
-        return control.observe(() => {
+        return control2.observe(() => {
           const result = method(...args);
           if (key === "frame" && engine.status().error) throw Error(engine.status().error);
           return result;
@@ -11541,7 +11542,7 @@
       }
     ]));
     target.__kaspCriticalDebug = {
-      status: () => ({ ...engine.status(), mapping: mapping && { ...mapping, issues: [...mapping.issues] }, runtime: control.status() }),
+      status: () => ({ ...engine.status(), mapping: mapping && { ...mapping, issues: [...mapping.issues] }, runtime: control2.status() }),
       reportHook: (value) => {
         mapping = { ...value, issues: [...value.issues] };
       }
@@ -15607,6 +15608,389 @@
     }
   });
 
+  // src/core/rainWeather/tuning.ts
+  function sanitizeSurfaceTuning(value) {
+    const result = { ...DEFAULT_SURFACE_TUNING };
+    if (!value || typeof value !== "object" || Array.isArray(value)) return result;
+    for (const control2 of SURFACE_CONTROLS) {
+      const n = Object.getOwnPropertyDescriptor(value, control2.key)?.value;
+      if (typeof n === "number" && Number.isFinite(n)) result[control2.key] = Math.max(control2.min, Math.min(control2.max, n));
+    }
+    return result;
+  }
+  function readSurfaceTuning(storage) {
+    try {
+      return sanitizeSurfaceTuning(JSON.parse(storage.getItem(WEATHER_TUNING_KEY) || "null"));
+    } catch {
+      return { ...DEFAULT_SURFACE_TUNING };
+    }
+  }
+  var WEATHER_TUNING_KEY, SURFACE_CONTROLS, DEFAULT_SURFACE_TUNING;
+  var init_tuning = __esm({
+    "src/core/rainWeather/tuning.ts"() {
+      "use strict";
+      WEATHER_TUNING_KEY = "k_rain_surface_tuning_v1";
+      SURFACE_CONTROLS = [
+        { key: "rainIntensity", min: 0, max: 1, step: 0.01, value: 1 },
+        { key: "edgeInset", min: 0, max: 200, step: 5, value: 200 },
+        { key: "rippleSizeReduction", min: 1, max: 30, step: 0.5, value: 15 },
+        { key: "rippleDensity", min: 0, max: 1, step: 0.01, value: 1 },
+        { key: "rippleSpeed", min: 0.25, max: 8, step: 0.05, value: 8 },
+        { key: "rippleStrength", min: 0, max: 2, step: 0.05, value: 0.7 },
+        { key: "waveSizeReduction", min: 1, max: 30, step: 0.5, value: 16 },
+        { key: "waveSpeed", min: 0.25, max: 8, step: 0.05, value: 8 },
+        { key: "waveStrength", min: 0, max: 2, step: 0.05, value: 2 },
+        { key: "reflectionStrength", min: 0, max: 2, step: 0.05, value: 2 },
+        { key: "reflectionDistance", min: 1e3, max: 12e3, step: 100, value: 12e3 },
+        { key: "reflectionRoughness", min: 0, max: 1, step: 0.01, value: 1 },
+        { key: "refractionStrength", min: 0, max: 2, step: 0.05, value: 2 },
+        { key: "groundSplashDensity", min: 0, max: 4, step: 0.05, value: 4 },
+        { key: "tankSplashDensity", min: 0, max: 4, step: 0.05, value: 4 },
+        { key: "splashSpeed", min: 0.25, max: 4, step: 0.05, value: 4 },
+        { key: "splashSize", min: 0.25, max: 4, step: 0.05, value: 0.25 },
+        { key: "splashLifetime", min: 0.15, max: 1.5, step: 0.05, value: 1.5 },
+        { key: "splashGravity", min: 0.25, max: 3, step: 0.05, value: 3 }
+      ];
+      DEFAULT_SURFACE_TUNING = Object.freeze(Object.fromEntries(SURFACE_CONTROLS.map((c) => [c.key, c.value])));
+    }
+  });
+
+  // src/core/snowWeather/config.ts
+  var SNOW_PRESETS, SNOW, SNOW_PALETTES;
+  var init_config = __esm({
+    "src/core/snowWeather/config.ts"() {
+      "use strict";
+      SNOW_PRESETS = Object.freeze({
+        "sunshower": {
+          "rain": 0.5,
+          "clouds": 0.4,
+          "wind": 0.2,
+          "storm": 0,
+          "sound": 0
+        },
+        "drizzle": {
+          "rain": 0.25,
+          "clouds": 0.65,
+          "wind": 0.15,
+          "storm": 0,
+          "sound": 0
+        },
+        "storm": {
+          "rain": 1,
+          "clouds": 1,
+          "wind": 1,
+          "storm": 0.65,
+          "sound": 0
+        },
+        "overcast": {
+          "rain": 0,
+          "clouds": 0.8,
+          "wind": 0.25,
+          "storm": 0,
+          "sound": 0
+        },
+        "sunny": {
+          "rain": 0,
+          "clouds": 0.15,
+          "wind": 0.1,
+          "storm": 0,
+          "sound": 0
+        }
+      });
+      SNOW = Object.freeze({ "maxFlakes": 2e4, "blizzardStreakShare": 0.8, "blizzardWindScale": 8, "blizzardFallScale": 1.8, "blizzardFlutterScale": 3.6 });
+      SNOW_PALETTES = {
+        storm: { low: [0.1, 0.13, 0.17], high: [0.26, 0.3, 0.37], haze: [0.19, 0.23, 0.29], fog: [0.2, 0.25, 0.31] },
+        drizzle: { low: [0.3, 0.35, 0.41], high: [0.6, 0.65, 0.71], haze: [0.46, 0.52, 0.6], fog: [0.43, 0.49, 0.56] },
+        overcast: { low: [0.32, 0.37, 0.43], high: [0.65, 0.7, 0.76], haze: [0.5, 0.56, 0.63], fog: [0.46, 0.52, 0.59] },
+        sunshower: { low: [0.48, 0.54, 0.61], high: [0.87, 0.91, 0.96], haze: [0.72, 0.79, 0.86], fog: [0.64, 0.71, 0.79] },
+        sunny: { low: [0.68, 0.74, 0.81], high: [0.94, 0.97, 1], haze: [0.81, 0.87, 0.94], fog: [0.71, 0.78, 0.86] }
+      };
+      Object.values(SNOW_PALETTES).forEach((p) => {
+        Object.values(p).forEach(Object.freeze);
+        Object.freeze(p);
+      });
+      Object.freeze(SNOW_PALETTES);
+    }
+  });
+
+  // src/core/rainWeather/schedule.ts
+  function planRain(now, remaining, random3, generation = DEFAULT_WEATHER_GENERATION, transitions = WEATHER) {
+    const entryFade = Number.isFinite(transitions.fadeIn) ? Math.max(1, Math.min(60, transitions.fadeIn)) : WEATHER.fadeIn;
+    const exitFade = Number.isFinite(transitions.fadeOut) ? Math.max(1, Math.min(60, transitions.fadeOut)) : WEATHER.fadeOut;
+    const seconds = Number.isFinite(remaining) ? Math.max(0, Math.min(WEATHER.maxBattleSeconds, remaining)) : WEATHER.unknownBattleSeconds;
+    const fraction = Number.isFinite(generation.duration) ? Math.max(0, Math.min(1, generation.duration)) : DEFAULT_WEATHER_GENERATION.duration;
+    const empty = { version: 1, preset: null, start: now, hold: 0, seed: Math.floor(random3() * 16777215), fadeIn: entryFade, fadeOut: exitFade, precipitation: generation.precipitation === "snow" ? "snow" : "rain" };
+    if (random3() >= generation.chance || seconds <= 0 || fraction <= 0) return empty;
+    const preset = generation.preset === "random" ? rainyPresets[Math.min(rainyPresets.length - 1, Math.floor(random3() * rainyPresets.length))] : generation.preset;
+    if (fraction === 1) return { ...empty, preset, hold: seconds, continuous: true };
+    const total = seconds * fraction;
+    const fadeIn = Math.min(entryFade, total * 0.3), fadeOut = Math.min(exitFade, total * 0.3);
+    const hold = Math.max(0, total - fadeIn - fadeOut);
+    const delay = random3() * Math.max(0, seconds - total);
+    return { ...empty, preset, hold, fadeIn, fadeOut, start: now + delay * 1e3 };
+  }
+  function sampleRain(plan, now) {
+    const elapsed = (now - plan.start) / 1e3, total = plan.fadeIn + plan.hold + plan.fadeOut;
+    const profile = plan.preset ? weatherProfile(plan.preset, plan.precipitation) : RAIN_PRESETS.sunny;
+    const lead = Math.min(WEATHER.cloudLead, plan.fadeIn * 0.5), tail = Math.min(5, plan.fadeOut / 6);
+    const clouds = plan.preset ? smooth(elapsed / plan.fadeIn) * (plan.continuous ? 1 : 1 - smooth((elapsed - plan.fadeIn - plan.hold) / plan.fadeOut)) : 0;
+    const rain = plan.preset ? smooth((elapsed - lead) / Math.max(1e-3, plan.fadeIn - lead)) * (plan.continuous ? 1 : 1 - smooth((elapsed - plan.fadeIn - plan.hold + tail) / Math.max(1e-3, plan.fadeOut - tail))) : 0;
+    return {
+      clouds: clouds * profile.clouds,
+      rain: rain * profile.rain,
+      wind: profile.wind,
+      sound: rain * profile.sound,
+      storm: clouds * profile.storm,
+      flash: 0,
+      finished: !plan.continuous && elapsed >= total,
+      active: elapsed >= 0 && (plan.continuous === true || elapsed < total)
+    };
+  }
+  function rainTiming(plan, now) {
+    const elapsed = (now - plan.start) / 1e3;
+    const phase = !plan.preset ? "clear" : elapsed < 0 ? "waiting" : plan.continuous && elapsed >= plan.fadeIn ? "holding" : elapsed >= plan.fadeIn + plan.hold + plan.fadeOut ? "finished" : elapsed < plan.fadeIn ? "forming" : elapsed < plan.fadeIn + plan.hold ? "holding" : "clearing";
+    return {
+      phase,
+      startsInSeconds: plan.preset && phase !== "finished" ? Math.max(0, Math.ceil(-elapsed)) : null,
+      rainStartsInSeconds: plan.preset && weatherProfile(plan.preset, plan.precipitation).rain > 0 && phase !== "finished" ? Math.max(0, Math.ceil(Math.min(WEATHER.cloudLead, plan.fadeIn * 0.5) - elapsed)) : null
+    };
+  }
+  function validEpisode(value) {
+    if (!value || typeof value !== "object") return false;
+    const p = value;
+    return p.version === 1 && (p.preset === null || Object.prototype.hasOwnProperty.call(RAIN_PRESETS, p.preset)) && [p.start, p.hold, p.seed, p.fadeIn, p.fadeOut].every(Number.isFinite) && p.hold >= 0 && p.hold <= WEATHER.maxBattleSeconds && p.fadeIn > 0 && p.fadeIn <= 60 && p.fadeOut > 0 && p.fadeOut <= 60 && (p.continuous === void 0 || typeof p.continuous === "boolean") && (p.precipitation === void 0 || p.precipitation === "rain" || p.precipitation === "snow");
+  }
+  var WEATHER, RAIN_PRESETS, weatherProfile, DEFAULT_WEATHER_GENERATION, rainyPresets, smooth;
+  var init_schedule = __esm({
+    "src/core/rainWeather/schedule.ts"() {
+      "use strict";
+      init_config();
+      WEATHER = Object.freeze({
+        chance: 0.24,
+        // Actual rain probability in random mode, preserving the previous ~24% default.
+        fadeIn: 24,
+        fadeOut: 30,
+        cloudLead: 12,
+        unknownBattleSeconds: 600,
+        maxBattleSeconds: 86400,
+        maxDrops: 25e3,
+        cloudWidth: 1024,
+        cloudHeight: 256,
+        cloudHz: 10,
+        cloudBase: 11e3,
+        cloudThickness: 4200,
+        fogDistanceScale: 0.18
+        // Bring cloud lightening much closer than native map fog.
+      });
+      RAIN_PRESETS = Object.freeze({
+        sunshower: { rain: 0.45, clouds: 0.45, wind: 0.25, storm: 0, sound: 0.25 },
+        drizzle: { rain: 0.22, clouds: 0.65, wind: 0.15, storm: 0, sound: 0.2 },
+        storm: { rain: 1, clouds: 1, wind: 1, storm: 1, sound: 0.45 },
+        overcast: { rain: 0, clouds: 0.85, wind: 0.3, storm: 0, sound: 0 },
+        sunny: { rain: 0, clouds: 0.2, wind: 0.2, storm: 0, sound: 0 }
+      });
+      weatherProfile = (preset, precipitation) => (precipitation === "snow" ? SNOW_PRESETS : RAIN_PRESETS)[preset];
+      DEFAULT_WEATHER_GENERATION = Object.freeze({ chance: WEATHER.chance, preset: "random", duration: 0.3, precipitation: "rain" });
+      rainyPresets = Object.keys(RAIN_PRESETS).filter((name) => RAIN_PRESETS[name].rain > 0);
+      smooth = (x) => {
+        const t = Math.max(0, Math.min(1, x));
+        return t * t * (3 - 2 * t);
+      };
+    }
+  });
+
+  // src/core/rainWeather/preferences.ts
+  function readWeatherGeneration(storage) {
+    let chance = DEFAULT_WEATHER_GENERATION.chance, preset = DEFAULT_WEATHER_GENERATION.preset, duration = DEFAULT_WEATHER_GENERATION.duration, precipitation = DEFAULT_WEATHER_GENERATION.precipitation;
+    try {
+      const raw = storage.getItem(WEATHER_GENERATION_KEYS.chance);
+      const value = raw === null || raw.trim() === "" ? NaN : Number(raw);
+      if (Number.isFinite(value)) chance = Math.max(0, Math.min(1, value));
+    } catch {
+    }
+    try {
+      const value = storage.getItem(WEATHER_GENERATION_KEYS.preset);
+      if (value === "random" || value !== null && Object.prototype.hasOwnProperty.call(RAIN_PRESETS, value)) preset = value;
+    } catch {
+    }
+    try {
+      const raw = storage.getItem(WEATHER_GENERATION_KEYS.duration);
+      const value = raw === null || raw.trim() === "" ? NaN : Number(raw);
+      if (Number.isFinite(value)) duration = Math.max(0, Math.min(1, value));
+    } catch {
+    }
+    return { chance, preset, duration, precipitation };
+  }
+  function readWeatherVolumes(storage) {
+    const read = (key) => {
+      try {
+        const raw = storage.getItem(key);
+        if (raw === null || raw.trim() === "") return 1;
+        const value = Number(raw);
+        return Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 1;
+      } catch {
+        return 1;
+      }
+    };
+    return { rain: read(WEATHER_VOLUME_KEYS.rain), thunder: read(WEATHER_VOLUME_KEYS.thunder) };
+  }
+  var WEATHER_VOLUME_KEYS, WEATHER_GENERATION_KEYS;
+  var init_preferences = __esm({
+    "src/core/rainWeather/preferences.ts"() {
+      "use strict";
+      init_schedule();
+      WEATHER_VOLUME_KEYS = { rain: "k_rain_volume", thunder: "k_thunder_volume" };
+      WEATHER_GENERATION_KEYS = { chance: "k_rain_chance", preset: "k_rain_preset", duration: "k_rain_duration" };
+    }
+  });
+
+  // src/core/sunRays/config.ts
+  function mapAllowsSun(theme, name) {
+    if (theme) return theme !== "SPACE" && theme !== "SUMMER_NIGHT" && theme !== "WINTER_NIGHT";
+    if (typeof name !== "string") return true;
+    const words = name.normalize("NFKC").toLowerCase().split(/[^a-zа-яё]+/u);
+    return !words.some((word) => ["space", "\u043A\u043E\u0441\u043C\u043E\u0441", "\u043A\u043E\u0441\u043C\u0438\u0447\u0435\u0441\u043A\u0438\u0439", "\u043A\u043E\u0441\u043C\u0438\u0447\u0435\u0441\u043A\u0430\u044F", "night", "\u043D\u043E\u0447\u044C", "\u043D\u043E\u0447\u043D\u043E\u0439", "\u043D\u043E\u0447\u043D\u0430\u044F", "\u043D\u043E\u0447\u043D\u043E\u0435", "\u043D\u043E\u0447\u043D\u044B\u0435"].includes(word));
+  }
+  function readSunIntensity(storage) {
+    try {
+      const raw = storage.getItem("k_sun_rays_intensity");
+      if (raw === null || !raw.trim() || !Number.isFinite(Number(raw))) return DEFAULT_SUN_INTENSITY;
+      return Math.max(0, Number(raw));
+    } catch {
+      return DEFAULT_SUN_INTENSITY;
+    }
+  }
+  var DEFAULT_SUN_INTENSITY, SUN_RAYS;
+  var init_config2 = __esm({
+    "src/core/sunRays/config.ts"() {
+      "use strict";
+      DEFAULT_SUN_INTENSITY = 4;
+      SUN_RAYS = Object.freeze({
+        steps: 40,
+        // Samples of lit air along each camera ray.
+        maxWidth: 640,
+        // Maximum integration-buffer width; composite stays full resolution.
+        resolutionScale: 0.5,
+        // Half-size on smaller displays, capped by maxWidth on larger ones.
+        shadowSize: 2048,
+        // Static collision shadow map, rebuilt only for a new map/light direction.
+        maxShadowTriangles: 12e4,
+        distance: 3e4,
+        // Softly bounded 300 m atmospheric integration, not a visible cone end.
+        extinction: 18e-6,
+        // Light absorbed/scattered per centimetre of air.
+        anisotropy: 0.62,
+        // Forward scattering: shafts brighten naturally when looking toward the sun.
+        fadeSeconds: 2
+        // Smooth entry/enable transition.
+      });
+    }
+  });
+
+  // src/core/graphicsPreferences.ts
+  function sanitizeGraphicsTuning(input) {
+    const result = { ...DEFAULT_GRAPHICS_TUNING };
+    for (const c of GRAPHICS_CONTROLS) {
+      const value = input && typeof input === "object" ? Object.getOwnPropertyDescriptor(input, c.key)?.value : void 0;
+      if (typeof value === "number" && Number.isFinite(value)) {
+        const bounded = Math.max(c.min, Math.min(c.max, value));
+        result[c.key] = c.options ? c.options.reduce((a, b) => Math.abs(b - bounded) < Math.abs(a - bounded) ? b : a) : bounded;
+      }
+    }
+    for (const key of ["rainDrops", "snowFlakes", "snowFaces", "snowBranches", "sunSteps", "boxCount", "boxLimit"]) result[key] = Math.round(result[key]);
+    return result;
+  }
+  function readGraphicsTuning(storage) {
+    try {
+      return sanitizeGraphicsTuning(JSON.parse(storage.getItem(GRAPHICS_TUNING_KEY) || "null"));
+    } catch {
+      return { ...DEFAULT_GRAPHICS_TUNING };
+    }
+  }
+  var GRAPHICS_TUNING_KEY, control, GRAPHICS_CONTROLS, DEFAULT_GRAPHICS_TUNING;
+  var init_graphicsPreferences = __esm({
+    "src/core/graphicsPreferences.ts"() {
+      "use strict";
+      init_tuning();
+      init_preferences();
+      init_config2();
+      GRAPHICS_TUNING_KEY = "k_graphics_tuning_v1";
+      control = (key, group, ru, en, value, min, max, step, unit = "", options) => ({ key, group, label: { RU: ru, EN: en }, value, min, max, step, unit, options });
+      GRAPHICS_CONTROLS = [
+        control("fadeIn", "weather", "\u041F\u043B\u0430\u0432\u043D\u043E\u0435 \u043D\u0430\u0447\u0430\u043B\u043E", "Fade in", 24, 1, 60, 1, "s"),
+        control("fadeOut", "weather", "\u041F\u043B\u0430\u0432\u043D\u043E\u0435 \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043D\u0438\u0435", "Fade out", 30, 1, 60, 1, "s"),
+        control("wind", "weather", "\u0421\u0438\u043B\u0430 \u0432\u0435\u0442\u0440\u0430", "Wind strength", 1, 0, 2, 0.05, "\xD7"),
+        control("darkness", "weather", "\u0417\u0430\u0442\u0435\u043C\u043D\u0435\u043D\u0438\u0435 \u043A\u0430\u0440\u0442\u044B \u0438 \u043D\u0435\u0431\u0430", "Map and sky darkening", 1, 0, 1.5, 0.05, "\xD7"),
+        control("fogRemoval", "weather", "\u041F\u043E\u0434\u0430\u0432\u043B\u0435\u043D\u0438\u0435 \u0438\u0433\u0440\u043E\u0432\u043E\u0433\u043E \u0442\u0443\u043C\u0430\u043D\u0430", "Native fog suppression", 1, 0, 1, 0.05, "\xD7"),
+        control("rainDrops", "rain", "\u041C\u0430\u043A\u0441\u0438\u043C\u0443\u043C \u043A\u0430\u043F\u0435\u043B\u044C", "Maximum raindrops", 25e3, 0, 6e4, 1e3),
+        control("rainSpeed", "rain", "\u0421\u043A\u043E\u0440\u043E\u0441\u0442\u044C \u043F\u0430\u0434\u0435\u043D\u0438\u044F", "Fall speed", 1, 0.25, 3, 0.05, "\xD7"),
+        control("rainSize", "rain", "\u0422\u043E\u043B\u0449\u0438\u043D\u0430 \u043A\u0430\u043F\u0435\u043B\u044C", "Drop width", 1, 0.25, 3, 0.05, "\xD7"),
+        control("rainLength", "rain", "\u0414\u043B\u0438\u043D\u0430 \u043A\u0430\u043F\u0435\u043B\u044C", "Drop length", 1, 0.25, 3, 0.05, "\xD7"),
+        control("rainOpacity", "rain", "\u0412\u0438\u0434\u0438\u043C\u043E\u0441\u0442\u044C \u043A\u0430\u043F\u0435\u043B\u044C", "Drop opacity", 1, 0, 2, 0.05, "\xD7"),
+        control("snowFlakes", "snow", "\u041C\u0430\u043A\u0441\u0438\u043C\u0443\u043C \u0441\u043D\u0435\u0436\u0438\u043D\u043E\u043A", "Maximum snowflakes", 2e4, 0, 4e4, 1e3),
+        control("snowSpeed", "snow", "\u0421\u043A\u043E\u0440\u043E\u0441\u0442\u044C \u0441\u043D\u0435\u0433\u043E\u043F\u0430\u0434\u0430", "Snowfall speed", 1, 0.25, 3, 0.05, "\xD7"),
+        control("snowSize", "snow", "\u0420\u0430\u0437\u043C\u0435\u0440 \u0441\u043D\u0435\u0436\u0438\u043D\u043E\u043A", "Flake size", 1, 0.25, 3, 0.05, "\xD7"),
+        control("snowOpacity", "snow", "\u0412\u0438\u0434\u0438\u043C\u043E\u0441\u0442\u044C \u0441\u043D\u0435\u0436\u0438\u043D\u043E\u043A", "Flake opacity", 1, 0, 2, 0.05, "\xD7"),
+        control("snowWind", "snow", "\u0423\u0441\u0438\u043B\u0435\u043D\u0438\u0435 \u0432\u0435\u0442\u0440\u0430 \u043C\u0435\u0442\u0435\u043B\u0438", "Blizzard wind multiplier", 1, 0, 3, 0.05, "\xD7"),
+        control("snowFlutter", "snow", "\u041A\u0440\u0443\u0436\u0435\u043D\u0438\u0435 \u0441\u043D\u0435\u0436\u0438\u043D\u043E\u043A", "Flake flutter", 1, 0, 3, 0.05, "\xD7"),
+        control("snowStreaks", "snow", "\u0414\u043E\u043B\u044F \u0441\u043D\u0435\u0436\u043D\u044B\u0445 \u043F\u043E\u043B\u043E\u0441 \u0432 \u043C\u0435\u0442\u0435\u043B\u044C", "Blizzard streak share", 0.8, 0, 1, 0.05, "\xD7"),
+        control("snowFaces", "snow", "\u041F\u043B\u043E\u0441\u043A\u043E\u0441\u0442\u0435\u0439 \u0443 \u0441\u043D\u0435\u0436\u0438\u043D\u043A\u0438", "Faces per snowflake", 2, 1, 3, 1),
+        control("snowBranches", "snow", "\u0414\u0435\u0442\u0430\u043B\u0438\u0437\u0430\u0446\u0438\u044F \u043A\u0440\u0438\u0441\u0442\u0430\u043B\u043B\u0430", "Crystal branches", 3, 0, 8, 1),
+        control("cloudAmount", "clouds", "\u041F\u043B\u043E\u0442\u043D\u043E\u0441\u0442\u044C \u043E\u0431\u043B\u0430\u043A\u043E\u0432", "Cloud coverage", 1, 0, 1.5, 0.05, "\xD7"),
+        control("cloudBrightness", "clouds", "\u042F\u0440\u043A\u043E\u0441\u0442\u044C \u043E\u0431\u043B\u0430\u043A\u043E\u0432", "Cloud brightness", 1, 0.25, 2, 0.05, "\xD7"),
+        control("cloudHeight", "clouds", "\u0412\u044B\u0441\u043E\u0442\u0430 \u043E\u0431\u043B\u0430\u043A\u043E\u0432", "Cloud base height", 110, 60, 250, 5, "m"),
+        control("cloudThickness", "clouds", "\u0422\u043E\u043B\u0449\u0438\u043D\u0430 \u043E\u0431\u043B\u0430\u0447\u043D\u043E\u0433\u043E \u0441\u043B\u043E\u044F", "Cloud layer thickness", 42, 10, 100, 2, "m"),
+        control("cloudResolution", "clouds", "\u0420\u0430\u0437\u0440\u0435\u0448\u0435\u043D\u0438\u0435 \u043E\u0431\u043B\u0430\u043A\u043E\u0432", "Cloud resolution", 1024, 256, 1536, 256, "px", [256, 512, 1024, 1536]),
+        control("cloudHz", "clouds", "\u041E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u0439 \u043E\u0431\u043B\u0430\u043A\u043E\u0432 \u0432 \u0441\u0435\u043A\u0443\u043D\u0434\u0443", "Cloud updates per second", 10, 2, 30, 1),
+        control("lightningFrequency", "lightning", "\u0427\u0430\u0441\u0442\u043E\u0442\u0430 \u043C\u043E\u043B\u043D\u0438\u0439", "Lightning frequency", 1, 0, 3, 0.1, "\xD7"),
+        control("lightningBrightness", "lightning", "\u042F\u0440\u043A\u043E\u0441\u0442\u044C \u043C\u043E\u043B\u043D\u0438\u0438", "Bolt brightness", 1, 0, 2, 0.05, "\xD7"),
+        control("lightningFlash", "lightning", "\u0412\u0441\u043F\u044B\u0448\u043A\u0430 \u043E\u0441\u0432\u0435\u0449\u0435\u043D\u0438\u044F", "Lighting flash", 1, 0, 1, 0.05, "\xD7"),
+        control("lightningDistance", "lightning", "\u0420\u0430\u0441\u0441\u0442\u043E\u044F\u043D\u0438\u0435 \u0434\u043E \u043C\u043E\u043B\u043D\u0438\u0439", "Lightning distance", 1, 0.5, 2, 0.05, "\xD7"),
+        control("sunDistance", "sun", "\u0414\u0430\u043B\u044C\u043D\u043E\u0441\u0442\u044C \u0440\u0430\u0441\u0441\u0435\u044F\u043D\u0438\u044F", "Scattering distance", 500, 50, 1500, 10, "m"),
+        control("sunDensity", "sun", "\u041F\u043B\u043E\u0442\u043D\u043E\u0441\u0442\u044C \u0441\u0432\u0435\u0442\u044F\u0449\u0435\u0433\u043E\u0441\u044F \u0432\u043E\u0437\u0434\u0443\u0445\u0430", "Air scattering density", 0.45, 0, 3, 0.05, "\xD7"),
+        control("sunAnisotropy", "sun", "\u041D\u0430\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u043D\u043E\u0441\u0442\u044C \u0440\u0430\u0441\u0441\u0435\u044F\u043D\u0438\u044F", "Forward scattering", 0.55, 0, 0.9, 0.01),
+        control("sunSurface", "sun", "\u0423\u0441\u0438\u043B\u0435\u043D\u0438\u0435 \u0441\u0432\u0435\u0442\u0430 \u043D\u0430 \u043F\u043E\u0432\u0435\u0440\u0445\u043D\u043E\u0441\u0442\u044F\u0445", "Surface light gain", 0.6, 0, 1, 0.01, "\xD7"),
+        control("sunHighlight", "sun", "\u041F\u0440\u0435\u0434\u0435\u043B \u0441\u0432\u0435\u0447\u0435\u043D\u0438\u044F \u0432\u043E\u0437\u0434\u0443\u0445\u0430", "Air highlight limit", 0.18, 0.01, 0.5, 0.01),
+        control("sunSky", "sun", "\u041F\u0440\u0435\u0434\u0435\u043B \u0441\u0432\u0435\u0447\u0435\u043D\u0438\u044F \u043D\u0435\u0431\u0430", "Sky highlight limit", 0.03, 0, 0.2, 0.01),
+        control("sunSteps", "sun", "\u0428\u0430\u0433\u043E\u0432 \u0440\u0430\u0441\u0447\u0451\u0442\u0430 \u0441\u0432\u0435\u0442\u0430", "Light sampling steps", 40, 12, 96, 4),
+        control("sunResolution", "sun", "\u0420\u0430\u0437\u0440\u0435\u0448\u0435\u043D\u0438\u0435 \u043E\u0431\u044A\u0451\u043C\u043D\u043E\u0433\u043E \u0441\u0432\u0435\u0442\u0430", "Volumetric light resolution", 640, 320, 1280, 160, "px"),
+        control("sunShadow", "sun", "\u0420\u0430\u0437\u0440\u0435\u0448\u0435\u043D\u0438\u0435 \u0442\u0435\u043D\u0435\u0439 \u043A\u0430\u0440\u0442\u044B", "Map shadow resolution", 2048, 512, 4096, 512, "px", [512, 1024, 2048, 4096]),
+        control("sunFade", "sun", "\u041F\u043B\u0430\u0432\u043D\u043E\u0441\u0442\u044C \u043F\u043E\u044F\u0432\u043B\u0435\u043D\u0438\u044F \u0441\u0432\u0435\u0442\u0430", "Light fade in", 2, 0.1, 10, 0.1, "s"),
+        control("sunTemperature", "sun", "\u0422\u0435\u043C\u043F\u0435\u0440\u0430\u0442\u0443\u0440\u0430 \u0441\u043E\u043B\u043D\u0435\u0447\u043D\u043E\u0433\u043E \u0441\u0432\u0435\u0442\u0430", "Sunlight temperature", 5200, 2500, 1e4, 100, "K"),
+        control("sunDiskSize", "sun", "\u0420\u0430\u0437\u043C\u0435\u0440 \u0441\u043E\u043B\u043D\u0435\u0447\u043D\u043E\u0433\u043E \u0434\u0438\u0441\u043A\u0430", "Sun disk diameter", 0.65, 0.1, 3, 0.05, "\xB0"),
+        control("sunDiskBrightness", "sun", "\u042F\u0440\u043A\u043E\u0441\u0442\u044C \u0441\u043E\u043B\u043D\u0435\u0447\u043D\u043E\u0433\u043E \u0434\u0438\u0441\u043A\u0430", "Sun disk brightness", 1, 0, 3, 0.05),
+        control("sunHalo", "sun", "\u0421\u0432\u0435\u0447\u0435\u043D\u0438\u0435 \u0432\u043E\u043A\u0440\u0443\u0433 \u0441\u043E\u043B\u043D\u0446\u0430", "Sun halo", 0.55, 0, 2, 0.05),
+        control("sunHaze", "sun", "\u041F\u043B\u043E\u0442\u043D\u043E\u0441\u0442\u044C \u0430\u0442\u043C\u043E\u0441\u0444\u0435\u0440\u043D\u043E\u0439 \u0434\u044B\u043C\u043A\u0438", "Atmospheric haze density", 0.24, 0, 1, 0.01),
+        control("sunHazeTemperature", "sun", "\u0422\u0435\u043C\u043F\u0435\u0440\u0430\u0442\u0443\u0440\u0430 \u0434\u044B\u043C\u043A\u0438", "Haze temperature", 5500, 2500, 1e4, 100, "K"),
+        control("sunHazeStart", "sun", "\u041D\u0430\u0447\u0430\u043B\u043E \u0434\u044B\u043C\u043A\u0438", "Haze start distance", 70, 0, 1e3, 10, "m"),
+        control("sunHazeDistance", "sun", "\u0414\u0430\u043B\u044C\u043D\u043E\u0441\u0442\u044C \u0441\u0433\u0443\u0449\u0435\u043D\u0438\u044F \u0434\u044B\u043C\u043A\u0438", "Haze buildup distance", 600, 50, 1500, 10, "m"),
+        control("sunSkyWarmth", "sun", "\u0422\u043E\u043D\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u0435 \u043D\u0435\u0431\u0430 \u0441\u0432\u0435\u0442\u043E\u043C", "Sky light tint", 0.2, 0, 1, 0.01),
+        control("sunExposure", "sun", "\u042D\u043A\u0441\u043F\u043E\u0437\u0438\u0446\u0438\u044F", "Exposure", 0.1, -2, 2, 0.05, "EV"),
+        control("sunContrast", "sun", "\u041A\u043E\u043D\u0442\u0440\u0430\u0441\u0442", "Contrast", 1.02, 0.5, 1.5, 0.01),
+        control("sunSaturation", "sun", "\u041D\u0430\u0441\u044B\u0449\u0435\u043D\u043D\u043E\u0441\u0442\u044C", "Saturation", 0.96, 0, 1.5, 0.01),
+        control("sunBloom", "sun", "\u041C\u044F\u0433\u043A\u043E\u0435 \u0441\u0432\u0435\u0447\u0435\u043D\u0438\u0435 \u044F\u0440\u043A\u0438\u0445 \u0443\u0447\u0430\u0441\u0442\u043A\u043E\u0432", "Bloom strength", 0.22, 0, 1, 0.01),
+        control("sunBloomThreshold", "sun", "\u041F\u043E\u0440\u043E\u0433 \u0441\u0432\u0435\u0447\u0435\u043D\u0438\u044F", "Bloom threshold", 0.72, 0.3, 1, 0.01),
+        control("sunBloomRadius", "sun", "\u0420\u0430\u0434\u0438\u0443\u0441 \u0441\u0432\u0435\u0447\u0435\u043D\u0438\u044F", "Bloom radius", 1.5, 0.5, 3, 0.1),
+        control("sunShadowSoftness", "sun", "\u041C\u044F\u0433\u043A\u043E\u0441\u0442\u044C \u0442\u0435\u043D\u0435\u0439 \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043D\u043E\u0433\u043E \u0441\u0432\u0435\u0442\u0430", "Added-light shadow softness", 1.5, 0, 4, 0.1),
+        control("sunShadowFill", "sun", "\u041F\u0440\u043E\u0445\u043B\u0430\u0434\u043D\u044B\u0439 \u0441\u0432\u0435\u0442 \u0432 \u0442\u0435\u043D\u044F\u0445", "Cool shadow fill", 0.12, 0, 0.4, 0.01),
+        control("sunToneCurve", "sun", "\u041A\u0438\u043D\u0435\u043C\u0430\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0447\u043D\u044B\u0439 \u0442\u043E\u043D", "Cinematic tone curve", 0.25, 0, 1, 0.01),
+        control("boxCount", "boxes", "\u041E\u0441\u043A\u043E\u043B\u043A\u043E\u0432 \u043E\u0442 \u043E\u0434\u043D\u043E\u0439 \u043A\u043E\u0440\u043E\u0431\u043A\u0438", "Shards per box", 14, 0, 40, 1),
+        control("boxLimit", "boxes", "\u041C\u0430\u043A\u0441\u0438\u043C\u0443\u043C \u043E\u0441\u043A\u043E\u043B\u043A\u043E\u0432 \u043D\u0430 \u043A\u0430\u0440\u0442\u0435", "Maximum active shards", 140, 10, 280, 10),
+        control("boxFadeStart", "boxes", "\u0412\u0440\u0435\u043C\u044F \u0434\u043E \u0438\u0441\u0447\u0435\u0437\u043D\u043E\u0432\u0435\u043D\u0438\u044F", "Time before fading", 2.2, 0, 10, 0.1, "s"),
+        control("boxFadeDuration", "boxes", "\u0414\u043B\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u044C \u0438\u0441\u0447\u0435\u0437\u043D\u043E\u0432\u0435\u043D\u0438\u044F", "Fade duration", 0.8, 0.1, 5, 0.1, "s"),
+        control("boxGravity", "boxes", "\u0413\u0440\u0430\u0432\u0438\u0442\u0430\u0446\u0438\u044F \u043E\u0441\u043A\u043E\u043B\u043A\u043E\u0432", "Shard gravity", 2400, 0, 5e3, 100),
+        control("boxSpeedH", "boxes", "\u0413\u043E\u0440\u0438\u0437\u043E\u043D\u0442\u0430\u043B\u044C\u043D\u0430\u044F \u0441\u043A\u043E\u0440\u043E\u0441\u0442\u044C", "Horizontal launch speed", 1, 0, 3, 0.05, "\xD7"),
+        control("boxSpeedV", "boxes", "\u0412\u0435\u0440\u0442\u0438\u043A\u0430\u043B\u044C\u043D\u0430\u044F \u0441\u043A\u043E\u0440\u043E\u0441\u0442\u044C", "Vertical launch speed", 1, 0, 3, 0.05, "\xD7"),
+        control("boxSize", "boxes", "\u0420\u0430\u0437\u043C\u0435\u0440 \u043E\u0441\u043A\u043E\u043B\u043A\u043E\u0432", "Shard size", 1, 0.25, 2, 0.05, "\xD7"),
+        control("boxSpin", "boxes", "\u0412\u0440\u0430\u0449\u0435\u043D\u0438\u0435 \u043E\u0441\u043A\u043E\u043B\u043A\u043E\u0432", "Shard spin", 1, 0, 3, 0.05, "\xD7"),
+        control("boxFlash", "boxes", "\u0414\u043B\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u044C \u0432\u0441\u043F\u044B\u0448\u043A\u0438", "Flash duration", 0.22, 0.05, 2, 0.01, "s"),
+        control("boxGlow", "boxes", "\u0414\u043B\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u044C \u0441\u0432\u0435\u0447\u0435\u043D\u0438\u044F", "Glow duration", 0.7, 0.1, 3, 0.05, "s"),
+        control("boxBounce", "boxes", "\u0421\u0438\u043B\u0430 \u043E\u0442\u0441\u043A\u043E\u043A\u0430", "Bounce strength", 0.36, 0, 0.9, 0.01)
+      ];
+      DEFAULT_GRAPHICS_TUNING = Object.freeze(Object.fromEntries(GRAPHICS_CONTROLS.map((c) => [c.key, c.value])));
+    }
+  });
+
   // src/core/boxPickup.ts
   async function selectBoxPickupPlan(code, plans) {
     const supported = plans.filter((plan) => plan.format === "ki-box-pickup-v1" && plan.status.ready);
@@ -15622,6 +16006,22 @@
   }
   function installBoxPickup(page) {
     const scope = featureScope("boxPickup", { budgetMs: 4 });
+    let tuning = readGraphicsTuning(localStorage);
+    let visual = {
+      ...BOX_PICKUP,
+      count: tuning.boxCount,
+      maxShards: tuning.boxLimit,
+      fadeStart: tuning.boxFadeStart,
+      fadeDuration: tuning.boxFadeDuration,
+      gravity: tuning.boxGravity,
+      speedHMin: 350 * tuning.boxSpeedH,
+      speedHMax: 950 * tuning.boxSpeedH,
+      speedVMin: 650 * tuning.boxSpeedV,
+      speedVMax: 1500 * tuning.boxSpeedV,
+      flashSec: tuning.boxFlash,
+      glowSec: tuning.boxGlow,
+      bounce: tuning.boxBounce
+    };
     const pieces = [], flashes = /* @__PURE__ */ new Map();
     const meshes = /* @__PURE__ */ new WeakMap();
     let enabled = false, frame = 0, last = 0, world = null;
@@ -15675,6 +16075,23 @@
       rayDisabled = false;
     };
     const sync = () => {
+      tuning = readGraphicsTuning(localStorage);
+      visual = {
+        ...visual,
+        count: tuning.boxCount,
+        maxShards: tuning.boxLimit,
+        fadeStart: tuning.boxFadeStart,
+        fadeDuration: tuning.boxFadeDuration,
+        gravity: tuning.boxGravity,
+        speedHMin: 350 * tuning.boxSpeedH,
+        speedHMax: 950 * tuning.boxSpeedH,
+        speedVMin: 650 * tuning.boxSpeedV,
+        speedVMax: 1500 * tuning.boxSpeedV,
+        flashSec: tuning.boxFlash,
+        glowSec: tuning.boxGlow,
+        bounce: tuning.boxBounce
+      };
+      while (pieces.length > visual.maxShards) remove(pieces.shift());
       let next = false;
       try {
         next = localStorage.getItem("k_box_pickup") === "true";
@@ -15802,25 +16219,25 @@
     };
     const step = (p, dt, now) => {
       const age = (now - p.born) / 1e3;
-      if (age >= BOX_PICKUP.fadeStart + BOX_PICKUP.fadeDuration) return true;
+      if (age >= visual.fadeStart + visual.fadeDuration) return true;
       const s = p.schema, render = child(p.box, s.render);
       if (!p.rest) {
-        p.vz -= BOX_PICKUP.gravity * dt;
+        p.vz -= visual.gravity * dt;
         p.x += p.vx * dt;
         p.y += p.vy * dt;
         p.z += p.vz * dt;
-        if (p.vz < 0 && p.z - p.sz * BOX_PICKUP.boxHalf < p.ground + 300 && now >= p.probeAt && rays < BOX_PICKUP.rayBudget) {
+        if (p.vz < 0 && p.z - p.sz * visual.boxHalf < p.ground + 300 && now >= p.probeAt && rays < visual.rayBudget) {
           rays++;
-          p.probeAt = now + BOX_PICKUP.rayInterval;
+          p.probeAt = now + visual.rayInterval;
           const value = ground(p.world, child(render, s.position), s, p.x, p.y, p.z + 30);
           if (value !== null) p.ground = value;
         }
-        const floor = p.ground + p.sz * BOX_PICKUP.boxHalf;
+        const floor = p.ground + p.sz * visual.boxHalf;
         if (p.z <= floor) {
           p.z = floor;
           p.landed = true;
           if (p.vz < -140) {
-            p.vz *= -BOX_PICKUP.bounce;
+            p.vz *= -visual.bounce;
             p.vx *= 0.6;
             p.vy *= 0.6;
             p.wx *= 0.5;
@@ -15851,10 +16268,10 @@
       }
       invoke(child(render, s.position), s.vectorSet, p.x, p.y, p.z);
       invoke(child(render, s.rotation), s.vectorSet, p.rx, p.ry, p.rz);
-      const glow = Math.max(0, 1 - age / BOX_PICKUP.glowSec);
-      if (age <= BOX_PICKUP.glowSec + dt) tint(p.box, s, glow);
-      if (age >= BOX_PICKUP.fadeStart) {
-        const t = Math.min(1, (age - BOX_PICKUP.fadeStart) / BOX_PICKUP.fadeDuration), scale = 1 - t * t * (3 - 2 * t);
+      const glow = Math.max(0, 1 - age / visual.glowSec);
+      if (age <= visual.glowSec + dt) tint(p.box, s, glow);
+      if (age >= visual.fadeStart) {
+        const t = Math.min(1, (age - visual.fadeStart) / visual.fadeDuration), scale = 1 - t * t * (3 - 2 * t);
         invoke(child(render, s.scale), s.vectorSet, p.sx * scale, p.sy * scale, p.sz * scale);
         invoke(p.box, s.opacity, scale);
       }
@@ -15904,25 +16321,25 @@
           if (flashes.size >= 64) return;
           canvas = page.document?.querySelector(gameDOM.screens.battleCanvas) || null;
           const born = performance.now(), x = position[s.x], y = position[s.y], z = position[s.z];
-          const gz = ground(world, position, s, x, y, z) ?? z - BOX_PICKUP.groundOffset;
-          const count = pieces.length > BOX_PICKUP.maxShards * 0.8 ? Math.ceil(BOX_PICKUP.count / 2) : BOX_PICKUP.count;
+          const gz = ground(world, position, s, x, y, z) ?? z - visual.groundOffset;
+          const count = pieces.length > visual.maxShards * 0.8 ? Math.ceil(visual.count / 2) : visual.count;
           for (let i = 0; i < count; i++) {
-            while (pieces.length >= BOX_PICKUP.maxShards) remove(pieces.shift());
+            while (pieces.length >= visual.maxShards) remove(pieces.shift());
             const fragment = invoke(child(box, s.pool), s.acquire);
             if (!fragment || fragment === box) continue;
             const roll = Math.random(), sides = roll < 0.36 ? 3 : roll < 0.68 ? 4 : Math.floor(random(5, 8));
-            const angle = random(0, Math.PI * 2), speed = random(BOX_PICKUP.speedHMin, BOX_PICKUP.speedHMax);
+            const angle = random(0, Math.PI * 2), speed = random(visual.speedHMin, visual.speedHMax);
             const p = {
               box: fragment,
               schema: s,
               world: nextWorld,
               born,
-              x: x + random(-0.4, 0.4) * BOX_PICKUP.boxHalf,
-              y: y + random(-0.4, 0.4) * BOX_PICKUP.boxHalf,
-              z: z + random(-0.2, 0.4) * BOX_PICKUP.boxHalf,
+              x: x + random(-0.4, 0.4) * visual.boxHalf,
+              y: y + random(-0.4, 0.4) * visual.boxHalf,
+              z: z + random(-0.2, 0.4) * visual.boxHalf,
               vx: Math.cos(angle) * speed,
               vy: Math.sin(angle) * speed,
-              vz: random(BOX_PICKUP.speedVMin, BOX_PICKUP.speedVMax),
+              vz: random(visual.speedVMin, visual.speedVMax),
               rx: random(-3, 3),
               ry: random(-3, 3),
               rz: random(-3, 3),
@@ -15935,11 +16352,17 @@
               sy: random(0.16, 0.4),
               sz: random(0.04, 0.15),
               ground: gz,
-              probeAt: born + BOX_PICKUP.rayInterval,
+              probeAt: born + visual.rayInterval,
               landed: false,
               rest: false,
               released: false
             };
+            p.sx *= tuning.boxSize;
+            p.sy *= tuning.boxSize;
+            p.sz *= tuning.boxSize;
+            p.wx *= tuning.boxSpin;
+            p.wy *= tuning.boxSpin;
+            p.wz *= tuning.boxSpin;
             try {
               invoke(fragment, s.reset);
               p.restoreGeometry = shape(fragment, sides);
@@ -15972,7 +16395,7 @@
         const record = flashes.get(anim);
         if (!record || !enabled || scope.disabled) return false;
         try {
-          const progress = (performance.now() - record.born) / (BOX_PICKUP.flashSec * 1e3);
+          const progress = (performance.now() - record.born) / (visual.flashSec * 1e3);
           if (progress < 1) {
             invoke(record.box, record.schema.uniformScale, 1 + 1.1 * (1 - (1 - progress) ** 2));
             invoke(record.box, record.schema.opacity, 1 - progress * progress);
@@ -16010,6 +16433,7 @@
       init_clientPatches();
       init_pageMessages();
       init_gameDOM();
+      init_graphicsPreferences();
       boxPickupPlanValid = (code, plan) => plan.format === "ki-box-pickup-v1" && plan.status.ready && validatePatchEdits(code, plan);
       BOX_PICKUP = Object.freeze({
         count: 14,
@@ -17012,64 +17436,6 @@
     }
   });
 
-  // src/core/snowWeather/config.ts
-  var SNOW_PRESETS, SNOW, SNOW_PALETTES;
-  var init_config = __esm({
-    "src/core/snowWeather/config.ts"() {
-      "use strict";
-      SNOW_PRESETS = Object.freeze({
-        "sunshower": {
-          "rain": 0.5,
-          "clouds": 0.4,
-          "wind": 0.2,
-          "storm": 0,
-          "sound": 0
-        },
-        "drizzle": {
-          "rain": 0.25,
-          "clouds": 0.65,
-          "wind": 0.15,
-          "storm": 0,
-          "sound": 0
-        },
-        "storm": {
-          "rain": 1,
-          "clouds": 1,
-          "wind": 1,
-          "storm": 0.65,
-          "sound": 0
-        },
-        "overcast": {
-          "rain": 0,
-          "clouds": 0.8,
-          "wind": 0.25,
-          "storm": 0,
-          "sound": 0
-        },
-        "sunny": {
-          "rain": 0,
-          "clouds": 0.15,
-          "wind": 0.1,
-          "storm": 0,
-          "sound": 0
-        }
-      });
-      SNOW = Object.freeze({ "maxFlakes": 2e4, "blizzardStreakShare": 0.8, "blizzardWindScale": 8, "blizzardFallScale": 1.8, "blizzardFlutterScale": 3.6 });
-      SNOW_PALETTES = {
-        storm: { low: [0.1, 0.13, 0.17], high: [0.26, 0.3, 0.37], haze: [0.19, 0.23, 0.29], fog: [0.2, 0.25, 0.31] },
-        drizzle: { low: [0.3, 0.35, 0.41], high: [0.6, 0.65, 0.71], haze: [0.46, 0.52, 0.6], fog: [0.43, 0.49, 0.56] },
-        overcast: { low: [0.32, 0.37, 0.43], high: [0.65, 0.7, 0.76], haze: [0.5, 0.56, 0.63], fog: [0.46, 0.52, 0.59] },
-        sunshower: { low: [0.48, 0.54, 0.61], high: [0.87, 0.91, 0.96], haze: [0.72, 0.79, 0.86], fog: [0.64, 0.71, 0.79] },
-        sunny: { low: [0.68, 0.74, 0.81], high: [0.94, 0.97, 1], haze: [0.81, 0.87, 0.94], fog: [0.71, 0.78, 0.86] }
-      };
-      Object.values(SNOW_PALETTES).forEach((p) => {
-        Object.values(p).forEach(Object.freeze);
-        Object.freeze(p);
-      });
-      Object.freeze(SNOW_PALETTES);
-    }
-  });
-
   // src/core/snowWeather/shaders.ts
   var SNOW_VERTEX, SNOW_FRAGMENT, SNOW_STREAK_VERTEX, SNOW_STREAK_FRAGMENT;
   var init_shaders = __esm({
@@ -17078,7 +17444,7 @@
       SNOW_VERTEX = `#version 300 es
 precision highp float;precision highp int;
 uniform mat4 uVP;uniform vec3 uCam;uniform vec2 uViewport;
-uniform float uTime,uRain,uSeed,uWind,uCount,uIdOffset;
+uniform float uTime,uRain,uSeed,uWind,uCount,uIdOffset;uniform vec4 uParticle,uSnowMotion;
 const float uSnowP[32]=float[32](8.0,1.8,3.6,65.0,220.0,35.0,520.0,196.699,1100.0,420.0,0.65,1.37,15.0,65.0,45.0,2.5,11.0,1.2,3.8,24.0,65.0,1.0,1.0,5000.0,6800.0,7000.0,5000.0,4600.0,3400.0,0.72,0.4,3.0);
 out vec2 q;out float opacity;out float distance_;out float variation;out float light_;
 uint pcg(uint v){uint s=v*747796405u+2891336453u;uint w=((s>>((s>>28u)+4u))^s)*277803737u;return(w>>22u)^w;}
@@ -17093,12 +17459,12 @@ void main(){
  vec3 base=vec3(h(id,1u),h(id,2u),h(id,5u))*box;
  vec2 windDirection=vec2(cos(radians(uSnowP[7])),sin(radians(uSnowP[7])))*vec2(1.,1.);
  vec2 windVelocity=windDirection*vec2(1.04403065)*(uSnowP[5]+uWind*uSnowP[6])*windScale;
- vec3 drift=vec3(windVelocity*uTime,-speed*uTime);
+ vec3 drift=vec3(windVelocity*uTime*(1.+uSnowMotion.x),-speed*uTime);
  // Integrate gust velocity analytically: multiplying time by a changing gust would teleport flakes.
  float gustTravel=uSnowP[8]/uSnowP[10]*sin(uTime*uSnowP[10])+uSnowP[9]/uSnowP[11]*sin(uTime*uSnowP[11]);
- drift.xy+=windDirection*1.04403065*blizzard*gustTravel;
+ drift.xy+=windDirection*1.04403065*blizzard*gustTravel*(1.+uSnowMotion.x);
  float flutter=mix(uSnowP[12],uSnowP[13],uWind)*mix(1.,uSnowP[2],blizzard);
- drift.xy+=vec2(sin(uTime*(.7+size)+phase),cos(uTime*(.5+size*.5)+phase))*flutter;
+ drift.xy+=vec2(sin(uTime*(.7+size)+phase),cos(uTime*(.5+size*.5)+phase))*flutter*(1.+uSnowMotion.y);
  drift.z+=blizzard*uSnowP[14]*sin(uTime*2.2+phase);
  vec3 relative=mod(base+drift-uCam+box*.5,box)-box*.5;
  vec3 center=relative+uCam;distance_=length(relative);variation=h(id,9u);
@@ -17110,7 +17476,7 @@ void main(){
    vec3(sin(spin)*sin(tilt),-cos(spin)*sin(tilt),cos(tilt));
  if(face==2){a=vec3(-sin(spin),cos(spin),0.);b=vec3(0.,0.,1.);}
  vec3 normal=normalize(cross(a,b));light_=.68+.32*abs(dot(normal,normalize(vec3(.3,.2,1.))));
- float radius=mix(uSnowP[15],uSnowP[16],size);
+ float radius=mix(uSnowP[15],uSnowP[16],size)*(1.+uParticle.x);
  gl_Position=uVP*vec4(center+(a*q.x+b*q.y)*radius,1.);
  float rim=1.-smoothstep(.60,.98,length(relative.xy/(box.xy*.5)));
  float vertical=1.-smoothstep(.70,.99,abs(relative.z)/(box.z*.5));
@@ -17124,7 +17490,7 @@ void main(){
 precision highp float;
 in vec2 q;in float opacity;in float distance_;in float variation;in float light_;
 const float uSnowP[32]=float[32](8.0,1.8,3.6,65.0,220.0,35.0,520.0,196.699,1100.0,420.0,0.65,1.37,15.0,65.0,45.0,2.5,11.0,1.2,3.8,24.0,65.0,1.0,1.0,5000.0,6800.0,7000.0,5000.0,4600.0,3400.0,0.72,0.4,3.0);
-uniform float uFade;uniform vec3 uFog;uniform vec4 uFogColor;out vec4 o;
+uniform vec4 uParticle,uSnowMotion;uniform float uFade;uniform vec3 uFog;uniform vec4 uFogColor;out vec4 o;
 void main(){
  float radius=length(q),aa=max(fwidth(radius),.015);
  if(radius>1.+aa)discard;
@@ -17132,7 +17498,7 @@ void main(){
  vec2 arm=vec2(cos(fold),sin(fold))*radius;
  float shaft=1.-smoothstep(.025+aa,.065+aa,arm.y);
  float branch=0.;
- for(int i=0;i<8;i++){if(float(i)>=uSnowP[31])break;
+ for(int i=0;i<8;i++){if(float(i)>=max(0.,uSnowP[31]+uSnowMotion.z))break;
   float at=.30+float(i)*.22;
   float line=abs(arm.y-(arm.x-at)*.72);
   branch=max(branch,(1.-smoothstep(.018+aa,.045+aa,line))*smoothstep(at-.02,at+.03,arm.x)
@@ -17142,7 +17508,7 @@ void main(){
  float soft=exp(-radius*radius*4.5)*(1.-smoothstep(.75,1.,radius));
  float detail=1.-smoothstep(.035,.13,aa);
  float coverage=mix(soft,mix(crystal,soft,step(.72,variation)),detail);
- float alpha=coverage*opacity*uFade*uSnowP[29];if(alpha<.004)discard;
+ float alpha=coverage*opacity*uFade*uSnowP[29]*(1.+uParticle.z);if(alpha<.004)discard;
  float fog=uFog.x*smoothstep(uFog.y,uFog.z,distance_)*uFogColor.a;
  vec3 color=mix(vec3(.84,.90,.98),vec3(1.),light_)*light_;
  o=vec4(mix(color,uFogColor.rgb,fog)*alpha,alpha);
@@ -17150,7 +17516,7 @@ void main(){
       SNOW_STREAK_VERTEX = `#version 300 es
 precision highp float;precision highp int;
 uniform mat4 uVP;uniform vec3 uCam;uniform vec2 uViewport;
-uniform float uTime,uRain,uSeed,uWind,uCount,uIdOffset;
+uniform float uTime,uRain,uSeed,uWind,uCount,uIdOffset;uniform vec4 uParticle,uSnowMotion;
 const float uSnowP[32]=float[32](8.0,1.8,3.6,65.0,220.0,35.0,520.0,196.699,1100.0,420.0,0.65,1.37,15.0,65.0,45.0,2.5,11.0,1.2,3.8,24.0,65.0,1.0,1.0,5000.0,6800.0,7000.0,5000.0,4600.0,3400.0,0.72,0.4,3.0);
 out vec2 q;out float opacity;out float distance_;out float variation;out float light_;
 uint pcg(uint v){uint s=v*747796405u+2891336453u;uint w=((s>>((s>>28u)+4u))^s)*277803737u;return(w>>22u)^w;}
@@ -17165,26 +17531,26 @@ void main(){
  vec3 base=vec3(h(id,1u),h(id,2u),h(id,5u))*box;
  vec2 windDirection=vec2(cos(radians(uSnowP[7])),sin(radians(uSnowP[7])))*vec2(1.,1.);
  vec2 windVelocity=windDirection*vec2(1.04403065)*(uSnowP[5]+uWind*uSnowP[6])*windScale;
- vec3 drift=vec3(windVelocity*uTime,-speed*uTime);
+ vec3 drift=vec3(windVelocity*uTime*(1.+uSnowMotion.x),-speed*uTime);
  // Integrate gust velocity analytically: multiplying time by a changing gust would teleport flakes.
  float gustTravel=uSnowP[8]/uSnowP[10]*sin(uTime*uSnowP[10])+uSnowP[9]/uSnowP[11]*sin(uTime*uSnowP[11]);
- drift.xy+=windDirection*1.04403065*blizzard*gustTravel;
+ drift.xy+=windDirection*1.04403065*blizzard*gustTravel*(1.+uSnowMotion.x);
  float flutter=mix(uSnowP[12],uSnowP[13],uWind)*mix(1.,uSnowP[2],blizzard);
- drift.xy+=vec2(sin(uTime*(.7+size)+phase),cos(uTime*(.5+size*.5)+phase))*flutter;
+ drift.xy+=vec2(sin(uTime*(.7+size)+phase),cos(uTime*(.5+size*.5)+phase))*flutter*(1.+uSnowMotion.y);
  drift.z+=blizzard*uSnowP[14]*sin(uTime*2.2+phase);
  vec3 relative=mod(base+drift-uCam+box*.5,box)-box*.5;
  vec3 center=relative+uCam;distance_=length(relative);variation=h(id,9u);
  int corner=gl_VertexID%6;
  q=vec2(corner==0||corner==3||corner==5?-1.:1.,corner<2||corner==3?-1.:1.);
  float gustSpeed=uSnowP[8]*cos(uTime*uSnowP[10])+uSnowP[9]*cos(uTime*uSnowP[11]);
- vec3 velocity=vec3(windVelocity+windDirection*1.04403065*blizzard*gustSpeed,-speed);
+ vec3 velocity=vec3((windVelocity+windDirection*1.04403065*blizzard*gustSpeed)*(1.+uSnowMotion.x),-speed);
  vec3 axis=normalize(velocity),side=cross(axis,uCam-center);if(length(side)<.001)side=vec3(1.,0.,0.);side=normalize(side);
  vec4 clip=uVP*vec4(center,1.),delta=uVP*vec4(side,0.);
  float pixelScale=length((delta.xy*clip.w-clip.xy*delta.w)/max(clip.w*clip.w,.001)*uViewport*.5);
  float width=max(mix(uSnowP[17],uSnowP[18],size),.65/max(pixelScale,.0001));
  float trail=mix(uSnowP[19],uSnowP[20],size)+length(velocity)*mix(.009,.028,size)*uSnowP[21];
  light_=.88;
- gl_Position=uVP*vec4(center+axis*q.y*trail*.5+side*q.x*width,1.);
+ gl_Position=uVP*vec4(center+(axis*q.y*trail*.5+side*q.x*width)*(1.+uParticle.x),1.);
  float rim=1.-smoothstep(.60,.98,length(relative.xy/(box.xy*.5)));
  float vertical=1.-smoothstep(.70,.99,abs(relative.z)/(box.z*.5));
  opacity=mix(.45,.85,size)*rim*vertical*smoothstep(60.,220.,distance_)
@@ -17197,10 +17563,10 @@ void main(){
 precision highp float;
 in vec2 q;in float opacity;in float distance_;in float variation;in float light_;
 const float uSnowP[32]=float[32](8.0,1.8,3.6,65.0,220.0,35.0,520.0,196.699,1100.0,420.0,0.65,1.37,15.0,65.0,45.0,2.5,11.0,1.2,3.8,24.0,65.0,1.0,1.0,5000.0,6800.0,7000.0,5000.0,4600.0,3400.0,0.72,0.4,3.0);
-uniform float uFade;uniform vec3 uFog;uniform vec4 uFogColor;out vec4 o;
+uniform vec4 uParticle,uSnowMotion;uniform float uFade;uniform vec3 uFog;uniform vec4 uFogColor;out vec4 o;
 void main(){
  float edge=1.-smoothstep(.55,1.,abs(q.x)),cap=1.-smoothstep(.45,1.,abs(q.y));
- float alpha=edge*cap*exp(-q.x*q.x*2.)*opacity*uFade*uSnowP[30];
+ float alpha=edge*cap*exp(-q.x*q.x*2.)*opacity*uFade*uSnowP[30]*(1.+uParticle.z);
  if(alpha<.003)discard;
  float fog=uFog.x*smoothstep(uFog.y,uFog.z,distance_)*uFogColor.a;
  o=vec4(mix(vec3(.86,.91,.98),uFogColor.rgb,fog)*alpha,alpha);
@@ -17214,90 +17580,6 @@ void main(){
       "use strict";
       init_config();
       init_shaders();
-    }
-  });
-
-  // src/core/rainWeather/schedule.ts
-  function planRain(now, remaining, random3, generation = DEFAULT_WEATHER_GENERATION) {
-    const seconds = Number.isFinite(remaining) ? Math.max(0, Math.min(WEATHER.maxBattleSeconds, remaining)) : WEATHER.unknownBattleSeconds;
-    const fraction = Number.isFinite(generation.duration) ? Math.max(0, Math.min(1, generation.duration)) : DEFAULT_WEATHER_GENERATION.duration;
-    const empty = { version: 1, preset: null, start: now, hold: 0, seed: Math.floor(random3() * 16777215), fadeIn: WEATHER.fadeIn, fadeOut: WEATHER.fadeOut, precipitation: generation.precipitation === "snow" ? "snow" : "rain" };
-    if (random3() >= generation.chance || seconds <= 0 || fraction <= 0) return empty;
-    const preset = generation.preset === "random" ? rainyPresets[Math.min(rainyPresets.length - 1, Math.floor(random3() * rainyPresets.length))] : generation.preset;
-    if (fraction === 1) return { ...empty, preset, hold: seconds, continuous: true };
-    const total = seconds * fraction;
-    const fadeIn = Math.min(WEATHER.fadeIn, total * 0.3), fadeOut = Math.min(WEATHER.fadeOut, total * 0.3);
-    const hold = Math.max(0, total - fadeIn - fadeOut);
-    const delay = random3() * Math.max(0, seconds - total);
-    return { ...empty, preset, hold, fadeIn, fadeOut, start: now + delay * 1e3 };
-  }
-  function sampleRain(plan, now) {
-    const elapsed = (now - plan.start) / 1e3, total = plan.fadeIn + plan.hold + plan.fadeOut;
-    const profile = plan.preset ? weatherProfile(plan.preset, plan.precipitation) : RAIN_PRESETS.sunny;
-    const lead = Math.min(WEATHER.cloudLead, plan.fadeIn * 0.5), tail = Math.min(5, plan.fadeOut / 6);
-    const clouds = plan.preset ? smooth(elapsed / plan.fadeIn) * (plan.continuous ? 1 : 1 - smooth((elapsed - plan.fadeIn - plan.hold) / plan.fadeOut)) : 0;
-    const rain = plan.preset ? smooth((elapsed - lead) / Math.max(1e-3, plan.fadeIn - lead)) * (plan.continuous ? 1 : 1 - smooth((elapsed - plan.fadeIn - plan.hold + tail) / Math.max(1e-3, plan.fadeOut - tail))) : 0;
-    return {
-      clouds: clouds * profile.clouds,
-      rain: rain * profile.rain,
-      wind: profile.wind,
-      sound: rain * profile.sound,
-      storm: clouds * profile.storm,
-      flash: 0,
-      finished: !plan.continuous && elapsed >= total,
-      active: elapsed >= 0 && (plan.continuous === true || elapsed < total)
-    };
-  }
-  function rainTiming(plan, now) {
-    const elapsed = (now - plan.start) / 1e3;
-    const phase = !plan.preset ? "clear" : elapsed < 0 ? "waiting" : plan.continuous && elapsed >= plan.fadeIn ? "holding" : elapsed >= plan.fadeIn + plan.hold + plan.fadeOut ? "finished" : elapsed < plan.fadeIn ? "forming" : elapsed < plan.fadeIn + plan.hold ? "holding" : "clearing";
-    return {
-      phase,
-      startsInSeconds: plan.preset && phase !== "finished" ? Math.max(0, Math.ceil(-elapsed)) : null,
-      rainStartsInSeconds: plan.preset && weatherProfile(plan.preset, plan.precipitation).rain > 0 && phase !== "finished" ? Math.max(0, Math.ceil(Math.min(WEATHER.cloudLead, plan.fadeIn * 0.5) - elapsed)) : null
-    };
-  }
-  function validEpisode(value) {
-    if (!value || typeof value !== "object") return false;
-    const p = value;
-    return p.version === 1 && (p.preset === null || Object.prototype.hasOwnProperty.call(RAIN_PRESETS, p.preset)) && [p.start, p.hold, p.seed, p.fadeIn, p.fadeOut].every(Number.isFinite) && p.hold >= 0 && p.hold <= WEATHER.maxBattleSeconds && p.fadeIn > 0 && p.fadeIn <= 60 && p.fadeOut > 0 && p.fadeOut <= 60 && (p.continuous === void 0 || typeof p.continuous === "boolean") && (p.precipitation === void 0 || p.precipitation === "rain" || p.precipitation === "snow");
-  }
-  var WEATHER, RAIN_PRESETS, weatherProfile, DEFAULT_WEATHER_GENERATION, rainyPresets, smooth;
-  var init_schedule = __esm({
-    "src/core/rainWeather/schedule.ts"() {
-      "use strict";
-      init_config();
-      WEATHER = Object.freeze({
-        chance: 0.24,
-        // Actual rain probability in random mode, preserving the previous ~24% default.
-        fadeIn: 24,
-        fadeOut: 30,
-        cloudLead: 12,
-        unknownBattleSeconds: 600,
-        maxBattleSeconds: 86400,
-        maxDrops: 25e3,
-        cloudWidth: 1024,
-        cloudHeight: 256,
-        cloudHz: 10,
-        cloudBase: 11e3,
-        cloudThickness: 4200,
-        fogDistanceScale: 0.18
-        // Bring cloud lightening much closer than native map fog.
-      });
-      RAIN_PRESETS = Object.freeze({
-        sunshower: { rain: 0.45, clouds: 0.45, wind: 0.25, storm: 0, sound: 0.25 },
-        drizzle: { rain: 0.22, clouds: 0.65, wind: 0.15, storm: 0, sound: 0.2 },
-        storm: { rain: 1, clouds: 1, wind: 1, storm: 1, sound: 0.45 },
-        overcast: { rain: 0, clouds: 0.85, wind: 0.3, storm: 0, sound: 0 },
-        sunny: { rain: 0, clouds: 0.2, wind: 0.2, storm: 0, sound: 0 }
-      });
-      weatherProfile = (preset, precipitation) => (precipitation === "snow" ? SNOW_PRESETS : RAIN_PRESETS)[preset];
-      DEFAULT_WEATHER_GENERATION = Object.freeze({ chance: WEATHER.chance, preset: "random", duration: 0.3, precipitation: "rain" });
-      rainyPresets = Object.keys(RAIN_PRESETS).filter((name) => RAIN_PRESETS[name].rain > 0);
-      smooth = (x) => {
-        const t = Math.max(0, Math.min(1, x));
-        return t * t * (3 - 2 * t);
-      };
     }
   });
 
@@ -17398,7 +17680,7 @@ void main(){
       RAIN_VERTEX = `#version 300 es
 precision highp float;precision highp int;
 uniform mat4 uVP;uniform vec3 uCam;uniform vec2 uViewport;
-uniform float uTime,uRain,uSeed,uWind,uCount;
+uniform float uTime,uRain,uSeed,uWind,uCount;uniform vec4 uParticle;
 out vec2 q;out float opacity;out float distance_;
 uint pcg(uint v){uint s=v*747796405u+2891336453u;uint w=((s>>((s>>28u)+4u))^s)*277803737u;return(w>>22u)^w;}
 float h(uint id,uint salt){return float(pcg(id+pcg(salt+uint(uSeed))))*(1./4294967296.);}
@@ -17413,18 +17695,18 @@ void main(){
  vec3 axis=normalize(velocity);vec3 side=cross(axis,view);if(length(side)<.001)side=vec3(1.,0.,0.);side=normalize(side);
  vec4 clip=uVP*vec4(head,1.),delta=uVP*vec4(side,0.);
  float pixels=length((delta.xy*clip.w-clip.xy*delta.w)/max(clip.w*clip.w,.001)*uViewport*.5);
- float width=max(.9+size*.7,.6/max(pixels,.0001));
+ float width=max(.9+size*.7,.6/max(pixels,.0001))*(1.+uParticle.x);
  float sign_=float(gl_VertexID&1)*2.-1.,along=float(gl_VertexID>>1);
- vec3 p=head-axis*speed*mix(.012,.026,uRain)*along+side*sign_*width;
+ vec3 p=head-axis*speed*mix(.012,.026,uRain)*along*(1.+uParticle.y)+side*sign_*width;
  gl_Position=uVP*vec4(p,1.);q=vec2(sign_,along);
  float rim=1.-smoothstep(.62,1.,length((xy-uCam.xy)/5000.));
  opacity=(.24+.30*size)*rim*smoothstep(.0,.08,phase)*(1.-smoothstep(.92,1.,phase))
    *smoothstep(150.,550.,distance_)*smoothstep(0.,64.,uCount-float(gl_InstanceID));
 }`;
       ATMOSPHERE_FRAGMENT = `#version 300 es
-precision highp float;uniform float uStorm,uRain,uFade,uBoltFlash;out vec4 o;
+precision highp float;uniform float uStorm,uRain,uFade,uBoltFlash,uDarkness;out vec4 o;
 void main(){
- float dark=clamp(uStorm*.57+uRain*.075,0.,.62);
+ float dark=clamp(clamp(uStorm*.57+uRain*.075,0.,.62)*(1.+uDarkness),0.,.85);
  // A continuous uniform colour grade, independent of depth-cache cadence and
  // transparent billboards. It must be applied to every presentation frame.
  dark*=1.-uBoltFlash*.85;
@@ -17453,9 +17735,10 @@ void main(){float halo=exp(-q.x*q.x*4.)*.32,core=exp(-q.x*q.x*90.)*2.4;
 }`;
       RAIN_FRAGMENT = `#version 300 es
 precision highp float;in vec2 q;in float opacity;in float distance_;uniform float uFade;
+uniform vec4 uParticle;
 uniform vec3 uFog;uniform vec4 uFogColor;out vec4 o;
 void main(){float aa=max(fwidth(q.x),.04);float edge=1.-smoothstep(1.-aa,1.,abs(q.x));
-float core=exp(-q.x*q.x*5.);float a=opacity*edge*pow(1.-q.y,1.5)*(.25+.75*core)*uFade;
+float core=exp(-q.x*q.x*5.);float a=opacity*edge*pow(1.-q.y,1.5)*(.25+.75*core)*uFade*(1.+uParticle.z);
 vec3 color=mix(vec3(.57,.70,.79),vec3(.94,.97,1.),core);
 float fog=uFog.x*smoothstep(uFog.y,uFog.z,distance_)*uFogColor.a;
 o=vec4(mix(color,uFogColor.rgb,fog)*a,a);}`;
@@ -17472,12 +17755,13 @@ o=vec4(mix(color,uFogColor.rgb,fog)*a,a);}`;
       return (state >>> 0) / 4294967296;
     };
   }
-  function stormStrikes(plan) {
-    if (plan.preset !== "storm" || plan.precipitation === "snow") return [];
+  function stormStrikes(plan, tuning = { lightningFrequency: 1, lightningDistance: 1 }) {
+    if (plan.preset !== "storm" || plan.precipitation === "snow" || tuning.lightningFrequency <= 0) return [];
     const random3 = seeded(plan.seed ^ 1910917849), out = [];
-    let seconds = plan.fadeIn + LIGHTNING.firstMin + random3() * (LIGHTNING.firstMax - LIGHTNING.firstMin);
-    while (seconds < plan.fadeIn + plan.hold - 8 && out.length < LIGHTNING.maxStrikes) {
-      const radius = LIGHTNING.radiusMin + random3() * (LIGHTNING.radiusMax - LIGHTNING.radiusMin);
+    const frequency = Math.max(0.1, Math.min(3, tuning.lightningFrequency));
+    let seconds = plan.fadeIn + (LIGHTNING.firstMin + random3() * (LIGHTNING.firstMax - LIGHTNING.firstMin)) / frequency;
+    while (seconds < plan.fadeIn + plan.hold - 8 && out.length < Math.ceil(LIGHTNING.maxStrikes * frequency)) {
+      const radius = (LIGHTNING.radiusMin + random3() * (LIGHTNING.radiusMax - LIGHTNING.radiusMin)) * tuning.lightningDistance;
       out.push({
         id: out.length,
         at: plan.start + seconds * 1e3,
@@ -17486,7 +17770,7 @@ o=vec4(mix(color,uFogColor.rgb,fog)*a,a);}`;
         radius,
         delay: radius / LIGHTNING.unitsPerMetre / LIGHTNING.soundSpeed
       });
-      seconds += LIGHTNING.gapMin + random3() * (LIGHTNING.gapMax - LIGHTNING.gapMin);
+      seconds += (LIGHTNING.gapMin + random3() * (LIGHTNING.gapMax - LIGHTNING.gapMin)) / frequency;
     }
     return out;
   }
@@ -17500,9 +17784,9 @@ o=vec4(mix(color,uFogColor.rgb,fog)*a,a);}`;
     const flash = Math.min(1, power * 0.65 + Math.exp(-age * 6) * (1 - Math.exp(-age * 80)) * 0.4);
     return { power, flash };
   }
-  function buildBolt(strike, origin) {
+  function buildBolt(strike, origin, cloudTop = WEATHER.cloudBase + WEATHER.cloudThickness * 0.9) {
     const random3 = seeded(strike.seed), segments = [], base = [origin[0] + Math.cos(strike.azimuth) * strike.radius, origin[1] + Math.sin(strike.azimuth) * strike.radius, 0];
-    const top = [base[0] + (random3() - 0.5) * 2200, base[1] + (random3() - 0.5) * 2200, WEATHER.cloudBase + WEATHER.cloudThickness * 0.9];
+    const top = [base[0] + (random3() - 0.5) * 2200, base[1] + (random3() - 0.5) * 2200, cloudTop];
     const bottom = [base[0], base[1], 250];
     const path = (a, b, levels, displacement) => {
       if (!levels) return [a, b];
@@ -18004,53 +18288,6 @@ void main(){
     }
   });
 
-  // src/core/rainWeather/tuning.ts
-  function sanitizeSurfaceTuning(value) {
-    const result = { ...DEFAULT_SURFACE_TUNING };
-    if (!value || typeof value !== "object" || Array.isArray(value)) return result;
-    for (const control of SURFACE_CONTROLS) {
-      const n = Object.getOwnPropertyDescriptor(value, control.key)?.value;
-      if (typeof n === "number" && Number.isFinite(n)) result[control.key] = Math.max(control.min, Math.min(control.max, n));
-    }
-    return result;
-  }
-  function readSurfaceTuning(storage) {
-    try {
-      return sanitizeSurfaceTuning(JSON.parse(storage.getItem(WEATHER_TUNING_KEY) || "null"));
-    } catch {
-      return { ...DEFAULT_SURFACE_TUNING };
-    }
-  }
-  var WEATHER_TUNING_KEY, SURFACE_CONTROLS, DEFAULT_SURFACE_TUNING;
-  var init_tuning = __esm({
-    "src/core/rainWeather/tuning.ts"() {
-      "use strict";
-      WEATHER_TUNING_KEY = "k_rain_surface_tuning_v1";
-      SURFACE_CONTROLS = [
-        { key: "rainIntensity", min: 0, max: 1, step: 0.01, value: 1 },
-        { key: "edgeInset", min: 0, max: 200, step: 5, value: 200 },
-        { key: "rippleSizeReduction", min: 1, max: 30, step: 0.5, value: 15 },
-        { key: "rippleDensity", min: 0, max: 1, step: 0.01, value: 1 },
-        { key: "rippleSpeed", min: 0.25, max: 8, step: 0.05, value: 8 },
-        { key: "rippleStrength", min: 0, max: 2, step: 0.05, value: 0.7 },
-        { key: "waveSizeReduction", min: 1, max: 30, step: 0.5, value: 16 },
-        { key: "waveSpeed", min: 0.25, max: 8, step: 0.05, value: 8 },
-        { key: "waveStrength", min: 0, max: 2, step: 0.05, value: 2 },
-        { key: "reflectionStrength", min: 0, max: 2, step: 0.05, value: 2 },
-        { key: "reflectionDistance", min: 1e3, max: 12e3, step: 100, value: 12e3 },
-        { key: "reflectionRoughness", min: 0, max: 1, step: 0.01, value: 1 },
-        { key: "refractionStrength", min: 0, max: 2, step: 0.05, value: 2 },
-        { key: "groundSplashDensity", min: 0, max: 4, step: 0.05, value: 4 },
-        { key: "tankSplashDensity", min: 0, max: 4, step: 0.05, value: 4 },
-        { key: "splashSpeed", min: 0.25, max: 4, step: 0.05, value: 4 },
-        { key: "splashSize", min: 0.25, max: 4, step: 0.05, value: 0.25 },
-        { key: "splashLifetime", min: 0.15, max: 1.5, step: 0.05, value: 1.5 },
-        { key: "splashGravity", min: 0.25, max: 3, step: 0.05, value: 3 }
-      ];
-      DEFAULT_SURFACE_TUNING = Object.freeze(Object.fromEntries(SURFACE_CONTROLS.map((c) => [c.key, c.value])));
-    }
-  });
-
   // src/core/rainWeather/splashShaders.ts
   var MAP_VERTEX, MAP_FRAGMENT, SPLASH_VERTEX, SPLASH_FRAGMENT;
   var init_splashShaders = __esm({
@@ -18271,6 +18508,501 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
     }
   });
 
+  // src/core/sunRays/math.ts
+  function sunProjection(vertices, direction) {
+    if (!vertices.length || vertices.length % 9 || !direction.every(Number.isFinite)) return;
+    const length = Math.hypot(...direction);
+    if (length < 1e-3) return;
+    const sun = direction.map((value) => value / length);
+    const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    let right = cross(Math.abs(sun[2]) < 0.95 ? [0, 0, 1] : [0, 1, 0], sun);
+    const rl = Math.hypot(...right);
+    right = right.map((value) => value / rl);
+    const up = cross(sun, right), back = sun.map((value) => -value);
+    const basis = [right, up, back], lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+    let floor = Infinity, top = -Infinity;
+    for (let i = 0; i < vertices.length; i += 3) {
+      const x = vertices[i], y = vertices[i + 1], z = vertices[i + 2];
+      if (![x, y, z].every(Number.isFinite)) return;
+      floor = Math.min(floor, z);
+      top = Math.max(top, z);
+      for (let axis = 0; axis < 3; axis++) {
+        const b = basis[axis], value = b[0] * x + b[1] * y + b[2] * z;
+        lo[axis] = Math.min(lo[axis], value);
+        hi[axis] = Math.max(hi[axis], value);
+      }
+    }
+    const vp = new Float32Array(16);
+    vp[15] = 1;
+    for (let axis = 0; axis < 3; axis++) {
+      lo[axis] -= 600;
+      hi[axis] += 600;
+      const scale = 2 / Math.max(1, hi[axis] - lo[axis]);
+      for (let component = 0; component < 3; component++) vp[component * 4 + axis] = basis[axis][component] * scale;
+      vp[12 + axis] = -(hi[axis] + lo[axis]) / (hi[axis] - lo[axis]);
+    }
+    return { vp, floor, top };
+  }
+  var init_math = __esm({
+    "src/core/sunRays/math.ts"() {
+      "use strict";
+    }
+  });
+
+  // src/core/sunRays/shaders.ts
+  var SUN_VERTEX, SHADOW_VERTEX, SHADOW_FRAGMENT, WORLD, VOLUME_FRAGMENT, COMPOSITE_FRAGMENT2, BLOOM_EXTRACT_FRAGMENT, BLOOM_BLUR_FRAGMENT;
+  var init_shaders3 = __esm({
+    "src/core/sunRays/shaders.ts"() {
+      "use strict";
+      init_config2();
+      SUN_VERTEX = `#version 300 es
+precision highp float;out vec2 uv;
+void main(){vec2 p=vec2(gl_VertexID==1?3.:-1.,gl_VertexID==2?3.:-1.);uv=p*.5+.5;gl_Position=vec4(p,0.,1.);}`;
+      SHADOW_VERTEX = `#version 300 es
+precision highp float;layout(location=0)in vec3 position;uniform mat4 uSunVP;
+void main(){gl_Position=uSunVP*vec4(position,1.);}`;
+      SHADOW_FRAGMENT = `#version 300 es
+precision highp float;void main(){}`;
+      WORLD = `
+uniform mat4 uInvVP;uniform vec3 uCamera;uniform sampler2D uDepth;uniform float uDistance;
+uniform vec4 uSunParams;uniform vec2 uSunLimits;uniform int uSteps;
+uniform vec3 uSunTint,uHazeColour;uniform vec4 uHazeParams,uLook;
+uniform vec4 uFinish;
+vec3 worldAt(vec2 q,float d){vec4 p=uInvVP*vec4(q*2.-1.,d*2.-1.,1.);return p.xyz/p.w;}
+float sceneDistance(vec2 q){float d=texture(uDepth,q).r;return d>=.999999?uDistance:min(uDistance,length(worldAt(q,d)-uCamera));}
+`;
+      VOLUME_FRAGMENT = `#version 300 es
+precision highp float;precision highp int;in vec2 uv;out vec4 o;
+${WORLD}
+uniform highp sampler2DShadow uShadow;uniform mat4 uSunVP;
+uniform vec3 uSun,uColour;uniform float uFloor,uCeiling,uStrength,uFade,uTime;
+uint pcg(uint v){uint s=v*747796405u+2891336453u;uint w=((s>>((s>>28u)+4u))^s)*277803737u;return(w>>22u)^w;}
+float hash3(ivec3 p){return float(pcg(uint(p.x)+pcg(uint(p.y)+pcg(uint(p.z)))))*(1./4294967296.);}
+float noise3(vec3 p){ivec3 i=ivec3(floor(p));vec3 f=fract(p);f=f*f*(3.-2.*f);
+return mix(mix(mix(hash3(i),hash3(i+ivec3(1,0,0)),f.x),mix(hash3(i+ivec3(0,1,0)),hash3(i+ivec3(1,1,0)),f.x),f.y),
+mix(mix(hash3(i+ivec3(0,0,1)),hash3(i+ivec3(1,0,1)),f.x),mix(hash3(i+ivec3(0,1,1)),hash3(i+ivec3(1,1,1)),f.x),f.y),f.z);}
+float visibility(vec3 p){
+ vec3 q=(uSunVP*vec4(p,1.)).xyz*.5+.5;
+ // Above/in front of all collision geometry the air is sunlit, not a black fog wall.
+ if(q.z<=0.)return 1.;
+ if(q.z>=1.)return 0.;
+ if(any(lessThan(q.xy,vec2(0.)))||any(greaterThan(q.xy,vec2(1.))))return 1.;
+ vec2 texel=1./vec2(textureSize(uShadow,0));
+ float spread=.35+uFinish.x*.5;
+ return .5*(texture(uShadow,vec3(q.xy-texel*spread,q.z-.00035))+texture(uShadow,vec3(q.xy+texel*spread,q.z-.00035)));
+}
+void main(){
+ vec3 direction=normalize(worldAt(uv,1.)-uCamera);float end=sceneDistance(uv);
+ int steps=uSteps>0?uSteps:${SUN_RAYS.steps};
+ float step_=end/float(steps),transmission=1.;vec3 scattered=vec3(0.);
+ // Stable pixel stratification; no random phase every frame and no temporal-history trails.
+ float jitter=fract(52.9829189*fract(dot(gl_FragCoord.xy,vec2(.06711056,.00583715))));
+ float g=${SUN_RAYS.anisotropy}+uSunParams.y,mu=dot(direction,uSun);
+ float phase=(1.-g*g)/pow(max(.01,1.+g*g-2.*g*mu),1.5);
+ for(int i=0;i<96;i++){if(i>=steps)break;
+  float travel=(float(i)+.2+.6*jitter)*step_;vec3 p=uCamera+direction*travel;
+  float height=p.z-uFloor;
+  float heightFade=(1.-smoothstep(2500.,uCeiling-uFloor+8500.,height))*smoothstep(-300.,100.,height);
+  float mist=.65+.35*noise3(p*.0006+vec3(uTime*.008,0.,0.));
+  float density=${SUN_RAYS.extinction}*heightFade*mist*uFade*(1.+uSunParams.x);
+  float alpha=1.-exp(-density*step_);
+  float lit=visibility(p);
+  scattered+=transmission*alpha*lit*uColour*uSunTint*(.08+.85*min(phase,8.))*uStrength;
+  transmission*=1.-alpha;
+ }
+ // Bound the atmospheric highlight independently of the user's surface-light gain.
+ float highlight=max(.01,.22+uSunLimits.x);scattered=highlight*(1.-exp(-scattered/highlight));
+ o=vec4(scattered,transmission);
+}`;
+      COMPOSITE_FRAGMENT2 = `#version 300 es
+precision highp float;in vec2 uv;out vec4 o;
+${WORLD}
+uniform sampler2D uVolume;
+uniform highp sampler2DShadow uShadow;uniform mat4 uSunVP;uniform vec3 uSun;
+uniform float uStrength,uFade;uniform sampler2D uScene;
+uniform vec3 uSunDisk;
+uniform sampler2D uBloom;uniform float uBloomStrength;
+void sunDisk(inout vec4 colour){
+ // Infinite directional source. Native scene depth clips buildings and tanks.
+ vec3 ray=normalize(worldAt(uv,1.)-uCamera);
+ float separation=length(ray-normalize(uSun)),radius=max(.00001,uSunDisk.x);
+ float aa=max(fwidth(separation),.00001);
+ float disk=1.-smoothstep(radius-aa,radius+aa,separation);
+ float halo=exp(-pow(separation/(radius*5.),2.))*uSunDisk.z;
+ float fade=clamp(uFade,0.,1.);
+ vec3 source=mix(uSunTint,vec3(1.),.55)*min(2.,uSunDisk.y);
+ colour.rgb=mix(colour.rgb,source,disk*fade*min(1.,uSunDisk.y));
+ // Smooth, bounded glare independent of the uncapped surface-light strength.
+ colour.rgb+=uSunTint*(1.-exp(-halo*.22))*fade*min(1.,uSunDisk.y);
+}
+float surfaceVisibility(vec3 p){vec3 q=(uSunVP*vec4(p,1.)).xyz*.5+.5;
+ if(q.z<=0.)return 1.;if(q.z>=1.)return 0.;
+ if(any(lessThan(q.xy,vec2(0.)))||any(greaterThan(q.xy,vec2(1.))))return 1.;
+ float centre=texture(uShadow,vec3(q.xy,q.z-.0006));
+ if(uFinish.x<=0.)return centre;
+ vec2 t=uFinish.x/vec2(textureSize(uShadow,0));
+ return .3*centre+.175*(texture(uShadow,vec3(q.xy+vec2(t.x,0.),q.z-.0006))+texture(uShadow,vec3(q.xy-vec2(t.x,0.),q.z-.0006))+
+ texture(uShadow,vec3(q.xy+vec2(0.,t.y),q.z-.0006))+texture(uShadow,vec3(q.xy-vec2(0.,t.y),q.z-.0006)));}
+void appearance(inout vec4 light,float depth){
+ // No extra pass or history: use the existing, format-compatible scene copy.
+ vec3 scene=texture(uScene,uv).rgb;
+ vec3 colour=light.rgb+light.a*scene;
+ bool sky=depth>=.999999;
+ float distance_=sky?uDistance:length(worldAt(uv,depth)-uCamera);
+ float haze=(1.-exp(-max(0.,distance_-uHazeParams.y)/max(1.,uHazeParams.z)))*uHazeParams.x*uFade;
+ // Distance haze is softly capped; shadows and near surfaces retain detail.
+ colour=mix(colour,uHazeColour*.72,min(.65,haze)*(sky?.35:1.));
+ if(sky)colour*=mix(vec3(1.),uSunTint,uHazeParams.w*uFade);
+ if(uBloomStrength>0.)colour+=texture(uBloom,uv).rgb*uBloomStrength*uFade;
+ float exposure=exp2(uLook.x*uFade);
+ colour=colour*exposure/(1.+max(vec3(0.),colour)*max(0.,exposure-1.));
+ colour=(colour-.35)*mix(1.,uLook.y,uFade)+.35;
+ float luminance=dot(colour,vec3(.2126,.7152,.0722));
+ colour=mix(vec3(luminance),colour,mix(1.,uLook.z,uFade));
+ // A restrained luminance curve preserves chroma and leaves bright materials legible.
+ float y=max(0.,dot(colour,vec3(.2126,.7152,.0722)));
+ float curved=smoothstep(0.,1.,clamp(y,0.,1.));
+ colour*=mix(y,curved,uFinish.z*uFade)/max(y,.00001);
+ // Full colour replaces the native destination; destination alpha is preserved by the caller.
+ light=vec4(max(vec3(0.),colour),0.);
+}
+void main(){
+ vec2 size=vec2(textureSize(uVolume,0)),p=uv*size-.5,base=floor(p),f=fract(p);
+ float target=sceneDistance(uv),total=0.;vec4 sum=vec4(0.);
+ for(int y=0;y<2;y++)for(int x=0;x<2;x++){
+  vec2 q=(base+vec2(x,y)+.5)/size;
+  float delta=abs(sceneDistance(q)-target);
+  float weight=(x==0?1.-f.x:f.x)*(y==0?1.-f.y:f.y)*exp(-delta/max(25.,target*.012));
+  sum+=texture(uVolume,q)*weight;total+=weight;
+ }
+ // At an unresolved thin silhouette preserve the native image instead of leaking a bright halo.
+ o=total>.0001?sum/total:vec4(0.,0.,0.,1.);
+ float depth=texture(uDepth,uv).r;
+ if(depth>=.999999){o.rgb=min(o.rgb,vec3(max(0.,.06+uSunLimits.y)));o.a=mix(1.,o.a,.15);appearance(o,depth);sunDisk(o);return;}
+ vec3 pWorld=worldAt(uv,depth);
+ // Derive a surface normal from the nearest continuous depth neighbours, not a distant silhouette.
+ vec2 pixel=1./vec2(textureSize(uDepth,0));
+ vec3 l=worldAt(uv-vec2(pixel.x,0.),texture(uDepth,uv-vec2(pixel.x,0.)).r)-pWorld;
+ vec3 r=worldAt(uv+vec2(pixel.x,0.),texture(uDepth,uv+vec2(pixel.x,0.)).r)-pWorld;
+ vec3 b=worldAt(uv-vec2(0.,pixel.y),texture(uDepth,uv-vec2(0.,pixel.y)).r)-pWorld;
+ vec3 t=worldAt(uv+vec2(0.,pixel.y),texture(uDepth,uv+vec2(0.,pixel.y)).r)-pWorld;
+ vec3 dx=length(l)<length(r)?-l:r,dy=length(b)<length(t)?-b:t;
+ vec3 normal=cross(dx,dy);float normalLength=length(normal);
+ if(normalLength>.0001){normal/=normalLength;if(dot(normal,uCamera-pWorld)<0.)normal=-normal;
+  float visible=surfaceVisibility(pWorld);
+  float gain=(.55+uSunParams.z)*(1.-exp(-uStrength*.05))*uFade*max(0.,dot(normal,uSun))*visible;
+  // Global directional enhancement follows the map surface; it is independent of viewing distance.
+  vec3 baseColour=texture(uScene,uv).rgb;
+  o.rgb+=baseColour*gain*uSunTint;
+  o.rgb+=baseColour*vec3(.78,.88,1.)*uFinish.y*uFade*min(1.,uStrength*.25)*(1.-visible*.65)*(.5+.5*normal.z);
+ }
+ appearance(o,depth);
+}`;
+      BLOOM_EXTRACT_FRAGMENT = `#version 300 es
+precision highp float;in vec2 uv;out vec4 o;uniform sampler2D uSource;uniform vec2 uPixel;uniform float uThreshold;
+void main(){
+ vec3 c=(texture(uSource,uv+uPixel*vec2(-1.,-1.)).rgb+texture(uSource,uv+uPixel*vec2(1.,-1.)).rgb+
+ texture(uSource,uv+uPixel*vec2(-1.,1.)).rgb+texture(uSource,uv+uPixel*vec2(1.,1.)).rgb)*.25;
+ float y=max(c.r,max(c.g,c.b)),knee=.1;
+ float soft=clamp(y-uThreshold+knee,0.,2.*knee);soft=soft*soft/(4.*knee);
+ float amount=max(y-uThreshold,soft)/max(y,.00001);
+ o=vec4(c*amount,1.);
+}`;
+      BLOOM_BLUR_FRAGMENT = `#version 300 es
+precision highp float;in vec2 uv;out vec4 o;uniform sampler2D uSource;uniform vec2 uAxis;
+void main(){vec3 c=texture(uSource,uv).rgb*.4;
+ c+=(texture(uSource,uv-uAxis).rgb+texture(uSource,uv+uAxis).rgb)*.24;
+ c+=(texture(uSource,uv-uAxis*2.).rgb+texture(uSource,uv+uAxis*2.).rgb)*.06;o=vec4(c,1.);}`;
+    }
+  });
+
+  // src/core/sunRays/appearance.ts
+  function temperatureTint(kelvin) {
+    const k = Number.isFinite(kelvin) ? Math.max(2500, Math.min(1e4, kelvin)) : 6500;
+    if (k <= 6500) {
+      const t2 = (6500 - k) / 4e3;
+      return [1, 1 - 0.45 * t2, 1 - 0.74 * t2];
+    }
+    const t = (k - 6500) / 3500;
+    return [1 - 0.28 * t, 1 - 0.15 * t, 1];
+  }
+  var init_appearance2 = __esm({
+    "src/core/sunRays/appearance.ts"() {
+      "use strict";
+    }
+  });
+
+  // src/core/sunRays/pass.ts
+  function createSunPass(gl, compile, initial = DEFAULT_GRAPHICS_TUNING) {
+    const BLOOM = 11, DEPTH = 12, VOLUME = 14, SHADOW = 15;
+    const world = ["uInvVP", "uCamera", "uDepth", "uDistance", "uSunParams", "uSunLimits", "uSteps", "uSunTint", "uHazeColour", "uHazeParams", "uLook", "uFinish"];
+    const volume = compile(SUN_VERTEX, VOLUME_FRAGMENT, [...world, "uShadow", "uSunVP", "uSun", "uColour", "uFloor", "uCeiling", "uStrength", "uFade", "uTime"]);
+    const composite = compile(SUN_VERTEX, COMPOSITE_FRAGMENT2, [...world, "uVolume", "uShadow", "uSunVP", "uSun", "uStrength", "uFade", "uScene", "uSunDisk", "uBloom", "uBloomStrength"]);
+    const shadow = compile(SHADOW_VERTEX, SHADOW_FRAGMENT, ["uSunVP"]);
+    const fullscreen = gl.createVertexArray(), mesh = gl.createVertexArray(), buffer = gl.createBuffer();
+    if (!fullscreen || !mesh || !buffer) {
+      gl.deleteVertexArray(fullscreen);
+      gl.deleteVertexArray(mesh);
+      gl.deleteBuffer(buffer);
+      throw Error("Cannot allocate solar geometry");
+    }
+    let depth = null, shadowFbo = null;
+    let image = null, imageFbo = null, width = 0, height = 0;
+    let source, projection, lastDirection;
+    let frames = 0, shadowBuilds = 0, disposed = false;
+    let bloomExtract, bloomBlur, bloomError = null, bloomFrames = 0;
+    let bloomTargets = [], bloomWidth = 0, bloomHeight = 0;
+    const floating = !!gl.getExtension("EXT_color_buffer_float");
+    const shadowSize = Math.min(initial.sunShadow, gl.getParameter(gl.MAX_TEXTURE_SIZE));
+    let steps = SUN_RAYS.steps;
+    function texture(unit, value) {
+      gl.activeTexture(gl.TEXTURE0 + unit);
+      gl.bindSampler(unit, null);
+      gl.bindTexture(gl.TEXTURE_2D, value);
+    }
+    function parameters(filter) {
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    }
+    function dispose() {
+      if (disposed) return;
+      disposed = true;
+      gl.deleteVertexArray(fullscreen);
+      gl.deleteVertexArray(mesh);
+      gl.deleteBuffer(buffer);
+      gl.deleteTexture(depth);
+      gl.deleteFramebuffer(shadowFbo);
+      gl.deleteTexture(image);
+      gl.deleteFramebuffer(imageFbo);
+      releaseBloom();
+      source = void 0;
+      projection = void 0;
+    }
+    function releaseBloom() {
+      for (const t of bloomTargets) {
+        gl.deleteTexture(t.texture);
+        gl.deleteFramebuffer(t.fbo);
+      }
+      bloomTargets = [];
+      bloomWidth = 0;
+      bloomHeight = 0;
+    }
+    function bloom(f, w, h) {
+      const tuning = f.graphics || DEFAULT_GRAPHICS_TUNING;
+      if (tuning.sunBloom <= 0) {
+        releaseBloom();
+        return false;
+      }
+      if (bloomError) return false;
+      try {
+        bloomExtract ??= compile(SUN_VERTEX, BLOOM_EXTRACT_FRAGMENT, ["uSource", "uPixel", "uThreshold"]);
+        bloomBlur ??= compile(SUN_VERTEX, BLOOM_BLUR_FRAGMENT, ["uSource", "uAxis"]);
+        const scale = Math.min(0.25, 384 / w), rw = Math.max(1, Math.ceil(w * scale)), rh = Math.max(1, Math.ceil(h * scale));
+        if (bloomWidth !== rw || bloomHeight !== rh) {
+          releaseBloom();
+          for (let i = 0; i < 2; i++) {
+            const tex = gl.createTexture(), fbo = gl.createFramebuffer();
+            if (!tex || !fbo) {
+              gl.deleteTexture(tex);
+              gl.deleteFramebuffer(fbo);
+              throw Error("Cannot allocate bloom target");
+            }
+            bloomTargets.push({ texture: tex, fbo });
+            texture(BLOOM, tex);
+            gl.texStorage2D(gl.TEXTURE_2D, 1, floating ? gl.RGBA16F : gl.RGBA8, rw, rh);
+            parameters(gl.LINEAR);
+            gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, fbo);
+            gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+            gl.drawBuffers([gl.COLOR_ATTACHMENT0]);
+            if (gl.checkFramebufferStatus(gl.DRAW_FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw Error("Bloom framebuffer incomplete");
+          }
+          bloomWidth = rw;
+          bloomHeight = rh;
+        }
+        gl.bindVertexArray(fullscreen);
+        gl.disable(gl.DEPTH_TEST);
+        gl.depthMask(false);
+        gl.disable(gl.BLEND);
+        gl.colorMask(true, true, true, true);
+        gl.viewport(0, 0, rw, rh);
+        texture(BLOOM, null);
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, bloomTargets[0].fbo);
+        gl.useProgram(bloomExtract.p);
+        gl.uniform1i(bloomExtract.u.uSource, 13);
+        gl.uniform2f(bloomExtract.u.uPixel, 1 / w, 1 / h);
+        gl.uniform1f(bloomExtract.u.uThreshold, tuning.sunBloomThreshold);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+        gl.useProgram(bloomBlur.p);
+        gl.uniform1i(bloomBlur.u.uSource, BLOOM);
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, bloomTargets[1].fbo);
+        texture(BLOOM, bloomTargets[0].texture);
+        gl.uniform2f(bloomBlur.u.uAxis, tuning.sunBloomRadius / rw, 0);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, bloomTargets[0].fbo);
+        texture(BLOOM, bloomTargets[1].texture);
+        gl.uniform2f(bloomBlur.u.uAxis, 0, tuning.sunBloomRadius / rh);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+        texture(BLOOM, bloomTargets[0].texture);
+        bloomFrames++;
+        return true;
+      } catch (error) {
+        bloomError = String(error);
+        releaseBloom();
+        return false;
+      }
+    }
+    function prepareShadow(f) {
+      const vertices = f.map.supportVertices;
+      if (!vertices?.length || vertices.length / 9 > SUN_RAYS.maxShadowTriangles) throw Error("Static collision shadow mesh unavailable or exceeds budget");
+      if (source === vertices && lastDirection && Math.hypot(...f.direction.map((v, i) => v - lastDirection[i])) < 1e-4) return;
+      const next = sunProjection(vertices, f.direction);
+      if (!next) throw Error("Invalid sunlight projection");
+      if (!depth) {
+        depth = gl.createTexture();
+        shadowFbo = gl.createFramebuffer();
+        if (!depth || !shadowFbo) throw Error("Cannot allocate solar shadow map");
+        texture(SHADOW, depth);
+        gl.texStorage2D(gl.TEXTURE_2D, 1, gl.DEPTH_COMPONENT24, shadowSize, shadowSize);
+        parameters(gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_MODE, gl.COMPARE_REF_TO_TEXTURE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_FUNC, gl.LEQUAL);
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, shadowFbo);
+        gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, depth, 0);
+        gl.drawBuffers([gl.NONE]);
+        if (gl.checkFramebufferStatus(gl.DRAW_FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw Error("Solar shadow framebuffer incomplete");
+      } else gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, shadowFbo);
+      texture(SHADOW, null);
+      gl.bindVertexArray(mesh);
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      if (source !== vertices) {
+        gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+        gl.enableVertexAttribArray(0);
+        gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 12, 0);
+      }
+      gl.viewport(0, 0, shadowSize, shadowSize);
+      gl.colorMask(false, false, false, false);
+      gl.disable(gl.BLEND);
+      gl.enable(gl.DEPTH_TEST);
+      gl.depthFunc(gl.LESS);
+      gl.depthMask(true);
+      gl.depthRange(0, 1);
+      gl.clearDepth(1);
+      gl.clear(gl.DEPTH_BUFFER_BIT);
+      gl.useProgram(shadow.p);
+      gl.uniformMatrix4fv(shadow.u.uSunVP, false, next.vp);
+      gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 3);
+      source = vertices;
+      projection = next;
+      lastDirection = [...f.direction];
+      shadowBuilds++;
+    }
+    function target(w, h, tuning) {
+      const scale = Math.min(SUN_RAYS.resolutionScale, tuning.sunResolution / w);
+      const rw = Math.max(1, Math.ceil(w * scale)), rh = Math.max(1, Math.ceil(h * scale));
+      if (image && width === rw && height === rh) {
+        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, imageFbo);
+        return;
+      }
+      gl.deleteTexture(image);
+      gl.deleteFramebuffer(imageFbo);
+      image = gl.createTexture();
+      imageFbo = gl.createFramebuffer();
+      if (!image || !imageFbo) throw Error("Cannot allocate solar volume");
+      width = rw;
+      height = rh;
+      texture(VOLUME, image);
+      gl.texStorage2D(gl.TEXTURE_2D, 1, floating ? gl.RGBA16F : gl.RGBA8, width, height);
+      parameters(gl.NEAREST);
+      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, imageFbo);
+      gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, image, 0);
+      gl.drawBuffers([gl.COLOR_ATTACHMENT0]);
+      if (gl.checkFramebufferStatus(gl.DRAW_FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw Error("Solar volume framebuffer incomplete");
+    }
+    function common(p, f, inv) {
+      gl.useProgram(p.p);
+      gl.uniformMatrix4fv(p.u.uInvVP, false, inv);
+      gl.uniform3fv(p.u.uCamera, f.camera);
+      const tuning = f.graphics || DEFAULT_GRAPHICS_TUNING;
+      steps = tuning.sunSteps;
+      gl.uniform1i(p.u.uDepth, DEPTH);
+      gl.uniform1f(p.u.uDistance, tuning.sunDistance * 100);
+      gl.uniform4f(p.u.uSunParams, tuning.sunDensity - 1, tuning.sunAnisotropy - 0.62, tuning.sunSurface - 0.55, 0);
+      gl.uniform2f(p.u.uSunLimits, tuning.sunHighlight - 0.22, tuning.sunSky - 0.06);
+      gl.uniform1i(p.u.uSteps, steps);
+      gl.uniform3fv(p.u.uSunTint, temperatureTint(tuning.sunTemperature));
+      gl.uniform3fv(p.u.uHazeColour, temperatureTint(tuning.sunHazeTemperature));
+      gl.uniform4f(p.u.uHazeParams, tuning.sunHaze, tuning.sunHazeStart * 100, tuning.sunHazeDistance * 100, tuning.sunSkyWarmth);
+      gl.uniform4f(p.u.uLook, tuning.sunExposure, tuning.sunContrast, tuning.sunSaturation, 0);
+      gl.uniform4f(p.u.uFinish, tuning.sunShadowSoftness, tuning.sunShadowFill, tuning.sunToneCurve, 0);
+    }
+    function draw(f, inv, sceneDepth, viewport, destination) {
+      if (disposed) return;
+      gl.disable(gl.SCISSOR_TEST);
+      gl.disable(gl.STENCIL_TEST);
+      gl.disable(gl.CULL_FACE);
+      gl.disable(gl.RASTERIZER_DISCARD);
+      gl.disable(gl.POLYGON_OFFSET_FILL);
+      gl.disable(gl.SAMPLE_ALPHA_TO_COVERAGE);
+      prepareShadow(f);
+      const hasBloom = bloom(f, viewport[2], viewport[3]);
+      target(viewport[2], viewport[3], f.graphics || DEFAULT_GRAPHICS_TUNING);
+      gl.viewport(0, 0, width, height);
+      gl.colorMask(true, true, true, true);
+      gl.disable(gl.DEPTH_TEST);
+      gl.depthMask(false);
+      gl.disable(gl.BLEND);
+      gl.bindVertexArray(fullscreen);
+      texture(DEPTH, sceneDepth);
+      texture(SHADOW, depth);
+      texture(VOLUME, null);
+      common(volume, f, inv);
+      gl.uniform1i(volume.u.uShadow, SHADOW);
+      gl.uniformMatrix4fv(volume.u.uSunVP, false, projection.vp);
+      gl.uniform3fv(volume.u.uSun, f.direction);
+      gl.uniform3fv(volume.u.uColour, f.colour);
+      gl.uniform1f(volume.u.uFloor, projection.floor);
+      gl.uniform1f(volume.u.uCeiling, projection.top);
+      gl.uniform1f(volume.u.uStrength, f.intensity);
+      gl.uniform1f(volume.u.uFade, f.fade);
+      gl.uniform1f(volume.u.uTime, f.time);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, destination);
+      gl.viewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+      texture(VOLUME, image);
+      common(composite, f, inv);
+      gl.uniform1i(composite.u.uVolume, VOLUME);
+      gl.uniform1i(composite.u.uShadow, SHADOW);
+      gl.uniformMatrix4fv(composite.u.uSunVP, false, projection.vp);
+      gl.uniform3fv(composite.u.uSun, f.direction);
+      gl.uniform1f(composite.u.uStrength, f.intensity);
+      gl.uniform1f(composite.u.uFade, f.fade);
+      gl.uniform1i(composite.u.uScene, 13);
+      const tuning = f.graphics || DEFAULT_GRAPHICS_TUNING;
+      gl.uniform3f(composite.u.uSunDisk, tuning.sunDiskSize * Math.PI / 360, tuning.sunDiskBrightness, tuning.sunHalo);
+      gl.uniform1i(composite.u.uBloom, BLOOM);
+      gl.uniform1f(composite.u.uBloomStrength, hasBloom ? tuning.sunBloom : 0);
+      gl.enable(gl.BLEND);
+      gl.blendEquation(gl.FUNC_ADD);
+      gl.blendFuncSeparate(gl.ONE, gl.SRC_ALPHA, gl.ZERO, gl.ONE);
+      gl.colorMask(true, true, true, false);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      frames++;
+    }
+    return { draw, dispose, status: () => ({ frames, shadowBuilds, resolution: [width, height], shadowSize, floating, steps, bloom: { frames: bloomFrames, resolution: [bloomWidth, bloomHeight], error: bloomError }, triangles: (source?.length ?? 0) / 9, disposed }) };
+  }
+  var init_pass = __esm({
+    "src/core/sunRays/pass.ts"() {
+      "use strict";
+      init_config2();
+      init_math();
+      init_shaders3();
+      init_graphicsPreferences();
+      init_appearance2();
+    }
+  });
+
   // src/core/rainWeather/renderer.ts
   function createRainRenderer(gl) {
     const UUNIT = 11, DUNIT = 12, VUNIT = 13, SUNIT = 14, MUNIT = 15;
@@ -18292,6 +19024,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
     const mapPasses = Array.from({ length: 2 }, () => ({ vao: null, buffer: null, texture: null, fbo: null, width: 0, height: 0 }));
     let mapProgram, mapSource, mapFrames = 0, mapError = null;
     let splashProgram, splashVao = null, splashBuffer = null, splashError = null, splashParticles = 0;
+    let sunlight, sunError = null, sunSkip = null;
     function releaseMap() {
       for (const p of mapPasses) {
         gl.deleteVertexArray(p.vao);
@@ -18771,7 +19504,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
         gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, pbo);
       }
     }
-    const shared = ["uInvVP", "uCam", "uTime", "uRain", "uCloud", "uSeed", "uFade", "uFog", "uFogColor", "uDepth", "uSkyDarkness"];
+    const shared = ["uInvVP", "uCam", "uTime", "uRain", "uCloud", "uSeed", "uFade", "uFog", "uFogColor", "uDepth", "uSkyDarkness", "uParticle", "uSnowMotion", "uDarkness"];
     function owned(vs, fs, names) {
       const p = program(vs, fs, names);
       programs.push(p);
@@ -18805,6 +19538,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
       return detail === "high" ? prepareReflections("low") : void 0;
     }
     function dispose() {
+      sunlight?.dispose();
       disposed = true;
       for (const p of programs.splice(0)) gl.deleteProgram(p.p);
       gl.deleteVertexArray(vao);
@@ -18865,9 +19599,10 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
       gl.uniform1f(u.uTime ?? null, f.time);
       gl.uniform1f(u.uRain ?? null, f.rain);
       gl.uniform1f(u.uCloud ?? null, f.clouds);
-      gl.uniform3fv(u.uCloudTone ?? null, f.cloudTone ?? [1, 1, 1]);
+      gl.uniform3fv(u.uCloudTone ?? null, (f.cloudTone ?? [1, 1, 1]).map((v) => v * (f.graphics || DEFAULT_GRAPHICS_TUNING).cloudBrightness));
       gl.uniform3fv(u.uSunDirection ?? null, f.sunDirection ?? [0, 0, 1]);
       gl.uniform1f(u.uSkyDarkness ?? null, f.skyDarkness ?? 0);
+      gl.uniform1f(u.uDarkness ?? null, (f.graphics || DEFAULT_GRAPHICS_TUNING).darkness - 1);
       gl.uniform1f(u.uSeed ?? null, f.seed);
       gl.uniform1f(u.uFade ?? null, f.fade);
       gl.uniform3fv(u.uFog ?? null, f.fog);
@@ -18876,7 +19611,45 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
       gl.uniform1f(u.uSky ?? null, 0);
     }
     let frames = 0, depthCopies = 0, cloudFrames = 0;
+    function drawSun(f) {
+      if (disposed || sunError || gl.isContextLost() || f.fade <= 0 || f.intensity <= 0) return;
+      const state = saveState();
+      sunSkip = null;
+      try {
+        if (state.drawBuffers) {
+          sunSkip = "multiple-colour-targets";
+          return;
+        }
+        if (state.viewport[2] < 1 || state.viewport[3] < 1 || state.depthRange[0] !== 0 || state.depthRange[1] !== 1 || state.dfunc === gl.GREATER || state.dfunc === gl.GEQUAL) {
+          sunSkip = "unsupported-depth-convention";
+          return;
+        }
+        if (!invert4(f.vp, invVP)) {
+          sunSkip = "invalid-camera";
+          return;
+        }
+        if (!copySceneDepth(state) || !curRes.depthTex) {
+          sunSkip = depthCopy.reason || "scene-depth-unavailable";
+          return;
+        }
+        if (!copySceneColor(state) || !sceneTex) {
+          sunSkip = sceneCopy.reason || "scene-colour-unavailable";
+          return;
+        }
+        gl.activeTexture(gl.TEXTURE0 + VUNIT);
+        gl.bindSampler(VUNIT, null);
+        gl.bindTexture(gl.TEXTURE_2D, sceneTex);
+        sunlight ??= createSunPass(gl, owned, f.graphics);
+        sunlight.draw(f, invVP, curRes.depthTex, state.viewport, state.fb);
+      } catch (error) {
+        sunError = String(error);
+        sunlight?.dispose();
+      } finally {
+        restoreState(state);
+      }
+    }
     function draw(f, stage = "all") {
+      const graphics = f.graphics || DEFAULT_GRAPHICS_TUNING;
       snowFlakes = 0;
       snowCrystals = 0;
       snowStreaks = 0;
@@ -18893,7 +19666,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
         if (!boundHasDepth(state)) return;
         const width = state.viewport[2], height = state.viewport[3];
         if (width < 1 || height < 1) return;
-        const refreshCloud = sky && f.clouds > 1e-3 && f.time - cloudAt >= 1 / WEATHER.cloudHz;
+        const refreshCloud = sky && f.clouds > 1e-3 && f.time - cloudAt >= 1 / graphics.cloudHz;
         const wet = sky && f.precipitation !== "snow" && Math.max(0, Math.min(1, f.puddles ?? 0)) * f.rain * f.fade > 2e-3;
         const depthNeeded = weather && f.rain > 0.03 && f.precipitation !== "snow" || wet;
         const depth = depthNeeded && copySceneDepth(state);
@@ -18915,7 +19688,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
         gl.activeTexture(gl.TEXTURE0 + VUNIT);
         gl.bindTexture(gl.TEXTURE_2D, cloudTex);
         if (refreshCloud) {
-          const w = WEATHER.cloudWidth, h = WEATHER.cloudHeight;
+          const w = graphics.cloudResolution, h = Math.round(w / 4);
           if (cw !== w || ch !== h) {
             cw = w;
             ch = h;
@@ -18938,8 +19711,8 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
           gl.uniform3fv(cloud.u.uCloudLow, palette.low);
           gl.uniform3fv(cloud.u.uCloudHigh, palette.high);
           gl.uniform3fv(cloud.u.uCloudHaze, palette.haze);
-          gl.uniform1f(cloud.u.uCloudBase, WEATHER.cloudBase);
-          gl.uniform1f(cloud.u.uThickness, WEATHER.cloudThickness);
+          gl.uniform1f(cloud.u.uCloudBase, graphics.cloudHeight * 100);
+          gl.uniform1f(cloud.u.uThickness, graphics.cloudThickness * 100);
           gl.drawArrays(gl.TRIANGLES, 0, 3);
           cloudAt = f.time;
           cloudFrames++;
@@ -18961,7 +19734,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
           gl.uniform1i(composite.u.uCloudTexture, VUNIT);
           gl.uniform1f(composite.u.uBoltFlash, f.lightning?.flash ?? 0);
           const strike = f.lightning;
-          const direction = strike ? [strike.origin[0] + Math.cos(strike.strike.azimuth) * strike.strike.radius - f.camera[0], strike.origin[1] + Math.sin(strike.strike.azimuth) * strike.strike.radius - f.camera[1], WEATHER.cloudBase - f.camera[2]] : [0, 0, 1];
+          const direction = strike ? [strike.origin[0] + Math.cos(strike.strike.azimuth) * strike.strike.radius - f.camera[0], strike.origin[1] + Math.sin(strike.strike.azimuth) * strike.strike.radius - f.camera[1], graphics.cloudHeight * 100 - f.camera[2]] : [0, 0, 1];
           const length = Math.hypot(...direction);
           gl.uniform3f(composite.u.uBoltDirection, direction[0] / length, direction[1] / length, direction[2] / length);
           gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -18971,7 +19744,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
           gl.bindVertexArray(boltVao);
           gl.bindBuffer(gl.ARRAY_BUFFER, boltBuffer);
           if (key !== boltKey) {
-            const data = buildBolt(strike, origin);
+            const data = buildBolt(strike, origin, (graphics.cloudHeight + graphics.cloudThickness * 0.9) * 100);
             gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
             boltCount = data.length / 8;
             boltKey = key;
@@ -19059,12 +19832,15 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
           if (particle) {
             gl.enable(gl.DEPTH_TEST);
             gl.depthFunc(gl.LEQUAL);
-            const count = Math.round((snowy ? SNOW.maxFlakes : WEATHER.maxDrops) * Math.min(1, f.rain));
+            const count = Math.round((snowy ? graphics.snowFlakes : graphics.rainDrops) * Math.min(1, f.rain));
             const streak = snowy && f.wind >= 0.95 ? prepareSnowStreaks() : void 0;
-            const streakCount = streak ? Math.round(count * SNOW.blizzardStreakShare) : 0, crystalCount = count - streakCount;
+            const streakCount = streak ? Math.round(count * graphics.snowStreaks) : 0, crystalCount = count - streakCount;
             const drawParticles = (program2, n, vertices, offset) => {
               if (!n) return;
               use(program2, f);
+              gl.uniform1f(program2.u.uTime, f.time * (snowy ? graphics.snowSpeed : graphics.rainSpeed));
+              gl.uniform4f(program2.u.uParticle, (snowy ? graphics.snowSize : graphics.rainSize) - 1, graphics.rainLength - 1, (snowy ? graphics.snowOpacity : graphics.rainOpacity) - 1, 0);
+              gl.uniform4f(program2.u.uSnowMotion, graphics.snowWind - 1, graphics.snowFlutter - 1, graphics.snowBranches - 3, 0);
               gl.uniformMatrix4fv(program2.u.uVP, false, f.vp);
               gl.uniform2f(program2.u.uViewport, width, height);
               gl.uniform1f(program2.u.uWind, f.wind);
@@ -19072,8 +19848,8 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
               gl.uniform1f(program2.u.uIdOffset ?? null, offset);
               gl.drawArraysInstanced(snowy ? gl.TRIANGLES : gl.TRIANGLE_STRIP, 0, vertices, n);
             };
-            drawParticles(particle, crystalCount, snowy ? 12 : 4, 0);
-            if (streak) drawParticles(streak, streakCount, 6, SNOW.maxFlakes - Math.round(SNOW.maxFlakes * SNOW.blizzardStreakShare));
+            drawParticles(particle, crystalCount, snowy ? graphics.snowFaces * 6 : 4, 0);
+            if (streak) drawParticles(streak, streakCount, 6, graphics.snowFlakes - Math.round(graphics.snowFlakes * graphics.snowStreaks));
             if (snowy) {
               snowFlakes = count;
               snowCrystals = crystalCount;
@@ -19086,13 +19862,16 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
         restoreState(state);
       }
     }
-    return { warm, draw, dispose, clearReflections: () => {
+    return { warm, draw, drawSun, dispose, clearReflections: () => {
       releaseReflections();
       releaseMap();
     }, status: () => ({
       ready,
       disposed,
       frames,
+      sunlight: sunlight?.status() ?? null,
+      sunError,
+      sunSkip,
       snowFlakes,
       snowCrystals,
       snowStreaks,
@@ -19123,7 +19902,6 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
     "src/core/rainWeather/renderer.ts"() {
       "use strict";
       init_snowWeather();
-      init_schedule();
       init_shaders2();
       init_lightning();
       init_puddles();
@@ -19131,6 +19909,8 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
       init_splashShaders();
       init_splashes();
       init_appearance();
+      init_pass();
+      init_graphicsPreferences();
     }
   });
 
@@ -19285,51 +20065,6 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
     }
   });
 
-  // src/core/rainWeather/preferences.ts
-  function readWeatherGeneration(storage) {
-    let chance = DEFAULT_WEATHER_GENERATION.chance, preset = DEFAULT_WEATHER_GENERATION.preset, duration = DEFAULT_WEATHER_GENERATION.duration, precipitation = DEFAULT_WEATHER_GENERATION.precipitation;
-    try {
-      const raw = storage.getItem(WEATHER_GENERATION_KEYS.chance);
-      const value = raw === null || raw.trim() === "" ? NaN : Number(raw);
-      if (Number.isFinite(value)) chance = Math.max(0, Math.min(1, value));
-    } catch {
-    }
-    try {
-      const value = storage.getItem(WEATHER_GENERATION_KEYS.preset);
-      if (value === "random" || value !== null && Object.prototype.hasOwnProperty.call(RAIN_PRESETS, value)) preset = value;
-    } catch {
-    }
-    try {
-      const raw = storage.getItem(WEATHER_GENERATION_KEYS.duration);
-      const value = raw === null || raw.trim() === "" ? NaN : Number(raw);
-      if (Number.isFinite(value)) duration = Math.max(0, Math.min(1, value));
-    } catch {
-    }
-    return { chance, preset, duration, precipitation };
-  }
-  function readWeatherVolumes(storage) {
-    const read = (key) => {
-      try {
-        const raw = storage.getItem(key);
-        if (raw === null || raw.trim() === "") return 1;
-        const value = Number(raw);
-        return Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 1;
-      } catch {
-        return 1;
-      }
-    };
-    return { rain: read(WEATHER_VOLUME_KEYS.rain), thunder: read(WEATHER_VOLUME_KEYS.thunder) };
-  }
-  var WEATHER_VOLUME_KEYS, WEATHER_GENERATION_KEYS;
-  var init_preferences = __esm({
-    "src/core/rainWeather/preferences.ts"() {
-      "use strict";
-      init_schedule();
-      WEATHER_VOLUME_KEYS = { rain: "k_rain_volume", thunder: "k_thunder_volume" };
-      WEATHER_GENERATION_KEYS = { chance: "k_rain_chance", preset: "k_rain_preset", duration: "k_rain_duration" };
-    }
-  });
-
   // src/core/rainWeather/lighting.ts
   function lightAttenuation(storm, rain, fade, flash = 0) {
     const safe = (v) => Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0;
@@ -19379,13 +20114,14 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
         return [1, 1, 1];
     }
   }
-  function mapWeather(theme, name) {
+  function mapWeather(theme, name, nativeSnow = false) {
     if (theme === "SPACE") return null;
     if (theme === "WINTER_DAY" || theme === "WINTER_NIGHT") return "snow";
     if (typeof name !== "string" || !name.trim()) return void 0;
     if (!theme) {
       const words = name.normalize("NFKC").toLowerCase().split(/[^a-zа-яё]+/u);
       if (words.some((word) => ["space", "\u043A\u043E\u0441\u043C\u043E\u0441", "\u043A\u043E\u0441\u043C\u0438\u0447\u0435\u0441\u043A\u0438\u0439", "\u043A\u043E\u0441\u043C\u0438\u0447\u0435\u0441\u043A\u0430\u044F"].includes(word))) return null;
+      if (nativeSnow === true) return "snow";
       if (words.some((word) => ["winter", "snow", "snowy", "\u0437\u0438\u043C\u0430", "\u0437\u0438\u043C\u043D\u0438\u0439", "\u0437\u0438\u043C\u043D\u044F\u044F", "\u0437\u0438\u043C\u043D\u0435\u0435", "\u0437\u0438\u043C\u043D\u0438\u0435", "\u0441\u043D\u0435\u0433", "\u0441\u043D\u0435\u0436\u043D\u044B\u0439", "\u0441\u043D\u0435\u0436\u043D\u0430\u044F", "\u0441\u043D\u0435\u0436\u043D\u043E\u0435"].includes(word))) return "snow";
     }
     return mapAllowsPuddles(name) ? "rain" : null;
@@ -19444,6 +20180,133 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
     }
   });
 
+  // src/core/sunRays/index.ts
+  function installSunRays(page) {
+    const scope = featureScope("sunRays", { budgetMs: 12 });
+    const contexts = /* @__PURE__ */ new Map();
+    let enabled = false, intensity = 1, started = performance.now(), frames = 0, reason = "disabled";
+    let light;
+    let observedTheme;
+    let graphics = readGraphicsTuning(localStorage);
+    function reset() {
+      for (const renderer of contexts.values()) renderer.dispose();
+      contexts.clear();
+      started = performance.now();
+    }
+    function sync() {
+      const nextGraphics = readGraphicsTuning(localStorage);
+      if (nextGraphics.sunShadow !== graphics.sunShadow) reset();
+      graphics = nextGraphics;
+      let next = false;
+      try {
+        next = localStorage.getItem("k_sun_rays") === "true";
+      } catch {
+      }
+      if (next !== enabled) {
+        reset();
+        enabled = next;
+      }
+      intensity = readSunIntensity(localStorage);
+      if (!enabled) reason = "disabled";
+    }
+    function lighting(buffer) {
+      if (!(buffer instanceof Float32Array) || buffer.length < 12 || ![4, 5, 6, 8, 9, 10].every((i) => Number.isFinite(buffer[i]))) return;
+      const vector = [-buffer[8], -buffer[9], -buffer[10]], length = Math.hypot(...vector);
+      if (length < 1e-3) {
+        light = void 0;
+        return;
+      }
+      const direction = vector.map((v) => v / length);
+      const colour = [4, 5, 6].map((i) => Math.max(0, Math.min(2, buffer[i])));
+      light = { direction, colour };
+    }
+    function frame(gl, vp, camera, map, theme, cover = 0, name) {
+      if (!enabled || scope.disabled) return;
+      observedTheme = theme;
+      if (!mapAllowsSun(theme, name)) {
+        reason = "night-or-space";
+        return;
+      }
+      if (!light || light.direction[2] < 0.06 || Math.max(...light.colour) < 0.01) {
+        reason = "native-sun-unavailable";
+        return;
+      }
+      if (!map?.supportVertices?.length) {
+        reason = "map-pending";
+        return;
+      }
+      if (intensity <= 0 || cover >= 0.999) {
+        reason = intensity <= 0 ? "zero-intensity" : "overcast";
+        return;
+      }
+      scope.run(() => {
+        let renderer = contexts.get(gl);
+        if (!renderer) {
+          if (contexts.size >= 2) {
+            const oldest = contexts.keys().next().value;
+            contexts.get(oldest)?.dispose();
+            contexts.delete(oldest);
+          }
+          renderer = createRainRenderer(gl);
+          contexts.set(gl, renderer);
+          started = performance.now();
+        }
+        const age = Math.max(0, Math.min(1, (performance.now() - started) / (graphics.sunFade * 1e3)));
+        renderer.drawSun({
+          vp,
+          camera,
+          map,
+          direction: light.direction,
+          colour: light.colour,
+          time: performance.now() / 1e3,
+          fade: age * age * (3 - 2 * age) * (1 - Math.max(0, Math.min(1, cover))),
+          intensity,
+          graphics
+        });
+        const status = renderer.status();
+        reason = status.sunError || status.sunSkip;
+        frames++;
+      });
+    }
+    const api = {
+      setEnabled(value) {
+        localStorage.setItem("k_sun_rays", String(value));
+        sync();
+      },
+      setIntensity(value) {
+        if (!Number.isFinite(value)) return;
+        localStorage.setItem("k_sun_rays_intensity", String(Math.max(0, value)));
+        sync();
+      },
+      status: () => ({
+        prototype: "world-sunlight-v2",
+        enabled,
+        intensity,
+        reason,
+        theme: observedTheme ?? null,
+        nativeLight: light ? { direction: [...light.direction], colour: [...light.colour] } : null,
+        frames,
+        renderers: [...contexts.values()].map((renderer) => ({ sunlight: renderer.status().sunlight, error: renderer.status().sunError, skip: renderer.status().sunSkip })),
+        runtime: scope.status()
+      })
+    };
+    scope.listen(page, "webglcontextlost", reset, true);
+    scope.listen(page, "pagehide", reset);
+    scope.onCleanup(reset);
+    sync();
+    page.__kaspSunRays = api;
+    return { api, sync, lighting, frame, reset, enabled: () => enabled && !scope.disabled };
+  }
+  var init_sunRays = __esm({
+    "src/core/sunRays/index.ts"() {
+      "use strict";
+      init_featureRuntime();
+      init_renderer();
+      init_config2();
+      init_graphicsPreferences();
+    }
+  });
+
   // src/core/rainWeather/index.ts
   function clock(text2) {
     const p = text2.trim().split(":");
@@ -19463,6 +20326,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
   }
   function installRainWeather(page) {
     const scope = featureScope("rainWeather", { budgetMs: 12 });
+    const sunlight = installSunRays(page);
     const episodes = /* @__PURE__ */ new Map();
     const contexts = /* @__PURE__ */ new Map();
     let enabled = false, present = false, battleId, nativeLoaded;
@@ -19470,7 +20334,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
     let entryAt = 0, lastFrame = 0, current, hookReady = false, error = null;
     let override;
     let draws = 0;
-    let nativeFrameAt = -Infinity, nativeMapCaptured = false;
+    let nativeFrameAt = -Infinity, nativeMapCaptured = false, terrainSnow = false, seasonPendingId = false;
     let nativeCanvas;
     let battleScenes = /* @__PURE__ */ new WeakSet(), sceneCount = 0, suspended = false;
     const excluded = () => !!document.querySelector(gameDOM.screens.weatherExcluded);
@@ -19478,11 +20342,12 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
     let puddles = false, puddleAmount = 0, puddleAt = performance.now();
     const puddleDetail = "high";
     let surfaceTuning = readSurfaceTuning(localStorage);
+    let graphics = readGraphicsTuning(localStorage);
     let pendingMap, mapSurface, mapError = null, nativeLightingReady = false;
     const tanks = /* @__PURE__ */ new Map(), splashes = createSplashEmitter();
-    const hulls = /* @__PURE__ */ new WeakMap(), themes = /* @__PURE__ */ new Map();
+    const hulls = /* @__PURE__ */ new WeakMap(), themes = /* @__PURE__ */ new Map(), snowBattles = /* @__PURE__ */ new Set();
     const theme = () => battleId ? themes.get(battleId) : void 0;
-    const precipitation = () => mapWeather(theme(), mapName);
+    const precipitation = () => mapWeather(theme(), mapName, terrainSnow);
     const permits = (plan) => !!plan && !!precipitation() && (plan.precipitation ?? "rain") === precipitation();
     const skyUniforms = createSkyboxUniforms();
     let sunDirection = [0, 0, 1];
@@ -19504,7 +20369,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
       }
     };
     const prepareMap = () => {
-      if (!pendingMap || precipitation() !== "rain") return;
+      if (!pendingMap || !sunlight.enabled() && precipitation() !== "rain") return;
       const capture = pendingMap;
       pendingMap = void 0;
       try {
@@ -19533,6 +20398,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
       contexts.clear();
     };
     const leave = () => {
+      sunlight.reset();
       present = false;
       suspended = false;
       battleScenes = /* @__PURE__ */ new WeakSet();
@@ -19541,6 +20407,9 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
       lastFrame = 0;
       nativeFrameAt = -Infinity;
       nativeMapCaptured = false;
+      terrainSnow = false;
+      seasonPendingId = false;
+      nativeCanvas = void 0;
       current = void 0;
       override = void 0;
       battleId = void 0;
@@ -19560,18 +20429,24 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
     };
     function reconcileMap() {
       if (permits(current) && (!override || permits(override))) return;
-      current = void 0;
-      override = void 0;
+      const correctSnow = terrainSnow && !theme() && precipitation() === "snow";
+      current = correctSnow && current ? { ...current, precipitation: "snow" } : void 0;
+      override = correctSnow && override ? { ...override, precipitation: "snow" } : void 0;
+      if (current && battleId) {
+        episodes.set(battleId, current);
+        save();
+      }
       puddleAmount = 0;
       strikePlan = void 0;
       strikes = [];
       splashes.clear();
       dropContexts();
       stopSound();
-      if (precipitation() !== "rain") mapSurface = void 0;
+      if (precipitation() !== "rain" && !sunlight.enabled()) mapSurface = void 0;
     }
     const nativeBattle = () => !excluded() && nativeLoaded !== false && performance.now() - nativeFrameAt < 1e3 && (!nativeCanvas || !("isConnected" in nativeCanvas) || nativeCanvas.isConnected);
     const sync = () => {
+      sunlight.sync();
       let next = false;
       try {
         next = localStorage.getItem("k_rain_weather") === "true";
@@ -19589,13 +20464,20 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
         puddles = false;
       }
       surfaceTuning = readSurfaceTuning(localStorage);
-      if (enabled && pendingMap) scope.timeout(prepareMap, 0);
+      const nextGraphics = readGraphicsTuning(localStorage);
+      if (graphics.lightningFrequency !== nextGraphics.lightningFrequency || graphics.lightningDistance !== nextGraphics.lightningDistance) {
+        strikePlan = void 0;
+        stopSound();
+      }
+      graphics = nextGraphics;
+      if ((enabled || sunlight.enabled()) && pendingMap) scope.timeout(prepareMap, 0);
       audio?.volumes(readWeatherVolumes(localStorage));
       if (excluded()) {
         if (!suspended) {
           suspended = true;
           tanks.clear();
           splashes.clear();
+          sunlight.reset();
           for (const r of contexts.values()) r.clearReflections();
         }
         stopSound();
@@ -19651,6 +20533,8 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
     const weather = (plan, now) => {
       const value = sampleRain(plan, now);
       value.rain *= surfaceTuning.rainIntensity;
+      value.clouds = Math.min(1, value.clouds * graphics.cloudAmount);
+      value.wind *= graphics.wind;
       value.sound = plan.precipitation === "snow" ? 0 : rainSoundLevel(value.rain);
       return value;
     };
@@ -19666,7 +20550,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
       skyUniform(gl) {
         const plan = override || current, now = Date.now();
         const darkness = enabled && !scope.disabled && present && !excluded() && nativeLoaded !== false && permits(plan) && plan ? skyboxDarkness(weather(plan, now), smooth((now - entryAt) / 1800), theme()) : 0;
-        skyUniforms(gl, darkness);
+        skyUniforms(gl, darkness * graphics.darkness);
       },
       patch(state) {
         patchState = state;
@@ -19678,9 +20562,26 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
         while (themes.size > 64) themes.delete(themes.keys().next().value);
         if (id === battleId) reconcileMap();
       },
+      /** Called only inside the validated native map snow-material draw branch. */
+      terrainSnow(renderer, s) {
+        if (terrainSnow || scope.disabled || !nativeMapCaptured || nativeLoaded === false || excluded()) return;
+        const gl = nativeObject(nativeObject(renderer)?.[s.gl])?.[s.context];
+        if (!gl || typeof gl.drawArraysInstanced !== "function" || gl.isContextLost()) return;
+        if (gl.canvas && "isConnected" in gl.canvas && !gl.canvas.isConnected) return;
+        const root = document.querySelector(gameDOM.screens.battleCanvas);
+        if (root && gl.canvas && "nodeType" in gl.canvas && typeof root.contains === "function" && !root.contains(gl.canvas)) return;
+        if (nativeCanvas && gl.canvas !== nativeCanvas) return;
+        if (!document.querySelector(gameDOM.screens.battleHud) && nativeLoaded !== true && !nativeBattle()) return;
+        terrainSnow = true;
+        if (battleId && !seasonPendingId) {
+          snowBattles.add(battleId);
+          while (snowBattles.size > 64) snowBattles.delete(snowBattles.values().next().value);
+        }
+        reconcileMap();
+      },
       treeShader: treeWindShader,
       nativeFogStrength(value) {
-        return suppressNativeFog(value, rainEnvelope());
+        return suppressNativeFog(value, rainEnvelope() * graphics.fogRemoval);
       },
       dropZones(gl) {
         const plan = override || current;
@@ -19699,14 +20600,18 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
       },
       map(raw, schema) {
         if (scope.disabled) return;
+        sunlight.reset();
         nativeMapCaptured = true;
+        terrainSnow = false;
+        seasonPendingId = true;
+        nativeCanvas = void 0;
         battleScenes = /* @__PURE__ */ new WeakSet();
         sceneCount = 0;
         pendingMap = { raw, schema };
         mapSurface = void 0;
         mapError = null;
         splashes.clear();
-        if (enabled) scope.timeout(prepareMap, 0);
+        if (enabled || sunlight.enabled()) scope.timeout(prepareMap, 0);
       },
       tank(value, schema) {
         if (!enabled || scope.disabled || excluded() || !value || typeof value !== "object") return;
@@ -19735,14 +20640,16 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
         }
       },
       lighting(buffer) {
+        sunlight.lighting(buffer);
         nativeLightingReady = true;
         if (buffer instanceof Float32Array && buffer.length >= 11 && [buffer[8], buffer[9], buffer[10]].every(Number.isFinite)) sunDirection = [-buffer[8], -buffer[9], -buffer[10]];
         if (!enabled || scope.disabled || !present || excluded() || nativeLoaded === false || !permits(override || current)) return;
         const plan = override || current;
         if (!plan) return;
         const now = Date.now(), sample = weather(plan, now), fade = smooth((now - entryAt) / 1800);
-        const strike = strikes.find((s) => now >= s.at && now < s.at + LIGHTNING.duration * 1e3), flash = strike ? strikeLight((now - strike.at) / 1e3).flash : 0;
-        return attenuateLighting(buffer, lightAttenuation(sample.storm, sample.rain, fade, flash));
+        const strike = strikes.find((s) => now >= s.at && now < s.at + LIGHTNING.duration * 1e3), flash = strike ? strikeLight((now - strike.at) / 1e3).flash * graphics.lightningFlash : 0;
+        const factor = lightAttenuation(sample.storm, sample.rain, fade, flash);
+        return attenuateLighting(buffer, Math.max(0.05, 1 - (1 - factor) * graphics.darkness));
       },
       /** Temporary console preview. Never enables the setting or rewrites the battle's random plan. */
       force(preset = "storm", hold = 120) {
@@ -19756,7 +20663,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
         if (!precipitation()) return { ok: false, code: "map-weather-unavailable", reason: precipitation() === null ? "Weather is disabled on this map" : "Wait for native map metadata" };
         if (!current) return { ok: false, code: "battle-loading", reason: "Battle loading has not finished; wait for a valid battle render frame" };
         if (!Object.prototype.hasOwnProperty.call(RAIN_PRESETS, preset) || !Number.isFinite(hold)) return { ok: false, reason: "Invalid preset or duration" };
-        override = { version: 1, preset, start: Date.now(), hold: Math.max(15, Math.min(180, hold)), seed: Math.floor(random2() * 16777215), fadeIn: WEATHER.fadeIn, fadeOut: WEATHER.fadeOut, precipitation: precipitation() };
+        override = { version: 1, preset, start: Date.now(), hold: Math.max(15, Math.min(180, hold)), seed: Math.floor(random2() * 16777215), fadeIn: graphics.fadeIn, fadeOut: graphics.fadeOut, precipitation: precipitation() };
         stopSound();
         return { ok: true, preset, hold: override.hold, fadeIn: override.fadeIn, fadeOut: override.fadeOut };
       },
@@ -19770,9 +20677,13 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
         const loaded = v[schema.battleLoaded];
         if (typeof loaded === "boolean") nativeLoaded = loaded;
         if (loaded === false) {
+          sunlight.reset();
           override = void 0;
           mapName = void 0;
           nativeFrameAt = -Infinity;
+          terrainSnow = false;
+          seasonPendingId = false;
+          nativeCanvas = void 0;
           splashes.clear();
           tanks.clear();
           for (const r of contexts.values()) r.clearReflections();
@@ -19786,9 +20697,16 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
               override = void 0;
               current = episodes.get(id);
               mapName = void 0;
+              if (!seasonPendingId) terrainSnow = false;
               stopSound();
             } else if (!battleId) current = episodes.get(id) || current;
             battleId = id;
+            seasonPendingId = false;
+            if (snowBattles.has(id)) terrainSnow = true;
+            else if (terrainSnow) {
+              snowBattles.add(id);
+              while (snowBattles.size > 64) snowBattles.delete(snowBattles.values().next().value);
+            }
           }
         } catch {
         }
@@ -19800,7 +20718,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
       },
       frame(renderer, scene, camera, s, stage = "all") {
         hookReady = true;
-        if (!enabled || scope.disabled) return;
+        if (!enabled && !sunlight.enabled() || scope.disabled) return;
         scope.run(() => {
           if (excluded()) {
             sync();
@@ -19826,10 +20744,16 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
           suspended = false;
           if (!present) sync();
           if (!present) return;
-          const mode = precipitation();
-          if (!mode) return;
           const cameraPosition = [p[s.x], p[s.y], p[s.z]];
           if (!cameraPosition.every(Number.isFinite)) return;
+          if (stage !== "sky" && sunlight.enabled()) {
+            prepareMap();
+            const plan = enabled ? override || current : void 0, sample2 = plan ? weather(plan, Date.now()) : void 0;
+            sunlight.frame(gl, vp, cameraPosition, mapSurface, theme(), sample2 ? Math.min(1, sample2.clouds * 0.55 + sample2.rain * 0.5 + sample2.storm * 0.6) : 0, mapName);
+          }
+          if (!enabled) return;
+          const mode = precipitation();
+          if (!mode) return;
           const getRenderer = () => {
             let gpu2 = contexts.get(gl);
             if (!gpu2) {
@@ -19854,7 +20778,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
           if (!current) {
             const remaining = clock(document.querySelector(gameDOM.presence.timer)?.textContent || "");
             const cached = battleId ? episodes.get(battleId) : void 0;
-            current = permits(cached) ? cached : planRain(now, remaining, random2, { ...readWeatherGeneration(localStorage), precipitation: mode });
+            current = permits(cached) ? cached : planRain(now, remaining, random2, { ...readWeatherGeneration(localStorage), precipitation: mode }, graphics);
           }
           if (battleId && episodes.get(battleId) !== current) {
             episodes.set(battleId, current);
@@ -19865,7 +20789,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
           const activePlan = override || current, sample = weather(activePlan, now);
           if (strikePlan !== activePlan) {
             strikePlan = activePlan;
-            strikes = stormStrikes(activePlan);
+            strikes = stormStrikes(activePlan, graphics);
             strikeOrigin = void 0;
             heard.clear();
             prepared.clear();
@@ -19887,14 +20811,14 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
           prepareMap();
           if (!sample.active) return;
           const fog = rainFog(r, s), fade = smooth((now - entryAt) / 1800);
-          fog.fog[0] *= 1 - rainEnvelope();
+          fog.fog[0] *= 1 - rainEnvelope() * graphics.fogRemoval;
           const nearby = [...tanks.values()].sort((a, b) => Math.hypot(a.position[0] - cameraPosition[0], a.position[1] - cameraPosition[1]) - Math.hypot(b.position[0] - cameraPosition[0], b.position[1] - cameraPosition[1])).slice(0, 12);
           if (!strikeOrigin) strikeOrigin = [cameraPosition[0], cameraPosition[1], 0];
           const strike = strikes.find((s2) => now >= s2.at && now < s2.at + LIGHTNING.duration * 1e3);
           let lightning;
           if (strike) {
-            const age = (now - strike.at) / 1e3;
-            lightning = { strike, age, ...strikeLight(age), origin: strikeOrigin };
+            const age = (now - strike.at) / 1e3, light = strikeLight(age);
+            lightning = { strike, age, power: light.power * graphics.lightningBrightness, flash: light.flash * graphics.lightningFlash, origin: strikeOrigin };
           }
           if (stage !== "sky") {
             sound(sample.sound * fade, activePlan.seed);
@@ -19914,7 +20838,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
           }
           if (activePlan.precipitation === "snow") splashes.clear();
           const splashData = stage !== "sky" && activePlan.precipitation !== "snow" ? splashes.update({ time: lastFrame / 1e3, seed: activePlan.seed, rain: sample.rain, wind: sample.wind, puddles: puddleAmount, camera: cameraPosition, map: mapSurface, tanks: nearby, tuning: surfaceTuning, vp }) : void 0;
-          gpu.draw({ precipitation: activePlan.precipitation, vp, camera: cameraPosition, time: lastFrame / 1e3, seed: activePlan.seed, fade, ...sample, skyDarkness: skyboxDarkness(sample, fade, theme()), cloudTone: cloudTone(theme()), sunDirection, lightning, puddles: puddleAmount, puddleDetail, surfaceTuning, map: mapSurface, splashData, nativeLighting: true, fog: fog.fog, fogColor: fog.color, cloudPalette: activePlan.precipitation === "snow" ? SNOW_PALETTES[activePlan.preset] : weatherPalette(activePlan.preset) }, stage);
+          gpu.draw({ graphics, precipitation: activePlan.precipitation, vp, camera: cameraPosition, time: lastFrame / 1e3, seed: activePlan.seed, fade, ...sample, skyDarkness: skyboxDarkness(sample, fade, theme()) * graphics.darkness, cloudTone: cloudTone(theme()), sunDirection, lightning, puddles: puddleAmount, puddleDetail, surfaceTuning, map: mapSurface, splashData, nativeLighting: true, fog: fog.fog, fogColor: fog.color, cloudPalette: activePlan.precipitation === "snow" ? SNOW_PALETTES[activePlan.preset] : weatherPalette(activePlan.preset) }, stage);
           draws++;
         });
       },
@@ -19928,7 +20852,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
         patch: patchState,
         nativeLoaded: nativeLoaded ?? null,
         nativeBattle: nativeBattle(),
-        environment: { theme: theme() ?? null, weatherAllowed: !!precipitation(), cloudTone: cloudTone(theme()), palette: (override || current)?.preset ?? "storm" },
+        environment: { theme: theme() ?? null, terrainSnow, weatherAllowed: !!precipitation(), cloudTone: cloudTone(theme()), palette: (override || current)?.preset ?? "storm" },
         surfaceRevision: PUDDLE_SURFACE_REVISION,
         battleId: battleId ?? null,
         episode: current ? { ...current } : null,
@@ -19943,6 +20867,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
         puddleAmount,
         puddleDetail,
         surfaceTuning: { ...surfaceTuning },
+        graphics: { ...graphics },
         draws,
         error,
         audio: audio?.ctx.state ?? "off",
@@ -19984,6 +20909,8 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
       init_tankSurface();
       init_skybox();
       init_appearance();
+      init_sunRays();
+      init_graphicsPreferences();
       nativeObject = (value) => value !== null && typeof value === "object" ? value : void 0;
       STORE = "ki.rain-episodes.v1";
       random2 = () => {
@@ -20058,6 +20985,14 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 before: ".x57(), t.shj_1, t.l2a()",
                 after: ", n.dhj_1))\r\n           ",
                 text: ")"
+              },
+              {
+                start: 17896594,
+                end: 17896594,
+                expected: "",
+                before: "r_1), e.x10v_1.q10w_1) {",
+                after: "\r\n                      ",
+                text: ';try{window.__kaspRain?.terrainSnow(arguments[0],{"gl":"y39_1","context":"f75_1","vp":"g37_1","camera":"t35_1","x":"f20_1","y":"g20_1","z":"h20_1","settings":"y38_1","fogEnabled":"n3o_1","mapFog":"o3o_1","fogStart":"c3a_1","fogEnd":"b3a_1","fogColor":"d3a_1","red":"l2r_1","green":"m2r_1","blue":"n2r_1","alpha":"o2r_1"});}catch(_kiSeasonError){}'
               },
               {
                 start: 17913667,
@@ -21248,6 +22183,42 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 ]
               },
               {
+                pattern: `(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*\\s*\\(?\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*(?:"BattleMapProgram_"|'BattleMapProgram_')\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"mvp"|'mvp')\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"normalToWorldMatrix"|'normalToWorldMatrix')\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"mainTexture"|'mainTexture')\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"dynamicLightTexture"|'dynamicLightTexture')\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*new(?![$\\w])\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"shadowMVP"|'shadowMVP')\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*(?:"lightmapTexture"|'lightmapTexture')\\s*,\\s*!\\s*this(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"objectToWorldMatrix"|'objectToWorldMatrix')\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"snowUVTransform"|'snowUVTransform')\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*\\k<s22>(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*(?:"snowTexture"|'snowTexture')\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*\\k<s22>(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s21>(?![$\\w])\\s*\\(\\s*(?:"uModelViewMatrix"|'uModelViewMatrix')\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s28>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s24>(?![$\\w])\\s*\\(\\s*(?:"uFogColor"|'uFogColor')\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s29>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s30>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"uFogParams"|'uFogParams')\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s31>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s30>(?![$\\w])\\s*\\(\\s*(?:"aoTextureColor"|'aoTextureColor')\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*\\k<s17>(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*\\(\\s*(?<s32>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\)\\s*\\)?\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapProgram: "s0",
+                  scene_mapSnowSampler: "s25",
+                  scene_mapProgramSettings: "s4",
+                  scene_mapSnowFlag: "s22"
+                },
+                count: 1,
+                search: {
+                  literal: "normalToWorldMatrix",
+                  margin: 7096
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\(?\\s*\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s8>(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*,\\s*\\k<s5>(?![$\\w])\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s5>(?![$\\w])\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*,\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*,\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s20>(?![$\\w])\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*\\(\\s*\\(?\\s*\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s28>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s29>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s30>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s28>(?![$\\w])\\s*\\)\\s*\\)?\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s20>(?![$\\w])\\s*\\.\\s*(?<s31>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s32>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s33>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\|\\|\\s*\\k<s16>(?![$\\w])\\s*\\(\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s34>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*,\\s*(?<s35>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s36>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s20>(?![$\\w])\\s*\\.\\s*\\k<s31>(?![$\\w])\\s*\\.\\s*\\k<s32>(?![$\\w])\\s*\\(\\s*(?<s37>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*&&\\s*(?<s38>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s39>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*,\\s*(?<s40>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s41>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s20>(?![$\\w])\\s*\\.\\s*(?<s42>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)?\\s*\\)\\s*\\{(?<e5start>)(?<e5end>)\\s*var(?![$\\w])\\s*(?<s43>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s44>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*null(?![$\\w])\\s*==\\s*\\k<s43>(?![$\\w])\\s*\\|\\|\\s*\\(\\s*\\(?\\s*\\s*(?<s45>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s46>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*,\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*,\\s*(?<s47>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s48>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*,\\s*\\k<s43>(?![$\\w])\\s*\\.\\s*(?<s49>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s16>(?![$\\w])\\s*\\(\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s50>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*,\\s*(?<s51>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s43>(?![$\\w])\\s*\\.\\s*(?<s52>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)?\\s*\\)\\s*;?\\s*\\}\\s*if(?![$\\w])\\s*\\(\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s20>(?![$\\w])\\s*\\.\\s*(?<s53>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s54>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*\\s*\\(?\\s*(?<s55>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s56>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*\\k<s27>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s28>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s57>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*\\k<s32>(?![$\\w])\\s*\\(\\s*(?<s58>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\?\\s*\\(\\s*\\(?\\s*\\s*(?<s59>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s60>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s61>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s62>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*\\k<s61>(?![$\\w])\\s*,\\s*\\k<s54>(?![$\\w])\\s*=\\s*\\k<s59>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s60>(?![$\\w])\\s*\\)?\\s*\\)\\s*:\\s*\\k<s54>(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s62>(?![$\\w])\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s63>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s54>(?![$\\w])\\s*;\\s*(?<s64>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s65>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s66>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s67>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s68>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s28>(?![$\\w])\\s*,\\s*\\k<s63>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s69>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*;?\\s*\\}\\s*;?\\s*\\}",
+                roles: {
+                  scene_mapSnowSampler: "s50",
+                  scene_mapProgramSettings: "s20",
+                  scene_mapSnowFlag: "s42"
+                },
+                count: 1,
+                search: {
+                  margin: 9408
+                },
+                edits: [
+                  {
+                    start: "e5start",
+                    end: "e5end",
+                    parts: [
+                      ";try{window.__kaspRain?.terrainSnow(arguments[0],__KI_RAIN_SCHEMA__);}catch(_kiSeasonError){}"
+                    ]
+                  }
+                ]
+              },
+              {
                 pattern: `(?<![$\\w])\\s*return(?![$\\w])\\s*(?<e0start>)(?<e0end>)(?:"\\\\n\\\\t\\\\tuniform mat4 viewProjectionMatrix;\\\\n\\\\t\\\\tuniform vec2 timeAndWindStrength;\\\\n\\\\n\\\\t\\\\tlayout\\(location=0\\)\\\\n\\\\t\\\\tin vec3 position;\\\\n\\\\t\\\\tlayout\\(location=1\\)\\\\n\\\\t\\\\tin vec2 uv;\\\\n\\\\t\\\\tlayout\\(location=3\\)\\\\n\\\\t\\\\tin vec3 instancePosition;\\\\n\\\\t\\\\t// x = scale, y = cos\\(alpha\\), z = sin\\(alpha\\)\\\\n\\\\t\\\\tlayout\\(location=4\\)\\\\n\\\\t\\\\tin vec3 instanceScaleRotation;\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tout vec2 vUV;\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tmat4 makeModelMatrix\\(in float scale, in float cosRotationZ, in float sinRotationZ, in vec3 position\\) \\{\\\\n\\\\t\\\\t\\\\t\\\\tfloat c = scale \\* cosRotationZ;\\\\n\\\\t\\\\t\\\\t\\\\tfloat s = scale \\* sinRotationZ;\\\\n\\\\t\\\\t\\\\t\\\\treturn mat4\\(\\\\n\\\\t\\\\t\\\\t\\\\t\\\\tvec4\\(c, s, 0\\., 0\\.\\),\\\\n\\\\t\\\\t\\\\t\\\\t\\\\tvec4\\(-s, c, 0\\., 0\\.\\),\\\\n\\\\t\\\\t\\\\t\\\\t\\\\tvec4\\(0\\., 0\\., scale, 0\\.\\),\\\\n\\\\t\\\\t\\\\t\\\\t\\\\tvec4\\(position, 1\\.0\\)\\\\n\\\\t\\\\t\\\\t\\\\t\\);\\\\n\\\\t\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\tvec2 unity_gradientNoise_dir\\(vec2 p\\)\\\\n\\\\t\\\\t\\{\\\\n\\\\t\\\\t\\\\tp = mod\\(p,289\\.0\\);\\\\n\\\\t\\\\t\\\\tfloat x = \\(34\\.0 \\* p\\.x \\+ 1\\.0\\) \\* mod\\(p\\.x, 289\\.0\\) \\+ p\\.y;\\\\n\\\\t\\\\t\\\\tx = \\(34\\.0 \\* x \\+ 1\\.0\\) \\* mod\\(x, 289\\.0\\);\\\\n\\\\t\\\\t\\\\tx = fract\\(x / 41\\.0\\) \\* 2\\.0 - 1\\.0;\\\\n\\\\t\\\\t\\\\treturn normalize\\(vec2\\(x - floor\\(x \\+ 0\\.5\\), abs\\(x\\) - 0\\.5\\)\\);\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat unity_gradientNoise\\(vec2 p\\)\\\\n\\\\t\\\\t\\{\\\\n\\\\t\\\\t\\\\tvec2 ip = floor\\(p\\);\\\\n\\\\t\\\\t\\\\tvec2 fp = fract\\(p\\);\\\\n\\\\t\\\\t\\\\tfloat d00 = dot\\(unity_gradientNoise_dir\\(ip\\), fp\\);\\\\n\\\\t\\\\t\\\\tfloat d01 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(0, 1\\)\\), fp - vec2\\(0, 1\\)\\);\\\\n\\\\t\\\\t\\\\tfloat d10 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(1, 0\\)\\), fp - vec2\\(1, 0\\)\\);\\\\n\\\\t\\\\t\\\\tfloat d11 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(1, 1\\)\\), fp - vec2\\(1, 1\\)\\);\\\\n\\\\t\\\\t\\\\tfp = fp \\* fp \\* fp \\* \\(fp \\* \\(fp \\* 6\\.0 - 15\\.0\\) \\+ 10\\.0\\);\\\\n\\\\t\\\\t\\\\treturn mix\\(mix\\(d00, d01, fp\\.y\\), mix\\(d10, d11, fp\\.y\\), fp\\.x\\);\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat gradientNoise\\(vec2 UV, float Scale\\)\\\\n\\\\t\\\\t\\{\\\\n\\\\t\\\\t\\\\treturn unity_gradientNoise\\(UV \\* Scale\\) \\+ 0\\.5;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\n\\\\t\\\\t\\\\t#define WIND_SPEED 0\\.3\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tvec4 getPositionModifiedByWind\\(vec4 position, float time, float windStrength\\) \\{\\\\n\\\\t\\\\t\\\\t\\\\tfloat noise = gradientNoise\\(position\\.xy \\+ time, WIND_SPEED\\);\\\\n\\\\t\\\\t\\\\t\\\\tfloat offset = \\(2\\. \\* noise - 1\\.\\) \\* windStrength;\\\\n\\\\t\\\\t\\\\t\\\\treturn position \\+ vec4\\(offset, offset, 0\\., 0\\.\\);\\\\n\\\\t\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\n\\\\t\\\\tvoid main\\(\\) \\{\\\\n\\\\t\\\\t\\\\tvUV = uv;\\\\n\\\\t\\\\t\\\\tmat4 modelMatrix = makeModelMatrix\\(\\\\n\\\\t\\\\t\\\\t\\\\tinstanceScaleRotation\\.x,\\\\n\\\\t\\\\t\\\\t\\\\tinstanceScaleRotation\\.y,\\\\n\\\\t\\\\t\\\\t\\\\tinstanceScaleRotation\\.z,\\\\n\\\\t\\\\t\\\\t\\\\tinstancePosition\\\\n\\\\t\\\\t\\\\t\\);\\\\n\\\\t\\\\t\\\\tvec4 vertexWorldPosition = modelMatrix \\* vec4\\(position, 1\\.0\\);\\\\n\\\\t\\\\t\\\\tfloat time = timeAndWindStrength\\.x;\\\\n\\\\t\\\\t\\\\tfloat windStrength = timeAndWindStrength\\.y;\\\\n\\\\t\\\\t\\\\tvertexWorldPosition = getPositionModifiedByWind\\(vertexWorldPosition, time, windStrength\\);\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tgl_Position = viewProjectionMatrix \\* vertexWorldPosition;\\\\n\\\\t\\\\t\\}\\\\n\\\\t"|'\\\\n		uniform mat4 viewProjectionMatrix;\\\\n		uniform vec2 timeAndWindStrength;\\\\n\\\\n		layout\\(location=0\\)\\\\n		in vec3 position;\\\\n		layout\\(location=1\\)\\\\n		in vec2 uv;\\\\n		layout\\(location=3\\)\\\\n		in vec3 instancePosition;\\\\n		// x = scale, y = cos\\(alpha\\), z = sin\\(alpha\\)\\\\n		layout\\(location=4\\)\\\\n		in vec3 instanceScaleRotation;\\\\n		\\\\n		out vec2 vUV;\\\\n		\\\\n		\\\\n			mat4 makeModelMatrix\\(in float scale, in float cosRotationZ, in float sinRotationZ, in vec3 position\\) \\{\\\\n				float c = scale \\* cosRotationZ;\\\\n				float s = scale \\* sinRotationZ;\\\\n				return mat4\\(\\\\n					vec4\\(c, s, 0\\., 0\\.\\),\\\\n					vec4\\(-s, c, 0\\., 0\\.\\),\\\\n					vec4\\(0\\., 0\\., scale, 0\\.\\),\\\\n					vec4\\(position, 1\\.0\\)\\\\n				\\);\\\\n			\\}\\\\n			\\\\n			\\\\n		vec2 unity_gradientNoise_dir\\(vec2 p\\)\\\\n		\\{\\\\n			p = mod\\(p,289\\.0\\);\\\\n			float x = \\(34\\.0 \\* p\\.x \\+ 1\\.0\\) \\* mod\\(p\\.x, 289\\.0\\) \\+ p\\.y;\\\\n			x = \\(34\\.0 \\* x \\+ 1\\.0\\) \\* mod\\(x, 289\\.0\\);\\\\n			x = fract\\(x / 41\\.0\\) \\* 2\\.0 - 1\\.0;\\\\n			return normalize\\(vec2\\(x - floor\\(x \\+ 0\\.5\\), abs\\(x\\) - 0\\.5\\)\\);\\\\n		\\}\\\\n		\\\\n		float unity_gradientNoise\\(vec2 p\\)\\\\n		\\{\\\\n			vec2 ip = floor\\(p\\);\\\\n			vec2 fp = fract\\(p\\);\\\\n			float d00 = dot\\(unity_gradientNoise_dir\\(ip\\), fp\\);\\\\n			float d01 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(0, 1\\)\\), fp - vec2\\(0, 1\\)\\);\\\\n			float d10 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(1, 0\\)\\), fp - vec2\\(1, 0\\)\\);\\\\n			float d11 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(1, 1\\)\\), fp - vec2\\(1, 1\\)\\);\\\\n			fp = fp \\* fp \\* fp \\* \\(fp \\* \\(fp \\* 6\\.0 - 15\\.0\\) \\+ 10\\.0\\);\\\\n			return mix\\(mix\\(d00, d01, fp\\.y\\), mix\\(d10, d11, fp\\.y\\), fp\\.x\\);\\\\n		\\}\\\\n		\\\\n		float gradientNoise\\(vec2 UV, float Scale\\)\\\\n		\\{\\\\n			return unity_gradientNoise\\(UV \\* Scale\\) \\+ 0\\.5;\\\\n		\\}\\\\n	\\\\n			#define WIND_SPEED 0\\.3\\\\n			\\\\n			vec4 getPositionModifiedByWind\\(vec4 position, float time, float windStrength\\) \\{\\\\n				float noise = gradientNoise\\(position\\.xy \\+ time, WIND_SPEED\\);\\\\n				float offset = \\(2\\. \\* noise - 1\\.\\) \\* windStrength;\\\\n				return position \\+ vec4\\(offset, offset, 0\\., 0\\.\\);\\\\n			\\}\\\\n		\\\\n	\\\\n		void main\\(\\) \\{\\\\n			vUV = uv;\\\\n			mat4 modelMatrix = makeModelMatrix\\(\\\\n				instanceScaleRotation\\.x,\\\\n				instanceScaleRotation\\.y,\\\\n				instanceScaleRotation\\.z,\\\\n				instancePosition\\\\n			\\);\\\\n			vec4 vertexWorldPosition = modelMatrix \\* vec4\\(position, 1\\.0\\);\\\\n			float time = timeAndWindStrength\\.x;\\\\n			float windStrength = timeAndWindStrength\\.y;\\\\n			vertexWorldPosition = getPositionModifiedByWind\\(vertexWorldPosition, time, windStrength\\);\\\\n		\\\\n			gl_Position = viewProjectionMatrix \\* vertexWorldPosition;\\\\n		\\}\\\\n	')(?<e1start>)(?<e1end>)`,
                 roles: {},
                 count: 1,
@@ -21601,6 +22572,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 lighting: true,
                 tanks: true,
                 environment: true,
+                terrainSeason: true,
                 treeWind: true,
                 skyTone: true,
                 fogSuppression: true,
@@ -21633,6 +22605,14 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 before: "().x57(),t.shj_1,t.l2a()",
                 after: ",n.dhj_1))},nt(dE).d7k=f",
                 text: ")"
+              },
+              {
+                start: 7967776,
+                end: 7967776,
+                expected: "",
+                before: "a2r_1),e.x10v_1.q10w_1){",
+                after: "var u=this.l10v_1;null==",
+                text: ';try{window.__kaspRain?.terrainSnow(arguments[0],{"gl":"y39_1","context":"f75_1","vp":"g37_1","camera":"t35_1","x":"f20_1","y":"g20_1","z":"h20_1","settings":"y38_1","fogEnabled":"n3o_1","mapFog":"o3o_1","fogStart":"c3a_1","fogEnd":"b3a_1","fogColor":"d3a_1","red":"l2r_1","green":"m2r_1","blue":"n2r_1","alpha":"o2r_1"});}catch(_kiSeasonError){}'
               },
               {
                 start: 7982502,
@@ -22823,6 +23803,42 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 ]
               },
               {
+                pattern: `(?<![$\\w])\\s*function(?![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*\\(?\\s*\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*this(?![$\\w])\\s*,\\s*(?:"BattleMapProgram_"|'BattleMapProgram_')\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s1>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"mvp"|'mvp')\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"normalToWorldMatrix"|'normalToWorldMatrix')\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"mainTexture"|'mainTexture')\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"dynamicLightTexture"|'dynamicLightTexture')\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*new(?![$\\w])\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"shadowMVP"|'shadowMVP')\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*(?:"lightmapTexture"|'lightmapTexture')\\s*,\\s*!\\s*this(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"objectToWorldMatrix"|'objectToWorldMatrix')\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"snowUVTransform"|'snowUVTransform')\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*\\k<s22>(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s12>(?![$\\w])\\s*\\(\\s*(?:"snowTexture"|'snowTexture')\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*\\k<s22>(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s21>(?![$\\w])\\s*\\(\\s*(?:"uModelViewMatrix"|'uModelViewMatrix')\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s28>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s24>(?![$\\w])\\s*\\(\\s*(?:"uFogColor"|'uFogColor')\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s29>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s30>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?:"uFogParams"|'uFogParams')\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s31>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*\\k<s30>(?![$\\w])\\s*\\(\\s*(?:"aoTextureColor"|'aoTextureColor')\\s*,\\s*this(?![$\\w])\\s*\\.\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*\\k<s17>(?![$\\w])\\s*\\.\\s*\\k<s18>(?![$\\w])\\s*\\(\\s*(?<s32>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\)\\s*\\)?\\s*;?\\s*\\}`,
+                roles: {
+                  scene_mapProgram: "s0",
+                  scene_mapSnowSampler: "s25",
+                  scene_mapProgramSettings: "s4",
+                  scene_mapSnowFlag: "s22"
+                },
+                count: 1,
+                search: {
+                  literal: "normalToWorldMatrix",
+                  margin: 6288
+                },
+                edits: []
+              },
+              {
+                pattern: "(?<![$\\w])\\s*(?<s0>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s1>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\.\\s*(?<s2>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*function(?![$\\w])\\s*\\(\\s*(?<s3>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s4>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s5>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s6>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s7>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*(?<s8>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s9>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s10>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*;\\s*if(?![$\\w])\\s*\\(\\s*\\(?\\s*\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s11>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s8>(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s12>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s4>(?![$\\w])\\s*,\\s*\\k<s5>(?![$\\w])\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s13>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s14>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s5>(?![$\\w])\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s15>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*(?<s16>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s17>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*,\\s*(?<s18>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s19>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s20>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s21>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*(?<s22>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s23>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*,\\s*(?<s24>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s20>(?![$\\w])\\s*\\.\\s*(?<s25>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*&&\\s*\\(\\s*\\(?\\s*\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s26>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s27>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s28>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s29>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s30>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s6>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s28>(?![$\\w])\\s*\\)\\s*\\)?\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s20>(?![$\\w])\\s*\\.\\s*(?<s31>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s32>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*(?<s33>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\|\\|\\s*\\k<s16>(?![$\\w])\\s*\\(\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s34>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*,\\s*(?<s35>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s36>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s20>(?![$\\w])\\s*\\.\\s*\\k<s31>(?![$\\w])\\s*\\.\\s*\\k<s32>(?![$\\w])\\s*\\(\\s*(?<s37>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*&&\\s*(?<s38>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s39>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*,\\s*(?<s40>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s41>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s20>(?![$\\w])\\s*\\.\\s*(?<s42>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)?\\s*\\)\\s*\\{(?<e5start>)(?<e5end>)\\s*var(?![$\\w])\\s*(?<s43>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*this(?![$\\w])\\s*\\.\\s*(?<s44>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*null(?![$\\w])\\s*==\\s*\\k<s43>(?![$\\w])\\s*\\|\\|\\s*\\(\\s*\\(?\\s*\\s*(?<s45>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s46>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*,\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*\\k<s27>(?![$\\w])\\s*\\)\\s*,\\s*(?<s47>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s48>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s6>(?![$\\w])\\s*,\\s*\\k<s43>(?![$\\w])\\s*\\.\\s*(?<s49>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*,\\s*\\k<s16>(?![$\\w])\\s*\\(\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s50>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*,\\s*(?<s51>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*,\\s*\\k<s43>(?![$\\w])\\s*\\.\\s*(?<s52>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\)?\\s*\\)\\s*;?\\s*\\}\\s*if(?![$\\w])\\s*\\(\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*\\k<s20>(?![$\\w])\\s*\\.\\s*(?<s53>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*\\{\\s*var(?![$\\w])\\s*(?<s54>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*;\\s*\\(?\\s*\\s*(?<s55>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s4>(?![$\\w])\\s*\\.\\s*(?<s56>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*\\k<s27>(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s28>(?![$\\w])\\s*\\)\\s*,\\s*\\k<s5>(?![$\\w])\\s*\\.\\s*(?<s57>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*\\k<s32>(?![$\\w])\\s*\\(\\s*(?<s58>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\)\\s*\\?\\s*\\(\\s*\\(?\\s*\\s*(?<s59>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*(?<s60>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s61>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*(?<s62>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*\\k<s61>(?![$\\w])\\s*,\\s*\\k<s54>(?![$\\w])\\s*=\\s*\\k<s59>(?![$\\w])\\s*\\(\\s*\\)\\s*\\.\\s*\\k<s60>(?![$\\w])\\s*\\)?\\s*\\)\\s*:\\s*\\k<s54>(?![$\\w])\\s*=\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s62>(?![$\\w])\\s*\\)?\\s*;\\s*var(?![$\\w])\\s*(?<s63>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*=\\s*\\k<s54>(?![$\\w])\\s*;\\s*(?<s64>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\.\\s*(?<s65>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\(\\s*\\k<s3>(?![$\\w])\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s66>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s67>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s8>(?![$\\w])\\s*\\.\\s*(?<s68>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*,\\s*\\k<s3>(?![$\\w])\\s*\\.\\s*\\k<s28>(?![$\\w])\\s*,\\s*\\k<s63>(?![$\\w])\\s*,\\s*this(?![$\\w])\\s*\\.\\s*(?<s69>[$A-Z_a-z][$\\w]*)(?![$\\w])\\s*\\)\\s*;?\\s*\\}\\s*;?\\s*\\}",
+                roles: {
+                  scene_mapSnowSampler: "s50",
+                  scene_mapProgramSettings: "s20",
+                  scene_mapSnowFlag: "s42"
+                },
+                count: 1,
+                search: {
+                  margin: 5832
+                },
+                edits: [
+                  {
+                    start: "e5start",
+                    end: "e5end",
+                    parts: [
+                      ";try{window.__kaspRain?.terrainSnow(arguments[0],__KI_RAIN_SCHEMA__);}catch(_kiSeasonError){}"
+                    ]
+                  }
+                ]
+              },
+              {
                 pattern: `(?<![$\\w])\\s*return(?![$\\w])(?<e0start>)(?<e0end>)\\s*(?:"\\\\n\\\\t\\\\tuniform mat4 viewProjectionMatrix;\\\\n\\\\t\\\\tuniform vec2 timeAndWindStrength;\\\\n\\\\n\\\\t\\\\tlayout\\(location=0\\)\\\\n\\\\t\\\\tin vec3 position;\\\\n\\\\t\\\\tlayout\\(location=1\\)\\\\n\\\\t\\\\tin vec2 uv;\\\\n\\\\t\\\\tlayout\\(location=3\\)\\\\n\\\\t\\\\tin vec3 instancePosition;\\\\n\\\\t\\\\t// x = scale, y = cos\\(alpha\\), z = sin\\(alpha\\)\\\\n\\\\t\\\\tlayout\\(location=4\\)\\\\n\\\\t\\\\tin vec3 instanceScaleRotation;\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tout vec2 vUV;\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tmat4 makeModelMatrix\\(in float scale, in float cosRotationZ, in float sinRotationZ, in vec3 position\\) \\{\\\\n\\\\t\\\\t\\\\t\\\\tfloat c = scale \\* cosRotationZ;\\\\n\\\\t\\\\t\\\\t\\\\tfloat s = scale \\* sinRotationZ;\\\\n\\\\t\\\\t\\\\t\\\\treturn mat4\\(\\\\n\\\\t\\\\t\\\\t\\\\t\\\\tvec4\\(c, s, 0\\., 0\\.\\),\\\\n\\\\t\\\\t\\\\t\\\\t\\\\tvec4\\(-s, c, 0\\., 0\\.\\),\\\\n\\\\t\\\\t\\\\t\\\\t\\\\tvec4\\(0\\., 0\\., scale, 0\\.\\),\\\\n\\\\t\\\\t\\\\t\\\\t\\\\tvec4\\(position, 1\\.0\\)\\\\n\\\\t\\\\t\\\\t\\\\t\\);\\\\n\\\\t\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\tvec2 unity_gradientNoise_dir\\(vec2 p\\)\\\\n\\\\t\\\\t\\{\\\\n\\\\t\\\\t\\\\tp = mod\\(p,289\\.0\\);\\\\n\\\\t\\\\t\\\\tfloat x = \\(34\\.0 \\* p\\.x \\+ 1\\.0\\) \\* mod\\(p\\.x, 289\\.0\\) \\+ p\\.y;\\\\n\\\\t\\\\t\\\\tx = \\(34\\.0 \\* x \\+ 1\\.0\\) \\* mod\\(x, 289\\.0\\);\\\\n\\\\t\\\\t\\\\tx = fract\\(x / 41\\.0\\) \\* 2\\.0 - 1\\.0;\\\\n\\\\t\\\\t\\\\treturn normalize\\(vec2\\(x - floor\\(x \\+ 0\\.5\\), abs\\(x\\) - 0\\.5\\)\\);\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat unity_gradientNoise\\(vec2 p\\)\\\\n\\\\t\\\\t\\{\\\\n\\\\t\\\\t\\\\tvec2 ip = floor\\(p\\);\\\\n\\\\t\\\\t\\\\tvec2 fp = fract\\(p\\);\\\\n\\\\t\\\\t\\\\tfloat d00 = dot\\(unity_gradientNoise_dir\\(ip\\), fp\\);\\\\n\\\\t\\\\t\\\\tfloat d01 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(0, 1\\)\\), fp - vec2\\(0, 1\\)\\);\\\\n\\\\t\\\\t\\\\tfloat d10 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(1, 0\\)\\), fp - vec2\\(1, 0\\)\\);\\\\n\\\\t\\\\t\\\\tfloat d11 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(1, 1\\)\\), fp - vec2\\(1, 1\\)\\);\\\\n\\\\t\\\\t\\\\tfp = fp \\* fp \\* fp \\* \\(fp \\* \\(fp \\* 6\\.0 - 15\\.0\\) \\+ 10\\.0\\);\\\\n\\\\t\\\\t\\\\treturn mix\\(mix\\(d00, d01, fp\\.y\\), mix\\(d10, d11, fp\\.y\\), fp\\.x\\);\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\tfloat gradientNoise\\(vec2 UV, float Scale\\)\\\\n\\\\t\\\\t\\{\\\\n\\\\t\\\\t\\\\treturn unity_gradientNoise\\(UV \\* Scale\\) \\+ 0\\.5;\\\\n\\\\t\\\\t\\}\\\\n\\\\t\\\\n\\\\t\\\\t\\\\t#define WIND_SPEED 0\\.3\\\\n\\\\t\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tvec4 getPositionModifiedByWind\\(vec4 position, float time, float windStrength\\) \\{\\\\n\\\\t\\\\t\\\\t\\\\tfloat noise = gradientNoise\\(position\\.xy \\+ time, WIND_SPEED\\);\\\\n\\\\t\\\\t\\\\t\\\\tfloat offset = \\(2\\. \\* noise - 1\\.\\) \\* windStrength;\\\\n\\\\t\\\\t\\\\t\\\\treturn position \\+ vec4\\(offset, offset, 0\\., 0\\.\\);\\\\n\\\\t\\\\t\\\\t\\}\\\\n\\\\t\\\\t\\\\n\\\\t\\\\n\\\\t\\\\tvoid main\\(\\) \\{\\\\n\\\\t\\\\t\\\\tvUV = uv;\\\\n\\\\t\\\\t\\\\tmat4 modelMatrix = makeModelMatrix\\(\\\\n\\\\t\\\\t\\\\t\\\\tinstanceScaleRotation\\.x,\\\\n\\\\t\\\\t\\\\t\\\\tinstanceScaleRotation\\.y,\\\\n\\\\t\\\\t\\\\t\\\\tinstanceScaleRotation\\.z,\\\\n\\\\t\\\\t\\\\t\\\\tinstancePosition\\\\n\\\\t\\\\t\\\\t\\);\\\\n\\\\t\\\\t\\\\tvec4 vertexWorldPosition = modelMatrix \\* vec4\\(position, 1\\.0\\);\\\\n\\\\t\\\\t\\\\tfloat time = timeAndWindStrength\\.x;\\\\n\\\\t\\\\t\\\\tfloat windStrength = timeAndWindStrength\\.y;\\\\n\\\\t\\\\t\\\\tvertexWorldPosition = getPositionModifiedByWind\\(vertexWorldPosition, time, windStrength\\);\\\\n\\\\t\\\\t\\\\n\\\\t\\\\t\\\\tgl_Position = viewProjectionMatrix \\* vertexWorldPosition;\\\\n\\\\t\\\\t\\}\\\\n\\\\t"|'\\\\n		uniform mat4 viewProjectionMatrix;\\\\n		uniform vec2 timeAndWindStrength;\\\\n\\\\n		layout\\(location=0\\)\\\\n		in vec3 position;\\\\n		layout\\(location=1\\)\\\\n		in vec2 uv;\\\\n		layout\\(location=3\\)\\\\n		in vec3 instancePosition;\\\\n		// x = scale, y = cos\\(alpha\\), z = sin\\(alpha\\)\\\\n		layout\\(location=4\\)\\\\n		in vec3 instanceScaleRotation;\\\\n		\\\\n		out vec2 vUV;\\\\n		\\\\n		\\\\n			mat4 makeModelMatrix\\(in float scale, in float cosRotationZ, in float sinRotationZ, in vec3 position\\) \\{\\\\n				float c = scale \\* cosRotationZ;\\\\n				float s = scale \\* sinRotationZ;\\\\n				return mat4\\(\\\\n					vec4\\(c, s, 0\\., 0\\.\\),\\\\n					vec4\\(-s, c, 0\\., 0\\.\\),\\\\n					vec4\\(0\\., 0\\., scale, 0\\.\\),\\\\n					vec4\\(position, 1\\.0\\)\\\\n				\\);\\\\n			\\}\\\\n			\\\\n			\\\\n		vec2 unity_gradientNoise_dir\\(vec2 p\\)\\\\n		\\{\\\\n			p = mod\\(p,289\\.0\\);\\\\n			float x = \\(34\\.0 \\* p\\.x \\+ 1\\.0\\) \\* mod\\(p\\.x, 289\\.0\\) \\+ p\\.y;\\\\n			x = \\(34\\.0 \\* x \\+ 1\\.0\\) \\* mod\\(x, 289\\.0\\);\\\\n			x = fract\\(x / 41\\.0\\) \\* 2\\.0 - 1\\.0;\\\\n			return normalize\\(vec2\\(x - floor\\(x \\+ 0\\.5\\), abs\\(x\\) - 0\\.5\\)\\);\\\\n		\\}\\\\n		\\\\n		float unity_gradientNoise\\(vec2 p\\)\\\\n		\\{\\\\n			vec2 ip = floor\\(p\\);\\\\n			vec2 fp = fract\\(p\\);\\\\n			float d00 = dot\\(unity_gradientNoise_dir\\(ip\\), fp\\);\\\\n			float d01 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(0, 1\\)\\), fp - vec2\\(0, 1\\)\\);\\\\n			float d10 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(1, 0\\)\\), fp - vec2\\(1, 0\\)\\);\\\\n			float d11 = dot\\(unity_gradientNoise_dir\\(ip \\+ vec2\\(1, 1\\)\\), fp - vec2\\(1, 1\\)\\);\\\\n			fp = fp \\* fp \\* fp \\* \\(fp \\* \\(fp \\* 6\\.0 - 15\\.0\\) \\+ 10\\.0\\);\\\\n			return mix\\(mix\\(d00, d01, fp\\.y\\), mix\\(d10, d11, fp\\.y\\), fp\\.x\\);\\\\n		\\}\\\\n		\\\\n		float gradientNoise\\(vec2 UV, float Scale\\)\\\\n		\\{\\\\n			return unity_gradientNoise\\(UV \\* Scale\\) \\+ 0\\.5;\\\\n		\\}\\\\n	\\\\n			#define WIND_SPEED 0\\.3\\\\n			\\\\n			vec4 getPositionModifiedByWind\\(vec4 position, float time, float windStrength\\) \\{\\\\n				float noise = gradientNoise\\(position\\.xy \\+ time, WIND_SPEED\\);\\\\n				float offset = \\(2\\. \\* noise - 1\\.\\) \\* windStrength;\\\\n				return position \\+ vec4\\(offset, offset, 0\\., 0\\.\\);\\\\n			\\}\\\\n		\\\\n	\\\\n		void main\\(\\) \\{\\\\n			vUV = uv;\\\\n			mat4 modelMatrix = makeModelMatrix\\(\\\\n				instanceScaleRotation\\.x,\\\\n				instanceScaleRotation\\.y,\\\\n				instanceScaleRotation\\.z,\\\\n				instancePosition\\\\n			\\);\\\\n			vec4 vertexWorldPosition = modelMatrix \\* vec4\\(position, 1\\.0\\);\\\\n			float time = timeAndWindStrength\\.x;\\\\n			float windStrength = timeAndWindStrength\\.y;\\\\n			vertexWorldPosition = getPositionModifiedByWind\\(vertexWorldPosition, time, windStrength\\);\\\\n		\\\\n			gl_Position = viewProjectionMatrix \\* vertexWorldPosition;\\\\n		\\}\\\\n	')(?<e1start>)(?<e1end>)`,
                 roles: {},
                 count: 1,
@@ -23176,6 +24192,7 @@ void main(){float a=exp(-q.x*q.x*4.)*(1.-q.y*.75)*opacity*.6;o=vec4(vec3(.74,.84
                 lighting: true,
                 tanks: true,
                 environment: true,
+                terrainSeason: true,
                 treeWind: true,
                 skyTone: true,
                 fogSuppression: true,

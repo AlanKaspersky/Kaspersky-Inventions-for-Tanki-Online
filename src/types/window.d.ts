@@ -5,6 +5,7 @@ declare global {
         __kaspGameLoader?: import('../core/gameLoader').GameLoader;
         __kaspNativeGateStarted?: boolean;
         __kaspRain?: ReturnType<typeof import('../core/rainWeather').installRainWeather>;
+        __kaspSunRays?: ReturnType<typeof import('../core/sunRays').installSunRays>['api'];
         __kaspKillFeedPrivacy?: ReturnType<typeof import('../core/killFeedPrivacy').installKillFeedPrivacy>;
         __kaspBoxPickup?: ReturnType<typeof import('../core/boxPickup').installBoxPickup>;
         __kaspSupplyPrivacy?: ReturnType<typeof import('../core/supplyPrivacy').installSupplyPrivacy>;
