@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 # Kaspersky's Inventions - Technical Documentation
+=======
+# Kaspersky's Inventions - Technical Documentation  
+>>>>>>> 79effdb676fd9ab6667a310bebef8aab6ee927c3
 
 ## Complete Implementation Reference
 
